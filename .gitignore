@@ -1,0 +1,45 @@
+## Environment & secrets
+.env
+.env.backup
+.env.production
+/auth.json
+
+## IDE & editor
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+.phpactor.json
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Laravel — logs & cache
+*.log
+/storage/*.key
+/storage/pail
+
+## Laravel — compiled & generated
+/public/build
+/public/hot
+/public/storage
+
+## Database (local dev)
+database/database.sqlite
+
+## Node (not used but just in case)
+/node_modules
+
+## Uploads (user content, not code)
+/storage/app/private/uploads/*
+!/storage/app/private/uploads/.gitkeep
+
+## Legacy
+Homestead.json
+Homestead.yaml
+
+## Vendor IS committed — server has no Composer
+# /vendor
