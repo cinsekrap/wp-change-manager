@@ -11,7 +11,7 @@
     <nav class="bg-hcrg-burgundy">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                @php $isConfig = request()->routeIs('admin.sites.*', 'admin.cpts.*', 'admin.questions.*', 'admin.settings.*', 'admin.settings.updates*', 'admin.users.*', 'admin.tags.*', 'admin.audit-log'); @endphp
+                @php $isConfig = request()->routeIs('admin.sites.*', 'admin.cpts.*', 'admin.questions.*', 'admin.settings.*', 'admin.settings.updates*', 'admin.settings.config*', 'admin.users.*', 'admin.tags.*', 'admin.audit-log'); @endphp
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold text-white">{{ config('app.name') }}</a>
                     <span class="text-xs text-white/50">v{{ config('version.current') }}</span>
@@ -66,6 +66,10 @@
                                 <a href="{{ route('admin.audit-log') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.audit-log') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
                                     <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                                     Audit Log
+                                </a>
+                                <a href="{{ route('admin.settings.config') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.settings.config*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                    Import / Export
                                 </a>
                                 <div class="border-t border-gray-100 my-1"></div>
                                 <a href="{{ route('admin.users.index') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.users.*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
