@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\ChangeRequest;
+use App\Models\Setting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -20,14 +21,21 @@ class RequestSubmitted extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
+        $this->changeRequest->loadMissing(['site', 'items']);
+
+        $emailContent = Setting::getEmailContent('request_submitted', $this->placeholderValues());
+
         return new Envelope(
-            subject: "Change Request {$this->changeRequest->reference} — Submitted",
+            subject: $emailContent['subject'],
         );
     }
 
     public function content(): Content
     {
         $this->changeRequest->loadMissing(['site', 'items']);
+
+        $emailContent = Setting::getEmailContent('request_submitted', $this->placeholderValues());
+        $defaults = config('email-templates.request_submitted');
 
         return new Content(
             view: 'emails.request-submitted',
@@ -38,7 +46,20 @@ class RequestSubmitted extends Mailable implements ShouldQueue
                 'itemCount' => $this->changeRequest->items->count(),
                 'deadlineDate' => $this->changeRequest->deadline_date,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
+                'customBody' => Setting::get('email_request_submitted_body') ? $emailContent['body'] : null,
+                'defaultBody' => $defaults['body'],
             ],
         );
+    }
+
+    protected function placeholderValues(): array
+    {
+        return [
+            'reference' => $this->changeRequest->reference,
+            'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
+            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'item_count' => (string) $this->changeRequest->items->count(),
+            'deadline_date' => $this->changeRequest->deadline_date?->format('j M Y') ?? '',
+        ];
     }
 }

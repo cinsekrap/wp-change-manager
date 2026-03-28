@@ -12,7 +12,7 @@
     </p>
 
     <p style="margin:0 0 16px;">
-        A website change request has been submitted that requires your approval before our web team can begin work on it. Please review the details below and let us know whether you're happy for this to go ahead.
+        {!! nl2br(e($customBody ?? $defaultBody)) !!}
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse;">

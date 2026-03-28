@@ -32,10 +32,12 @@
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-600">{{ $user->email }}</td>
                 <td class="px-6 py-4">
-                    @if($user->is_admin)
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/20 text-hcrg-burgundy">Admin</span>
+                    @if($user->isSuperAdmin())
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/20 text-hcrg-burgundy">Super Admin</span>
+                    @elseif($user->isEditor())
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Editor</span>
                     @else
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">User</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No Access</span>
                     @endif
                 </td>
                 <td class="px-6 py-4">
