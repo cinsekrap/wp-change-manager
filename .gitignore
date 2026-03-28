@@ -13,6 +13,9 @@
 /.zed
 .phpactor.json
 
+## Planning (internal, not distributed)
+/Planning
+
 ## OS files
 .DS_Store
 Thumbs.db
