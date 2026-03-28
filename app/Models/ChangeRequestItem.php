@@ -6,12 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChangeRequestItem extends Model
 {
-    protected $fillable = ['change_request_id', 'action_type', 'content_area', 'description', 'current_content', 'sort_order'];
+    public const STATUSES = ['pending', 'in_progress', 'done', 'not_done', 'deferred'];
+
+    protected $fillable = ['change_request_id', 'action_type', 'content_area', 'description', 'current_content', 'sort_order', 'status'];
 
     protected function casts(): array
     {
         return [
             'sort_order' => 'integer',
+            'status' => 'string',
         ];
     }
 

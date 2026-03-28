@@ -30,6 +30,72 @@
     </div>
 </div>
 
+{{-- Charts --}}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    {{-- Chart 1: Requests by Status --}}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Status</h2>
+        @php
+            $statusColors = [
+                'requested' => 'bg-amber-400',
+                'requires_referral' => 'bg-pink-400',
+                'referred' => 'bg-orange-400',
+                'approved' => 'bg-hcrg-burgundy',
+                'scheduled' => 'bg-purple-500',
+                'done' => 'bg-emerald-500',
+                'declined' => 'bg-red-500',
+                'cancelled' => 'bg-gray-400',
+            ];
+            $statusLabels = [
+                'requires_referral' => 'Requires Referral',
+            ];
+            $maxStatus = $statusCounts->max() ?: 1;
+        @endphp
+        <div class="space-y-3">
+            @foreach(\App\Models\ChangeRequest::STATUSES as $status)
+                @php
+                    $count = $statusCounts[$status] ?? 0;
+                    $pct = $maxStatus > 0 ? round(($count / $maxStatus) * 100) : 0;
+                    $barColor = $statusColors[$status] ?? 'bg-gray-400';
+                    $label = $statusLabels[$status] ?? ucfirst($status);
+                @endphp
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm text-gray-600">{{ $label }}</span>
+                        <span class="text-sm font-semibold text-gray-800">{{ $count }}</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-4">
+                        <div class="{{ $barColor }} h-4 rounded-full transition-all" style="width: {{ $pct }}%{{ $count > 0 && $pct < 3 ? '; min-width: 0.75rem' : '' }}"></div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    {{-- Chart 2: Requests by Month (last 6 months) --}}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Month</h2>
+        @php
+            $maxMonth = $monthlyCounts->max() ?: 1;
+        @endphp
+        <div class="flex items-end justify-between gap-3" style="height: 200px;">
+            @foreach($monthlyCounts as $month => $count)
+                @php
+                    $pct = $maxMonth > 0 ? round(($count / $maxMonth) * 100) : 0;
+                    $monthLabel = \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->format('M');
+                @endphp
+                <div class="flex flex-col items-center flex-1">
+                    <span class="text-xs font-semibold text-gray-700 mb-1">{{ $count }}</span>
+                    <div class="w-full flex flex-col justify-end" style="height: 160px;">
+                        <div class="bg-hcrg-burgundy rounded-t-md w-full transition-all" style="height: {{ $pct }}%{{ $count > 0 && $pct < 5 ? '; min-height: 0.5rem' : '' }}"></div>
+                    </div>
+                    <span class="text-xs text-gray-500 mt-2">{{ $monthLabel }}</span>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+
 <div class="bg-white rounded-lg shadow">
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="text-lg font-semibold text-gray-900">Recent Requests</h2>
