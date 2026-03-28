@@ -102,22 +102,27 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::put('/password', [UserController::class, 'updatePassword'])->name('admin.password.update');
 
     // Super admin only routes
-    Route::middleware('super_admin')->group(function () {
-        // Sites
-        Route::resource('sites', SiteController::class)->names('admin.sites');
-        Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
+    // All admins (editor + super_admin)
+    Route::resource('sites', SiteController::class)->names('admin.sites');
+    Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
+    Route::resource('questions', CheckQuestionController::class)->names('admin.questions');
+    Route::get('/tags', [TagController::class, 'index'])->name('admin.tags.index');
+    Route::put('/tags/{tag}', [TagController::class, 'update'])->name('admin.tags.update');
+    Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('admin.tags.destroy');
 
+    // Super admin only
+    Route::middleware('super_admin')->group(function () {
         // CPT Types
         Route::resource('cpts', CptController::class)->names('admin.cpts');
-
-        // Check Questions
-        Route::resource('questions', CheckQuestionController::class)->names('admin.questions');
 
         // Settings
         Route::get('/settings/mail', [SettingsController::class, 'edit'])->name('admin.settings.mail');
         Route::put('/settings/mail', [SettingsController::class, 'update'])->name('admin.settings.mail.update');
         Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
         Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
+
+        // Notifications (SLA, chase, template hub)
+        Route::get('/settings/notifications', [SettingsController::class, 'notifications'])->name('admin.settings.notifications');
         Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
         Route::put('/settings/chase', [SettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
 
@@ -139,11 +144,6 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::get('/settings/updates', [UpdateController::class, 'index'])->name('admin.settings.updates');
         Route::post('/settings/updates/check', [UpdateController::class, 'check'])->name('admin.settings.updates.check');
         Route::post('/settings/updates/install', [UpdateController::class, 'install'])->name('admin.settings.updates.install');
-
-        // Tags
-        Route::get('/tags', [TagController::class, 'index'])->name('admin.tags.index');
-        Route::put('/tags/{tag}', [TagController::class, 'update'])->name('admin.tags.update');
-        Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('admin.tags.destroy');
 
         // Users
         Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
