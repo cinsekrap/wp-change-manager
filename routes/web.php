@@ -119,6 +119,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
         Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
         Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
+        Route::put('/settings/chase', [SettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
 
         // Email Templates
         Route::get('/settings/email-templates', [SettingsController::class, 'emailTemplates'])->name('admin.settings.email-templates');

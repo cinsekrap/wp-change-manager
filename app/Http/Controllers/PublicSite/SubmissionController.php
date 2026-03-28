@@ -4,7 +4,7 @@ namespace App\Http\Controllers\PublicSite;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ApprovalRequested;
-use App\Mail\NewRequestAlert;
+use App\Mail\RequestAssigned;
 use App\Mail\RequestSubmitted;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestItem;
@@ -140,15 +140,20 @@ class SubmissionController extends Controller
         // Send email notifications
         Mail::to($changeRequest->requester_email)->queue(new RequestSubmitted($changeRequest));
 
-        $adminUsers = User::where('is_active', true)->get();
-        foreach ($adminUsers as $admin) {
-            Mail::to($admin->email)->queue(new NewRequestAlert($changeRequest));
-        }
-
         // Send approval request emails (only if approvers were auto-added)
         foreach ($createdApprovers ?? [] as $approver) {
             if ($approver->email && $approver->token) {
                 Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
+            }
+        }
+
+        // Auto-assign to the site's default assignee (if configured)
+        $site = $changeRequest->site ?? Site::find($changeRequest->site_id);
+        if ($site && $site->default_assignee_id) {
+            $assignee = User::find($site->default_assignee_id);
+            if ($assignee && $assignee->is_active) {
+                $changeRequest->update(['assigned_to' => $assignee->id]);
+                Mail::to($assignee->email)->queue(new RequestAssigned($changeRequest, $assignee));
             }
         }
 
