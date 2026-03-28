@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCptRequest;
 use App\Http\Requests\Admin\UpdateCptRequest;
 use App\Models\CptType;
+use App\Services\AuditService;
 
 class CptController extends Controller
 {
@@ -22,7 +23,14 @@ class CptController extends Controller
 
     public function store(StoreCptRequest $request)
     {
-        CptType::create($request->validated());
+        $cpt = CptType::create($request->validated());
+
+        AuditService::log(
+            action: 'created',
+            model: $cpt,
+            description: "Created content type: {$cpt->name}",
+            newValues: ['name' => $cpt->name, 'slug' => $cpt->slug],
+        );
 
         return redirect()->route('admin.cpts.index')->with('success', 'CPT type created.');
     }
@@ -34,14 +42,33 @@ class CptController extends Controller
 
     public function update(UpdateCptRequest $request, CptType $cpt)
     {
+        $oldValues = $cpt->only(['name', 'slug', 'sort_order', 'is_active']);
         $cpt->update($request->validated());
+        $newValues = $cpt->only(['name', 'slug', 'sort_order', 'is_active']);
+
+        AuditService::log(
+            action: 'updated',
+            model: $cpt,
+            description: "Updated content type: {$cpt->name}",
+            oldValues: $oldValues,
+            newValues: $newValues,
+        );
 
         return redirect()->route('admin.cpts.index')->with('success', 'CPT type updated.');
     }
 
     public function destroy(CptType $cpt)
     {
+        $cptName = $cpt->name;
         $cpt->delete();
+
+        AuditService::log(
+            action: 'deleted',
+            model: $cpt,
+            description: "Deleted content type: {$cptName}",
+            oldValues: ['name' => $cptName, 'slug' => $cpt->slug],
+        );
+
         return redirect()->route('admin.cpts.index')->with('success', 'CPT type deleted.');
     }
 }

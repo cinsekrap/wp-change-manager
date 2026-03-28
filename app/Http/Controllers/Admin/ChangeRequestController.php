@@ -12,7 +12,9 @@ use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\Site;
+use App\Models\Tag;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -22,23 +24,31 @@ class ChangeRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'assignee'])->withCount('items')->withCount(['items as items_done_count' => function ($q) {
+        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'assignee', 'tags'])->withCount('items')->withCount(['items as items_done_count' => function ($q) {
             $q->where('status', 'done');
         }]));
 
-        $requests = $query->latest()->paginate(25)->withQueryString();
+        $requests = $query->orderByRaw("FIELD(priority, 'urgent', 'high', 'normal', 'low')")->latest()->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
         $adminUsers = User::where('is_active', true)
             ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
             ->orderBy('name')
             ->get();
+        $allTags = Tag::orderBy('name')->get();
 
-        return view('admin.requests.index', compact('requests', 'sites', 'adminUsers'));
+        return view('admin.requests.index', compact('requests', 'sites', 'adminUsers', 'allTags'));
     }
 
     public function export(Request $request): StreamedResponse
     {
-        $query = $this->applyFilters($request, ChangeRequest::with('site')->withCount('items'));
+        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'tags'])->withCount('items'));
+
+        // Support exporting specific IDs (for bulk export)
+        if ($request->filled('ids')) {
+            $ids = is_array($request->ids) ? $request->ids : explode(',', $request->ids);
+            $query->whereIn('id', $ids);
+        }
+
         $query->latest();
 
         $headers = [
@@ -51,8 +61,8 @@ class ChangeRequestController extends Controller
 
             fputcsv($handle, [
                 'Reference', 'Site', 'Page', 'Content Type', 'Requester Name',
-                'Requester Email', 'Requester Role', 'Status', 'Items Count',
-                'Deadline', 'Submitted Date',
+                'Requester Email', 'Requester Role', 'Status', 'Priority', 'Items Count',
+                'Deadline', 'Submitted Date', 'Tags',
             ]);
 
             $query->chunk(500, function ($rows) use ($handle) {
@@ -66,9 +76,11 @@ class ChangeRequestController extends Controller
                         $row->requester_email,
                         $row->requester_role ?? '',
                         $row->status,
+                        $row->priority ?? 'normal',
                         $row->items_count,
                         $row->deadline_date?->format('Y-m-d') ?? '',
                         $row->created_at->format('Y-m-d H:i'),
+                        $row->tags->pluck('name')->implode(', '),
                     ]);
                 }
             });
@@ -79,7 +91,7 @@ class ChangeRequestController extends Controller
 
     public function show(ChangeRequest $changeRequest)
     {
-        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee']);
+        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags']);
 
         $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
             ->where('site_id', $changeRequest->site_id)
@@ -174,6 +186,14 @@ class ChangeRequestController extends Controller
                 'new_status' => $newStatus,
             ]);
 
+            AuditService::log(
+                action: 'status_changed',
+                model: $changeRequest,
+                description: "Status changed on {$changeRequest->reference}: {$oldStatus} → {$newStatus}",
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => $newStatus],
+            );
+
             // Notify the requester of the status change
             Mail::to($changeRequest->requester_email)
                 ->queue(new RequestStatusChanged($changeRequest, $oldStatus, $newStatus));
@@ -192,6 +212,12 @@ class ChangeRequestController extends Controller
             'user_id' => auth()->id(),
             'note' => $request->note,
         ]);
+
+        AuditService::log(
+            action: 'note_added',
+            model: $changeRequest,
+            description: "Note added to {$changeRequest->reference}",
+        );
 
         return back()->with('success', 'Note added.');
     }
@@ -218,6 +244,13 @@ class ChangeRequestController extends Controller
             'user_id' => auth()->id(),
             'note' => 'Added approver: ' . $request->name,
         ]);
+
+        AuditService::log(
+            action: 'approver_added',
+            model: $changeRequest,
+            description: "Approver added to {$changeRequest->reference}: {$request->name}",
+            newValues: ['approver_name' => $request->name, 'approver_email' => $request->email],
+        );
 
         // Pull back to "requires_referral" if currently past it
         $postReferred = ['approved', 'scheduled', 'done'];
@@ -248,12 +281,21 @@ class ChangeRequestController extends Controller
             'responded_at' => 'required|date',
         ]);
 
+        $oldApproverStatus = $approver->status;
         $approver->update([
             'status' => $request->status,
             'notes' => $request->notes,
             'responded_at' => $request->responded_at,
             'recorded_by' => auth()->id(),
         ]);
+
+        AuditService::log(
+            action: 'approver_updated',
+            model: $changeRequest,
+            description: "Approver {$approver->name} on {$changeRequest->reference} marked as {$request->status}",
+            oldValues: ['approver_status' => $oldApproverStatus],
+            newValues: ['approver_status' => $request->status],
+        );
 
         // Auto-advance to "approved" if all approvers have approved
         $changeRequest->refresh();
@@ -322,6 +364,14 @@ class ChangeRequestController extends Controller
             'new_status' => $newStatus,
         ]);
 
+        AuditService::log(
+            action: 'sent_for_approval',
+            model: $changeRequest,
+            description: "Sent {$changeRequest->reference} for approval ({$sent} emails sent)",
+            oldValues: ['status' => $oldStatus],
+            newValues: ['status' => $newStatus],
+        );
+
         $changeRequest->notes()->create([
             'user_id' => auth()->id(),
             'note' => $sent > 0
@@ -345,6 +395,13 @@ class ChangeRequestController extends Controller
             'user_id' => auth()->id(),
             'note' => 'Removed approver: ' . $name,
         ]);
+
+        AuditService::log(
+            action: 'approver_removed',
+            model: $changeRequest,
+            description: "Approver removed from {$changeRequest->reference}: {$name}",
+            oldValues: ['approver_name' => $name],
+        );
 
         return back()->with('success', 'Approver removed.');
     }
@@ -371,6 +428,7 @@ class ChangeRequestController extends Controller
             'status' => 'required|in:' . implode(',', ChangeRequestItem::STATUSES),
         ]);
 
+        $oldItemStatus = $item->status;
         $item->update(['status' => $request->status]);
 
         $statusLabel = str_replace('_', ' ', $request->status);
@@ -379,7 +437,44 @@ class ChangeRequestController extends Controller
             'note' => "Item #{$item->sort_order} ({$item->content_area}) marked as {$statusLabel}",
         ]);
 
+        AuditService::log(
+            action: 'item_status_changed',
+            model: $changeRequest,
+            description: "Item #{$item->sort_order} on {$changeRequest->reference} changed to {$statusLabel}",
+            oldValues: ['item_status' => $oldItemStatus],
+            newValues: ['item_status' => $request->status],
+        );
+
         return back()->with('success', 'Item status updated.');
+    }
+
+    public function updatePriority(Request $request, ChangeRequest $changeRequest)
+    {
+        $request->validate([
+            'priority' => 'required|in:' . implode(',', ChangeRequest::PRIORITIES),
+        ]);
+
+        $oldPriority = $changeRequest->priority;
+        $newPriority = $request->priority;
+
+        if ($oldPriority !== $newPriority) {
+            $changeRequest->update(['priority' => $newPriority]);
+
+            $changeRequest->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => 'Priority changed from ' . ($oldPriority ?: 'normal') . ' to ' . $newPriority,
+            ]);
+
+            AuditService::log(
+                action: 'priority_changed',
+                model: $changeRequest,
+                description: "Priority changed on {$changeRequest->reference}: " . ($oldPriority ?: 'normal') . " → {$newPriority}",
+                oldValues: ['priority' => $oldPriority ?: 'normal'],
+                newValues: ['priority' => $newPriority],
+            );
+        }
+
+        return back()->with('success', 'Priority updated.');
     }
 
     public function updateAssignment(Request $request, ChangeRequest $changeRequest)
@@ -405,14 +500,154 @@ class ChangeRequestController extends Controller
             if ((int) $newAssigneeId !== auth()->id()) {
                 Mail::to($assignee->email)->queue(new RequestAssigned($changeRequest, $assignee));
             }
+            AuditService::log(
+                action: 'assigned',
+                model: $changeRequest,
+                description: "Assigned {$changeRequest->reference} to {$assignee->name}",
+                oldValues: ['assigned_to' => $oldAssigneeId],
+                newValues: ['assigned_to' => $newAssigneeId],
+            );
         } else {
             $changeRequest->notes()->create([
                 'user_id' => auth()->id(),
                 'note' => 'Unassigned',
             ]);
+
+            AuditService::log(
+                action: 'assigned',
+                model: $changeRequest,
+                description: "Unassigned {$changeRequest->reference}",
+                oldValues: ['assigned_to' => $oldAssigneeId],
+                newValues: ['assigned_to' => null],
+            );
         }
 
         return back()->with('success', 'Assignment updated.');
+    }
+
+    public function addTag(Request $request, ChangeRequest $changeRequest)
+    {
+        $request->validate([
+            'tag_name' => 'required|string|max:100',
+        ]);
+
+        $tag = Tag::firstOrCreate(
+            ['name' => trim($request->tag_name)],
+            ['colour' => '#6E6E6D']
+        );
+
+        if (!$changeRequest->tags()->where('tag_id', $tag->id)->exists()) {
+            $changeRequest->tags()->attach($tag->id);
+        }
+
+        return response()->json(['success' => true, 'tag' => $tag]);
+    }
+
+    public function removeTag(ChangeRequest $changeRequest, Tag $tag)
+    {
+        $changeRequest->tags()->detach($tag->id);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function bulkUpdateStatus(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:change_requests,id',
+            'status' => 'required|in:' . implode(',', ChangeRequest::STATUSES),
+        ]);
+
+        $newStatus = $request->status;
+        $postReferredStatuses = ['approved', 'scheduled', 'done'];
+        $updated = 0;
+        $skipped = 0;
+
+        foreach (ChangeRequest::whereIn('id', $request->ids)->get() as $cr) {
+            $oldStatus = $cr->status;
+
+            if ($oldStatus === $newStatus) {
+                continue;
+            }
+
+            // Respect the approval gate
+            if (in_array($newStatus, $postReferredStatuses) && !$cr->canMovePastReferred()) {
+                $skipped++;
+                continue;
+            }
+
+            $updateData = ['status' => $newStatus];
+
+            // Clear rejection reason when not declining/cancelling
+            if (!in_array($newStatus, ['declined', 'cancelled'])) {
+                $updateData['rejection_reason'] = null;
+            }
+
+            $cr->update($updateData);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $cr->id,
+                'user_id' => auth()->id(),
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+            ]);
+
+            AuditService::log(
+                action: 'status_changed',
+                model: $cr,
+                description: "Bulk status change on {$cr->reference}: {$oldStatus} → {$newStatus}",
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => $newStatus],
+            );
+
+            $updated++;
+        }
+
+        $message = "{$updated} request(s) updated.";
+        if ($skipped > 0) {
+            $message .= " {$skipped} skipped (outstanding approvals).";
+        }
+
+        return response()->json(['success' => true, 'message' => $message, 'updated' => $updated, 'skipped' => $skipped]);
+    }
+
+    public function bulkAssign(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:change_requests,id',
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
+
+        $assignedTo = $request->assigned_to ?: null;
+        $assignee = $assignedTo ? User::find($assignedTo) : null;
+
+        $updated = 0;
+        foreach (ChangeRequest::whereIn('id', $request->ids)->get() as $cr) {
+            $cr->update(['assigned_to' => $assignedTo]);
+
+            $cr->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => $assignee ? 'Bulk assigned to ' . $assignee->name : 'Bulk unassigned',
+            ]);
+
+            AuditService::log(
+                action: 'assigned',
+                model: $cr,
+                description: $assignee
+                    ? "Bulk assigned {$cr->reference} to {$assignee->name}"
+                    : "Bulk unassigned {$cr->reference}",
+                newValues: ['assigned_to' => $assignedTo],
+            );
+
+            $updated++;
+        }
+
+        $message = $assignee
+            ? "{$updated} request(s) assigned to {$assignee->name}."
+            : "{$updated} request(s) unassigned.";
+
+        return response()->json(['success' => true, 'message' => $message, 'updated' => $updated]);
     }
 
     private function applyFilters(Request $request, $query)
@@ -455,6 +690,18 @@ class ChangeRequestController extends Controller
             } else {
                 $query->where('assigned_to', $request->assigned_to);
             }
+        }
+
+        if ($request->filled('priority')) {
+            $priorities = (array) $request->priority;
+            $query->whereIn('priority', $priorities);
+        }
+
+        if ($request->filled('tags')) {
+            $tagIds = (array) $request->tags;
+            $query->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
         }
 
         return $query;

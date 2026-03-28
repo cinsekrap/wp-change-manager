@@ -10,6 +10,7 @@ use App\Mail\RequestSubmitted;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequest;
 use App\Models\Setting;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -49,6 +50,12 @@ class SettingsController extends Controller
             }
             Setting::set($key, $value);
         }
+
+        AuditService::log(
+            action: 'updated',
+            description: 'Updated mail settings',
+            newValues: array_diff_key($validated, ['mail_password' => '']),
+        );
 
         return redirect()->route('admin.settings.mail')->with('success', 'Mail settings saved.');
     }
@@ -113,6 +120,25 @@ class SettingsController extends Controller
     }
 
     /**
+     * Save SLA turnaround times.
+     */
+    public function updateSla(Request $request)
+    {
+        $priorities = ChangeRequest::PRIORITIES;
+
+        foreach ($priorities as $priority) {
+            $key = "sla_{$priority}";
+            $value = $request->input($key);
+
+            if ($value !== null && $value !== '') {
+                Setting::set($key, (int) $value);
+            }
+        }
+
+        return redirect()->route('admin.settings.mail')->with('success', 'SLA settings saved.');
+    }
+
+    /**
      * Show the email template editor.
      */
     public function emailTemplates()
@@ -159,6 +185,11 @@ class SettingsController extends Controller
                 Setting::where('key', "email_{$key}_body")->delete();
             }
         }
+
+        AuditService::log(
+            action: 'updated',
+            description: 'Updated email templates',
+        );
 
         return redirect()->route('admin.settings.email-templates')->with('success', 'Email templates saved.');
     }

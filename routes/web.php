@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ChangeRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Api\SitemapController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Admin\EntraSettingsController;
+use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Auth\EntraController;
 use App\Http\Controllers\Auth\LoginController;
@@ -76,6 +78,8 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
 
     // Change requests
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
+    Route::post('/requests/bulk/status', [ChangeRequestController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
+    Route::post('/requests/bulk/assign', [ChangeRequestController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
     Route::get('/requests', [ChangeRequestController::class, 'index'])->name('admin.requests.index');
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
@@ -87,6 +91,11 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
     Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
     Route::patch('/requests/{changeRequest}/assign', [ChangeRequestController::class, 'updateAssignment'])->name('admin.requests.assign');
+    Route::patch('/requests/{changeRequest}/priority', [ChangeRequestController::class, 'updatePriority'])->name('admin.requests.priority');
+
+    // Tags on requests
+    Route::post('/requests/{changeRequest}/tags', [ChangeRequestController::class, 'addTag'])->name('admin.requests.tags.add');
+    Route::delete('/requests/{changeRequest}/tags/{tag}', [ChangeRequestController::class, 'removeTag'])->name('admin.requests.tags.remove');
 
     // Password change (all admins)
     Route::get('/password', [UserController::class, 'editPassword'])->name('admin.password.edit');
@@ -109,6 +118,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::put('/settings/mail', [SettingsController::class, 'update'])->name('admin.settings.mail.update');
         Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
         Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
+        Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
 
         // Email Templates
         Route::get('/settings/email-templates', [SettingsController::class, 'emailTemplates'])->name('admin.settings.email-templates');
@@ -124,9 +134,17 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::post('/settings/updates/check', [UpdateController::class, 'check'])->name('admin.settings.updates.check');
         Route::post('/settings/updates/install', [UpdateController::class, 'install'])->name('admin.settings.updates.install');
 
+        // Tags
+        Route::get('/tags', [TagController::class, 'index'])->name('admin.tags.index');
+        Route::put('/tags/{tag}', [TagController::class, 'update'])->name('admin.tags.update');
+        Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('admin.tags.destroy');
+
         // Users
         Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
         Route::post('/users/{user}/reset-mfa', [UserController::class, 'resetMfa'])->name('admin.users.reset-mfa');
+
+        // Audit Log
+        Route::get('/audit-log', [AuditLogController::class, 'index'])->name('admin.audit-log');
     });
 });
 

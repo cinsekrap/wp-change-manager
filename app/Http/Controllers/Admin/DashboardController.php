@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ChangeRequest;
+use App\Models\Setting;
 use App\Models\Site;
 use Illuminate\Support\Carbon;
 
@@ -41,6 +42,14 @@ class DashboardController extends Controller
             $month = Carbon::now()->subMonths($i)->format('Y-m');
             $monthlyCounts[$month] = $monthlyRaw[$month] ?? 0;
         }
+
+        // Count overdue requests (active requests past SLA deadline)
+        $overdueCount = ChangeRequest::whereNotIn('status', ['done', 'declined', 'cancelled'])
+            ->get()
+            ->filter(fn($cr) => $cr->isOverSla())
+            ->count();
+
+        $stats['overdue'] = $overdueCount;
 
         $recent = ChangeRequest::with('site')
             ->latest()
