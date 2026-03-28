@@ -20,7 +20,7 @@ class AdminAuthTest extends TestCase
             'email' => 'admin@example.com',
             'password' => bcrypt('secret123'),
             'is_active' => true,
-            'is_admin' => true,
+            'role' => 'super_admin',
         ]);
 
         $response = $this->post('/admin/login', [
@@ -77,7 +77,7 @@ class AdminAuthTest extends TestCase
     {
         $user = User::factory()->create([
             'is_active' => true,
-            'is_admin' => false,
+            'role' => null,
             'mfa_enabled' => true,
             'mfa_confirmed_at' => now(),
         ]);
@@ -93,7 +93,7 @@ class AdminAuthTest extends TestCase
     {
         $user = User::factory()->create([
             'is_active' => true,
-            'is_admin' => true,
+            'role' => 'super_admin',
         ]);
 
         $this->actingAs($user);

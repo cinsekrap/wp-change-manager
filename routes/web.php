@@ -70,7 +70,7 @@ Route::middleware('auth')->prefix('admin/mfa')->group(function () {
     Route::post('/disable', [MfaController::class, 'disable'])->name('mfa.disable');
 });
 
-// Admin routes
+// Admin routes (editor + super_admin)
 Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 
@@ -87,36 +87,46 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
     Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
 
-    // Sites
-    Route::resource('sites', SiteController::class)->names('admin.sites');
-    Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
-
-    // CPT Types
-    Route::resource('cpts', CptController::class)->names('admin.cpts');
-
-    // Check Questions
-    Route::resource('questions', CheckQuestionController::class)->names('admin.questions');
-
-    // Settings
-    Route::get('/settings/mail', [SettingsController::class, 'edit'])->name('admin.settings.mail');
-    Route::put('/settings/mail', [SettingsController::class, 'update'])->name('admin.settings.mail.update');
-    Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
-    Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
-
-    // SSO Settings
-    Route::get('/settings/entra', [EntraSettingsController::class, 'edit'])->name('admin.settings.entra');
-    Route::put('/settings/entra', [EntraSettingsController::class, 'update'])->name('admin.settings.entra.update');
-
-    // Updates
-    Route::get('/settings/updates', [UpdateController::class, 'index'])->name('admin.settings.updates');
-    Route::post('/settings/updates/check', [UpdateController::class, 'check'])->name('admin.settings.updates.check');
-    Route::post('/settings/updates/install', [UpdateController::class, 'install'])->name('admin.settings.updates.install');
-
-    // Users
-    Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
-    Route::post('/users/{user}/reset-mfa', [UserController::class, 'resetMfa'])->name('admin.users.reset-mfa');
+    // Password change (all admins)
     Route::get('/password', [UserController::class, 'editPassword'])->name('admin.password.edit');
     Route::put('/password', [UserController::class, 'updatePassword'])->name('admin.password.update');
+
+    // Super admin only routes
+    Route::middleware('super_admin')->group(function () {
+        // Sites
+        Route::resource('sites', SiteController::class)->names('admin.sites');
+        Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
+
+        // CPT Types
+        Route::resource('cpts', CptController::class)->names('admin.cpts');
+
+        // Check Questions
+        Route::resource('questions', CheckQuestionController::class)->names('admin.questions');
+
+        // Settings
+        Route::get('/settings/mail', [SettingsController::class, 'edit'])->name('admin.settings.mail');
+        Route::put('/settings/mail', [SettingsController::class, 'update'])->name('admin.settings.mail.update');
+        Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
+        Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
+
+        // Email Templates
+        Route::get('/settings/email-templates', [SettingsController::class, 'emailTemplates'])->name('admin.settings.email-templates');
+        Route::put('/settings/email-templates', [SettingsController::class, 'updateEmailTemplates'])->name('admin.settings.email-templates.update');
+        Route::post('/settings/email-templates/reset', [SettingsController::class, 'resetEmailTemplate'])->name('admin.settings.email-templates.reset');
+
+        // SSO Settings
+        Route::get('/settings/entra', [EntraSettingsController::class, 'edit'])->name('admin.settings.entra');
+        Route::put('/settings/entra', [EntraSettingsController::class, 'update'])->name('admin.settings.entra.update');
+
+        // Updates
+        Route::get('/settings/updates', [UpdateController::class, 'index'])->name('admin.settings.updates');
+        Route::post('/settings/updates/check', [UpdateController::class, 'check'])->name('admin.settings.updates.check');
+        Route::post('/settings/updates/install', [UpdateController::class, 'install'])->name('admin.settings.updates.install');
+
+        // Users
+        Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
+        Route::post('/users/{user}/reset-mfa', [UserController::class, 'resetMfa'])->name('admin.users.reset-mfa');
+    });
 });
 
 // Deploy endpoint — POST only, token required, no output leaked

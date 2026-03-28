@@ -8,7 +8,7 @@
     </h2>
 
     <p style="margin:0 0 16px;">
-        Thank you for submitting your website change request. Our web team will review it and be in touch if we need any further information.
+        {!! nl2br(e($customBody ?? $defaultBody)) !!}
     </p>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-collapse:collapse;">

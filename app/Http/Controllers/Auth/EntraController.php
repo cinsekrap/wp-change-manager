@@ -82,7 +82,7 @@ class EntraController extends Controller
         Auth::login($user);
         request()->session()->regenerate();
 
-        if ($user->is_admin) {
+        if ($user->isAdmin()) {
             return redirect()->intended(route('admin.dashboard'));
         }
 

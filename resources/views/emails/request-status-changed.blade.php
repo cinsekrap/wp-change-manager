@@ -8,7 +8,7 @@
     </h2>
 
     <p style="margin:0 0 16px;">
-        The status of your change request has changed. Here's a reminder of what you asked for:
+        {!! nl2br(e($customBody ?? $defaultBody)) !!}
     </p>
 
     {{-- Request context --}}

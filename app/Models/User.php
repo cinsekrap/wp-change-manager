@@ -10,12 +10,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'is_active', 'is_admin', 'provider', 'provider_id', 'mfa_secret', 'mfa_enabled', 'mfa_confirmed_at'])]
+#[Fillable(['name', 'email', 'password', 'is_active', 'role', 'provider', 'provider_id', 'mfa_secret', 'mfa_enabled', 'mfa_confirmed_at'])]
 #[Hidden(['password', 'remember_token', 'mfa_secret'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_EDITOR = 'editor';
 
     protected function casts(): array
     {
@@ -23,11 +26,25 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
-            'is_admin' => 'boolean',
             'mfa_secret' => 'encrypted',
             'mfa_enabled' => 'boolean',
             'mfa_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_EDITOR]);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isEditor(): bool
+    {
+        return $this->role === self::ROLE_EDITOR;
     }
 
     public function sendPasswordResetNotification($token): void
