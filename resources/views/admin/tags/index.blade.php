@@ -16,7 +16,7 @@
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse($tags as $tag)
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
                 <form method="POST" action="{{ route('admin.tags.update', $tag) }}">
                     @csrf @method('PUT')
                     <td class="px-6 py-3">

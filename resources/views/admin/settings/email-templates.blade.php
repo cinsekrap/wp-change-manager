@@ -81,7 +81,7 @@
                 <div class="flex items-center justify-between pt-2 border-t border-gray-100">
                     <div class="flex items-center space-x-3">
                         @if($tpl['subject'] || $tpl['body'])
-                        <button type="button" onclick="resetTemplate('{{ $key }}')" class="text-sm text-red-600 hover:text-red-800 font-medium">
+                        <button type="button" onclick="resetTemplate('{{ $key }}')" class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors">
                             Reset to default
                         </button>
                         @else
@@ -98,7 +98,7 @@
     </div>
 
     <div class="mt-6 flex items-center space-x-3">
-        <button type="submit" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+        <button type="submit" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium transition-colors shadow-sm">
             Save All Templates
         </button>
     </div>
