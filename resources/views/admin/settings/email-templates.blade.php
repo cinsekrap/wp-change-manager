@@ -7,7 +7,7 @@
         <h1 class="text-2xl font-bold text-gray-900">Email Templates</h1>
         <p class="mt-1 text-sm text-gray-500">Customise the subject lines and body text of automated emails. Use placeholders to insert dynamic content.</p>
     </div>
-    <a href="{{ route('admin.settings.mail') }}" class="text-sm text-hcrg-burgundy hover:underline">&larr; Mail Settings</a>
+    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-hcrg-burgundy hover:underline">&larr; Notifications</a>
 </div>
 
 <form method="POST" action="{{ route('admin.settings.email-templates.update') }}" id="templateForm">
