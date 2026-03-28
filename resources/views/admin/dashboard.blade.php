@@ -2,6 +2,13 @@
 @section('title', 'Dashboard')
 
 @section('content')
+@php $update = app(App\Services\UpdateService::class)->checkForUpdates(); @endphp
+@if($update['available'])
+<div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+    <span class="text-sm text-amber-800">A new version ({{ $update['latest_version'] }}) is available.</span>
+    <a href="{{ route('admin.settings.updates') }}" class="text-sm font-medium text-hcrg-burgundy hover:underline">View update</a>
+</div>
+@endif
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
