@@ -19,7 +19,7 @@ class StoreUserRequest extends FormRequest
             'email' => 'required|email|max:255|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(10)->mixedCase()->numbers()],
             'is_active' => 'boolean',
-            'is_admin' => 'boolean',
+            'role' => 'nullable|in:editor,super_admin',
         ];
     }
 
@@ -32,7 +32,7 @@ class StoreUserRequest extends FormRequest
         }
 
         $data['is_active'] = $this->boolean('is_active');
-        $data['is_admin'] = $this->boolean('is_admin');
+        $data['role'] = $this->input('role') ?: null;
 
         return $data;
     }

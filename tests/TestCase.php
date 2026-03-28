@@ -17,7 +17,7 @@ abstract class TestCase extends BaseTestCase
     {
         $user = User::factory()->create(array_merge([
             'is_active' => true,
-            'is_admin' => true,
+            'role' => 'super_admin',
             'mfa_enabled' => true,
             'mfa_confirmed_at' => now(),
         ], $overrides));

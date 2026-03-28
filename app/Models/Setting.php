@@ -68,6 +68,27 @@ class Setting extends Model
     }
 
     /**
+     * Get email template content (subject + body) with placeholders replaced.
+     *
+     * Falls back to defaults from config/email-templates.php when no
+     * custom value has been saved in the settings table.
+     */
+    public static function getEmailContent(string $template, array $replacements): array
+    {
+        $defaults = config("email-templates.{$template}");
+
+        $subject = static::get("email_{$template}_subject") ?? $defaults['subject'];
+        $body = static::get("email_{$template}_body") ?? $defaults['body'];
+
+        foreach ($replacements as $key => $value) {
+            $subject = str_replace('{' . $key . '}', $value ?? '', $subject);
+            $body = str_replace('{' . $key . '}', $value ?? '', $body);
+        }
+
+        return ['subject' => $subject, 'body' => $body];
+    }
+
+    /**
      * Safely decrypt a value. Returns null if decryption fails
      * (e.g. value was stored before encryption was enabled).
      */
