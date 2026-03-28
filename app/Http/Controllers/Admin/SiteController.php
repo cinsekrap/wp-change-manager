@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreSiteRequest;
 use App\Http\Requests\Admin\UpdateSiteRequest;
 use App\Models\Site;
+use App\Models\User;
 use App\Services\AuditService;
 use App\Services\SitemapService;
 
@@ -13,7 +14,8 @@ class SiteController extends Controller
 {
     public function index()
     {
-        $sites = Site::withCount('sitemapPages')
+        $sites = Site::with('defaultAssignee')
+            ->withCount('sitemapPages')
             ->orderBy('name')
             ->paginate(25);
 
@@ -22,7 +24,12 @@ class SiteController extends Controller
 
     public function create()
     {
-        return view('admin.sites.form', ['site' => new Site()]);
+        $adminUsers = User::where('is_active', true)
+            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.sites.form', ['site' => new Site(), 'adminUsers' => $adminUsers]);
     }
 
     public function store(StoreSiteRequest $request)
@@ -41,7 +48,12 @@ class SiteController extends Controller
 
     public function edit(Site $site)
     {
-        return view('admin.sites.form', compact('site'));
+        $adminUsers = User::where('is_active', true)
+            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.sites.form', compact('site', 'adminUsers'));
     }
 
     public function update(UpdateSiteRequest $request, Site $site)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\ApprovalRequested;
 use App\Mail\NewRequestAlert;
+use App\Mail\RequestChase;
 use App\Mail\RequestStatusChanged;
 use App\Mail\RequestSubmitted;
 use App\Models\ChangeRequestApprover;
@@ -116,10 +117,29 @@ class SettingsController extends Controller
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),
             'new-request-alert' => new NewRequestAlert($sample),
             'approval-requested' => new ApprovalRequested($sample, $sampleApprover),
+            'request-chase' => new RequestChase($sample),
             default => abort(404),
         };
 
         return $mailable->render();
+    }
+
+    /**
+     * Save chase reminder settings.
+     */
+    public function updateChase(Request $request)
+    {
+        $validated = $request->validate([
+            'chase_enabled' => 'nullable|boolean',
+            'chase_hours' => 'required|integer|min:1|max:9999',
+            'chase_unassigned_email' => 'nullable|email|max:255',
+        ]);
+
+        Setting::set('chase_enabled', !empty($validated['chase_enabled']) ? '1' : '0');
+        Setting::set('chase_hours', (string) $validated['chase_hours']);
+        Setting::set('chase_unassigned_email', $validated['chase_unassigned_email'] ?? '');
+
+        return redirect()->route('admin.settings.mail')->with('success', 'Chase reminder settings saved.');
     }
 
     /**

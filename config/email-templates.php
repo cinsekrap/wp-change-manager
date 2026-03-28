@@ -40,4 +40,12 @@ return [
         'body' => 'A change request has been assigned to you. Please review the details below and take the appropriate action.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'requester_name', 'assignee_name'],
     ],
+
+    'request_chase' => [
+        'name' => 'Chase Reminder',
+        'description' => 'Sent when a change request has not moved status within the configured chase period.',
+        'subject' => 'Reminder: Change Request {reference} needs attention',
+        'body' => 'This change request has been inactive for {stale_hours} hours and needs attention. Please review it and take the appropriate action.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'status', 'stale_hours', 'requester_name', 'requester_email'],
+    ],
 ];

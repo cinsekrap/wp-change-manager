@@ -53,6 +53,21 @@
             <button type="button" onclick="addApprover()" class="mt-2 inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">+ Add approver</button>
         </div>
 
+        <div>
+            <label for="default_assignee_id" class="block text-sm font-medium text-gray-700 mb-1">Default Assignee</label>
+            <p class="text-xs text-gray-500 mb-2">New requests for this site will be automatically assigned to this user.</p>
+            <select name="default_assignee_id" id="default_assignee_id"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <option value="">None</option>
+                @foreach($adminUsers as $adminUser)
+                    <option value="{{ $adminUser->id }}" {{ old('default_assignee_id', $site->default_assignee_id) == $adminUser->id ? 'selected' : '' }}>
+                        {{ $adminUser->name }}
+                    </option>
+                @endforeach
+            </select>
+            @error('default_assignee_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
         <div class="flex items-center">
             <input type="hidden" name="is_active" value="0">
             <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $site->is_active ?? true) ? 'checked' : '' }}
