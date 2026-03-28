@@ -50,7 +50,7 @@ class UpdateService
             'release_notes' => null,
             'published_at' => null,
             'html_url' => null,
-            'checked_at' => now(),
+            'checked_at' => now()->toIso8601String(),
         ];
 
         try {
@@ -81,9 +81,9 @@ class UpdateService
                 'latest_version' => $latestVersion,
                 'release_name' => $data['name'] ?? $data['tag_name'],
                 'release_notes' => $data['body'] ?? '',
-                'published_at' => isset($data['published_at']) ? Carbon::parse($data['published_at']) : null,
+                'published_at' => $data['published_at'] ?? null,
                 'html_url' => $data['html_url'] ?? null,
-                'checked_at' => now(),
+                'checked_at' => now()->toIso8601String(),
             ];
         } catch (\Exception $e) {
             Log::warning('Update check failed: ' . $e->getMessage());

@@ -19,7 +19,7 @@
                     <div>
                         <h2 class="text-lg font-semibold text-amber-900">Update available: v{{ $update['latest_version'] }}</h2>
                         @if($update['published_at'])
-                            <p class="text-sm text-amber-700 mt-1">Published {{ $update['published_at']->format('d M Y') }}</p>
+                            <p class="text-sm text-amber-700 mt-1">Published {{ \Carbon\Carbon::parse($update['published_at'])->format('d M Y') }}</p>
                         @endif
                     </div>
                     @if($update['html_url'])
@@ -61,7 +61,7 @@
                     </div>
                 </div>
                 @if($update['checked_at'] ?? null)
-                    <p class="text-xs text-green-600 mt-3">Last checked: {{ $update['checked_at']->format('d M Y H:i') }}</p>
+                    <p class="text-xs text-green-600 mt-3">Last checked: {{ \Carbon\Carbon::parse($update['checked_at'])->format('d M Y H:i') }}</p>
                 @endif
                 <div class="mt-4">
                     <form method="POST" action="{{ route('admin.settings.updates.check') }}">
