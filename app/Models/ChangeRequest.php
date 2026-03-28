@@ -11,7 +11,7 @@ class ChangeRequest extends Model
         'reference', 'site_id', 'page_url', 'page_title', 'cpt_slug',
         'is_new_page', 'status', 'rejection_reason', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
-        'deadline_date', 'deadline_reason',
+        'deadline_date', 'deadline_reason', 'assigned_to',
     ];
 
     protected function casts(): array
@@ -40,6 +40,11 @@ class ChangeRequest extends Model
     public function site()
     {
         return $this->belongsTo(Site::class);
+    }
+
+    public function assignee()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function items()

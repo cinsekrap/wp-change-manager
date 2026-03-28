@@ -11,7 +11,7 @@
 @endif
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500">New Requests</div>
         <div class="text-3xl font-bold text-amber-600 mt-1">{{ $stats['requested'] }}</div>
@@ -28,6 +28,10 @@
         <div class="text-sm font-medium text-gray-500">Active Sites</div>
         <div class="text-3xl font-bold text-hcrg-charcoal mt-1">{{ $stats['sites'] }}</div>
     </div>
+    <a href="{{ route('admin.requests.index', ['my_requests' => 1]) }}" class="bg-white rounded-lg shadow p-6 hover:ring-2 hover:ring-hcrg-burgundy transition-shadow block">
+        <div class="text-sm font-medium text-gray-500">My Requests</div>
+        <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ $stats['my_requests'] }}</div>
+    </a>
 </div>
 
 {{-- Charts --}}

@@ -86,6 +86,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::delete('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
     Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
     Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
+    Route::patch('/requests/{changeRequest}/assign', [ChangeRequestController::class, 'updateAssignment'])->name('admin.requests.assign');
 
     // Password change (all admins)
     Route::get('/password', [UserController::class, 'editPassword'])->name('admin.password.edit');

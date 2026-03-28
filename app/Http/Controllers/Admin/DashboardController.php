@@ -17,6 +17,9 @@ class DashboardController extends Controller
             'in_progress' => ChangeRequest::whereIn('status', ['referred', 'approved', 'scheduled'])->count(),
             'done' => ChangeRequest::where('status', 'done')->count(),
             'sites' => Site::active()->count(),
+            'my_requests' => ChangeRequest::where('assigned_to', auth()->id())
+                ->whereNotIn('status', ['done', 'declined', 'cancelled'])
+                ->count(),
         ];
 
         // Chart 1: Requests by status
