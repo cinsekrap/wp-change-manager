@@ -20,6 +20,7 @@ class UpdateSiteRequest extends FormRequest
             'default_approvers' => 'nullable|array',
             'default_approvers.*.name' => 'required|string|max:255',
             'default_approvers.*.email' => 'nullable|email|max:255',
+            'default_assignee_id' => 'nullable|exists:users,id',
             'is_active' => 'boolean',
         ];
     }
@@ -37,6 +38,7 @@ class UpdateSiteRequest extends FormRequest
             $data['default_approvers'] ?? [],
             fn($a) => !empty($a['name'])
         ));
+        $data['default_assignee_id'] = ($data['default_assignee_id'] ?? null) ?: null;
 
         return $data;
     }

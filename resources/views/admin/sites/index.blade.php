@@ -14,6 +14,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Default Assignee</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
@@ -24,6 +25,7 @@
                 <td class="px-6 py-4 font-medium text-gray-900">{{ $site->name }}</td>
                 <td class="px-6 py-4 text-sm text-gray-600">{{ $site->domain }}</td>
                 <td class="px-6 py-4 text-sm text-gray-600">{{ $site->sitemap_pages_count }}</td>
+                <td class="px-6 py-4 text-sm text-gray-600">{{ $site->defaultAssignee?->name ?? '—' }}</td>
                 <td class="px-6 py-4">
                     @include('admin.partials.active-badge', ['active' => $site->is_active])
                 </td>
@@ -42,7 +44,7 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No sites yet.</td></tr>
+            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No sites yet.</td></tr>
             @endforelse
         </tbody>
     </table>
