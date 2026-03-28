@@ -51,5 +51,9 @@
             Look up request
         </button>
     </form>
+
+    <p class="mt-6 text-center text-sm text-gray-500">
+        <a href="{{ route('wizard') }}" class="text-hcrg-burgundy hover:underline">Submit a new request</a>
+    </p>
 </div>
 @endsection

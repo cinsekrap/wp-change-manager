@@ -96,12 +96,21 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center">
-                            <input type="hidden" name="content_areas[{{ $index }}][required]" value="0">
-                            <input type="checkbox" name="content_areas[{{ $index }}][required]" value="1"
-                                {{ !empty($area['required']) ? 'checked' : '' }}
-                                class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-                            <label class="ml-2 text-sm text-gray-700">Required field</label>
+                        <div class="flex items-center space-x-6">
+                            <div class="flex items-center">
+                                <input type="hidden" name="content_areas[{{ $index }}][required]" value="0">
+                                <input type="checkbox" name="content_areas[{{ $index }}][required]" value="1"
+                                    {{ !empty($area['required']) ? 'checked' : '' }}
+                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                <label class="ml-2 text-sm text-gray-700">Required field</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="hidden" name="content_areas[{{ $index }}][allow_add]" value="0">
+                                <input type="checkbox" name="content_areas[{{ $index }}][allow_add]" value="1"
+                                    {{ ($area['allow_add'] ?? true) ? 'checked' : '' }}
+                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                <label class="ml-2 text-sm text-gray-700">Can add new</label>
+                            </div>
                         </div>
 
                         <div class="word-limit-row" style="{{ in_array($area['type'] ?? 'text', ['text', 'textarea', 'richtext']) ? '' : 'display:none' }}">
@@ -153,6 +162,17 @@
                                 @endforeach
                             </div>
                             <button type="button" onclick="addSubField(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add sub-field</button>
+
+                            <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
+                                <div class="flex items-center">
+                                    <input type="hidden" name="content_areas[{{ $index }}][repeatable]" value="0">
+                                    <input type="checkbox" name="content_areas[{{ $index }}][repeatable]" value="1"
+                                        {{ !empty($area['repeatable']) ? 'checked' : '' }}
+                                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                    <label class="ml-2 text-sm text-gray-700">Allow multiple entries</label>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Users can add multiple sets of these fields in one request (e.g. multiple Q&A pairs)</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -249,11 +269,19 @@ function addContentArea() {
                 </div>
             </div>
 
-            <div class="flex items-center">
-                <input type="hidden" name="content_areas[${idx}][required]" value="0">
-                <input type="checkbox" name="content_areas[${idx}][required]" value="1"
-                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-                <label class="ml-2 text-sm text-gray-700">Required field</label>
+            <div class="flex items-center space-x-6">
+                <div class="flex items-center">
+                    <input type="hidden" name="content_areas[${idx}][required]" value="0">
+                    <input type="checkbox" name="content_areas[${idx}][required]" value="1"
+                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    <label class="ml-2 text-sm text-gray-700">Required field</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="hidden" name="content_areas[${idx}][allow_add]" value="0">
+                    <input type="checkbox" name="content_areas[${idx}][allow_add]" value="1" checked
+                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    <label class="ml-2 text-sm text-gray-700">Can add new</label>
+                </div>
             </div>
 
             <div class="word-limit-row">
@@ -284,6 +312,16 @@ function addContentArea() {
                 <label class="block text-xs font-medium text-gray-500 mb-1">Sub-fields</label>
                 <div class="sub-fields-list space-y-2"></div>
                 <button type="button" onclick="addSubField(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add sub-field</button>
+
+                <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
+                    <div class="flex items-center">
+                        <input type="hidden" name="content_areas[${idx}][repeatable]" value="0">
+                        <input type="checkbox" name="content_areas[${idx}][repeatable]" value="1"
+                            class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                        <label class="ml-2 text-sm text-gray-700">Allow multiple entries</label>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Users can add multiple sets of these fields in one request (e.g. multiple Q&A pairs)</p>
+                </div>
             </div>
         </div>
     `;

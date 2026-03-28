@@ -135,7 +135,16 @@ class MfaController extends Controller
         ]);
 
         $user = $request->user();
-        $valid = $this->google2fa->verifyKey($user->mfa_secret, $request->code);
+
+        try {
+            $secret = $user->mfa_secret;
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            // Secret was stored before encryption was enabled — force re-setup
+            $user->forceFill(['mfa_secret' => null, 'mfa_enabled' => false, 'mfa_confirmed_at' => null])->save();
+            return redirect()->route('mfa.setup')->with('error', 'Your MFA configuration needs to be reset. Please set up your authenticator app again.');
+        }
+
+        $valid = $this->google2fa->verifyKey($secret, $request->code);
 
         if (! $valid) {
             return back()->withErrors([
