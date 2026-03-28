@@ -31,7 +31,7 @@
 {{-- Filters --}}
 <form method="GET" action="{{ route('admin.requests.index') }}" class="bg-white rounded-lg shadow p-4 mb-6" id="filterForm">
     @if($myRequestsActive)<input type="hidden" name="my_requests" value="1">@endif
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Reference, name, email..."
@@ -143,20 +143,20 @@
             <input type="date" name="date_from" value="{{ request('date_from') }}"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
         </div>
-        <div class="flex items-end space-x-2">
-            <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
-                <input type="date" name="date_to" value="{{ request('date_to') }}"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
-            </div>
-            <a href="{{ route('admin.requests.export', request()->query()) }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors flex-shrink-0">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export CSV
-            </a>
-            @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || !empty($selectedTags) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests'))
-                <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700 py-2 flex-shrink-0">Clear</a>
-            @endif
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
+            <input type="date" name="date_to" value="{{ request('date_to') }}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
         </div>
+    </div>
+    <div class="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-gray-100">
+        <a href="{{ route('admin.requests.export', request()->query()) }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Export CSV
+        </a>
+        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || !empty($selectedTags) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests'))
+            <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</a>
+        @endif
     </div>
 </form>
 
@@ -171,10 +171,9 @@
                 </th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8" title="Assigned"><svg class="w-4 h-4 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority / SLA</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
@@ -189,8 +188,7 @@
                 <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
                 </td>
-                <td class="px-3 py-3 text-gray-600 max-w-[130px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
-                <td class="px-3 py-3 text-gray-600 max-w-[180px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->page_title ?: $req->page_url }}</td>
+                <td class="px-3 py-3 text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
                 <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name }}</td>
                 <td class="px-3 py-3 text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1.5">
@@ -204,9 +202,14 @@
                         @endif
                     </div>
                 </td>
-                <td class="px-3 py-3 cursor-pointer text-center" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     @if($req->assignee)
-                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-xs font-semibold" title="{{ $req->assignee->name }}">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
+                        <span class="inline-flex items-center">
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-[10px] font-semibold mr-1.5">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
+                            <span class="text-sm">{{ $req->assignee->name }}</span>
+                        </span>
+                    @else
+                        <span class="text-gray-300">—</span>
                     @endif
                 </td>
                 <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
@@ -242,7 +245,7 @@
                 <td class="px-3 py-3 text-gray-500 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
             </tr>
             @empty
-            <tr><td colspan="10" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
+            <tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
             @endforelse
         </tbody>
     </table>
