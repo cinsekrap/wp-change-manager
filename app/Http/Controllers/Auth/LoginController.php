@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -29,8 +30,21 @@ class LoginController extends Controller
 
         if (Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            AuditService::log(
+                action: 'login',
+                model: Auth::user(),
+                description: 'Successful login: ' . Auth::user()->email,
+            );
+
             return redirect()->intended(route('admin.dashboard'));
         }
+
+        AuditService::log(
+            action: 'login_failed',
+            description: 'Failed login attempt for: ' . $request->email,
+            newValues: ['email' => $request->email],
+        );
 
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
