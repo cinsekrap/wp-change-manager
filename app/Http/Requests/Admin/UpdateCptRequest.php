@@ -33,6 +33,8 @@ class UpdateCptRequest extends FormRequest
             'content_areas.*.sub_fields' => 'nullable|array',
             'content_areas.*.sub_fields.*.name' => 'required|string|max:255',
             'content_areas.*.sub_fields.*.type' => 'required|in:text,textarea',
+            'content_areas.*.repeatable' => 'nullable',
+            'content_areas.*.allow_add' => 'nullable',
         ];
     }
 
@@ -74,6 +76,8 @@ class UpdateCptRequest extends FormRequest
                     )),
                     'word_limit' => !empty($area['word_limit']) ? (int) $area['word_limit'] : null,
                     'sub_fields' => $subFields,
+                    'repeatable' => !empty($area['repeatable']),
+                    'allow_add' => !empty($area['allow_add']),
                 ];
             })
             ->values()

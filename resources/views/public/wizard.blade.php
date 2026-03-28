@@ -481,6 +481,7 @@
         card.dataset.areaName = area.name;
         card.dataset.areaType = area.type || 'textarea';
         card.dataset.areaRequired = area.required ? '1' : '0';
+        card.dataset.areaRepeatable = area.repeatable ? '1' : '0';
         card.dataset.actionType = '';
         if (area.word_limit) card.dataset.wordLimit = area.word_limit;
 
@@ -494,15 +495,25 @@
         }
         html += `</div>`;
 
-        // Action type selector — inline pill buttons
-        html += `<div class="mb-4 pt-3 border-t border-gray-100">`;
-        html += `<p class="text-xs font-medium text-gray-500 mb-2">What do you want to do?</p>`;
-        html += `<div class="flex flex-wrap gap-2">`;
-        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
-        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors" data-action="change">Change</button>`;
-        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
-        html += `</div>`;
-        html += `</div>`;
+        // Action type selector — depends on context
+        const isNewPage = document.getElementById('isNewPage').checked;
+        const allowAdd = area.allow_add !== false; // default true if not set
+
+        if (isNewPage) {
+            // New page — everything is "add", no picker needed
+            html += `<input type="hidden" class="area-action-preset" value="add">`;
+        } else {
+            html += `<div class="mb-4 pt-3 border-t border-gray-100">`;
+            html += `<p class="text-xs font-medium text-gray-500 mb-2">What do you want to do?</p>`;
+            html += `<div class="flex flex-wrap gap-2">`;
+            if (allowAdd) {
+                html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
+            }
+            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors" data-action="change">Change</button>`;
+            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
+            html += `</div>`;
+            html += `</div>`;
+        }
 
         // Placeholder for fields
         html += `<div class="area-form-fields"></div>`;
@@ -558,6 +569,14 @@
                 checkStepValid();
             });
         });
+
+        // For new pages, auto-trigger "add" action immediately
+        const preset = card.querySelector('.area-action-preset');
+        if (preset) {
+            card.dataset.actionType = 'add';
+            card.classList.add('border-green-300');
+            renderAreaFields(card, area, 'add');
+        }
     }
 
     function renderAreaFields(card, area, action) {
@@ -566,8 +585,14 @@
         const idx = parseInt(card.dataset.areaIndex);
         const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
         const areaObj = typeof area === 'string'
-            ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [] }
+            ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [], repeatable: false }
             : area;
+
+        // Repeatable group: delegate to dedicated renderer
+        if (areaObj.type === 'group' && areaObj.repeatable && action !== 'delete') {
+            renderRepeatableGroup(fieldsContainer, areaObj, action, idx);
+            return;
+        }
 
         let fieldHtml = '';
 
@@ -685,6 +710,107 @@
                 handleStructuredFileUpload(this, idx);
             });
         }
+    }
+
+    /**
+     * Render a repeatable group field (multiple instances of sub-fields).
+     */
+    function renderRepeatableGroup(fieldsContainer, areaObj, action, areaIndex) {
+        const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+        let instanceCount = 0;
+
+        const instancesContainer = document.createElement('div');
+        instancesContainer.className = 'sf-instances space-y-3';
+        fieldsContainer.appendChild(instancesContainer);
+
+        function renumberInstances() {
+            const instances = instancesContainer.querySelectorAll('.sf-group-instance');
+            instances.forEach((inst, i) => {
+                const label = inst.querySelector('.sf-instance-number');
+                if (label) label.textContent = '#' + (i + 1);
+                inst.dataset.instance = i + 1;
+                // Show remove button for all except the first
+                const removeBtn = inst.querySelector('.remove-instance');
+                if (removeBtn) removeBtn.style.display = i === 0 ? 'none' : '';
+            });
+        }
+
+        function addInstance() {
+            instanceCount++;
+            const instance = document.createElement('div');
+            instance.className = 'sf-group-instance border-2 border-gray-200 rounded-lg p-4 space-y-3';
+            instance.dataset.instance = instanceCount;
+
+            let html = `<div class="flex items-center justify-between mb-2">
+                <span class="sf-instance-number text-xs font-medium text-gray-500">#${instanceCount}</span>
+                <button type="button" class="remove-instance text-red-500 hover:text-red-700 text-xs" style="${instanceCount === 1 ? 'display:none' : ''}">Remove</button>
+            </div>`;
+
+            if (action === 'change') {
+                html += `<div class="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg">`;
+                html += `<label class="block text-xs font-medium text-red-700 mb-1">What's currently on the page?</label>`;
+                html += `<textarea class="sf-current ${inputClass} bg-white" rows="2" placeholder="Describe what's currently on the page..."></textarea>`;
+                html += `</div>`;
+                html += `<div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg space-y-3">`;
+                html += `<label class="block text-xs font-medium text-green-700 mb-1">What should it be?</label>`;
+                (areaObj.sub_fields || []).forEach(sf => {
+                    html += `<div>`;
+                    html += `<label class="block text-xs font-medium text-gray-600 mb-1">${esc(sf.name)}</label>`;
+                    if (sf.type === 'textarea') {
+                        html += `<textarea class="sf-group-input ${inputClass} bg-white" data-sf-name="${esc(sf.name)}" rows="3" placeholder="${esc(sf.placeholder || '')}"></textarea>`;
+                    } else {
+                        html += `<input type="text" class="sf-group-input ${inputClass} bg-white" data-sf-name="${esc(sf.name)}" placeholder="${esc(sf.placeholder || '')}">`;
+                    }
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            } else {
+                // Add action
+                (areaObj.sub_fields || []).forEach(sf => {
+                    html += `<div>`;
+                    html += `<label class="block text-xs font-medium text-gray-600 mb-1">${esc(sf.name)}</label>`;
+                    if (sf.type === 'textarea') {
+                        html += `<textarea class="sf-group-input ${inputClass}" data-sf-name="${esc(sf.name)}" rows="3" placeholder="${esc(sf.placeholder || '')}"></textarea>`;
+                    } else {
+                        html += `<input type="text" class="sf-group-input ${inputClass}" data-sf-name="${esc(sf.name)}" placeholder="${esc(sf.placeholder || '')}">`;
+                    }
+                    html += `</div>`;
+                });
+            }
+
+            instance.innerHTML = html;
+            instancesContainer.appendChild(instance);
+
+            // Attach remove handler
+            const removeBtn = instance.querySelector('.remove-instance');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    instance.remove();
+                    renumberInstances();
+                    checkStepValid();
+                });
+            }
+
+            // Attach validation listeners
+            instance.querySelectorAll('.sf-group-input').forEach(gInput => {
+                gInput.addEventListener('input', checkStepValid);
+            });
+            instance.querySelectorAll('.sf-current').forEach(el => {
+                el.addEventListener('input', checkStepValid);
+            });
+
+            renumberInstances();
+            checkStepValid();
+        }
+
+        addInstance(); // First instance (always present)
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'mt-3 inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors';
+        addBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add another ${esc(areaObj.name)}`;
+        addBtn.addEventListener('click', addInstance);
+        fieldsContainer.appendChild(addBtn);
     }
 
     /**
@@ -839,30 +965,67 @@
 
             // Add or Change flow
             if (areaType === 'group') {
-                const groupInputs = section.querySelectorAll('.area-form-fields .sf-group-input');
-                const parts = [];
-                groupInputs.forEach(gi => {
-                    const sfName = gi.dataset.sfName;
-                    const sfVal = gi.value.trim();
-                    if (sfVal) {
-                        parts.push('**' + sfName + ':** ' + sfVal);
-                    }
-                });
-                description = parts.join('\n');
+                // Check for repeatable group instances
+                const instances = section.querySelectorAll('.area-form-fields .sf-group-instance');
+                if (instances.length > 0) {
+                    // Repeatable group: one item per instance
+                    const totalInstances = instances.length;
+                    instances.forEach((inst, instIdx) => {
+                        const groupInputs = inst.querySelectorAll('.sf-group-input');
+                        const parts = [];
+                        groupInputs.forEach(gi => {
+                            const sfName = gi.dataset.sfName;
+                            const sfVal = gi.value.trim();
+                            if (sfVal) {
+                                parts.push('**' + sfName + ':** ' + sfVal);
+                            }
+                        });
+                        const instDescription = parts.join('\n');
+                        if (!instDescription) return; // skip empty instances
 
-                if (action === 'change') {
-                    const currentEl = section.querySelector('.area-form-fields .sf-current');
-                    currentContent = currentEl ? currentEl.value || null : null;
-                }
+                        let instCurrentContent = null;
+                        if (action === 'change') {
+                            const currentEl = inst.querySelector('.sf-current');
+                            instCurrentContent = currentEl ? currentEl.value || null : null;
+                        }
 
-                if (description) {
-                    items.push({
-                        action_type: action,
-                        content_area: areaName,
-                        description: description,
-                        current_content: currentContent,
-                        files: [],
+                        const instanceLabel = totalInstances > 1 ? areaName + ' #' + (instIdx + 1) : areaName;
+
+                        items.push({
+                            action_type: action,
+                            content_area: instanceLabel,
+                            description: instDescription,
+                            current_content: instCurrentContent,
+                            files: [],
+                        });
                     });
+                } else {
+                    // Non-repeatable group: single item
+                    const groupInputs = section.querySelectorAll('.area-form-fields .sf-group-input');
+                    const parts = [];
+                    groupInputs.forEach(gi => {
+                        const sfName = gi.dataset.sfName;
+                        const sfVal = gi.value.trim();
+                        if (sfVal) {
+                            parts.push('**' + sfName + ':** ' + sfVal);
+                        }
+                    });
+                    description = parts.join('\n');
+
+                    if (action === 'change') {
+                        const currentEl = section.querySelector('.area-form-fields .sf-current');
+                        currentContent = currentEl ? currentEl.value || null : null;
+                    }
+
+                    if (description) {
+                        items.push({
+                            action_type: action,
+                            content_area: areaName,
+                            description: description,
+                            current_content: currentContent,
+                            files: [],
+                        });
+                    }
                 }
             } else if (areaType === 'file') {
                 const uploaded = structuredUploadedFiles[idx] || [];
@@ -1130,11 +1293,26 @@
 
             // Add or Change
             if (type === 'group') {
-                if (isRequired) {
-                    const groupInputs = field.querySelectorAll('.area-form-fields .sf-group-input');
-                    let hasAnyValue = false;
-                    groupInputs.forEach(gi => { if (gi.value.trim()) hasAnyValue = true; });
-                    if (!hasAnyValue) return false;
+                // Check for repeatable group instances
+                const instances = field.querySelectorAll('.area-form-fields .sf-group-instance');
+                if (instances.length > 0) {
+                    // Repeatable group: at least one instance must have content if required
+                    if (isRequired) {
+                        let hasAnyInstanceContent = false;
+                        instances.forEach(inst => {
+                            const groupInputs = inst.querySelectorAll('.sf-group-input');
+                            groupInputs.forEach(gi => { if (gi.value.trim()) hasAnyInstanceContent = true; });
+                        });
+                        if (!hasAnyInstanceContent) return false;
+                    }
+                } else {
+                    // Non-repeatable group
+                    if (isRequired) {
+                        const groupInputs = field.querySelectorAll('.area-form-fields .sf-group-input');
+                        let hasAnyValue = false;
+                        groupInputs.forEach(gi => { if (gi.value.trim()) hasAnyValue = true; });
+                        if (!hasAnyValue) return false;
+                    }
                 }
                 continue;
             }
@@ -1678,21 +1856,8 @@
             if (!saved) return;
             const state = JSON.parse(saved);
 
-            if (state.siteId) {
-                document.getElementById('siteSelect').value = state.siteId;
-                // Restore the visible text from the matching option
-                const matchOpt = document.querySelector(`.site-option[data-value="${state.siteId}"]`);
-                if (matchOpt) document.getElementById('siteSearch').value = matchOpt.dataset.label;
-                loadSitePages(state.siteId, true);
-            }
-
-            if (state.selectedPage) selectedPage = state.selectedPage;
-            if (state.isNewPage) {
-                document.getElementById('isNewPage').checked = true;
-                document.getElementById('newPageFields').classList.remove('hidden');
-                document.getElementById('newPageTitle').value = state.newPageTitle || '';
-                if (state.newPageCpt) document.getElementById('newPageCpt').value = state.newPageCpt;
-            }
+            // Site and page selection are NOT restored — user always starts fresh
+            // to ensure sitemap data is checked for staleness
 
             if (state.hasDeadline) {
                 const radio = document.querySelector(`input[name="has_deadline"][value="${state.hasDeadline}"]`);
