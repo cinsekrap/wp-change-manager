@@ -162,106 +162,113 @@
 
 {{-- Results --}}
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-3 py-3 text-left">
+                <th class="px-3 py-3 text-left w-8">
                     <input type="checkbox" id="selectAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded">
                 </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SLA</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8" title="Assigned"><svg class="w-4 h-4 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority / SLA</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse($requests as $req)
             <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-3 py-4" onclick="event.stopPropagation()">
+                <td class="px-3 py-3" onclick="event.stopPropagation()">
                     <input type="checkbox" class="row-checkbox h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded" value="{{ $req->id }}">
                 </td>
-                <td class="px-4 py-4 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm">{{ $req->reference }}</a>
+                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                    <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
                 </td>
-                <td class="px-4 py-4 text-sm text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
-                <td class="px-4 py-4 text-sm text-gray-600 max-w-[200px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->page_title ?: $req->page_url }}</td>
-                <td class="px-4 py-4 text-sm text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name }}</td>
-                <td class="px-4 py-4 text-sm text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    <div class="flex items-center space-x-2">
-                        <span>{{ $req->items_count }}</span>
+                <td class="px-3 py-3 text-gray-600 max-w-[130px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
+                <td class="px-3 py-3 text-gray-600 max-w-[180px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->page_title ?: $req->page_url }}</td>
+                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name }}</td>
+                <td class="px-3 py-3 text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                    <div class="flex items-center space-x-1.5">
                         @if($req->items_count > 0)
-                        <span class="text-xs {{ $req->items_done_count === $req->items_count ? 'text-emerald-600 font-medium' : 'text-gray-400' }}">{{ $req->items_done_count }}/{{ $req->items_count }}</span>
-                        <div class="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full {{ $req->items_done_count === $req->items_count ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ round(($req->items_done_count / $req->items_count) * 100) }}%"></div>
+                        <span class="text-xs {{ $req->items_done_count === $req->items_count ? 'text-emerald-600 font-medium' : 'text-gray-500' }}">{{ $req->items_done_count }}/{{ $req->items_count }}</span>
+                        <div class="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full {{ $req->items_done_count === $req->items_count ? 'bg-emerald-500' : 'bg-hcrg-burgundy' }}" style="width: {{ round(($req->items_done_count / $req->items_count) * 100) }}%"></div>
                         </div>
+                        @else
+                        <span class="text-xs text-gray-300">0</span>
                         @endif
                     </div>
                 </td>
-                <td class="px-4 py-4 text-sm cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="px-3 py-3 cursor-pointer text-center" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     @if($req->assignee)
-                        <span class="text-gray-700" title="{{ $req->assignee->name }}">{{ explode(' ', $req->assignee->name)[0] }}</span>
-                    @else
-                        <span class="text-gray-300">&mdash;</span>
+                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-xs font-semibold" title="{{ $req->assignee->name }}">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
                     @endif
                 </td>
-                <td class="px-4 py-4 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    @include('admin.partials.priority-badge', ['priority' => $req->priority ?? 'normal'])
+                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                    <div class="flex items-center space-x-1.5">
+                        @include('admin.partials.priority-badge', ['priority' => $req->priority ?? 'normal'])
+                        @if($req->isActive())
+                            @php $slaStatus = $req->slaStatus(); @endphp
+                            @if($slaStatus === 'on_track')
+                                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="On track"></span>
+                            @elseif($slaStatus === 'at_risk')
+                                <span class="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="At risk"></span>
+                            @else
+                                <span class="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0 animate-pulse" title="Overdue"></span>
+                            @endif
+                        @endif
+                    </div>
                 </td>
-                <td class="px-4 py-4 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1">
                         @include('admin.partials.status-badge', ['status' => $req->status])
-                        @foreach($req->tags as $tag)
-                            <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{ $tag->colour }}" title="{{ $tag->name }}"></span>
-                        @endforeach
+                        @if($req->tags->isNotEmpty())
+                            <span class="inline-flex items-center space-x-0.5 ml-0.5">
+                                @foreach($req->tags->take(3) as $tag)
+                                    <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{ $tag->colour }}" title="{{ $tag->name }}"></span>
+                                @endforeach
+                                @if($req->tags->count() > 3)
+                                    <span class="text-[10px] text-gray-400">+{{ $req->tags->count() - 3 }}</span>
+                                @endif
+                            </span>
+                        @endif
                     </div>
                 </td>
-                <td class="px-4 py-4 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    @if($req->isActive())
-                        @php $slaStatus = $req->slaStatus(); @endphp
-                        @if($slaStatus === 'on_track')
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" title="On track"></span>
-                        @elseif($slaStatus === 'at_risk')
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" title="At risk"></span>
-                        @else
-                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500" title="Overdue"></span>
-                        @endif
-                    @endif
-                </td>
-                <td class="px-4 py-4 text-sm text-gray-500 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
+                <td class="px-3 py-3 text-gray-500 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
             </tr>
             @empty
-            <tr><td colspan="11" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
+            <tr><td colspan="10" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 
 <div class="mt-4">{{ $requests->links() }}</div>
 
 {{-- Bulk action bar --}}
-<div id="bulkBar" class="hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+<div id="bulkBar" class="hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-200/60 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <div class="flex items-center space-x-4">
-            <span class="text-sm font-medium text-gray-700"><span id="bulkCount">0</span> request(s) selected</span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full bg-hcrg-burgundy text-white text-sm font-bold"><span id="bulkCount">0</span><span class="ml-1 font-medium">selected</span></span>
             <button type="button" onclick="deselectAll()" class="text-sm text-gray-500 hover:text-gray-700 underline">Deselect all</button>
         </div>
         <div class="flex items-center space-x-3">
             {{-- Change Status --}}
             <div class="relative" id="bulkStatusDropdown">
                 <button type="button" onclick="document.getElementById('bulkStatusMenu').classList.toggle('hidden')"
-                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors">
+                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors shadow-sm">
                     Change Status
                     <svg class="w-3 h-3 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="bulkStatusMenu" class="hidden absolute bottom-full mb-1 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                <div id="bulkStatusMenu" class="hidden absolute bottom-full mb-2 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
-                    <button type="button" onclick="bulkChangeStatus('{{ $status }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <button type="button" onclick="bulkChangeStatus('{{ $status }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         {{ $status === 'requires_referral' ? 'Requires Referral' : ucfirst($status) }}
                     </button>
                     @endforeach
@@ -271,22 +278,22 @@
             {{-- Assign to --}}
             <div class="relative" id="bulkAssignDropdown">
                 <button type="button" onclick="document.getElementById('bulkAssignMenu').classList.toggle('hidden')"
-                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors">
+                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors shadow-sm">
                     Assign to
                     <svg class="w-3 h-3 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div id="bulkAssignMenu" class="hidden absolute bottom-full mb-1 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
-                    <button type="button" onclick="bulkAssign('')" class="block w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50">Unassign</button>
+                <div id="bulkAssignMenu" class="hidden absolute bottom-full mb-2 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1 max-h-60 overflow-y-auto">
+                    <button type="button" onclick="bulkAssign('')" class="block w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 transition-colors">Unassign</button>
                     @foreach($adminUsers as $admin)
-                    <button type="button" onclick="bulkAssign('{{ $admin->id }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">{{ $admin->name }}</button>
+                    <button type="button" onclick="bulkAssign('{{ $admin->id }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">{{ $admin->name }}</button>
                     @endforeach
                 </div>
             </div>
 
             {{-- Export selected --}}
-            <button type="button" onclick="exportSelected()" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">
+            <button type="button" onclick="exportSelected()" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors shadow-sm">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export Selected
+                Export
             </button>
         </div>
     </div>
