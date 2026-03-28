@@ -24,6 +24,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_admin' => 'boolean',
+            'mfa_secret' => 'encrypted',
             'mfa_enabled' => 'boolean',
             'mfa_confirmed_at' => 'datetime',
         ];

@@ -65,9 +65,10 @@ You should receive a response within 48 hours. We will work with you to understa
 ### Data Protection
 
 - **Passwords**: hashed via bcrypt (Laravel's `hashed` cast). Never stored or logged in plaintext
-- **MFA secrets**: stored encrypted in the database, excluded from JSON serialisation via `$hidden`
-- **SMTP credentials**: stored in the database `settings` table. Password field masked in the admin UI
-- **Entra client secret**: stored in the database `settings` table. Same masking pattern
+- **MFA secrets**: encrypted at rest via Laravel's `encrypted` cast (AES-256-CBC using APP_KEY). Excluded from JSON serialisation via `$hidden`
+- **SMTP password**: encrypted at rest in the `settings` table via `Crypt::encryptString()`. Decrypted transparently on read. Masked in the admin UI
+- **Entra client secret**: encrypted at rest in the `settings` table. Same encryption pattern
+- **Backward compatible**: if secrets were stored before encryption was enabled, they are returned as-is without breaking the application. Re-saving them will encrypt them
 - **Session cookies**: `SESSION_SECURE_COOKIE=true` recommended for production (HTTPS-only cookies)
 - **APP_DEBUG**: must be `false` in production to prevent stack traces and environment variables leaking to users
 
