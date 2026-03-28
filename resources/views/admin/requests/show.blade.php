@@ -101,14 +101,14 @@
                 $allDone = $totalItems > 0 && $doneItems === $totalItems;
                 $itemStatusColors = [
                     'pending' => 'bg-gray-400',
-                    'in_progress' => 'bg-blue-500',
+                    'in_progress' => 'bg-hcrg-burgundy',
                     'done' => 'bg-emerald-500',
                     'not_done' => 'bg-red-500',
                     'deferred' => 'bg-amber-500',
                 ];
                 $itemStatusRingColors = [
                     'pending' => 'ring-gray-400',
-                    'in_progress' => 'ring-blue-500',
+                    'in_progress' => 'ring-hcrg-burgundy',
                     'done' => 'ring-emerald-500',
                     'not_done' => 'ring-red-500',
                     'deferred' => 'ring-amber-500',
@@ -128,7 +128,7 @@
                 <div class="flex items-center space-x-3">
                     <span class="text-sm text-gray-500">{{ $doneItems }} of {{ $totalItems }} items completed</span>
                     <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div class="h-full rounded-full {{ $allDone ? 'bg-emerald-500' : 'bg-blue-500' }} transition-all" style="width: {{ round(($doneItems / $totalItems) * 100) }}%"></div>
+                        <div class="h-full rounded-full {{ $allDone ? 'bg-emerald-500' : 'bg-hcrg-burgundy' }} transition-all" style="width: {{ round(($doneItems / $totalItems) * 100) }}%"></div>
                     </div>
                 </div>
                 @endif
@@ -157,7 +157,7 @@
                     $borderColor = match($item->action_type) {
                         'add' => 'border-green-200',
                         'delete' => 'border-red-200',
-                        default => 'border-blue-200',
+                        default => 'border-hcrg-burgundy/20',
                     };
                 @endphp
                 <div class="border {{ $borderColor }} rounded-lg p-4">
@@ -168,7 +168,7 @@
                                 <span class="text-sm font-medium text-gray-500">#{{ $index + 1 }}</span>
                             </span>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                {{ $item->action_type === 'add' ? 'bg-green-100 text-green-800' : ($item->action_type === 'delete' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800') }}">
+                                {{ $item->action_type === 'add' ? 'bg-green-100 text-green-800' : ($item->action_type === 'delete' ? 'bg-red-100 text-red-800' : 'bg-hcrg-burgundy/10 text-hcrg-burgundy') }}">
                                 {{ ucfirst($item->action_type) }}
                             </span>
                             @if($item->content_area)
@@ -399,9 +399,9 @@
                                 'note_added' => 'bg-gray-100 text-gray-700',
                                 'approver_added' => 'bg-green-100 text-green-700',
                                 'approver_removed' => 'bg-red-100 text-red-700',
-                                'approver_updated' => 'bg-blue-100 text-blue-700',
+                                'approver_updated' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
                                 'sent_for_approval' => 'bg-purple-100 text-purple-700',
-                                'item_status_changed' => 'bg-blue-100 text-blue-700',
+                                'item_status_changed' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
                                 'priority_changed' => 'bg-orange-100 text-orange-700',
                             ];
                         @endphp
@@ -418,14 +418,14 @@
     </div>
 
     {{-- Sidebar --}}
-    <div class="space-y-6">
-        {{-- Status update --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Update Status</h2>
+    <div class="space-y-4">
+        {{-- Status + Priority + Assignment combined card --}}
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-900 mb-3">Status & Priority</h2>
             @php $canMovePast = $changeRequest->canMovePastReferred(); @endphp
             <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}" id="statusForm">
                 @csrf @method('PATCH')
-                <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
                         @php $blocked = !$canMovePast && in_array($status, ['approved', 'scheduled', 'done']); @endphp
                         <option value="{{ $status }}" {{ $changeRequest->status === $status ? 'selected' : '' }} {{ $blocked ? 'disabled' : '' }}>
@@ -433,12 +433,12 @@
                         </option>
                     @endforeach
                 </select>
-                <div id="reasonField" class="hidden mb-3">
-                    <textarea name="rejection_reason" rows="3" placeholder="Reason (required)..."
+                <div id="reasonField" class="hidden mb-2">
+                    <textarea name="rejection_reason" rows="2" placeholder="Reason (required)..."
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('rejection_reason') }}</textarea>
                     @error('rejection_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
-                <button type="submit" class="w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Update</button>
+                <button type="submit" class="w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Update Status</button>
             </form>
             <script>
             function toggleReasonField() {
@@ -450,8 +450,8 @@
             </script>
 
             @if($changeRequest->rejection_reason && in_array($changeRequest->status, ['declined', 'cancelled']))
-            <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-xs font-medium text-red-700 mb-1">Reason</p>
+            <div class="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                <p class="text-xs font-medium text-red-700 mb-0.5">Reason</p>
                 <p class="text-sm text-red-800">{{ $changeRequest->rejection_reason }}</p>
             </div>
             @endif
@@ -479,54 +479,54 @@
                     </div>
                 @endif
             @endif
-        </div>
 
-        {{-- Assignment --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Assignment</h2>
-            @if($changeRequest->assignee)
-                <div class="flex items-center space-x-2 mb-3">
-                    <div class="w-8 h-8 rounded-full bg-hcrg-burgundy text-white flex items-center justify-center text-sm font-medium flex-shrink-0">
-                        {{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}
-                    </div>
-                    <span class="text-sm font-medium text-gray-900">{{ $changeRequest->assignee->name }}</span>
+            {{-- Priority --}}
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-gray-500">Priority</span>
+                    @include('admin.partials.priority-badge', ['priority' => $changeRequest->priority ?? 'normal'])
                 </div>
-            @else
-                <p class="text-sm text-gray-400 mb-3">Unassigned</p>
-            @endif
-            <form method="POST" action="{{ route('admin.requests.assign', $changeRequest) }}">
-                @csrf @method('PATCH')
-                <select name="assigned_to" onchange="this.form.submit()"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-                    <option value="">Unassigned</option>
-                    @foreach($adminUsers as $admin)
-                        <option value="{{ $admin->id }}" {{ $changeRequest->assigned_to == $admin->id ? 'selected' : '' }}>{{ $admin->name }}</option>
-                    @endforeach
-                </select>
-            </form>
-        </div>
-
-        {{-- Priority --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Priority</h2>
-            <div class="mb-3">
-                @include('admin.partials.priority-badge', ['priority' => $changeRequest->priority ?? 'normal'])
+                <form method="POST" action="{{ route('admin.requests.priority', $changeRequest) }}">
+                    @csrf @method('PATCH')
+                    <select name="priority" onchange="this.form.submit()"
+                        class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        @foreach(\App\Models\ChangeRequest::PRIORITIES as $p)
+                            <option value="{{ $p }}" {{ ($changeRequest->priority ?? 'normal') === $p ? 'selected' : '' }}>{{ ucfirst($p) }}</option>
+                        @endforeach
+                    </select>
+                </form>
             </div>
-            <form method="POST" action="{{ route('admin.requests.priority', $changeRequest) }}">
-                @csrf @method('PATCH')
-                <select name="priority" onchange="this.form.submit()"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-                    @foreach(\App\Models\ChangeRequest::PRIORITIES as $p)
-                        <option value="{{ $p }}" {{ ($changeRequest->priority ?? 'normal') === $p ? 'selected' : '' }}>{{ ucfirst($p) }}</option>
-                    @endforeach
-                </select>
-            </form>
+
+            {{-- Assignment inline --}}
+            <div class="mt-3 pt-3 border-t border-gray-100">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-gray-500">Assigned to</span>
+                    @if($changeRequest->assignee)
+                        <div class="flex items-center space-x-1.5">
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-hcrg-burgundy text-white text-[10px] font-semibold flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
+                            <span class="text-xs font-medium text-gray-700">{{ $changeRequest->assignee->name }}</span>
+                        </div>
+                    @else
+                        <span class="text-xs text-gray-400">Unassigned</span>
+                    @endif
+                </div>
+                <form method="POST" action="{{ route('admin.requests.assign', $changeRequest) }}">
+                    @csrf @method('PATCH')
+                    <select name="assigned_to" onchange="this.form.submit()"
+                        class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        <option value="">Unassigned</option>
+                        @foreach($adminUsers as $admin)
+                            <option value="{{ $admin->id }}" {{ $changeRequest->assigned_to == $admin->id ? 'selected' : '' }}>{{ $admin->name }}</option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
         </div>
 
         {{-- Approvals --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-semibold text-gray-900">Approvals</h2>
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold text-gray-900">Approvals</h2>
                 @if($changeRequest->approvers->isNotEmpty())
                     @if($changeRequest->approvalsAllApproved())
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">All approved</span>
@@ -616,8 +616,8 @@
         </div>
 
         {{-- Tags --}}
-        <div class="bg-white rounded-lg shadow p-6" id="tagsSection">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Tags</h2>
+        <div class="bg-white rounded-lg shadow p-4" id="tagsSection">
+            <h2 class="text-sm font-semibold text-gray-900 mb-2">Tags</h2>
             <div id="tagsList" class="flex flex-wrap gap-1.5 mb-3">
                 @foreach($changeRequest->tags as $tag)
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white tag-pill" style="background-color: {{ $tag->colour }}" data-tag-id="{{ $tag->id }}">
@@ -722,22 +722,22 @@
         </script>
 
         {{-- Quick links --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Quick Links</h2>
-            <div class="space-y-2">
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-900 mb-2">Quick Links</h2>
+            <div class="space-y-1">
                 @if(!$changeRequest->is_new_page)
-                    <a href="{{ $changeRequest->page_url }}" target="_blank" class="flex items-center w-full px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-gray-100">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    <a href="{{ $changeRequest->page_url }}" target="_blank" class="flex items-center w-full px-2.5 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-xs hover:bg-gray-100 transition-colors">
+                        <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                         View page
                     </a>
                 @endif
                 @if($changeRequest->site)
-                    <a href="https://{{ $changeRequest->site->domain }}/wp-admin" target="_blank" class="flex items-center w-full px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-gray-100">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Site admin (wp-admin)
+                    <a href="https://{{ $changeRequest->site->domain }}/wp-admin" target="_blank" class="flex items-center w-full px-2.5 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-xs hover:bg-gray-100 transition-colors">
+                        <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        wp-admin
                     </a>
-                    <a href="https://{{ $changeRequest->site->domain }}" target="_blank" class="flex items-center w-full px-3 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-gray-100">
-                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
+                    <a href="https://{{ $changeRequest->site->domain }}" target="_blank" class="flex items-center w-full px-2.5 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-xs hover:bg-gray-100 transition-colors">
+                        <svg class="w-3.5 h-3.5 mr-1.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
                         View site
                     </a>
                 @endif
@@ -745,8 +745,8 @@
         </div>
         {{-- Page history --}}
         @if($pageHistory->isNotEmpty())
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Page History</h2>
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-sm font-semibold text-gray-900 mb-2">Page History</h2>
             <div class="space-y-2">
                 @foreach($pageHistory as $prev)
                 <a href="{{ route('admin.requests.show', $prev) }}" class="block px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100">
