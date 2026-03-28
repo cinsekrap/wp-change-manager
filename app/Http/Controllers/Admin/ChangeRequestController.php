@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ApprovalRequested;
+use App\Mail\RequestAssigned;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
@@ -11,6 +12,7 @@ use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\Site;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -20,14 +22,18 @@ class ChangeRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->applyFilters($request, ChangeRequest::with('site')->withCount('items')->withCount(['items as items_done_count' => function ($q) {
+        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'assignee'])->withCount('items')->withCount(['items as items_done_count' => function ($q) {
             $q->where('status', 'done');
         }]));
 
         $requests = $query->latest()->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
+        $adminUsers = User::where('is_active', true)
+            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
+            ->orderBy('name')
+            ->get();
 
-        return view('admin.requests.index', compact('requests', 'sites'));
+        return view('admin.requests.index', compact('requests', 'sites', 'adminUsers'));
     }
 
     public function export(Request $request): StreamedResponse
@@ -73,7 +79,7 @@ class ChangeRequestController extends Controller
 
     public function show(ChangeRequest $changeRequest)
     {
-        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser']);
+        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee']);
 
         $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
             ->where('site_id', $changeRequest->site_id)
@@ -121,7 +127,12 @@ class ChangeRequestController extends Controller
 
         $activities = $activities->sortBy('date');
 
-        return view('admin.requests.show', compact('changeRequest', 'pageHistory', 'activities'));
+        $adminUsers = User::where('is_active', true)
+            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.requests.show', compact('changeRequest', 'pageHistory', 'activities', 'adminUsers'));
     }
 
     public function updateStatus(Request $request, ChangeRequest $changeRequest)
@@ -371,6 +382,39 @@ class ChangeRequestController extends Controller
         return back()->with('success', 'Item status updated.');
     }
 
+    public function updateAssignment(Request $request, ChangeRequest $changeRequest)
+    {
+        $request->validate([
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
+
+        $oldAssigneeId = $changeRequest->assigned_to;
+        $newAssigneeId = $request->assigned_to ?: null;
+
+        $changeRequest->update(['assigned_to' => $newAssigneeId]);
+
+        // Log assignment change as a note
+        if ($newAssigneeId) {
+            $assignee = User::find($newAssigneeId);
+            $changeRequest->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => 'Assigned to ' . $assignee->name,
+            ]);
+
+            // Send email notification if assigned to someone else
+            if ((int) $newAssigneeId !== auth()->id()) {
+                Mail::to($assignee->email)->queue(new RequestAssigned($changeRequest, $assignee));
+            }
+        } else {
+            $changeRequest->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => 'Unassigned',
+            ]);
+        }
+
+        return back()->with('success', 'Assignment updated.');
+    }
+
     private function applyFilters(Request $request, $query)
     {
         if ($request->filled('status')) {
@@ -399,6 +443,18 @@ class ChangeRequestController extends Controller
 
         if ($request->filled('date_to')) {
             $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('my_requests')) {
+            $query->where('assigned_to', auth()->id());
+        }
+
+        if ($request->filled('assigned_to')) {
+            if ($request->assigned_to === 'unassigned') {
+                $query->whereNull('assigned_to');
+            } else {
+                $query->where('assigned_to', $request->assigned_to);
+            }
         }
 
         return $query;

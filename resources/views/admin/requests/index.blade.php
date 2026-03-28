@@ -7,11 +7,29 @@
 @php
     $selectedStatuses = (array) request('status', []);
     $selectedSites = (array) request('site_id', []);
+    $myRequestsActive = request('my_requests');
 @endphp
+
+{{-- My Requests toggle --}}
+<div class="mb-4">
+    @php
+        $myParams = array_merge(request()->query(), ['my_requests' => 1]);
+        $allParams = request()->except('my_requests');
+    @endphp
+    <a href="{{ route('admin.requests.index', $allParams) }}"
+        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ !$myRequestsActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+        All Requests
+    </a>
+    <a href="{{ route('admin.requests.index', $myParams) }}"
+        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ $myRequestsActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+        My Requests
+    </a>
+</div>
 
 {{-- Filters --}}
 <form method="GET" action="{{ route('admin.requests.index') }}" class="bg-white rounded-lg shadow p-4 mb-6" id="filterForm">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    @if($myRequestsActive)<input type="hidden" name="my_requests" value="1">@endif
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Reference, name, email..."
@@ -60,6 +78,19 @@
             </div>
         </div>
 
+        {{-- Assigned to dropdown --}}
+        <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Assigned to</label>
+            <select name="assigned_to" onchange="this.form.submit()"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <option value="">All</option>
+                <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
+                @foreach($adminUsers as $admin)
+                    <option value="{{ $admin->id }}" {{ request('assigned_to') == $admin->id ? 'selected' : '' }}>{{ $admin->name }}</option>
+                @endforeach
+            </select>
+        </div>
+
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
             <input type="date" name="date_from" value="{{ request('date_from') }}"
@@ -75,7 +106,7 @@
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Export CSV
             </a>
-            @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || request('date_from') || request('date_to'))
+            @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests'))
                 <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700 py-2 flex-shrink-0">Clear</a>
             @endif
         </div>
@@ -92,6 +123,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Page</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
             </tr>
@@ -116,13 +148,20 @@
                         @endif
                     </div>
                 </td>
+                <td class="px-6 py-4 text-sm">
+                    @if($req->assignee)
+                        <span class="text-gray-700" title="{{ $req->assignee->name }}">{{ explode(' ', $req->assignee->name)[0] }}</span>
+                    @else
+                        <span class="text-gray-300">&mdash;</span>
+                    @endif
+                </td>
                 <td class="px-6 py-4">
                     @include('admin.partials.status-badge', ['status' => $req->status])
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-500">{{ $req->created_at->format('d M Y') }}</td>
             </tr>
             @empty
-            <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
+            <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
             @endforelse
         </tbody>
     </table>
