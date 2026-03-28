@@ -71,6 +71,10 @@
                 <input type="date" name="date_to" value="{{ request('date_to') }}"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
             </div>
+            <a href="{{ route('admin.requests.export', request()->query()) }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors flex-shrink-0">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Export CSV
+            </a>
             @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || request('date_from') || request('date_to'))
                 <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700 py-2 flex-shrink-0">Clear</a>
             @endif
@@ -101,7 +105,17 @@
                 <td class="px-6 py-4 text-sm text-gray-600 max-w-[150px] truncate">{{ $req->site->name ?? '—' }}</td>
                 <td class="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">{{ $req->page_title ?: $req->page_url }}</td>
                 <td class="px-6 py-4 text-sm text-gray-600">{{ $req->requester_name }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $req->items_count }}</td>
+                <td class="px-6 py-4 text-sm text-gray-600">
+                    <div class="flex items-center space-x-2">
+                        <span>{{ $req->items_count }}</span>
+                        @if($req->items_count > 0)
+                        <span class="text-xs {{ $req->items_done_count === $req->items_count ? 'text-emerald-600 font-medium' : 'text-gray-400' }}">{{ $req->items_done_count }}/{{ $req->items_count }}</span>
+                        <div class="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full {{ $req->items_done_count === $req->items_count ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ round(($req->items_done_count / $req->items_count) * 100) }}%"></div>
+                        </div>
+                        @endif
+                    </div>
+                </td>
                 <td class="px-6 py-4">
                     @include('admin.partials.status-badge', ['status' => $req->status])
                 </td>
