@@ -111,4 +111,71 @@ class SettingsController extends Controller
 
         return $mailable->render();
     }
+
+    /**
+     * Show the email template editor.
+     */
+    public function emailTemplates()
+    {
+        $defaults = config('email-templates');
+        $templates = [];
+
+        foreach ($defaults as $key => $tpl) {
+            $templates[$key] = [
+                'name' => $tpl['name'],
+                'description' => $tpl['description'],
+                'placeholders' => $tpl['placeholders'],
+                'default_subject' => $tpl['subject'],
+                'default_body' => $tpl['body'],
+                'subject' => Setting::get("email_{$key}_subject") ?? '',
+                'body' => Setting::get("email_{$key}_body") ?? '',
+            ];
+        }
+
+        return view('admin.settings.email-templates', compact('templates'));
+    }
+
+    /**
+     * Save custom email template content.
+     */
+    public function updateEmailTemplates(Request $request)
+    {
+        $defaults = config('email-templates');
+
+        foreach (array_keys($defaults) as $key) {
+            $subject = $request->input("templates.{$key}.subject");
+            $body = $request->input("templates.{$key}.body");
+
+            // Only store if different from default (or if explicitly provided)
+            if ($subject !== null && $subject !== '') {
+                Setting::set("email_{$key}_subject", $subject);
+            } else {
+                Setting::where('key', "email_{$key}_subject")->delete();
+            }
+
+            if ($body !== null && $body !== '') {
+                Setting::set("email_{$key}_body", $body);
+            } else {
+                Setting::where('key', "email_{$key}_body")->delete();
+            }
+        }
+
+        return redirect()->route('admin.settings.email-templates')->with('success', 'Email templates saved.');
+    }
+
+    /**
+     * Reset a single email template to its defaults.
+     */
+    public function resetEmailTemplate(Request $request)
+    {
+        $request->validate([
+            'template' => 'required|string|in:' . implode(',', array_keys(config('email-templates'))),
+        ]);
+
+        $key = $request->input('template');
+        Setting::where('key', "email_{$key}_subject")->delete();
+        Setting::where('key', "email_{$key}_body")->delete();
+
+        return redirect()->route('admin.settings.email-templates')->with('success', 'Template "' . config("email-templates.{$key}.name") . '" reset to default.');
+    }
 }

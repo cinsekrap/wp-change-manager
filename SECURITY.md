@@ -29,7 +29,7 @@ You should receive a response within 48 hours. We will work with you to understa
 - **Admin panel** is protected by three middleware layers: `auth` (session), `admin` (role check), `mfa` (TOTP verification)
 - **TOTP MFA** is mandatory for all password-login admin users. Setup is forced on first login. Uses industry-standard TOTP (RFC 6238), compatible with Google Authenticator, Microsoft Authenticator, and similar apps
 - **Microsoft Entra SSO** is supported as an alternative login method. SSO users bypass TOTP (Microsoft handles their MFA). SSO is configured via the admin panel, not hardcoded
-- **Role separation**: `is_admin` flag controls admin panel access. SSO-provisioned users default to non-admin and must be promoted by an existing admin
+- **Role separation**: `role` column controls admin panel access (`super_admin`, `editor`, or `null`). SSO-provisioned users default to no admin access and must be promoted by a super admin
 - **Password policy**: minimum 10 characters, mixed case, numbers required
 - **Login rate limiting**: 5 attempts per minute
 - **MFA challenge rate limiting**: 5 attempts per minute

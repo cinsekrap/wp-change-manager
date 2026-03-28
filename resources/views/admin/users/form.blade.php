@@ -45,12 +45,17 @@
                     class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
                 <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
             </div>
-            <div class="flex items-center">
-                <input type="hidden" name="is_admin" value="0">
-                <input type="checkbox" name="is_admin" id="is_admin" value="1" {{ old('is_admin', $user->is_admin ?? true) ? 'checked' : '' }}
-                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-                <label for="is_admin" class="ml-2 text-sm text-gray-700">Admin access</label>
-            </div>
+        </div>
+
+        <div>
+            <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select name="role" id="role"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <option value="" {{ old('role', $user->role) === null ? 'selected' : '' }}>No admin access</option>
+                <option value="editor" {{ old('role', $user->role) === 'editor' ? 'selected' : '' }}>Editor</option>
+                <option value="super_admin" {{ old('role', $user->role) === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
+            </select>
+            @error('role') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div class="flex items-center space-x-3 pt-4">

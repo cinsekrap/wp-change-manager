@@ -25,7 +25,8 @@
                             Requests
                         </a>
 
-                        {{-- Configuration dropdown --}}
+                        @if(auth()->user()->isSuperAdmin())
+                        {{-- Configuration dropdown (super admin only) --}}
                         <div class="relative" id="configDropdown">
                             <button type="button" onclick="document.getElementById('configMenu').classList.toggle('hidden')"
                                 class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ $isConfig ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/10' }}">
@@ -50,6 +51,10 @@
                                     <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                     Mail Settings
                                 </a>
+                                <a href="{{ route('admin.settings.email-templates') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.settings.email-templates*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    Email Templates
+                                </a>
                                 <a href="{{ route('admin.settings.entra') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.settings.entra*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
                                     <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
                                     SSO Settings
@@ -65,6 +70,7 @@
                                 </a>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </div>
                 <div class="relative" id="userDropdown">

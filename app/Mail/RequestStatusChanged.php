@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\ChangeRequest;
+use App\Models\Setting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -22,16 +23,21 @@ class RequestStatusChanged extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $label = ucfirst(str_replace('_', ' ', $this->newStatus));
+        $this->changeRequest->loadMissing(['site', 'items']);
+
+        $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
 
         return new Envelope(
-            subject: "Change Request {$this->changeRequest->reference} — {$label}",
+            subject: $emailContent['subject'],
         );
     }
 
     public function content(): Content
     {
         $this->changeRequest->loadMissing(['site', 'items']);
+
+        $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
+        $defaults = config('email-templates.status_changed');
 
         return new Content(
             view: 'emails.request-status-changed',
@@ -46,7 +52,21 @@ class RequestStatusChanged extends Mailable implements ShouldQueue
                 'newStatus' => ucfirst(str_replace('_', ' ', $this->newStatus)),
                 'rejectionReason' => $this->changeRequest->rejection_reason,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
+                'customBody' => Setting::get('email_status_changed_body') ? $emailContent['body'] : null,
+                'defaultBody' => $defaults['body'],
             ],
         );
+    }
+
+    protected function placeholderValues(): array
+    {
+        return [
+            'reference' => $this->changeRequest->reference,
+            'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
+            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'old_status' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
+            'new_status' => ucfirst(str_replace('_', ' ', $this->newStatus)),
+            'rejection_reason' => $this->changeRequest->rejection_reason ?? '',
+        ];
     }
 }
