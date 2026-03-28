@@ -11,7 +11,7 @@
 @endif
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500">New Requests</div>
         <div class="text-3xl font-bold text-amber-600 mt-1">{{ $stats['requested'] }}</div>
@@ -23,6 +23,10 @@
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500">Completed</div>
         <div class="text-3xl font-bold text-emerald-600 mt-1">{{ $stats['done'] }}</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="text-sm font-medium text-gray-500">Overdue</div>
+        <div class="text-3xl font-bold text-red-600 mt-1">{{ $stats['overdue'] }}</div>
     </div>
     <div class="bg-white rounded-lg shadow p-6">
         <div class="text-sm font-medium text-gray-500">Active Sites</div>

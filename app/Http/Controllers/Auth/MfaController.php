@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\AuditService;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -91,6 +92,12 @@ class MfaController extends Controller
             'mfa_confirmed_at' => now(),
         ]);
 
+        AuditService::log(
+            action: 'mfa_setup',
+            model: $request->user(),
+            description: 'MFA setup completed for: ' . $request->user()->email,
+        );
+
         // Mark MFA as verified for this session
         $request->session()->put('mfa_verified', true);
         $request->session()->forget('mfa_setup_secret');
@@ -155,6 +162,12 @@ class MfaController extends Controller
             'mfa_enabled' => false,
             'mfa_confirmed_at' => null,
         ]);
+
+        AuditService::log(
+            action: 'mfa_disabled',
+            model: $request->user(),
+            description: 'MFA disabled by user: ' . $request->user()->email,
+        );
 
         return back()->with('success', 'Two-factor authentication has been disabled. You will be asked to set it up again on your next login.');
     }

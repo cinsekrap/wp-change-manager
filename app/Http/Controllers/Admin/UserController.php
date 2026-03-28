@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,7 +25,14 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request)
     {
-        User::create($request->validated());
+        $user = User::create($request->validated());
+
+        AuditService::log(
+            action: 'created',
+            model: $user,
+            description: "Created user: {$user->name} ({$user->email})",
+            newValues: ['name' => $user->name, 'email' => $user->email, 'role' => $user->role],
+        );
 
         return redirect()->route('admin.users.index')->with('success', 'User created.');
     }
@@ -36,7 +44,17 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user)
     {
+        $oldValues = $user->only(['name', 'email', 'role', 'is_active']);
         $user->update($request->validated());
+        $newValues = $user->only(['name', 'email', 'role', 'is_active']);
+
+        AuditService::log(
+            action: 'updated',
+            model: $user,
+            description: "Updated user: {$user->name} ({$user->email})",
+            oldValues: $oldValues,
+            newValues: $newValues,
+        );
 
         return redirect()->route('admin.users.index')->with('success', 'User updated.');
     }
@@ -47,7 +65,17 @@ class UserController extends Controller
             return back()->with('error', 'You cannot delete your own account.');
         }
 
+        $userName = $user->name;
+        $userEmail = $user->email;
         $user->delete();
+
+        AuditService::log(
+            action: 'deleted',
+            model: $user,
+            description: "Deleted user: {$userName} ({$userEmail})",
+            oldValues: ['name' => $userName, 'email' => $userEmail],
+        );
+
         return redirect()->route('admin.users.index')->with('success', 'User deleted.');
     }
 
@@ -67,6 +95,12 @@ class UserController extends Controller
             'password' => $request->password,
         ]);
 
+        AuditService::log(
+            action: 'password_changed',
+            model: auth()->user(),
+            description: 'Changed own password',
+        );
+
         return back()->with('success', 'Password updated.');
     }
 
@@ -77,6 +111,12 @@ class UserController extends Controller
             'mfa_enabled' => false,
             'mfa_confirmed_at' => null,
         ]);
+
+        AuditService::log(
+            action: 'mfa_reset',
+            model: $user,
+            description: "Reset MFA for user: {$user->name} ({$user->email})",
+        );
 
         return back()->with('success', 'Two-factor authentication has been reset for ' . $user->name . '. They will be required to set it up again on their next login.');
     }

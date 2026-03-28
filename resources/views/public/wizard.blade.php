@@ -189,6 +189,30 @@
                 <input type="text" id="requesterRole"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
             </div>
+
+            {{-- Priority selector --}}
+            <div class="mt-2 p-4 bg-gray-50 rounded-lg">
+                <label class="block text-sm font-medium text-gray-700 mb-1">How urgent is this?</label>
+                <p class="text-xs text-gray-400 mb-3">This helps us prioritise your request. If you're unsure, leave it as Normal.</p>
+                <div class="space-y-2">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="priority" value="low" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <span class="text-sm text-gray-700"><strong>Low</strong> — No rush</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="priority" value="normal" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300" checked>
+                        <span class="text-sm text-gray-700"><strong>Normal</strong> — Standard turnaround</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="priority" value="high" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <span class="text-sm text-gray-700"><strong>High</strong> — Needed soon</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="priority" value="urgent" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <span class="text-sm text-gray-700"><strong>Urgent</strong> — Critical &mdash; blocking other work</span>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1523,6 +1547,7 @@
             <p class="text-sm text-gray-600">${esc(document.getElementById('requesterEmail').value)}</p>
             ${document.getElementById('requesterPhone').value ? `<p class="text-sm text-gray-600">${esc(document.getElementById('requesterPhone').value)}</p>` : ''}
             ${document.getElementById('requesterRole').value ? `<p class="text-sm text-gray-600">${esc(document.getElementById('requesterRole').value)}</p>` : ''}
+            <p class="text-sm text-gray-600">Priority: <strong>${esc((document.querySelector('input[name="priority"]:checked')?.value || 'normal').charAt(0).toUpperCase() + (document.querySelector('input[name="priority"]:checked')?.value || 'normal').slice(1))}</strong></p>
         </div>`;
 
         container.innerHTML = html;
@@ -1584,6 +1609,7 @@
             requester_email: document.getElementById('requesterEmail').value,
             requester_phone: document.getElementById('requesterPhone').value || null,
             requester_role: document.getElementById('requesterRole').value || null,
+            priority: document.querySelector('input[name="priority"]:checked')?.value || 'normal',
             check_answers: checkAnswers,
             deadline_date: document.querySelector('input[name="has_deadline"]:checked')?.value === 'yes' ? document.getElementById('deadlineDate').value : null,
             deadline_reason: document.querySelector('input[name="has_deadline"]:checked')?.value === 'yes' ? document.getElementById('deadlineReason').value : null,
@@ -1638,6 +1664,7 @@
                 requesterEmail: document.getElementById('requesterEmail').value,
                 requesterPhone: document.getElementById('requesterPhone').value,
                 requesterRole: document.getElementById('requesterRole').value,
+                priority: document.querySelector('input[name="priority"]:checked')?.value || 'normal',
             };
             sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {}
@@ -1679,6 +1706,11 @@
             document.getElementById('requesterEmail').value = state.requesterEmail || '';
             document.getElementById('requesterPhone').value = state.requesterPhone || '';
             document.getElementById('requesterRole').value = state.requesterRole || '';
+
+            if (state.priority) {
+                const priorityRadio = document.querySelector(`input[name="priority"][value="${state.priority}"]`);
+                if (priorityRadio) priorityRadio.checked = true;
+            }
         } catch (e) {}
     }
 

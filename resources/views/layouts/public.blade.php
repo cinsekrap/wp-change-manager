@@ -27,7 +27,7 @@
 
     <footer class="bg-hcrg-burgundy text-white mt-12">
         <div class="max-w-3xl mx-auto px-4 py-8 text-center text-sm">
-            &copy; {{ date('Y') }} HCRG Care Group
+            &copy; {{ date('Y') }} Nic Parkes
         </div>
     </footer>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 
 class EntraSettingsController extends Controller
@@ -46,6 +47,15 @@ class EntraSettingsController extends Controller
         if (! empty($validated['entra_client_secret'])) {
             Setting::set('entra_client_secret', $validated['entra_client_secret']);
         }
+
+        AuditService::log(
+            action: 'updated',
+            description: 'Updated SSO settings',
+            newValues: [
+                'entra_enabled' => $request->boolean('entra_enabled'),
+                'entra_auto_provision' => $request->boolean('entra_auto_provision'),
+            ],
+        );
 
         return redirect()->route('admin.settings.entra')->with('success', 'SSO settings saved.');
     }

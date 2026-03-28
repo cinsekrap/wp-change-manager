@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
@@ -65,6 +66,13 @@ class EntraController extends Controller
                     'provider_id' => $microsoftUser->getId(),
                     'is_active'   => true,
                 ]);
+
+                AuditService::log(
+                    action: 'auto_provisioned',
+                    model: $user,
+                    description: "User auto-provisioned via SSO: {$user->name} ({$user->email})",
+                    newValues: ['name' => $user->name, 'email' => $user->email],
+                );
             } else {
                 return redirect()->route('login')->withErrors([
                     'email' => 'No account found for this Microsoft account. Please contact an administrator.',
@@ -81,6 +89,12 @@ class EntraController extends Controller
 
         Auth::login($user);
         request()->session()->regenerate();
+
+        AuditService::log(
+            action: 'sso_login',
+            model: $user,
+            description: "SSO login: {$user->email}",
+        );
 
         if ($user->isAdmin()) {
             return redirect()->intended(route('admin.dashboard'));
