@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ChangeRequest;
 use App\Models\Site;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
@@ -18,11 +19,31 @@ class DashboardController extends Controller
             'sites' => Site::active()->count(),
         ];
 
+        // Chart 1: Requests by status
+        $statusCounts = ChangeRequest::selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        // Chart 2: Requests by month (last 6 months)
+        $sixMonthsAgo = Carbon::now()->subMonths(5)->startOfMonth();
+        $monthlyRaw = ChangeRequest::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, count(*) as total")
+            ->where('created_at', '>=', $sixMonthsAgo)
+            ->groupBy('month')
+            ->orderBy('month')
+            ->pluck('total', 'month');
+
+        // Fill in missing months with zero
+        $monthlyCounts = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $month = Carbon::now()->subMonths($i)->format('Y-m');
+            $monthlyCounts[$month] = $monthlyRaw[$month] ?? 0;
+        }
+
         $recent = ChangeRequest::with('site')
             ->latest()
             ->take(10)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'recent'));
+        return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts'));
     }
 }

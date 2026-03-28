@@ -75,6 +75,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
 
     // Change requests
+    Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
     Route::get('/requests', [ChangeRequestController::class, 'index'])->name('admin.requests.index');
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
@@ -83,6 +84,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::post('/requests/{changeRequest}/approvers', [ChangeRequestController::class, 'addApprover'])->name('admin.requests.approvers.add');
     Route::patch('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'updateApprover'])->name('admin.requests.approvers.update');
     Route::delete('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
+    Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
     Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
 
     // Sites

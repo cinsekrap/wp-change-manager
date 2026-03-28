@@ -7,51 +7,68 @@ use App\Mail\ApprovalRequested;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
+use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChangeRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = ChangeRequest::with('site')->withCount('items');
-
-        if ($request->filled('status')) {
-            $statuses = (array) $request->status;
-            $query->whereIn('status', $statuses);
-        }
-
-        if ($request->filled('site_id')) {
-            $siteIds = (array) $request->site_id;
-            $query->whereIn('site_id', $siteIds);
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('reference', 'like', "%{$search}%")
-                  ->orWhere('requester_name', 'like', "%{$search}%")
-                  ->orWhere('requester_email', 'like', "%{$search}%")
-                  ->orWhere('page_url', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
+        $query = $this->applyFilters($request, ChangeRequest::with('site')->withCount('items')->withCount(['items as items_done_count' => function ($q) {
+            $q->where('status', 'done');
+        }]));
 
         $requests = $query->latest()->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
 
         return view('admin.requests.index', compact('requests', 'sites'));
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $query = $this->applyFilters($request, ChangeRequest::with('site')->withCount('items'));
+        $query->latest();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="change-requests-' . now()->format('Y-m-d') . '.csv"',
+        ];
+
+        return new StreamedResponse(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Reference', 'Site', 'Page', 'Content Type', 'Requester Name',
+                'Requester Email', 'Requester Role', 'Status', 'Items Count',
+                'Deadline', 'Submitted Date',
+            ]);
+
+            $query->chunk(500, function ($rows) use ($handle) {
+                foreach ($rows as $row) {
+                    fputcsv($handle, [
+                        $row->reference,
+                        $row->site->name ?? '',
+                        $row->page_title ?: $row->page_url,
+                        $row->cpt_slug ?? '',
+                        $row->requester_name,
+                        $row->requester_email,
+                        $row->requester_role ?? '',
+                        $row->status,
+                        $row->items_count,
+                        $row->deadline_date?->format('Y-m-d') ?? '',
+                        $row->created_at->format('Y-m-d H:i'),
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        }, 200, $headers);
     }
 
     public function show(ChangeRequest $changeRequest)
@@ -333,5 +350,57 @@ class ChangeRequestController extends Controller
         }
 
         return Storage::disk('local')->download($file->stored_path, $file->original_filename);
+    }
+
+    public function updateItemStatus(Request $request, ChangeRequest $changeRequest, ChangeRequestItem $item)
+    {
+        abort_unless($item->change_request_id === $changeRequest->id, 404);
+
+        $request->validate([
+            'status' => 'required|in:' . implode(',', ChangeRequestItem::STATUSES),
+        ]);
+
+        $item->update(['status' => $request->status]);
+
+        $statusLabel = str_replace('_', ' ', $request->status);
+        $changeRequest->notes()->create([
+            'user_id' => auth()->id(),
+            'note' => "Item #{$item->sort_order} ({$item->content_area}) marked as {$statusLabel}",
+        ]);
+
+        return back()->with('success', 'Item status updated.');
+    }
+
+    private function applyFilters(Request $request, $query)
+    {
+        if ($request->filled('status')) {
+            $statuses = (array) $request->status;
+            $query->whereIn('status', $statuses);
+        }
+
+        if ($request->filled('site_id')) {
+            $siteIds = (array) $request->site_id;
+            $query->whereIn('site_id', $siteIds);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('reference', 'like', "%{$search}%")
+                  ->orWhere('requester_name', 'like', "%{$search}%")
+                  ->orWhere('requester_email', 'like', "%{$search}%")
+                  ->orWhere('page_url', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        return $query;
     }
 }
