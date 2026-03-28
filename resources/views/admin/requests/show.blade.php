@@ -7,7 +7,8 @@
         <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to requests</a>
         <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ $changeRequest->reference }}</h1>
     </div>
-    <div>
+    <div class="flex items-center space-x-2">
+        @include('admin.partials.priority-badge', ['priority' => $changeRequest->priority ?? 'normal'])
         @include('admin.partials.status-badge', ['status' => $changeRequest->status])
     </div>
 </div>
@@ -44,6 +45,28 @@
             <div class="mt-1 text-sm">
                 <span class="text-gray-500">Deadline reason:</span>
                 <span class="text-gray-700 ml-1">{{ $changeRequest->deadline_reason }}</span>
+            </div>
+            @endif
+
+            @if($changeRequest->isActive())
+            @php
+                $slaStatus = $changeRequest->slaStatus();
+                $slaHoursRemaining = $changeRequest->slaRemainingHours();
+                $slaColors = [
+                    'on_track' => 'text-emerald-600',
+                    'at_risk' => 'text-amber-600',
+                    'overdue' => 'text-red-600',
+                ];
+            @endphp
+            <div class="mt-2 text-sm flex items-center gap-x-2">
+                <span class="text-gray-500">SLA:</span>
+                @if($slaStatus === 'overdue')
+                    <span class="font-medium {{ $slaColors[$slaStatus] }}">Overdue by {{ abs($slaHoursRemaining) }} hours</span>
+                @elseif($slaStatus === 'at_risk')
+                    <span class="font-medium {{ $slaColors[$slaStatus] }}">Due in {{ $slaHoursRemaining }} hours</span>
+                @else
+                    <span class="font-medium {{ $slaColors[$slaStatus] }}">Due in {{ $slaHoursRemaining }} hours</span>
+                @endif
             </div>
             @endif
 
@@ -338,6 +361,60 @@
                 </div>
             </form>
         </div>
+
+        {{-- Audit trail (collapsed by default, super_admin only) --}}
+        @if(auth()->user()->isSuperAdmin())
+        @php $auditEntries = \App\Models\AuditLog::forModel($changeRequest)->with('user')->latest()->get(); @endphp
+        @if($auditEntries->isNotEmpty())
+        <div class="bg-white rounded-lg shadow">
+            <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')"
+                class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    <span class="text-sm font-semibold text-gray-700">Audit Trail</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ $auditEntries->count() }}</span>
+                </div>
+                <svg class="chevron w-4 h-4 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div class="hidden border-t border-gray-100 p-4">
+                <div class="space-y-3">
+                    @foreach($auditEntries as $entry)
+                    <div class="flex items-start justify-between gap-4 text-sm">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-gray-700">{{ $entry->description }}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">
+                                {{ $entry->user->name ?? 'System' }} &middot;
+                                {{ $entry->created_at->format('d M Y H:i') }}
+                                @if($entry->ip_address)
+                                    &middot; {{ $entry->ip_address }}
+                                @endif
+                            </p>
+                        </div>
+                        @php
+                            $auditActionColors = [
+                                'status_changed' => 'bg-amber-100 text-amber-700',
+                                'assigned' => 'bg-cyan-100 text-cyan-700',
+                                'note_added' => 'bg-gray-100 text-gray-700',
+                                'approver_added' => 'bg-green-100 text-green-700',
+                                'approver_removed' => 'bg-red-100 text-red-700',
+                                'approver_updated' => 'bg-blue-100 text-blue-700',
+                                'sent_for_approval' => 'bg-purple-100 text-purple-700',
+                                'item_status_changed' => 'bg-blue-100 text-blue-700',
+                                'priority_changed' => 'bg-orange-100 text-orange-700',
+                            ];
+                        @endphp
+                        <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium {{ $auditActionColors[$entry->action] ?? 'bg-gray-100 text-gray-600' }}">
+                            {{ str_replace('_', ' ', ucfirst($entry->action)) }}
+                        </span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
+        @endif
     </div>
 
     {{-- Sidebar --}}
@@ -424,6 +501,23 @@
                     <option value="">Unassigned</option>
                     @foreach($adminUsers as $admin)
                         <option value="{{ $admin->id }}" {{ $changeRequest->assigned_to == $admin->id ? 'selected' : '' }}>{{ $admin->name }}</option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
+
+        {{-- Priority --}}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Priority</h2>
+            <div class="mb-3">
+                @include('admin.partials.priority-badge', ['priority' => $changeRequest->priority ?? 'normal'])
+            </div>
+            <form method="POST" action="{{ route('admin.requests.priority', $changeRequest) }}">
+                @csrf @method('PATCH')
+                <select name="priority" onchange="this.form.submit()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    @foreach(\App\Models\ChangeRequest::PRIORITIES as $p)
+                        <option value="{{ $p }}" {{ ($changeRequest->priority ?? 'normal') === $p ? 'selected' : '' }}>{{ ucfirst($p) }}</option>
                     @endforeach
                 </select>
             </form>
@@ -520,6 +614,112 @@
                 </div>
             </form>
         </div>
+
+        {{-- Tags --}}
+        <div class="bg-white rounded-lg shadow p-6" id="tagsSection">
+            <h2 class="text-lg font-semibold text-gray-900 mb-3">Tags</h2>
+            <div id="tagsList" class="flex flex-wrap gap-1.5 mb-3">
+                @foreach($changeRequest->tags as $tag)
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white tag-pill" style="background-color: {{ $tag->colour }}" data-tag-id="{{ $tag->id }}">
+                    {{ $tag->name }}
+                    <button type="button" onclick="removeTag({{ $changeRequest->id }}, {{ $tag->id }}, this)" class="ml-1 hover:text-gray-200 focus:outline-none">&times;</button>
+                </span>
+                @endforeach
+            </div>
+            <div class="relative">
+                <input type="text" id="tagInput" placeholder="Add a tag..." autocomplete="off"
+                    class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <div id="tagSuggestions" class="hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-40 overflow-y-auto"></div>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var crId = {{ $changeRequest->id }};
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            var tagInput = document.getElementById('tagInput');
+            var tagSuggestions = document.getElementById('tagSuggestions');
+            var tagsList = document.getElementById('tagsList');
+            var allTags = @json(\App\Models\Tag::orderBy('name')->get(['id','name','colour']));
+
+            function getCurrentTagIds() {
+                var pills = tagsList.querySelectorAll('.tag-pill');
+                var ids = [];
+                pills.forEach(function(p) { ids.push(parseInt(p.dataset.tagId)); });
+                return ids;
+            }
+
+            tagInput.addEventListener('input', function() {
+                var val = this.value.trim().toLowerCase();
+                if (!val) { tagSuggestions.classList.add('hidden'); return; }
+                var currentIds = getCurrentTagIds();
+                var matches = allTags.filter(function(t) {
+                    return t.name.toLowerCase().indexOf(val) !== -1 && currentIds.indexOf(t.id) === -1;
+                });
+                var html = '';
+                matches.forEach(function(t) {
+                    html += '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50" onclick="selectTag(\'' + t.name.replace(/'/g, "\\'") + '\')">' +
+                        '<span class="w-3 h-3 rounded-full mr-2 flex-shrink-0" style="background-color:' + t.colour + '"></span>' + t.name + '</button>';
+                });
+                if (!matches.length && val.length > 0) {
+                    html = '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50 text-gray-500" onclick="selectTag(\'' + val.replace(/'/g, "\\'") + '\')">Create &ldquo;' + val + '&rdquo;</button>';
+                }
+                tagSuggestions.innerHTML = html;
+                tagSuggestions.classList.remove('hidden');
+            });
+
+            tagInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    var val = this.value.trim();
+                    if (val) selectTag(val);
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!document.getElementById('tagsSection').contains(e.target)) {
+                    tagSuggestions.classList.add('hidden');
+                }
+            });
+
+            window.selectTag = function(name) {
+                tagInput.value = '';
+                tagSuggestions.classList.add('hidden');
+                fetch('/admin/requests/' + crId + '/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                    body: JSON.stringify({ tag_name: name })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        var tag = data.tag;
+                        // Add to allTags if new
+                        if (!allTags.find(function(t) { return t.id === tag.id; })) {
+                            allTags.push({ id: tag.id, name: tag.name, colour: tag.colour });
+                        }
+                        // Add pill if not already there
+                        if (!tagsList.querySelector('[data-tag-id="' + tag.id + '"]')) {
+                            var span = document.createElement('span');
+                            span.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white tag-pill';
+                            span.style.backgroundColor = tag.colour;
+                            span.dataset.tagId = tag.id;
+                            span.innerHTML = tag.name + ' <button type="button" onclick="removeTag(' + crId + ',' + tag.id + ',this)" class="ml-1 hover:text-gray-200 focus:outline-none">&times;</button>';
+                            tagsList.appendChild(span);
+                        }
+                    }
+                });
+            };
+
+            window.removeTag = function(crId, tagId, btn) {
+                fetch('/admin/requests/' + crId + '/tags/' + tagId, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.success) {
+                        btn.closest('.tag-pill').remove();
+                    }
+                });
+            };
+        })();
+        </script>
 
         {{-- Quick links --}}
         <div class="bg-white rounded-lg shadow p-6">

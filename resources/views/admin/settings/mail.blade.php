@@ -2,7 +2,13 @@
 @section('title', 'Mail Settings')
 
 @section('content')
-<h1 class="text-2xl font-bold text-gray-900 mb-6">Mail Settings</h1>
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Mail Settings</h1>
+    <a href="{{ route('admin.settings.email-templates') }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Email Templates
+    </a>
+</div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- Left: SMTP config --}}
@@ -156,6 +162,35 @@
                     <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 </a>
             </div>
+        </div>
+
+        {{-- SLA Settings --}}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">SLA Turnaround Times</h2>
+            <p class="text-sm text-gray-500 mb-4">Business hours per priority level (Mon-Fri, 8h/day).</p>
+
+            <form method="POST" action="{{ route('admin.settings.sla.update') }}">
+                @csrf @method('PUT')
+                <div class="space-y-3">
+                    @foreach(\App\Models\ChangeRequest::PRIORITIES as $priority)
+                    @php
+                        $defaultHours = config("sla.{$priority}", 40);
+                        $currentHours = \App\Models\Setting::get("sla_{$priority}", $defaultHours);
+                    @endphp
+                    <div class="flex items-center justify-between">
+                        <label for="sla_{{ $priority }}" class="text-sm font-medium text-gray-700 capitalize">{{ ucfirst($priority) }}</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" name="sla_{{ $priority }}" id="sla_{{ $priority }}" value="{{ $currentHours }}" min="1" max="999"
+                                class="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            <span class="text-xs text-gray-400">hours</span>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                <button type="submit" class="mt-4 w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                    Save SLA Settings
+                </button>
+            </form>
         </div>
     </div>
 </div>

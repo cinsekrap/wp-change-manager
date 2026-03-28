@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreSiteRequest;
 use App\Http\Requests\Admin\UpdateSiteRequest;
 use App\Models\Site;
+use App\Services\AuditService;
 use App\Services\SitemapService;
 
 class SiteController extends Controller
@@ -26,7 +27,14 @@ class SiteController extends Controller
 
     public function store(StoreSiteRequest $request)
     {
-        Site::create($request->validated());
+        $site = Site::create($request->validated());
+
+        AuditService::log(
+            action: 'created',
+            model: $site,
+            description: "Created site: {$site->name}",
+            newValues: $request->validated(),
+        );
 
         return redirect()->route('admin.sites.index')->with('success', 'Site created.');
     }
@@ -38,7 +46,17 @@ class SiteController extends Controller
 
     public function update(UpdateSiteRequest $request, Site $site)
     {
+        $oldValues = $site->only(['name', 'domain', 'sitemap_url', 'is_active']);
         $site->update($request->validated());
+        $newValues = $site->only(['name', 'domain', 'sitemap_url', 'is_active']);
+
+        AuditService::log(
+            action: 'updated',
+            model: $site,
+            description: "Updated site: {$site->name}",
+            oldValues: $oldValues,
+            newValues: $newValues,
+        );
 
         return redirect()->route('admin.sites.index')->with('success', 'Site updated.');
     }
@@ -49,7 +67,16 @@ class SiteController extends Controller
             return back()->with('error', 'Cannot delete a site with existing change requests. Deactivate it instead.');
         }
 
+        $siteName = $site->name;
         $site->delete();
+
+        AuditService::log(
+            action: 'deleted',
+            model: $site,
+            description: "Deleted site: {$siteName}",
+            oldValues: ['name' => $siteName],
+        );
+
         return redirect()->route('admin.sites.index')->with('success', 'Site deleted.');
     }
 
