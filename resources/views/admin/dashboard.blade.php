@@ -11,35 +11,35 @@
 @endif
 <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-sm font-medium text-gray-500">New Requests</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">New Requests</div>
         <div class="text-3xl font-bold text-amber-600 mt-1">{{ $stats['requested'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-sm font-medium text-gray-500">In Progress</div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">In Progress</div>
         <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ $stats['in_progress'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-sm font-medium text-gray-500">Completed</div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</div>
         <div class="text-3xl font-bold text-emerald-600 mt-1">{{ $stats['done'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-sm font-medium text-gray-500">Overdue</div>
+    <div class="bg-red-50 rounded-lg shadow p-5 ring-1 ring-red-100">
+        <div class="text-xs font-medium text-red-400 uppercase tracking-wide">Overdue</div>
         <div class="text-3xl font-bold text-red-600 mt-1">{{ $stats['overdue'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <div class="text-sm font-medium text-gray-500">Active Sites</div>
+    <div class="bg-white rounded-lg shadow p-5">
+        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Active Sites</div>
         <div class="text-3xl font-bold text-hcrg-charcoal mt-1">{{ $stats['sites'] }}</div>
     </div>
-    <a href="{{ route('admin.requests.index', ['my_requests' => 1]) }}" class="bg-white rounded-lg shadow p-6 hover:ring-2 hover:ring-hcrg-burgundy transition-shadow block">
-        <div class="text-sm font-medium text-gray-500">My Requests</div>
+    <a href="{{ route('admin.requests.index', ['my_requests' => 1]) }}" class="bg-white rounded-lg shadow p-5 hover:ring-2 hover:ring-hcrg-burgundy transition-all block">
+        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">My Requests</div>
         <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ $stats['my_requests'] }}</div>
     </a>
 </div>
 
 {{-- Charts --}}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8" style="margin-top: 0.5rem;">
     {{-- Chart 1: Requests by Status --}}
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Status</h2>

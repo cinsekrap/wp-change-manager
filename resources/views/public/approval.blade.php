@@ -44,7 +44,7 @@
                     <div class="flex items-center gap-2 mb-1">
                         <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full
                             @if($item->action_type === 'add') bg-green-100 text-green-800
-                            @elseif($item->action_type === 'change') bg-blue-100 text-blue-800
+                            @elseif($item->action_type === 'change') bg-hcrg-burgundy/10 text-hcrg-burgundy
                             @else bg-red-100 text-red-800
                             @endif
                         ">{{ ucfirst($item->action_type) }}</span>

@@ -191,26 +191,28 @@
             </div>
 
             {{-- Priority selector --}}
-            <div class="mt-2 p-4 bg-gray-50 rounded-lg">
-                <label class="block text-sm font-medium text-gray-700 mb-1">How urgent is this?</label>
-                <p class="text-xs text-gray-400 mb-3">This helps us prioritise your request. If you're unsure, leave it as Normal.</p>
-                <div class="space-y-2">
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="low" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
-                        <span class="text-sm text-gray-700"><strong>Low</strong> — No rush</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="normal" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300" checked>
-                        <span class="text-sm text-gray-700"><strong>Normal</strong> — Standard turnaround</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="high" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
-                        <span class="text-sm text-gray-700"><strong>High</strong> — Needed soon</span>
-                    </label>
-                    <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="urgent" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
-                        <span class="text-sm text-gray-700"><strong>Urgent</strong> — Critical &mdash; blocking other work</span>
-                    </label>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">How urgent is this?</label>
+                    <p class="text-xs text-gray-400 mb-3">This helps us prioritise your request. If you're unsure, leave it as Normal.</p>
+                    <div class="space-y-2.5">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="priority" value="low" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                            <span class="text-sm text-gray-700"><strong>Low</strong> — No rush</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="priority" value="normal" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300" checked>
+                            <span class="text-sm text-gray-700"><strong>Normal</strong> — Standard turnaround</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="priority" value="high" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                            <span class="text-sm text-gray-700"><strong>High</strong> — Needed soon</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="priority" value="urgent" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                            <span class="text-sm text-gray-700"><strong>Urgent</strong> — Critical &mdash; blocking other work</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -497,7 +499,7 @@
         html += `<p class="text-xs font-medium text-gray-500 mb-2">What do you want to do?</p>`;
         html += `<div class="flex flex-wrap gap-2">`;
         html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
-        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors" data-action="change">Change</button>`;
+        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors" data-action="change">Change</button>`;
         html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
         html += `</div>`;
         html += `</div>`;
@@ -528,27 +530,27 @@
                 // Update button styles — reset all, then highlight selected
                 card.querySelectorAll('.area-action-btn').forEach(b => {
                     b.classList.remove('bg-green-500', 'text-white', 'border-green-500',
-                                       'bg-blue-500', 'border-blue-500',
+                                       'bg-[#B52159]', 'border-[#B52159]',
                                        'bg-red-500', 'border-red-500');
                     // Reset to default styles
                     const a = b.dataset.action;
                     if (a === 'add') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors'; }
-                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors'; }
+                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors'; }
                     else if (a === 'delete') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors'; }
                 });
 
                 // Fill selected button
                 if (action === 'add') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-500 bg-green-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-blue-300', 'border-red-300');
+                    card.classList.remove('border-gray-200', 'border-[#B52159]/30', 'border-red-300');
                     card.classList.add('border-green-300');
                 } else if (action === 'change') {
-                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-500 bg-blue-500 text-white transition-colors';
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159] bg-[#B52159] text-white transition-colors';
                     card.classList.remove('border-gray-200', 'border-green-300', 'border-red-300');
-                    card.classList.add('border-blue-300');
+                    card.classList.add('border-[#B52159]/30');
                 } else if (action === 'delete') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-500 bg-red-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-green-300', 'border-blue-300');
+                    card.classList.remove('border-gray-200', 'border-green-300', 'border-[#B52159]/30');
                     card.classList.add('border-red-300');
                 }
 
@@ -1468,7 +1470,7 @@
                     ? 'bg-green-100 text-green-800'
                     : item.action_type === 'delete'
                         ? 'bg-red-100 text-red-800'
-                        : 'bg-blue-100 text-blue-800';
+                        : 'bg-[#B52159]/10 text-[#B52159]';
                 html += `<div class="pl-3 border-l-2 border-gray-200">
                     <span class="text-xs font-medium px-2 py-0.5 rounded-full ${actionBadge}">${esc(item.action_type)}</span>
                     <span class="text-xs font-medium text-gray-500 ml-1">${esc(item.content_area)}</span>
@@ -1494,7 +1496,7 @@
                 const fileCount = (uploadedFiles[item.dataset.itemIndex] || []).length;
 
                 html += `<div class="pl-3 border-l-2 border-gray-200">
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${esc(action)}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-[#B52159]/10 text-[#B52159]'}">${esc(action)}</span>
                     ${area ? `<span class="text-xs text-gray-500 ml-1">${esc(area)}</span>` : ''}
                     <p class="text-sm text-gray-700 mt-1">${esc(desc.substring(0, 200))}${desc.length > 200 ? '...' : ''}</p>
                     ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}
