@@ -8,11 +8,20 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('sitemap_pages', function (Blueprint $table) {
+        $driver = Schema::getConnection()->getDriverName();
+
+        Schema::create('sitemap_pages', function (Blueprint $table) use ($driver) {
             $table->id();
             $table->foreignId('site_id')->constrained()->cascadeOnDelete();
             $table->text('url');
-            $table->string('url_hash', 64)->storedAs('sha2(url, 256)');
+
+            if ($driver === 'sqlite') {
+                // SQLite doesn't support sha2(); use a plain hash column instead
+                $table->string('url_hash', 64)->nullable();
+            } else {
+                $table->string('url_hash', 64)->storedAs('sha2(url, 256)');
+            }
+
             $table->string('cpt_slug', 100)->default('page');
             $table->string('page_title', 512)->nullable();
             $table->timestamps();
