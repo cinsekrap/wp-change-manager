@@ -12,7 +12,7 @@ Only the latest release receives security updates.
 
 If you discover a security vulnerability, please report it responsibly. **Do not open a public issue.**
 
-Email: **nic.parkes@icloud.com**
+Email: **wpchange.issues@nicparkes.com**
 
 Include:
 - A description of the vulnerability
