@@ -31,10 +31,17 @@ class RequestStatusChanged extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
+        $this->changeRequest->loadMissing(['site', 'items']);
+
         return new Content(
             view: 'emails.request-status-changed',
             with: [
                 'reference' => $this->changeRequest->reference,
+                'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
+                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'isNewPage' => $this->changeRequest->is_new_page,
+                'itemCount' => $this->changeRequest->items->count(),
+                'items' => $this->changeRequest->items->take(5),
                 'oldStatus' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
                 'newStatus' => ucfirst(str_replace('_', ' ', $this->newStatus)),
                 'rejectionReason' => $this->changeRequest->rejection_reason,

@@ -29,8 +29,11 @@
                     @php $areaCount = count($cpt->form_config['content_areas'] ?? []); @endphp
                     {{ $areaCount > 0 ? $areaCount . ' ' . Str::plural('area', $areaCount) : '—' }}
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-6 py-4 space-x-1">
                     @include('admin.partials.active-badge', ['active' => $cpt->is_active])
+                    @if($cpt->is_blocked)
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Blocked</span>
+                    @endif
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
                     <a href="{{ route('admin.cpts.edit', $cpt) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>

@@ -109,12 +109,16 @@ class SubmissionController extends Controller
                 }
             }
 
-            // Auto-add default approvers from the site
+            // Check if all pre-submission checks passed
+            $checkAnswers = $changeRequest->check_answers ?? [];
+            $allChecksPassed = collect($checkAnswers)->every(fn($a) => !empty($a['pass']));
+
+            // Only auto-add approvers and send emails if all checks pass
             $site = Site::find($validated['site_id']);
             $defaultApprovers = $site->default_approvers ?? [];
+            $createdApprovers = [];
 
-            if (!empty($defaultApprovers)) {
-                $createdApprovers = [];
+            if ($allChecksPassed && !empty($defaultApprovers)) {
                 foreach ($defaultApprovers as $approver) {
                     $createdApprovers[] = $changeRequest->approvers()->create([
                         'name' => $approver['name'],
@@ -123,10 +127,10 @@ class SubmissionController extends Controller
                     ]);
                 }
 
-                // If any approver has an email, they'll be notified automatically — go straight to referred
                 $hasEmailApprovers = collect($defaultApprovers)->contains(fn($a) => !empty($a['email']));
                 $changeRequest->update(['status' => $hasEmailApprovers ? 'referred' : 'requires_referral']);
             }
+            // If checks failed, stays at 'requested' — admin decides whether to send for approval
 
             return $changeRequest;
         });
@@ -139,7 +143,7 @@ class SubmissionController extends Controller
             Mail::to($admin->email)->queue(new NewRequestAlert($changeRequest));
         }
 
-        // Send approval request emails to default approvers
+        // Send approval request emails (only if approvers were auto-added)
         foreach ($createdApprovers ?? [] as $approver) {
             if ($approver->email && $approver->token) {
                 Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));

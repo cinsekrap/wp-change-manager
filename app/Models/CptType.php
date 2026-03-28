@@ -6,13 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class CptType extends Model
 {
-    protected $fillable = ['slug', 'name', 'description', 'form_config', 'sort_order', 'is_active'];
+    protected $fillable = ['slug', 'name', 'description', 'form_config', 'sort_order', 'is_active', 'is_blocked', 'blocked_message'];
 
     protected function casts(): array
     {
         return [
             'form_config' => 'array',
             'is_active' => 'boolean',
+            'is_blocked' => 'boolean',
             'sort_order' => 'integer',
         ];
     }

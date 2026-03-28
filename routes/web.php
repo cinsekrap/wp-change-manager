@@ -82,6 +82,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::post('/requests/{changeRequest}/approvers', [ChangeRequestController::class, 'addApprover'])->name('admin.requests.approvers.add');
     Route::patch('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'updateApprover'])->name('admin.requests.approvers.update');
     Route::delete('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
+    Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
 
     // Sites
     Route::resource('sites', SiteController::class)->names('admin.sites');

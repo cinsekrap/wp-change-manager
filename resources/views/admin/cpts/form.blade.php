@@ -167,11 +167,29 @@
             @error('content_areas.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
-        <div class="flex items-center">
-            <input type="hidden" name="is_active" value="0">
-            <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $cpt->is_active ?? true) ? 'checked' : '' }}
-                class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-            <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
+        <div class="flex items-center space-x-6">
+            <div class="flex items-center">
+                <input type="hidden" name="is_active" value="0">
+                <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $cpt->is_active ?? true) ? 'checked' : '' }}
+                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
+            </div>
+            <div class="flex items-center">
+                <input type="hidden" name="is_blocked" value="0">
+                <input type="checkbox" name="is_blocked" id="is_blocked" value="1" {{ old('is_blocked', $cpt->is_blocked ?? false) ? 'checked' : '' }}
+                    class="h-4 w-4 text-amber-500 border-gray-300 rounded" onchange="toggleBlockedMessage()">
+                <label for="is_blocked" class="ml-2 text-sm text-gray-700">Block requests</label>
+            </div>
+        </div>
+
+        <div id="blockedMessageSection" class="{{ old('is_blocked', $cpt->is_blocked ?? false) ? '' : 'hidden' }}">
+            <label for="blocked_message" class="block text-sm font-medium text-gray-700 mb-1">
+                Blocked message <span class="font-normal text-gray-400">(shown to users instead of the request form)</span>
+            </label>
+            <textarea name="blocked_message" id="blocked_message" rows="4" placeholder="e.g. Events can be managed directly using the self-service portal at..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('blocked_message', $cpt->blocked_message) }}</textarea>
+            <p class="mt-1 text-xs text-gray-500">This message will be displayed when a user selects a page of this content type. They will not be able to submit a request.</p>
+            @error('blocked_message') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div class="flex items-center space-x-3 pt-4">
@@ -378,6 +396,11 @@ function escHtml(str) {
     const d = document.createElement('div');
     d.textContent = str;
     return d.innerHTML;
+}
+
+function toggleBlockedMessage() {
+    var checked = document.getElementById('is_blocked').checked;
+    document.getElementById('blockedMessageSection').classList.toggle('hidden', !checked);
 }
 </script>
 @endsection

@@ -250,6 +250,62 @@ class ChangeRequestController extends Controller
         return back()->with('success', 'Approval recorded.');
     }
 
+    public function sendForApproval(ChangeRequest $changeRequest)
+    {
+        $site = $changeRequest->site;
+        $defaultApprovers = $site->default_approvers ?? [];
+
+        // Auto-add site's default approvers if none exist yet
+        if ($changeRequest->approvers->isEmpty() && !empty($defaultApprovers)) {
+            foreach ($defaultApprovers as $approver) {
+                $changeRequest->approvers()->create([
+                    'name' => $approver['name'],
+                    'email' => $approver['email'] ?? null,
+                    'token' => ChangeRequestApprover::generateToken(),
+                ]);
+            }
+
+            $changeRequest->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => 'Added default approvers from site: ' . collect($defaultApprovers)->pluck('name')->implode(', '),
+            ]);
+        }
+
+        $changeRequest->refresh();
+
+        // Send emails to all pending approvers that have email + token
+        $sent = 0;
+        foreach ($changeRequest->approvers->where('status', 'pending') as $approver) {
+            if ($approver->email && $approver->token) {
+                Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
+                $sent++;
+            }
+        }
+
+        // Update status
+        $oldStatus = $changeRequest->status;
+        $newStatus = $sent > 0 ? 'referred' : 'requires_referral';
+        $changeRequest->update(['status' => $newStatus]);
+
+        ChangeRequestStatusLog::create([
+            'change_request_id' => $changeRequest->id,
+            'user_id' => auth()->id(),
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+        ]);
+
+        $changeRequest->notes()->create([
+            'user_id' => auth()->id(),
+            'note' => $sent > 0
+                ? "Sent for approval. {$sent} " . str('email')->plural($sent) . " sent."
+                : 'Sent for approval (manual follow-up required — no approver emails configured).',
+        ]);
+
+        return back()->with('success', $sent > 0
+            ? "Approval emails sent to {$sent} " . str('approver')->plural($sent) . ". Status moved to Referred."
+            : 'Approvers added. Manual follow-up required — no approver emails configured.');
+    }
+
     public function removeApprover(ChangeRequest $changeRequest, ChangeRequestApprover $approver)
     {
         abort_unless($approver->change_request_id === $changeRequest->id, 404);

@@ -8,8 +8,8 @@
         <span id="stepLabel" class="text-sm font-medium text-gray-700">Step 1 of 6</span>
         <span id="stepTitle" class="text-sm text-gray-500">Select site</span>
     </div>
-    <div class="w-full bg-gray-200 rounded-full h-2">
-        <div id="progressBar" class="bg-hcrg-burgundy h-2 rounded-full transition-all duration-300" style="width: 16.66%"></div>
+    <div class="w-full bg-gray-200 rounded-full h-2.5">
+        <div id="progressBar" class="bg-hcrg-burgundy h-2.5 rounded-full transition-all duration-300" style="width: 16.66%"></div>
     </div>
 </div>
 
@@ -27,7 +27,7 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
             <div id="siteOptions" class="hidden absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 @foreach($sites as $site)
-                <div class="site-option px-3 py-2 cursor-pointer hover:bg-hcrg-burgundy/10 text-sm" data-value="{{ $site->id }}" data-domain="{{ $site->domain }}" data-label="{{ $site->name }} ({{ $site->domain }})">
+                <div class="site-option px-3 py-2 cursor-pointer hover:bg-hcrg-burgundy/10 text-sm transition-colors" data-value="{{ $site->id }}" data-domain="{{ $site->domain }}" data-label="{{ $site->name }} ({{ $site->domain }})">
                     <span class="font-medium text-gray-900">{{ $site->name }}</span>
                     <span class="text-gray-400 ml-1">{{ $site->domain }}</span>
                 </div>
@@ -50,6 +50,16 @@
         </div>
 
         <div id="pageList" class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100"></div>
+
+        <div id="blockedCptMessage" class="hidden mt-4 p-5 bg-amber-50 border-2 border-amber-200 rounded-xl">
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div>
+                    <p class="text-sm font-semibold text-amber-800 mb-2">Requests are not available for this content type</p>
+                    <div id="blockedCptText" class="text-sm text-amber-700 prose prose-sm max-w-none"></div>
+                </div>
+            </div>
+        </div>
 
         <div class="mt-4 p-3 bg-gray-50 rounded-lg">
             <label class="flex items-center space-x-2 cursor-pointer">
@@ -90,29 +100,12 @@
 
         {{-- Structured form (used when CPT has rich content areas) --}}
         <div id="structuredFlow" class="hidden">
-            <div class="mb-5">
-                <label class="block text-sm font-medium text-gray-700 mb-2">What do you want to do? <span class="text-red-500">*</span></label>
-                <div class="flex space-x-3">
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="structured_action" value="add" class="sr-only peer">
-                        <div class="text-center px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-600 peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
-                            Add new content
-                        </div>
-                    </label>
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="structured_action" value="change" class="sr-only peer">
-                        <div class="text-center px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-600 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700 transition-colors">
-                            Change existing content
-                        </div>
-                    </label>
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="structured_action" value="delete" class="sr-only peer">
-                        <div class="text-center px-4 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-600 peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
-                            Remove content
-                        </div>
-                    </label>
-                </div>
-            </div>
+            <p class="text-sm text-gray-500 mb-4">Select the content areas you'd like to change, then describe what you need for each.</p>
+
+            <!-- Area checklist -->
+            <div id="areaChecklist" class="space-y-2 mb-6"></div>
+
+            <!-- Per-area forms (shown for checked areas) -->
             <div id="structuredFields" class="space-y-5"></div>
         </div>
     </div>
@@ -213,7 +206,7 @@
 {{-- Full-screen loading overlay --}}
 <div id="loadingOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
     <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
-        <svg class="animate-spin h-10 w-10 text-hcrg-burgundy mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin h-12 w-12 text-hcrg-burgundy mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
@@ -223,15 +216,15 @@
 </div>
 
 {{-- Navigation buttons --}}
-<div class="flex justify-between mt-6">
+<div class="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 mt-6">
     <button type="button" id="prevBtn" class="hidden px-6 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50">
         &larr; Back
     </button>
-    <div class="ml-auto">
-        <button type="button" id="nextBtn" class="px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+    <div class="sm:ml-auto">
+        <button type="button" id="nextBtn" class="w-full sm:w-auto px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
             Next &rarr;
         </button>
-        <button type="button" id="submitBtn" class="hidden px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B]">
+        <button type="button" id="submitBtn" class="hidden w-full sm:w-auto px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B]">
             Submit Request
         </button>
     </div>
@@ -239,10 +232,10 @@
 
 {{-- Line item template --}}
 <template id="lineItemTemplate">
-    <div class="line-item border border-gray-200 rounded-lg p-4" data-item-index="">
+    <div class="line-item border-2 border-gray-200 rounded-lg p-4" data-item-index="">
         <div class="flex justify-between items-start mb-3">
             <span class="text-sm font-medium text-gray-500 item-number">Change #1</span>
-            <button type="button" class="remove-item text-red-500 hover:text-red-700 text-sm">&times; Remove</button>
+            <button type="button" class="remove-item text-red-500 hover:text-red-700 hover:bg-red-50 text-sm px-2 py-1 rounded transition-colors">&times; Remove</button>
         </div>
         <div class="space-y-3">
             <div>
@@ -302,6 +295,31 @@
         if (isNew) return document.getElementById('newPageCpt').value;
         if (selectedPage) return selectedPage.cpt_slug;
         return null;
+    }
+
+    function isCurrentCptBlocked() {
+        const slug = getCurrentCptSlug();
+        if (!slug || !cptTypesData[slug]) return false;
+        return !!cptTypesData[slug].is_blocked;
+    }
+
+    function getBlockedMessage() {
+        const slug = getCurrentCptSlug();
+        if (!slug || !cptTypesData[slug]) return '';
+        return cptTypesData[slug].blocked_message || 'Requests cannot be submitted for this content type.';
+    }
+
+    function updateBlockedState() {
+        const blocked = isCurrentCptBlocked();
+        const msgEl = document.getElementById('blockedCptMessage');
+        const textEl = document.getElementById('blockedCptText');
+        if (blocked) {
+            textEl.textContent = getBlockedMessage();
+            msgEl.classList.remove('hidden');
+        } else {
+            msgEl.classList.add('hidden');
+        }
+        checkStepValid();
     }
 
     /**
@@ -378,102 +396,180 @@
     // ---- Structured form helpers ----
     let structuredUploadedFiles = {}; // keyed by area index
 
-    function getStructuredAction() {
-        const checked = document.querySelector('input[name="structured_action"]:checked');
-        return checked ? checked.value : null;
+    function buildStructuredForm() {
+        const checklistContainer = document.getElementById('areaChecklist');
+        const fieldsContainer = document.getElementById('structuredFields');
+        checklistContainer.innerHTML = '';
+        fieldsContainer.innerHTML = '';
+        structuredUploadedFiles = {};
+
+        const areas = getContentAreas();
+        if (areas.length === 0) return;
+
+        areas.forEach((area, idx) => {
+            const areaObj = typeof area === 'string'
+                ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [] }
+                : area;
+
+            const typeLabels = { text: 'Text', textarea: 'Text', richtext: 'Rich text', select: 'Dropdown', checkbox: 'Checkbox', date: 'Date', file: 'File upload', group: 'Group' };
+            const typeLabel = typeLabels[areaObj.type] || areaObj.type;
+
+            const item = document.createElement('label');
+            item.className = 'flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
+            item.innerHTML = `<input type="checkbox" class="area-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy" data-area-idx="${idx}">` +
+                `<span class="flex-1"><span class="text-sm font-medium text-gray-900">${esc(areaObj.name)}</span>` +
+                `<span class="ml-2 text-xs text-gray-400">${esc(typeLabel)}</span></span>`;
+
+            const checkbox = item.querySelector('.area-checkbox');
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    item.classList.remove('border-gray-200');
+                    item.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    buildAreaForm(areaObj, idx);
+                } else {
+                    item.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    item.classList.add('border-gray-200');
+                    removeAreaForm(idx);
+                }
+                checkStepValid();
+            });
+
+            checklistContainer.appendChild(item);
+        });
     }
 
-    function buildStructuredForm() {
+    function removeAreaForm(idx) {
+        const card = document.querySelector(`#structuredFields .structured-field[data-area-index="${idx}"]`);
+        if (card) card.remove();
+        delete structuredUploadedFiles[idx];
+    }
+
+    function buildAreaForm(area, idx) {
+        // Remove existing card if any (shouldn't happen, but safety)
+        removeAreaForm(idx);
+
         const container = document.getElementById('structuredFields');
-        container.innerHTML = '';
-        structuredUploadedFiles = {};
-        const areas = getContentAreas();
-        const action = getStructuredAction();
+        const card = document.createElement('div');
+        card.className = 'structured-field border-2 border-gray-200 shadow-sm rounded-lg p-5 transition-colors';
+        card.dataset.areaIndex = idx;
+        card.dataset.areaName = area.name;
+        card.dataset.areaType = area.type || 'textarea';
+        card.dataset.areaRequired = area.required ? '1' : '0';
+        card.dataset.actionType = '';
+        if (area.word_limit) card.dataset.wordLimit = area.word_limit;
 
-        if (!action) {
-            container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Select an action above to continue.</p>';
-            return;
+        const typeLabels = { text: 'Text', textarea: 'Text', richtext: 'Rich text', select: 'Dropdown', checkbox: 'Checkbox', date: 'Date', file: 'File upload', group: 'Group' };
+        const typeLabel = typeLabels[area.type] || area.type || 'Text';
+
+        let html = `<div class="mb-3">`;
+        html += `<h4 class="text-sm font-bold text-gray-900">${esc(area.name)}${area.required ? '<span class="text-red-500 ml-1">*</span>' : ''} <span class="font-normal text-xs text-gray-400">${esc(typeLabel)}</span></h4>`;
+        if (area.help) {
+            html += `<p class="text-xs text-gray-400 mt-1">${esc(area.help)}</p>`;
         }
+        html += `</div>`;
 
+        // Action type selector — inline pill buttons
+        html += `<div class="mb-4 pt-3 border-t border-gray-100">`;
+        html += `<p class="text-xs font-medium text-gray-500 mb-2">What do you want to do?</p>`;
+        html += `<div class="flex flex-wrap gap-2">`;
+        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
+        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors" data-action="change">Change</button>`;
+        html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
+        html += `</div>`;
+        html += `</div>`;
+
+        // Placeholder for fields
+        html += `<div class="area-form-fields"></div>`;
+
+        card.innerHTML = html;
+
+        // Insert card in order based on idx
+        const existingCards = container.querySelectorAll('.structured-field');
+        let inserted = false;
+        for (const existing of existingCards) {
+            if (parseInt(existing.dataset.areaIndex) > idx) {
+                container.insertBefore(card, existing);
+                inserted = true;
+                break;
+            }
+        }
+        if (!inserted) container.appendChild(card);
+
+        // Attach action button listeners
+        card.querySelectorAll('.area-action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.dataset.action;
+                card.dataset.actionType = action;
+
+                // Update button styles — reset all, then highlight selected
+                card.querySelectorAll('.area-action-btn').forEach(b => {
+                    b.classList.remove('bg-green-500', 'text-white', 'border-green-500',
+                                       'bg-blue-500', 'border-blue-500',
+                                       'bg-red-500', 'border-red-500');
+                    // Reset to default styles
+                    const a = b.dataset.action;
+                    if (a === 'add') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors'; }
+                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors'; }
+                    else if (a === 'delete') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors'; }
+                });
+
+                // Fill selected button
+                if (action === 'add') {
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-500 bg-green-500 text-white transition-colors';
+                    card.classList.remove('border-gray-200', 'border-blue-300', 'border-red-300');
+                    card.classList.add('border-green-300');
+                } else if (action === 'change') {
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-blue-500 bg-blue-500 text-white transition-colors';
+                    card.classList.remove('border-gray-200', 'border-green-300', 'border-red-300');
+                    card.classList.add('border-blue-300');
+                } else if (action === 'delete') {
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-500 bg-red-500 text-white transition-colors';
+                    card.classList.remove('border-gray-200', 'border-green-300', 'border-blue-300');
+                    card.classList.add('border-red-300');
+                }
+
+                renderAreaFields(card, area, action);
+                checkStepValid();
+            });
+        });
+    }
+
+    function renderAreaFields(card, area, action) {
+        const fieldsContainer = card.querySelector('.area-form-fields');
+        fieldsContainer.innerHTML = '';
+        const idx = parseInt(card.dataset.areaIndex);
         const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+        const areaObj = typeof area === 'string'
+            ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [] }
+            : area;
+
+        let fieldHtml = '';
 
         if (action === 'delete') {
-            // Delete: simple form — which area and what to remove
-            const section = document.createElement('div');
-            section.className = 'structured-field border border-red-200 bg-red-50/50 rounded-lg p-4 space-y-3';
-            section.dataset.areaIndex = '0';
-            section.dataset.areaName = '';
-            section.dataset.areaType = 'textarea';
-            section.dataset.areaRequired = '1';
-            section.dataset.actionType = 'delete';
+            // Delete: what should be removed + optional reason
+            fieldHtml += `<label class="block text-sm font-medium text-gray-700 mb-1">What should be removed? <span class="text-red-500">*</span></label>`;
+            fieldHtml += `<p class="text-xs text-gray-400 mb-2">Copy/paste the content or describe what needs to be removed.</p>`;
+            fieldHtml += `<textarea class="sf-input ${inputClass}" rows="4" placeholder="Paste or describe the content to remove..."></textarea>`;
+            fieldHtml += `<label class="block text-sm font-medium text-gray-700 mb-1 mt-3">Reason for removal <span class="text-gray-400 font-normal">(optional)</span></label>`;
+            fieldHtml += `<input type="text" class="sf-delete-reason ${inputClass}" placeholder="e.g. Outdated, no longer relevant...">`;
 
-            let html = `<label class="block text-sm font-medium text-gray-700 mb-1">Which content area? <span class="text-red-500">*</span></label>`;
-            // If we have content areas, show as dropdown, otherwise free text
-            if (areas.length > 0) {
-                html += `<select class="sf-delete-area ${inputClass} mb-3"><option value="">Select area...</option>`;
-                areas.forEach(a => { html += `<option value="${esc(typeof a === 'string' ? a : a.name)}">${esc(typeof a === 'string' ? a : a.name)}</option>`; });
-                html += `</select>`;
-            } else {
-                html += `<input type="text" class="sf-delete-area ${inputClass} mb-3" placeholder="e.g. Sidebar, Hero image...">`;
-            }
-            html += `<label class="block text-sm font-medium text-gray-700 mb-1">What should be removed? <span class="text-red-500">*</span></label>`;
-            html += `<p class="text-xs text-gray-400 mb-2">Copy/paste the content or describe what needs to be removed.</p>`;
-            html += `<textarea class="sf-input ${inputClass}" rows="4" placeholder="Paste or describe the content to remove..."></textarea>`;
-            html += `<label class="block text-sm font-medium text-gray-700 mb-1 mt-3">Reason for removal <span class="text-gray-400 font-normal">(optional)</span></label>`;
-            html += `<input type="text" class="sf-delete-reason ${inputClass}" placeholder="e.g. Outdated, no longer relevant...">`;
-
-            section.innerHTML = html;
-            container.appendChild(section);
-
-            section.querySelectorAll('input, textarea, select').forEach(el => {
-                el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', checkStepValid);
+            fieldsContainer.innerHTML = fieldHtml;
+            fieldsContainer.querySelectorAll('input, textarea').forEach(el => {
+                el.addEventListener('input', checkStepValid);
             });
             return;
         }
 
-        // Add or Change: render per content area
-        areas.forEach((area, idx) => {
-            const areaObj = typeof area === 'string' ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [] } : area;
-            const section = document.createElement('div');
-            const borderColor = action === 'change' ? 'border-blue-200' : 'border-green-200';
-            const bgColor = action === 'change' ? 'bg-blue-50/30' : 'bg-green-50/30';
-            section.className = `structured-field border ${borderColor} ${bgColor} rounded-lg p-4`;
-            section.dataset.areaIndex = idx;
-            section.dataset.areaName = areaObj.name;
-            section.dataset.areaType = areaObj.type;
-            section.dataset.areaRequired = areaObj.required ? '1' : '0';
-            section.dataset.actionType = action;
-            if (areaObj.word_limit) {
-                section.dataset.wordLimit = areaObj.word_limit;
-            }
-
-            let fieldHtml = '';
-            const requiredMark = areaObj.required ? ' <span class="text-red-500">*</span>' : '';
-
-            fieldHtml += `<label class="block text-sm font-medium text-gray-700 mb-1">${esc(areaObj.name)}${requiredMark}</label>`;
-            if (areaObj.help) {
-                fieldHtml += `<p class="text-xs text-gray-400 mb-2">${esc(areaObj.help)}</p>`;
-            }
-
-            if (action === 'change' && areaObj.type !== 'group') {
-                // Current content field
-                fieldHtml += `<div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">`;
-                fieldHtml += `<label class="block text-xs font-medium text-red-700 mb-1">Current content</label>`;
-                fieldHtml += `<textarea class="sf-current ${inputClass} bg-white" rows="2" placeholder="Paste or describe what's currently on the page..."></textarea>`;
-                fieldHtml += `</div>`;
-                fieldHtml += `<div class="p-3 bg-green-50 border border-green-200 rounded-lg">`;
-                fieldHtml += `<label class="block text-xs font-medium text-green-700 mb-1">Replace with</label>`;
-            }
-
-            if (action === 'change' && areaObj.type === 'group') {
-                // Group in change mode: current content textarea then sub-fields for new content
-                fieldHtml += `<div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">`;
-                fieldHtml += `<label class="block text-xs font-medium text-red-700 mb-1">Current content</label>`;
+        if (action === 'change') {
+            // Change: "current content" box + typed field for new content
+            if (areaObj.type === 'group') {
+                fieldHtml += `<div class="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg">`;
+                fieldHtml += `<label class="block text-xs font-medium text-red-700 mb-1">What's currently on the page?</label>`;
                 fieldHtml += `<textarea class="sf-current ${inputClass} bg-white" rows="2" placeholder="Describe what's currently on the page..."></textarea>`;
                 fieldHtml += `</div>`;
-                fieldHtml += `<div class="p-3 bg-green-50 border border-green-200 rounded-lg space-y-3">`;
-                fieldHtml += `<label class="block text-xs font-medium text-green-700 mb-1">Replace with</label>`;
-                (areaObj.sub_fields || []).forEach((sf, sfIdx) => {
+                fieldHtml += `<div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg space-y-3">`;
+                fieldHtml += `<label class="block text-xs font-medium text-green-700 mb-1">What should it be?</label>`;
+                (areaObj.sub_fields || []).forEach(sf => {
                     fieldHtml += `<div>`;
                     fieldHtml += `<label class="block text-xs font-medium text-gray-600 mb-1">${esc(sf.name)}</label>`;
                     if (sf.type === 'textarea') {
@@ -484,10 +580,21 @@
                     fieldHtml += `</div>`;
                 });
                 fieldHtml += `</div>`;
-            } else if (areaObj.type === 'group') {
-                // Group in add mode: bordered card with sub-fields
-                fieldHtml += `<div class="border border-gray-200 rounded-lg p-4 space-y-3 sf-group-card">`;
-                (areaObj.sub_fields || []).forEach((sf, sfIdx) => {
+            } else {
+                fieldHtml += `<div class="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg">`;
+                fieldHtml += `<label class="block text-xs font-medium text-red-700 mb-1">What's currently on the page?</label>`;
+                fieldHtml += `<textarea class="sf-current ${inputClass} bg-white" rows="2" placeholder="Paste or describe what's currently on the page..."></textarea>`;
+                fieldHtml += `</div>`;
+                fieldHtml += `<div class="p-3 bg-green-50 border-2 border-green-200 rounded-lg">`;
+                fieldHtml += `<label class="block text-xs font-medium text-green-700 mb-1">What should it be?</label>`;
+                fieldHtml += renderTypedField(areaObj, inputClass, true);
+                fieldHtml += `</div>`;
+            }
+        } else {
+            // Add: just the typed field
+            if (areaObj.type === 'group') {
+                fieldHtml += `<div class="border-2 border-gray-200 rounded-lg p-4 space-y-3 sf-group-card">`;
+                (areaObj.sub_fields || []).forEach(sf => {
                     fieldHtml += `<div>`;
                     fieldHtml += `<label class="block text-xs font-medium text-gray-600 mb-1">${esc(sf.name)}</label>`;
                     if (sf.type === 'textarea') {
@@ -499,87 +606,99 @@
                 });
                 fieldHtml += `</div>`;
             } else {
-                // The actual input field for non-group types
-                switch (areaObj.type) {
-                    case 'text':
-                        fieldHtml += `<input type="text" class="sf-input ${inputClass}${action === 'change' ? ' bg-white' : ''}" placeholder="${esc(areaObj.placeholder || '')}">`;
-                        break;
-                    case 'textarea':
-                    case 'richtext':
-                        const rows = areaObj.type === 'richtext' ? 6 : 3;
-                        fieldHtml += `<textarea class="sf-input ${inputClass}${action === 'change' ? ' bg-white' : ''}" rows="${rows}" placeholder="${esc(areaObj.placeholder || '')}"></textarea>`;
-                        break;
-                    case 'select':
-                        fieldHtml += `<select class="sf-input ${inputClass}${action === 'change' ? ' bg-white' : ''}"><option value="">Select...</option>`;
-                        (areaObj.options || []).forEach(opt => { fieldHtml += `<option value="${esc(opt)}">${esc(opt)}</option>`; });
-                        fieldHtml += `</select>`;
-                        break;
-                    case 'checkbox':
-                        fieldHtml += `<label class="flex items-center space-x-2 cursor-pointer mt-1"><input type="checkbox" class="sf-input sf-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded"><span class="text-sm text-gray-700">Yes</span></label>`;
-                        break;
-                    case 'date':
-                        fieldHtml += `<input type="date" class="sf-input ${inputClass}${action === 'change' ? ' bg-white' : ''}">`;
-                        break;
-                    case 'file':
-                        fieldHtml += `<input type="file" class="sf-file-input text-sm" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx">`;
-                        fieldHtml += `<div class="sf-file-list mt-2 space-y-1"></div>`;
-                        break;
-                }
-
-                // Word counter for text/textarea/richtext with word_limit
-                if (areaObj.word_limit && ['text', 'textarea', 'richtext'].includes(areaObj.type)) {
-                    fieldHtml += `<div class="sf-word-counter text-xs text-gray-400 mt-1" data-limit="${areaObj.word_limit}">0 / ${areaObj.word_limit} words</div>`;
-                }
+                fieldHtml += renderTypedField(areaObj, inputClass, false);
             }
+        }
 
-            if (action === 'change' && areaObj.type !== 'group') {
-                fieldHtml += `</div>`; // close green box
-            }
+        fieldsContainer.innerHTML = fieldHtml;
 
-            section.innerHTML = fieldHtml;
-            container.appendChild(section);
-
-            // Attach validation listeners for non-group fields
-            const input = section.querySelector('.sf-input');
-            if (input) {
-                if (input.tagName === 'SELECT' || input.type === 'checkbox') {
-                    input.addEventListener('change', checkStepValid);
-                } else {
-                    input.addEventListener('input', checkStepValid);
-                }
-            }
-
-            // Attach validation listeners for group sub-fields
-            section.querySelectorAll('.sf-group-input').forEach(gInput => {
-                gInput.addEventListener('input', checkStepValid);
-            });
-
-            // Word counter listener
-            const wordCounter = section.querySelector('.sf-word-counter');
-            if (wordCounter && input) {
-                input.addEventListener('input', function() {
-                    const wc = countWords(this.value);
-                    const limit = parseInt(wordCounter.dataset.limit);
-                    wordCounter.textContent = wc + ' / ' + limit + ' words';
-                    if (wc > limit) {
-                        wordCounter.classList.remove('text-gray-400');
-                        wordCounter.classList.add('text-red-600', 'font-medium');
-                    } else {
-                        wordCounter.classList.remove('text-red-600', 'font-medium');
-                        wordCounter.classList.add('text-gray-400');
-                    }
-                });
-            }
-
-            // File upload for structured fields
-            const fileInput = section.querySelector('.sf-file-input');
-            if (fileInput) {
-                structuredUploadedFiles[idx] = [];
-                fileInput.addEventListener('change', function() {
-                    handleStructuredFileUpload(this, idx);
-                });
+        // Attach validation listeners
+        fieldsContainer.querySelectorAll('.sf-input').forEach(input => {
+            if (input.tagName === 'SELECT' || input.type === 'checkbox') {
+                input.addEventListener('change', checkStepValid);
+            } else {
+                input.addEventListener('input', checkStepValid);
             }
         });
+
+        fieldsContainer.querySelectorAll('.sf-current').forEach(el => {
+            el.addEventListener('input', checkStepValid);
+        });
+
+        fieldsContainer.querySelectorAll('.sf-group-input').forEach(gInput => {
+            gInput.addEventListener('input', checkStepValid);
+        });
+
+        fieldsContainer.querySelectorAll('.sf-delete-reason').forEach(el => {
+            el.addEventListener('input', checkStepValid);
+        });
+
+        // Word counter listener
+        const wordCounter = fieldsContainer.querySelector('.sf-word-counter');
+        const mainInput = fieldsContainer.querySelector('.sf-input');
+        if (wordCounter && mainInput) {
+            mainInput.addEventListener('input', function() {
+                const wc = countWords(this.value);
+                const limit = parseInt(wordCounter.dataset.limit);
+                wordCounter.textContent = wc + ' / ' + limit + ' words';
+                if (wc > limit) {
+                    wordCounter.classList.remove('text-gray-400');
+                    wordCounter.classList.add('text-red-600', 'font-medium');
+                } else {
+                    wordCounter.classList.remove('text-red-600', 'font-medium');
+                    wordCounter.classList.add('text-gray-400');
+                }
+            });
+        }
+
+        // File upload for structured fields
+        const fileInput = fieldsContainer.querySelector('.sf-file-input');
+        if (fileInput) {
+            structuredUploadedFiles[idx] = structuredUploadedFiles[idx] || [];
+            fileInput.addEventListener('change', function() {
+                handleStructuredFileUpload(this, idx);
+            });
+        }
+    }
+
+    /**
+     * Render the typed input field HTML for a content area (non-group types).
+     */
+    function renderTypedField(areaObj, inputClass, isChange) {
+        let html = '';
+        const bgClass = isChange ? ' bg-white' : '';
+        switch (areaObj.type) {
+            case 'text':
+                html += `<input type="text" class="sf-input ${inputClass}${bgClass}" placeholder="${esc(areaObj.placeholder || '')}">`;
+                break;
+            case 'textarea':
+            case 'richtext':
+                const rows = areaObj.type === 'richtext' ? 6 : 3;
+                html += `<textarea class="sf-input ${inputClass}${bgClass}" rows="${rows}" placeholder="${esc(areaObj.placeholder || '')}"></textarea>`;
+                break;
+            case 'select':
+                html += `<select class="sf-input ${inputClass}${bgClass}"><option value="">Select...</option>`;
+                (areaObj.options || []).forEach(opt => { html += `<option value="${esc(opt)}">${esc(opt)}</option>`; });
+                html += `</select>`;
+                break;
+            case 'checkbox':
+                html += `<label class="flex items-center space-x-2 cursor-pointer mt-1"><input type="checkbox" class="sf-input sf-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded"><span class="text-sm text-gray-700">Yes</span></label>`;
+                break;
+            case 'date':
+                html += `<input type="date" class="sf-input ${inputClass}${bgClass}">`;
+                break;
+            case 'file':
+                html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx">`;
+                html += `<div class="sf-file-list mt-2 space-y-1"></div>`;
+                break;
+        }
+
+        // Word counter for text/textarea/richtext with word_limit
+        if (areaObj.word_limit && ['text', 'textarea', 'richtext'].includes(areaObj.type)) {
+            html += `<div class="sf-word-counter text-xs text-gray-400 mt-1" data-limit="${areaObj.word_limit}">0 / ${areaObj.word_limit} words</div>`;
+        }
+
+        return html;
     }
 
     async function handleStructuredFileUpload(input, areaIndex) {
@@ -649,7 +768,7 @@
         if (hasRichContentAreas()) {
             genericFlow.classList.add('hidden');
             structuredFlow.classList.remove('hidden');
-            subtitle.textContent = 'Fill in the details for each content area below.';
+            subtitle.textContent = 'Select the content areas you\'d like to change.';
             buildStructuredForm();
         } else {
             genericFlow.classList.remove('hidden');
@@ -663,28 +782,27 @@
      */
     function getStructuredItems() {
         const items = [];
-        const action = getStructuredAction() || 'change';
 
         document.querySelectorAll('#structuredFields .structured-field').forEach(section => {
             const areaName = section.dataset.areaName;
             const areaType = section.dataset.areaType;
+            const action = section.dataset.actionType;
             const idx = parseInt(section.dataset.areaIndex);
             let description = '';
             let currentContent = null;
             let files = [];
 
+            if (!action) return; // no action selected for this area
+
             if (action === 'delete') {
-                // Delete flow: single section with area selector + content to remove
-                const areaEl = section.querySelector('.sf-delete-area');
-                const contentArea = areaEl ? areaEl.value : '';
-                const input = section.querySelector('.sf-input');
+                const input = section.querySelector('.area-form-fields .sf-input');
                 description = input ? input.value : '';
-                const reason = section.querySelector('.sf-delete-reason');
+                const reason = section.querySelector('.area-form-fields .sf-delete-reason');
 
                 if (description) {
                     items.push({
                         action_type: 'delete',
-                        content_area: contentArea,
+                        content_area: areaName,
                         description: description,
                         current_content: reason ? reason.value || null : null,
                         files: [],
@@ -695,8 +813,7 @@
 
             // Add or Change flow
             if (areaType === 'group') {
-                // Group: collect sub-field values and format readably
-                const groupInputs = section.querySelectorAll('.sf-group-input');
+                const groupInputs = section.querySelectorAll('.area-form-fields .sf-group-input');
                 const parts = [];
                 groupInputs.forEach(gi => {
                     const sfName = gi.dataset.sfName;
@@ -707,9 +824,8 @@
                 });
                 description = parts.join('\n');
 
-                // For change actions, get the current content
                 if (action === 'change') {
-                    const currentEl = section.querySelector('.sf-current');
+                    const currentEl = section.querySelector('.area-form-fields .sf-current');
                     currentContent = currentEl ? currentEl.value || null : null;
                 }
 
@@ -742,7 +858,7 @@
                     });
                 }
             } else if (areaType === 'checkbox') {
-                const cb = section.querySelector('.sf-checkbox');
+                const cb = section.querySelector('.area-form-fields .sf-checkbox');
                 description = cb && cb.checked ? 'Yes' : 'No';
 
                 items.push({
@@ -753,12 +869,11 @@
                     files: [],
                 });
             } else {
-                const input = section.querySelector('.sf-input');
+                const input = section.querySelector('.area-form-fields .sf-input');
                 description = input ? input.value : '';
 
-                // For change actions, get the current content
                 if (action === 'change') {
-                    const currentEl = section.querySelector('.sf-current');
+                    const currentEl = section.querySelector('.area-form-fields .sf-current');
                     currentContent = currentEl ? currentEl.value || null : null;
                 }
 
@@ -860,23 +975,16 @@
             document.querySelectorAll('.page-option.selected').forEach(el => el.classList.remove('selected', 'bg-hcrg-burgundy/10', 'border-hcrg-burgundy'));
         }
         refreshAllContentAreaFields();
-        checkStepValid();
+        updateBlockedState();
     });
 
     document.getElementById('newPageCpt').addEventListener('change', function() {
         refreshAllContentAreaFields();
+        updateBlockedState();
     });
 
     document.getElementById('newPageTitle').addEventListener('input', checkStepValid);
     document.getElementById('pageSearch').addEventListener('input', filterPages);
-
-    // Structured action type toggle
-    document.querySelectorAll('input[name="structured_action"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            buildStructuredForm();
-            checkStepValid();
-        });
-    });
 
     // Step 5 inputs
     ['requesterName', 'requesterEmail'].forEach(id => {
@@ -928,6 +1036,7 @@
             case 1:
                 return document.getElementById('siteSelect').value !== '' && !siteLoadError;
             case 2:
+                if (isCurrentCptBlocked()) return false;
                 const isNew = document.getElementById('isNewPage').checked;
                 if (isNew) return document.getElementById('newPageTitle').value.trim() !== '';
                 return selectedPage !== null;
@@ -970,29 +1079,33 @@
     }
 
     function validateStructuredForm() {
-        const action = getStructuredAction();
-        if (!action) return false;
+        // At least one area must be checked
+        const checkedBoxes = document.querySelectorAll('#areaChecklist .area-checkbox:checked');
+        if (checkedBoxes.length === 0) return false;
 
+        // Each checked area must have a card with an action selected
         const fields = document.querySelectorAll('#structuredFields .structured-field');
         if (fields.length === 0) return false;
 
-        if (action === 'delete') {
-            const section = fields[0];
-            const areaEl = section.querySelector('.sf-delete-area');
-            if (areaEl && !areaEl.value.trim()) return false;
-            const input = section.querySelector('.sf-input');
-            if (!input || !input.value.trim()) return false;
-            return true;
-        }
-
         for (const field of fields) {
+            const action = field.dataset.actionType;
+            if (!action) return false; // no action selected
+
             const isRequired = field.dataset.areaRequired === '1';
             const type = field.dataset.areaType;
+            const idx = parseInt(field.dataset.areaIndex);
 
+            if (action === 'delete') {
+                // Delete: "what to remove" is required
+                const input = field.querySelector('.area-form-fields .sf-input');
+                if (!input || !input.value.trim()) return false;
+                continue;
+            }
+
+            // Add or Change
             if (type === 'group') {
-                // For required groups, at least one sub-field must have a value
                 if (isRequired) {
-                    const groupInputs = field.querySelectorAll('.sf-group-input');
+                    const groupInputs = field.querySelectorAll('.area-form-fields .sf-group-input');
                     let hasAnyValue = false;
                     groupInputs.forEach(gi => { if (gi.value.trim()) hasAnyValue = true; });
                     if (!hasAnyValue) return false;
@@ -1001,25 +1114,22 @@
             }
 
             if (!isRequired) {
-                // Even if not required, check word limit if field has content
                 const wordLimit = field.dataset.wordLimit ? parseInt(field.dataset.wordLimit) : null;
                 if (wordLimit) {
-                    const input = field.querySelector('.sf-input');
+                    const input = field.querySelector('.area-form-fields .sf-input');
                     if (input && input.value.trim() && countWords(input.value) > wordLimit) return false;
                 }
                 continue;
             }
 
             if (type === 'file') {
-                const idx = parseInt(field.dataset.areaIndex);
                 if (!structuredUploadedFiles[idx] || structuredUploadedFiles[idx].length === 0) return false;
             } else if (type === 'checkbox') {
                 continue;
             } else {
-                const input = field.querySelector('.sf-input');
+                const input = field.querySelector('.area-form-fields .sf-input');
                 if (!input || !input.value.trim()) return false;
 
-                // Check word limit for required fields
                 const wordLimit = field.dataset.wordLimit ? parseInt(field.dataset.wordLimit) : null;
                 if (wordLimit && countWords(input.value) > wordLimit) return false;
             }
@@ -1197,6 +1307,13 @@
         await minDelay;
         overlay.classList.add('hidden');
         checkStepValid();
+
+        // Auto-advance to step 2 after successful site load
+        if (!silent && !siteLoadError && currentStep === 1) {
+            currentStep = 2;
+            updateUI();
+            saveState();
+        }
     }
 
     function showSiteError(message) {
@@ -1287,7 +1404,7 @@
                 document.getElementById('isNewPage').checked = false;
                 document.getElementById('newPageTitle').classList.add('hidden');
                 refreshAllContentAreaFields();
-                checkStepValid();
+                updateBlockedState();
             });
         });
     }
@@ -1306,7 +1423,7 @@
             <div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Website & Page</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="1">Edit</button>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="1">Edit</button>
                 </div>
                 <p class="text-sm text-gray-900">${esc(siteName)}</p>
                 <p class="text-sm text-gray-600">${isNew ? 'New ' + esc(document.getElementById('newPageCpt').selectedOptions[0].text.toLowerCase()) + ': ' + esc(document.getElementById('newPageTitle').value) : (selectedPage ? esc(selectedPage.title) + ' — ' + esc(selectedPage.url) : '')}</p>
@@ -1317,14 +1434,21 @@
             const structuredItems = getStructuredItems();
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-3">
                 <div class="flex justify-between">
-                    <h3 class="text-sm font-semibold text-gray-700">Content Areas (${structuredItems.length})</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="3">Edit</button>
+                    <h3 class="text-sm font-semibold text-gray-700">Content Changes (${structuredItems.length})</h3>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
                 </div>`;
 
             structuredItems.forEach(item => {
                 const fileCount = (item.files || []).length;
+                const actionBadge = item.action_type === 'add'
+                    ? 'bg-green-100 text-green-800'
+                    : item.action_type === 'delete'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-blue-100 text-blue-800';
                 html += `<div class="pl-3 border-l-2 border-gray-200">
-                    <span class="text-xs font-medium text-gray-500">${esc(item.content_area)}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${actionBadge}">${esc(item.action_type)}</span>
+                    <span class="text-xs font-medium text-gray-500 ml-1">${esc(item.content_area)}</span>
+                    ${item.current_content ? `<p class="text-xs text-gray-400 mt-1">Current: ${esc((item.current_content || '').substring(0, 100))}${(item.current_content || '').length > 100 ? '...' : ''}</p>` : ''}
                     <p class="text-sm text-gray-700 mt-1">${esc((item.description || '').substring(0, 200))}${(item.description || '').length > 200 ? '...' : ''}</p>
                     ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}
                 </div>`;
@@ -1336,7 +1460,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-3">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Changes (${items.length})</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="3">Edit</button>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
                 </div>`;
 
             items.forEach((item, i) => {
@@ -1362,7 +1486,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Deadline</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="4">Edit</button>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
                 </div>`;
             if (hasDeadline) {
                 html += `<p class="text-sm text-gray-900 font-medium">${esc(document.getElementById('deadlineDate').value)}</p>`;
@@ -1379,7 +1503,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Check Answers</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="4">Edit</button>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
                 </div>`;
             questions.forEach(group => {
                 const qText = group.querySelector('p').textContent.trim();
@@ -1393,7 +1517,7 @@
         html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
             <div class="flex justify-between">
                 <h3 class="text-sm font-semibold text-gray-700">Your Details</h3>
-                <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline" data-goto="5">Edit</button>
+                <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="5">Edit</button>
             </div>
             <p class="text-sm text-gray-900">${esc(document.getElementById('requesterName').value)}</p>
             <p class="text-sm text-gray-600">${esc(document.getElementById('requesterEmail').value)}</p>

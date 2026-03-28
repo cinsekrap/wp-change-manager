@@ -308,6 +308,30 @@
                 <p class="text-sm text-red-800">{{ $changeRequest->rejection_reason }}</p>
             </div>
             @endif
+
+            {{-- Send for approval button --}}
+            @if($changeRequest->status === 'requested')
+                @php
+                    $siteHasApprovers = !empty($changeRequest->site->default_approvers);
+                    $hasManualApprovers = $changeRequest->approvers->isNotEmpty();
+                    $allChecksPassed = collect($changeRequest->check_answers ?? [])->every(fn($a) => !empty($a['pass']));
+                @endphp
+                @if($siteHasApprovers || $hasManualApprovers)
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        @if(!$allChecksPassed)
+                            <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2">
+                                Pre-submission checks did not all pass. Review before sending for approval.
+                            </p>
+                        @endif
+                        <form method="POST" action="{{ route('admin.requests.send-approval', $changeRequest) }}" onsubmit="return confirm('This will{{ $siteHasApprovers && !$hasManualApprovers ? ' add the site\'s default approvers and' : '' }} send approval emails. Continue?')">
+                            @csrf
+                            <button type="submit" class="w-full bg-amber-500 text-white px-4 py-2 rounded-full hover:bg-amber-600 text-sm font-medium transition-colors">
+                                Send for Approval
+                            </button>
+                        </form>
+                    </div>
+                @endif
+            @endif
         </div>
 
         {{-- Approvals --}}
