@@ -125,6 +125,11 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::put('/settings/email-templates', [SettingsController::class, 'updateEmailTemplates'])->name('admin.settings.email-templates.update');
         Route::post('/settings/email-templates/reset', [SettingsController::class, 'resetEmailTemplate'])->name('admin.settings.email-templates.reset');
 
+        // Configuration Import/Export
+        Route::get('/settings/config', [SettingsController::class, 'configPage'])->name('admin.settings.config');
+        Route::post('/settings/config/export', [SettingsController::class, 'exportConfig'])->name('admin.settings.config.export');
+        Route::post('/settings/config/import', [SettingsController::class, 'importConfig'])->name('admin.settings.config.import');
+
         // SSO Settings
         Route::get('/settings/entra', [EntraSettingsController::class, 'edit'])->name('admin.settings.entra');
         Route::put('/settings/entra', [EntraSettingsController::class, 'update'])->name('admin.settings.entra.update');
