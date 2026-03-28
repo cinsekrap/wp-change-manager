@@ -35,6 +35,14 @@ class SettingsController extends Controller
         return view('admin.settings.mail', compact('settings'));
     }
 
+    /**
+     * Show the notifications settings page (templates hub, SLA, chase reminders).
+     */
+    public function notifications()
+    {
+        return view('admin.settings.notifications');
+    }
+
     public function update(Request $request)
     {
         $validated = $request->validate([
@@ -139,7 +147,7 @@ class SettingsController extends Controller
         Setting::set('chase_hours', (string) $validated['chase_hours']);
         Setting::set('chase_unassigned_email', $validated['chase_unassigned_email'] ?? '');
 
-        return redirect()->route('admin.settings.mail')->with('success', 'Chase reminder settings saved.');
+        return redirect()->route('admin.settings.notifications')->with('success', 'Chase reminder settings saved.');
     }
 
     /**
@@ -158,7 +166,7 @@ class SettingsController extends Controller
             }
         }
 
-        return redirect()->route('admin.settings.mail')->with('success', 'SLA settings saved.');
+        return redirect()->route('admin.settings.notifications')->with('success', 'SLA settings saved.');
     }
 
     /**
