@@ -149,7 +149,16 @@ class UpdateService
             }
             $sourceDir = $extractedDirs[0];
 
-            // 4. Copy files to app root, preserving .env, storage, and installed.lock
+            // 4. Backup current app before overwriting
+            $backupDir = storage_path('app/backups');
+            if (!is_dir($backupDir)) {
+                mkdir($backupDir, 0775, true);
+            }
+            $backupZip = $backupDir . '/pre-update-' . config('version.current', 'unknown') . '-' . date('Ymd-His') . '.zip';
+            $this->createBackup($backupZip);
+            $log['steps']['backup'] = 'Backup created: ' . basename($backupZip);
+
+            // 5. Copy files to app root, preserving .env, storage, and installed.lock
             $appRoot = base_path();
             $protectedPaths = ['.env', '.env.install', 'storage', '.git'];
             $this->copyDirectory($sourceDir, $appRoot, $protectedPaths);
@@ -271,5 +280,141 @@ class UpdateService
         }
 
         rmdir($dir);
+    }
+
+    /**
+     * Create a zip backup of the current app (excluding storage and .env).
+     */
+    protected function createBackup(string $zipPath): void
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Failed to create backup zip.');
+        }
+
+        $appRoot = base_path();
+        $skipDirs = ['storage', '.git', 'node_modules'];
+        $skipFiles = ['.env', '.env.install'];
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($appRoot, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $relativePath = substr($item->getPathname(), strlen($appRoot) + 1);
+
+            // Skip protected dirs/files
+            $skip = false;
+            foreach ($skipDirs as $dir) {
+                if ($relativePath === $dir || str_starts_with($relativePath, $dir . '/') || str_starts_with($relativePath, $dir . DIRECTORY_SEPARATOR)) {
+                    $skip = true;
+                    break;
+                }
+            }
+            if ($skip || in_array($relativePath, $skipFiles)) continue;
+
+            if ($item->isFile()) {
+                $zip->addFile($item->getPathname(), $relativePath);
+            }
+        }
+
+        $zip->close();
+    }
+
+    /**
+     * Restore from a backup zip.
+     */
+    public function rollback(string $backupFilename): array
+    {
+        $log = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'success' => false,
+            'steps' => [],
+        ];
+
+        try {
+            $backupPath = storage_path('app/backups/' . $backupFilename);
+            if (!file_exists($backupPath)) {
+                throw new \RuntimeException('Backup file not found: ' . $backupFilename);
+            }
+
+            // 1. Extract backup
+            $tempDir = storage_path('app/rollback-extract');
+            if (is_dir($tempDir)) {
+                $this->deleteDirectory($tempDir);
+            }
+
+            $zip = new \ZipArchive();
+            if ($zip->open($backupPath) !== true) {
+                throw new \RuntimeException('Failed to open backup zip.');
+            }
+            $zip->extractTo($tempDir);
+            $zip->close();
+            $log['steps']['extract'] = 'Backup extracted.';
+
+            // 2. Copy files back, preserving .env and storage
+            $appRoot = base_path();
+            $protectedPaths = ['.env', '.env.install', 'storage', '.git'];
+            $this->copyDirectory($tempDir, $appRoot, $protectedPaths);
+            $log['steps']['restore'] = 'Files restored.';
+
+            // 3. Clean up
+            $this->deleteDirectory($tempDir);
+            $log['steps']['cleanup'] = 'Temp files removed.';
+
+            // 4. Clear caches
+            try {
+                Artisan::call('view:clear');
+                Artisan::call('config:clear');
+                $log['steps']['cache'] = 'Caches cleared.';
+            } catch (\Exception $e) {
+                $log['steps']['cache'] = 'Warning: ' . $e->getMessage();
+            }
+
+            $log['success'] = true;
+            Cache::forget('app_update_check');
+            Log::info('Rollback completed', $log);
+        } catch (\Exception $e) {
+            $log['error'] = $e->getMessage();
+            Log::error('Rollback failed', $log);
+
+            if (isset($tempDir) && is_dir($tempDir)) {
+                $this->deleteDirectory($tempDir);
+            }
+        }
+
+        file_put_contents(
+            storage_path('logs/deploy.log'),
+            json_encode($log) . "\n",
+            FILE_APPEND
+        );
+
+        return $log;
+    }
+
+    /**
+     * List available backups.
+     */
+    public function getBackups(): array
+    {
+        $backupDir = storage_path('app/backups');
+        if (!is_dir($backupDir)) return [];
+
+        $files = glob($backupDir . '/pre-update-*.zip');
+        $backups = [];
+
+        foreach ($files as $file) {
+            $backups[] = [
+                'filename' => basename($file),
+                'size' => round(filesize($file) / 1024 / 1024, 1) . ' MB',
+                'date' => date('d M Y H:i', filemtime($file)),
+            ];
+        }
+
+        // Newest first
+        usort($backups, fn($a, $b) => strcmp($b['filename'], $a['filename']));
+
+        return $backups;
     }
 }

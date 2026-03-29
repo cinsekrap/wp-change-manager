@@ -31,7 +31,9 @@ class UpdateController extends Controller
             }
         }
 
-        return view('admin.settings.updates', compact('update', 'currentVersion', 'lastDeploy'));
+        $backups = $this->updateService->getBackups();
+
+        return view('admin.settings.updates', compact('update', 'currentVersion', 'lastDeploy', 'backups'));
     }
 
     /**
@@ -69,6 +71,24 @@ class UpdateController extends Controller
 
         return redirect()->route('admin.settings.updates')
             ->with('error', 'Update failed: ' . ($result['error'] ?? 'Unknown error. Check logs for details.'));
+    }
+
+    /**
+     * POST /admin/settings/updates/rollback — restore from backup.
+     */
+    public function rollback(Request $request)
+    {
+        $request->validate(['backup' => 'required|string']);
+
+        $result = $this->updateService->rollback($request->backup);
+
+        if ($result['success']) {
+            return redirect()->route('admin.settings.updates')
+                ->with('success', 'Rollback completed. Please verify everything is working.');
+        }
+
+        return redirect()->route('admin.settings.updates')
+            ->with('error', 'Rollback failed: ' . ($result['error'] ?? 'Unknown error.'));
     }
 
     /**
