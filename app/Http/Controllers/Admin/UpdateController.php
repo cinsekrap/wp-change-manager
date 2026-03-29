@@ -96,11 +96,13 @@ class UpdateController extends Controller
      */
     public function updateGithubToken(Request $request)
     {
+        $request->validate([
+            'github_token' => 'required|string|min:10',
+        ]);
+
         $token = $request->input('github_token');
 
-        if ($token) {
-            \App\Models\Setting::set('github_token', $token);
-        }
+        \App\Models\Setting::set('github_token', $token);
 
         return redirect()->route('admin.settings.updates')
             ->with('success', 'GitHub token saved.');

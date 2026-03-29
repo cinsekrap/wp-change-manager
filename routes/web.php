@@ -176,6 +176,10 @@ Route::post('/deploy/{token}', function (string $token) {
         abort(403);
     }
 
+    if ($expected === 'change-me-to-a-long-random-string') {
+        abort(503, 'Deploy token has not been changed from the default. Update DEPLOY_TOKEN in .env.');
+    }
+
     $log = ['timestamp' => date('Y-m-d H:i:s'), 'ip' => request()->ip()];
 
     // Try git pull

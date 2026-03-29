@@ -657,6 +657,11 @@
         </div>
         <script>
         (function() {
+            function escHtml(str) {
+                var div = document.createElement('div');
+                div.appendChild(document.createTextNode(str));
+                return div.innerHTML;
+            }
             var crId = {{ $changeRequest->id }};
             var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
             var tagInput = document.getElementById('tagInput');
@@ -680,11 +685,11 @@
                 });
                 var html = '';
                 matches.forEach(function(t) {
-                    html += '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50" onclick="selectTag(\'' + t.name.replace(/'/g, "\\'") + '\')">' +
-                        '<span class="w-3 h-3 rounded-full mr-2 flex-shrink-0" style="background-color:' + t.colour + '"></span>' + t.name + '</button>';
+                    html += '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50" onclick="selectTag(\'' + escHtml(t.name).replace(/'/g, "&#39;") + '\')">' +
+                        '<span class="w-3 h-3 rounded-full mr-2 flex-shrink-0" style="background-color:' + escHtml(t.colour) + '"></span>' + escHtml(t.name) + '</button>';
                 });
                 if (!matches.length && val.length > 0) {
-                    html = '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50 text-gray-500" onclick="selectTag(\'' + val.replace(/'/g, "\\'") + '\')">Create &ldquo;' + val + '&rdquo;</button>';
+                    html = '<button type="button" class="flex items-center w-full px-3 py-1.5 text-sm text-left hover:bg-gray-50 text-gray-500" onclick="selectTag(\'' + escHtml(val).replace(/'/g, "&#39;") + '\')">Create &ldquo;' + escHtml(val) + '&rdquo;</button>';
                 }
                 tagSuggestions.innerHTML = html;
                 tagSuggestions.classList.remove('hidden');
@@ -724,7 +729,7 @@
                             span.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-white tag-pill';
                             span.style.backgroundColor = tag.colour;
                             span.dataset.tagId = tag.id;
-                            span.innerHTML = tag.name + ' <button type="button" onclick="removeTag(' + crId + ',' + tag.id + ',this)" class="ml-1 hover:text-gray-200 focus:outline-none">&times;</button>';
+                            span.innerHTML = escHtml(tag.name) + ' <button type="button" onclick="removeTag(' + crId + ',' + tag.id + ',this)" class="ml-1 hover:text-gray-200 focus:outline-none">&times;</button>';
                             tagsList.appendChild(span);
                         }
                     }
