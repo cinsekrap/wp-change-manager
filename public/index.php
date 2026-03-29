@@ -10,6 +10,11 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
     require $maintenance;
 }
 
+// If no .env exists, copy the install bootstrap .env so Laravel can boot
+if (!file_exists(__DIR__.'/../.env') && file_exists(__DIR__.'/../.env.install')) {
+    copy(__DIR__.'/../.env.install', __DIR__.'/../.env');
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/../vendor/autoload.php';
 
