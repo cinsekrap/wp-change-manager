@@ -61,6 +61,46 @@
             </div>
         </div>
 
+        <div id="selfServiceCptMessage" class="hidden mt-4">
+            <div class="p-5 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                <div class="flex items-start space-x-3">
+                    <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <div>
+                        <p class="text-sm font-semibold text-blue-800 mb-2">Self-service content type</p>
+                        <div id="selfServiceCptText" class="text-sm text-blue-700 prose prose-sm max-w-none"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 p-5 bg-white border-2 border-blue-200 rounded-xl">
+                <h3 class="text-sm font-bold text-gray-900 mb-1">Request access</h3>
+                <p class="text-xs text-gray-500 mb-4">If you need access to manage this content, tell us why and we'll review your request.</p>
+
+                <div class="space-y-3">
+                    <div>
+                        <label for="ssReason" class="block text-xs font-medium text-gray-700 mb-1">Reason for needing access <span class="text-red-500">*</span></label>
+                        <textarea id="ssReason" rows="3" placeholder="Describe why you need access to manage this content..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="ssName" class="block text-xs font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                            <input type="text" id="ssName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        </div>
+                        <div>
+                            <label for="ssEmail" class="block text-xs font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                            <input type="email" id="ssEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        </div>
+                    </div>
+                    <div id="ssError" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg"></div>
+                    <div id="ssSuccess" class="hidden p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg"></div>
+                    <button type="button" id="ssSubmitBtn" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Request Access
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="mt-4 p-3 bg-gray-50 rounded-lg">
             <label class="flex items-center space-x-2 cursor-pointer">
                 <input type="checkbox" id="isNewPage" class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
@@ -323,29 +363,72 @@
         return null;
     }
 
-    function isCurrentCptBlocked() {
+    function getCurrentCptRequestMode() {
         const slug = getCurrentCptSlug();
-        if (!slug || !cptTypesData[slug]) return false;
-        return !!cptTypesData[slug].is_blocked;
+        if (!slug || !cptTypesData[slug]) return 'normal';
+        return cptTypesData[slug].request_mode || 'normal';
     }
 
-    function getBlockedMessage() {
+    function isCurrentCptBlocked() {
+        return getCurrentCptRequestMode() === 'blocked';
+    }
+
+    function isCurrentCptSelfService() {
+        return getCurrentCptRequestMode() === 'self_service';
+    }
+
+    function getModeMessage() {
         const slug = getCurrentCptSlug();
         if (!slug || !cptTypesData[slug]) return '';
-        return cptTypesData[slug].blocked_message || 'Requests cannot be submitted for this content type.';
+        return cptTypesData[slug].mode_message || '';
     }
 
     function updateBlockedState() {
-        const blocked = isCurrentCptBlocked();
-        const msgEl = document.getElementById('blockedCptMessage');
-        const textEl = document.getElementById('blockedCptText');
-        if (blocked) {
-            textEl.textContent = getBlockedMessage();
-            msgEl.classList.remove('hidden');
-        } else {
-            msgEl.classList.add('hidden');
+        const mode = getCurrentCptRequestMode();
+        const blockedEl = document.getElementById('blockedCptMessage');
+        const blockedTextEl = document.getElementById('blockedCptText');
+        const selfServiceEl = document.getElementById('selfServiceCptMessage');
+        const selfServiceTextEl = document.getElementById('selfServiceCptText');
+
+        // Hide both by default
+        blockedEl.classList.add('hidden');
+        selfServiceEl.classList.add('hidden');
+
+        if (mode === 'blocked') {
+            blockedTextEl.textContent = getModeMessage() || 'Requests cannot be submitted for this content type.';
+            blockedEl.classList.remove('hidden');
+        } else if (mode === 'self_service') {
+            selfServiceTextEl.textContent = getModeMessage() || 'This content type is managed via a self-service tool.';
+            selfServiceEl.classList.remove('hidden');
+            initSelfServiceForm();
         }
         checkStepValid();
+    }
+
+    function initSelfServiceForm() {
+        const ssName = document.getElementById('ssName');
+        const ssEmail = document.getElementById('ssEmail');
+        const ssReason = document.getElementById('ssReason');
+        const ssBtn = document.getElementById('ssSubmitBtn');
+
+        function checkSsValid() {
+            const valid = ssName.value.trim() !== '' && ssEmail.value.trim() !== '' && ssEmail.value.includes('@') && ssReason.value.trim() !== '';
+            ssBtn.disabled = !valid;
+        }
+
+        ssName.removeEventListener('input', checkSsValid);
+        ssEmail.removeEventListener('input', checkSsValid);
+        ssReason.removeEventListener('input', checkSsValid);
+        ssName.addEventListener('input', checkSsValid);
+        ssEmail.addEventListener('input', checkSsValid);
+        ssReason.addEventListener('input', checkSsValid);
+
+        // Pre-fill from stored requester details if available
+        const storedName = document.getElementById('requesterName').value;
+        const storedEmail = document.getElementById('requesterEmail').value;
+        if (storedName && !ssName.value) ssName.value = storedName;
+        if (storedEmail && !ssEmail.value) ssEmail.value = storedEmail;
+        checkSsValid();
     }
 
     /**
@@ -1114,6 +1197,77 @@
     submitBtn.addEventListener('click', submitForm);
     document.getElementById('addItemBtn').addEventListener('click', addLineItem);
 
+    // Self-service access request handler
+    document.getElementById('ssSubmitBtn').addEventListener('click', submitSelfServiceRequest);
+
+    async function submitSelfServiceRequest() {
+        const ssBtn = document.getElementById('ssSubmitBtn');
+        const ssError = document.getElementById('ssError');
+        const ssSuccess = document.getElementById('ssSuccess');
+        ssBtn.disabled = true;
+        ssBtn.textContent = 'Submitting...';
+        ssError.classList.add('hidden');
+        ssSuccess.classList.add('hidden');
+
+        const isNew = document.getElementById('isNewPage').checked;
+        const pageUrl = isNew ? 'new-page' : (selectedPage ? selectedPage.url : '');
+        const pageTitle = isNew ? document.getElementById('newPageTitle').value : (selectedPage ? selectedPage.title : '');
+        const cptSlug = isNew ? document.getElementById('newPageCpt').value : (selectedPage ? selectedPage.cpt_slug : '');
+
+        const payload = {
+            site_id: parseInt(document.getElementById('siteSelect').value),
+            page_url: pageUrl || 'self-service-access-request',
+            page_title: pageTitle || null,
+            cpt_slug: cptSlug,
+            is_new_page: false,
+            requester_name: document.getElementById('ssName').value.trim(),
+            requester_email: document.getElementById('ssEmail').value.trim(),
+            requester_phone: null,
+            requester_role: null,
+            priority: 'normal',
+            check_answers: [],
+            deadline_date: null,
+            deadline_reason: null,
+            items: [{
+                action_type: 'access_request',
+                content_area: 'Access Request',
+                description: document.getElementById('ssReason').value.trim(),
+                files: [],
+            }],
+        };
+
+        try {
+            const res = await fetch('{{ route("submit") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                sessionStorage.removeItem(STORAGE_KEY);
+                window.location.href = data.redirect;
+            } else if (data.errors) {
+                const msgs = Object.values(data.errors).flat().join('\n');
+                ssError.textContent = msgs;
+                ssError.classList.remove('hidden');
+            } else {
+                throw new Error(data.message || 'Submission failed.');
+            }
+        } catch (err) {
+            ssError.textContent = err.message;
+            ssError.classList.remove('hidden');
+        } finally {
+            ssBtn.disabled = false;
+            ssBtn.textContent = 'Request Access';
+        }
+    }
+
     // Searchable site dropdown
     const siteSearchInput = document.getElementById('siteSearch');
     const siteOptionsEl = document.getElementById('siteOptions');
@@ -1225,7 +1379,7 @@
             case 1:
                 return document.getElementById('siteSelect').value !== '' && !siteLoadError;
             case 2:
-                if (isCurrentCptBlocked()) return false;
+                if (isCurrentCptBlocked() || isCurrentCptSelfService()) return false;
                 const isNew = document.getElementById('isNewPage').checked;
                 if (isNew) return document.getElementById('newPageTitle').value.trim() !== '';
                 return selectedPage !== null;

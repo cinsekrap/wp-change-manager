@@ -21,6 +21,7 @@ class StoreSiteRequest extends FormRequest
             'default_approvers.*.name' => 'required|string|max:255',
             'default_approvers.*.email' => 'nullable|email|max:255',
             'default_assignee_id' => 'nullable|exists:users,id',
+            'requires_approval' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -39,6 +40,7 @@ class StoreSiteRequest extends FormRequest
             fn($a) => !empty($a['name'])
         ));
         $data['default_assignee_id'] = ($data['default_assignee_id'] ?? null) ?: null;
+        $data['requires_approval'] = $this->boolean('requires_approval');
 
         return $data;
     }

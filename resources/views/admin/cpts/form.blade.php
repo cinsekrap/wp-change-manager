@@ -187,29 +187,56 @@
             @error('content_areas.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
-        <div class="flex items-center space-x-6">
-            <div class="flex items-center">
-                <input type="hidden" name="is_active" value="0">
-                <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $cpt->is_active ?? true) ? 'checked' : '' }}
-                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-                <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
-            </div>
-            <div class="flex items-center">
-                <input type="hidden" name="is_blocked" value="0">
-                <input type="checkbox" name="is_blocked" id="is_blocked" value="1" {{ old('is_blocked', $cpt->is_blocked ?? false) ? 'checked' : '' }}
-                    class="h-4 w-4 text-amber-500 border-gray-300 rounded" onchange="toggleBlockedMessage()">
-                <label for="is_blocked" class="ml-2 text-sm text-gray-700">Block requests</label>
-            </div>
+        <div class="flex items-center">
+            <input type="hidden" name="is_active" value="0">
+            <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $cpt->is_active ?? true) ? 'checked' : '' }}
+                class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+            <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
         </div>
 
-        <div id="blockedMessageSection" class="{{ old('is_blocked', $cpt->is_blocked ?? false) ? '' : 'hidden' }}">
-            <label for="blocked_message" class="block text-sm font-medium text-gray-700 mb-1">
-                Blocked message <span class="font-normal text-gray-400">(shown to users instead of the request form)</span>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Request mode</label>
+            @php $currentMode = old('request_mode', $cpt->request_mode ?? 'normal'); @endphp
+            <div class="space-y-2">
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'normal' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_normal">
+                    <input type="radio" name="request_mode" value="normal" {{ $currentMode === 'normal' ? 'checked' : '' }}
+                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900">Normal</span>
+                        <p class="text-xs text-gray-500">Standard change request flow</p>
+                    </div>
+                </label>
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'blocked' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_blocked">
+                    <input type="radio" name="request_mode" value="blocked" {{ $currentMode === 'blocked' ? 'checked' : '' }}
+                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900">Blocked</span>
+                        <p class="text-xs text-gray-500">Requests not allowed. Show a message instead.</p>
+                    </div>
+                </label>
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'self_service' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_self_service">
+                    <input type="radio" name="request_mode" value="self_service" {{ $currentMode === 'self_service' ? 'checked' : '' }}
+                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                    <div>
+                        <span class="text-sm font-medium text-gray-900">Self-service</span>
+                        <p class="text-xs text-gray-500">This content type has a self-service tool. Users can request access instead of changes.</p>
+                    </div>
+                </label>
+            </div>
+            @error('request_mode') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
+        <div id="modeMessageSection" class="{{ in_array($currentMode, ['blocked', 'self_service']) ? '' : 'hidden' }}">
+            <label for="mode_message" id="modeMessageLabel" class="block text-sm font-medium text-gray-700 mb-1">
+                Message to display
             </label>
-            <textarea name="blocked_message" id="blocked_message" rows="4" placeholder="e.g. Events can be managed directly using the self-service portal at..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('blocked_message', $cpt->blocked_message) }}</textarea>
-            <p class="mt-1 text-xs text-gray-500">This message will be displayed when a user selects a page of this content type. They will not be able to submit a request.</p>
-            @error('blocked_message') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            <textarea name="mode_message" id="mode_message" rows="4"
+                placeholder="{{ $currentMode === 'self_service' ? 'e.g. This content can be managed using the self-service tool. If you need access, submit a request below...' : 'e.g. Requests for this content type are not currently available...' }}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('mode_message', $cpt->mode_message) }}</textarea>
+            <p id="modeMessageHelp" class="mt-1 text-xs text-gray-500">
+                {{ $currentMode === 'self_service' ? 'This message will be shown alongside a simplified access request form.' : 'This message will be displayed when a user selects a page of this content type. They will not be able to submit a request.' }}
+            </p>
+            @error('mode_message') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div class="flex items-center space-x-3 pt-4">
@@ -436,9 +463,35 @@ function escHtml(str) {
     return d.innerHTML;
 }
 
-function toggleBlockedMessage() {
-    var checked = document.getElementById('is_blocked').checked;
-    document.getElementById('blockedMessageSection').classList.toggle('hidden', !checked);
+function updateRequestMode() {
+    var mode = document.querySelector('input[name="request_mode"]:checked').value;
+    var section = document.getElementById('modeMessageSection');
+    var textarea = document.getElementById('mode_message');
+    var helpText = document.getElementById('modeMessageHelp');
+
+    // Show/hide message section
+    section.classList.toggle('hidden', mode === 'normal');
+
+    // Update placeholder and help text based on mode
+    if (mode === 'blocked') {
+        textarea.placeholder = 'e.g. Requests for this content type are not currently available...';
+        helpText.textContent = 'This message will be displayed when a user selects a page of this content type. They will not be able to submit a request.';
+    } else if (mode === 'self_service') {
+        textarea.placeholder = 'e.g. This content can be managed using the self-service tool. If you need access, submit a request below...';
+        helpText.textContent = 'This message will be shown alongside a simplified access request form.';
+    }
+
+    // Update label highlight styles
+    ['normal', 'blocked', 'self_service'].forEach(function(m) {
+        var label = document.getElementById('modeLabel_' + m);
+        if (m === mode) {
+            label.classList.remove('border-gray-200', 'hover:bg-gray-50');
+            label.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+        } else {
+            label.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+            label.classList.add('border-gray-200', 'hover:bg-gray-50');
+        }
+    });
 }
 </script>
 @endsection

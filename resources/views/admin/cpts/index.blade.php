@@ -31,8 +31,10 @@
                 </td>
                 <td class="px-6 py-4 space-x-1">
                     @include('admin.partials.active-badge', ['active' => $cpt->is_active])
-                    @if($cpt->is_blocked)
+                    @if($cpt->request_mode === 'blocked')
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Blocked</span>
+                    @elseif($cpt->request_mode === 'self_service')
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Self-service</span>
                     @endif
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
