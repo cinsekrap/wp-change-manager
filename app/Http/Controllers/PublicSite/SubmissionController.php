@@ -47,7 +47,9 @@ class SubmissionController extends Controller
             'items.*.files.*.file_size' => 'required|integer',
         ]);
 
-        $changeRequest = DB::transaction(function () use ($validated) {
+        $createdApprovers = [];
+
+        $changeRequest = DB::transaction(function () use ($validated, &$createdApprovers) {
             $reference = ChangeRequest::generateReference();
 
             $changeRequest = ChangeRequest::create([
@@ -119,7 +121,6 @@ class SubmissionController extends Controller
 
             // Only auto-add approvers and send emails if checks pass and site doesn't require manual approval
             $defaultApprovers = $site->default_approvers ?? [];
-            $createdApprovers = [];
 
             if ($canAutoRefer && !empty($defaultApprovers)) {
                 foreach ($defaultApprovers as $approver) {
@@ -142,7 +143,7 @@ class SubmissionController extends Controller
         Mail::to($changeRequest->requester_email)->queue(new RequestSubmitted($changeRequest));
 
         // Send approval request emails (only if approvers were auto-added)
-        foreach ($createdApprovers ?? [] as $approver) {
+        foreach ($createdApprovers as $approver) {
             if ($approver->email && $approver->token) {
                 Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
             }

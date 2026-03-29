@@ -26,6 +26,7 @@ class CreateAdmin extends Command
             'name' => $name,
             'email' => $email,
             'password' => $password,
+            'role' => 'super_admin',
             'is_active' => true,
         ]);
 

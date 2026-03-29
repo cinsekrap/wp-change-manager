@@ -27,8 +27,9 @@
     </main>
 
     <footer class="bg-hcrg-burgundy text-white mt-12">
-        <div class="max-w-3xl mx-auto px-4 py-8 text-center text-sm">
-            &copy; {{ date('Y') }} Nic Parkes
+        <div class="max-w-3xl mx-auto px-4 py-8 text-center text-sm space-y-1">
+            <p>&copy; {{ date('Y') }} {{ config('app.name') }}</p>
+            <p class="text-white/50">Powered by <a href="https://github.com/cinsekrap/wp-change-manager" target="_blank" class="text-white/70 hover:text-white underline">WP Change Manager</a></p>
         </div>
     </footer>
 

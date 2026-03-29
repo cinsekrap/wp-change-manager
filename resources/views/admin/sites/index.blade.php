@@ -11,35 +11,30 @@
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Default Assignee</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap w-16">Pages</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Status</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-48">Actions</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
             @forelse($sites as $site)
             <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-4 font-medium text-gray-900">{{ $site->name }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $site->domain }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $site->sitemap_pages_count }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $site->defaultAssignee?->name ?? '—' }}</td>
-                <td class="px-6 py-4">
+                <td class="px-4 py-4 font-medium text-gray-900 truncate max-w-[180px]">{{ $site->name }}</td>
+                <td class="px-4 py-4 text-sm text-gray-600 truncate max-w-[160px]">{{ $site->domain }}</td>
+                <td class="px-3 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $site->sitemap_pages_count }}</td>
+                <td class="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $site->defaultAssignee?->name ?? '—' }}</td>
+                <td class="px-3 py-4">
                     @include('admin.partials.active-badge', ['active' => $site->is_active])
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-4 py-4 text-right whitespace-nowrap">
                     <div class="flex flex-col items-end space-y-1">
-                        @if($site->sitemap_url)
-                        <form method="POST" action="{{ route('admin.sites.refresh', $site) }}">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center text-xs text-green-600 hover:text-green-800 transition-colors">
-                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                Refresh Sitemap
-                            </button>
-                        </form>
-                        @endif
+                        <button type="button" onclick="refreshSitemap(this, {{ $site->id }})" class="refresh-btn inline-flex items-center text-xs text-green-600 hover:text-green-800 transition-colors">
+                            <svg class="w-3.5 h-3.5 mr-1 refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span class="refresh-label">Refresh Sitemap ({{ $site->sitemap_pages_count }} pages)</span>
+                        </button>
                         <a href="{{ route('admin.sites.edit', $site) }}" class="inline-flex items-center text-xs text-hcrg-burgundy hover:text-[#9A1B4B] transition-colors">
                             <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             Edit
@@ -62,4 +57,47 @@
 </div>
 
 <div class="mt-4">{{ $sites->links() }}</div>
+
+<script>
+async function refreshSitemap(btn, siteId) {
+    const label = btn.querySelector('.refresh-label');
+    const icon = btn.querySelector('.refresh-icon');
+    const originalText = label.textContent;
+
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    icon.classList.add('animate-spin');
+    label.textContent = 'Refreshing...';
+
+    try {
+        const res = await fetch(`/admin/sites/${siteId}/refresh`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json',
+            },
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            label.textContent = data.message;
+            btn.classList.remove('text-green-600', 'hover:text-green-800');
+            btn.classList.add('text-emerald-600');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            label.textContent = data.message || 'Refresh failed';
+            btn.classList.remove('text-green-600');
+            btn.classList.add('text-red-600');
+        }
+    } catch (e) {
+        label.textContent = 'Error — try again';
+        btn.classList.remove('text-green-600');
+        btn.classList.add('text-red-600');
+    } finally {
+        icon.classList.remove('animate-spin');
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+    }
+}
+</script>
 @endsection
