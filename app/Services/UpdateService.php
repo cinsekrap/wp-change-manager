@@ -54,8 +54,19 @@ class UpdateService
         ];
 
         try {
+            $headers = [
+                'Accept' => 'application/vnd.github.v3+json',
+                'User-Agent' => config('app.name', 'ACME-Change'),
+            ];
+
+            // Use GitHub token if configured (raises rate limit from 60 to 5,000/hr)
+            $token = \App\Models\Setting::get('github_token');
+            if ($token) {
+                $headers['Authorization'] = 'Bearer ' . $token;
+            }
+
             $response = Http::timeout(10)
-                ->withHeaders(['Accept' => 'application/vnd.github.v3+json'])
+                ->withHeaders($headers)
                 ->get("https://api.github.com/repos/{$repo}/releases/latest");
 
             if (! $response->successful()) {
