@@ -70,4 +70,19 @@ class UpdateController extends Controller
         return redirect()->route('admin.settings.updates')
             ->with('error', 'Update failed: ' . ($result['error'] ?? 'Unknown error. Check logs for details.'));
     }
+
+    /**
+     * PUT /admin/settings/github-token — save GitHub API token.
+     */
+    public function updateGithubToken(Request $request)
+    {
+        $token = $request->input('github_token');
+
+        if ($token) {
+            \App\Models\Setting::set('github_token', $token);
+        }
+
+        return redirect()->route('admin.settings.updates')
+            ->with('success', 'GitHub token saved.');
+    }
 }

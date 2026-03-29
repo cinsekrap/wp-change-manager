@@ -119,5 +119,25 @@
             </div>
         </div>
     @endif
+
+    {{-- GitHub Token --}}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">GitHub API Token</h2>
+        <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-hcrg-burgundy hover:underline">github.com/settings/tokens</a> with no special permissions.</p>
+        <form method="POST" action="{{ route('admin.settings.github-token.update') }}">
+            @csrf
+            @method('PUT')
+            <div class="flex items-end space-x-3">
+                <div class="flex-1">
+                    <input type="password" name="github_token" value="" placeholder="{{ \App\Models\Setting::get('github_token') ? '••••••••' : 'Paste token here' }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    @if(\App\Models\Setting::get('github_token'))
+                        <p class="mt-1 text-xs text-gray-500">Token is set. Leave blank to keep current.</p>
+                    @endif
+                </div>
+                <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium whitespace-nowrap">Save</button>
+            </div>
+        </form>
+    </div>
 </div>
 @endsection
