@@ -66,8 +66,8 @@
                 <div class="flex items-start space-x-3">
                     <svg class="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <div>
-                        <p class="text-sm font-semibold text-blue-800 mb-2">Self-service content type</p>
-                        <div id="selfServiceCptText" class="text-sm text-blue-700 prose prose-sm max-w-none"></div>
+                        <div id="selfServiceCptText" class="text-sm text-blue-700 prose prose-sm max-w-none mb-2"></div>
+                        <p class="text-sm text-blue-700">If you need access, complete the form below.</p>
                     </div>
                 </div>
             </div>
@@ -360,6 +360,8 @@
         const isNew = document.getElementById('isNewPage').checked;
         if (isNew) return document.getElementById('newPageCpt').value;
         if (selectedPage) return selectedPage.cpt_slug;
+        // If a CPT tab is selected but no page yet, use the tab's CPT
+        if (selectedCpt) return selectedCpt;
         return null;
     }
 
@@ -1722,6 +1724,7 @@
             tab.className = `cpt-tab px-3 py-1.5 rounded-full text-sm font-medium ${isActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
         });
         renderPages();
+        updateBlockedState();
     }
 
     function renderPages() {
