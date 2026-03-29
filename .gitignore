@@ -46,3 +46,4 @@ Homestead.yaml
 
 ## Vendor IS committed — server has no Composer
 # /vendor
+storage/installed.lock

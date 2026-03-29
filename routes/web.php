@@ -17,11 +17,23 @@ use App\Http\Controllers\Auth\EntraController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\PublicSite\ApprovalController;
 use App\Http\Controllers\PublicSite\TrackingController;
 use App\Http\Controllers\PublicSite\WizardController;
 use App\Http\Controllers\PublicSite\SubmissionController;
 use Illuminate\Support\Facades\Route;
+
+// Installer routes (only accessible when app is not yet installed)
+Route::middleware('installer')->prefix('install')->group(function () {
+    Route::get('/', [InstallerController::class, 'index'])->name('install');
+    Route::post('/check', [InstallerController::class, 'checkEnvironment'])->name('install.check');
+    Route::post('/database', [InstallerController::class, 'setupDatabase'])->name('install.database');
+    Route::post('/application', [InstallerController::class, 'setupApplication'])->name('install.application');
+    Route::post('/migrate', [InstallerController::class, 'runMigrations'])->name('install.migrate');
+    Route::post('/admin', [InstallerController::class, 'createAdmin'])->name('install.admin');
+    Route::post('/complete', [InstallerController::class, 'complete'])->name('install.complete');
+});
 
 // Public wizard
 Route::get('/', [WizardController::class, 'index'])->name('wizard');
