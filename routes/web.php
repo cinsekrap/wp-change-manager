@@ -156,6 +156,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::get('/settings/updates', [UpdateController::class, 'index'])->name('admin.settings.updates');
         Route::post('/settings/updates/check', [UpdateController::class, 'check'])->name('admin.settings.updates.check');
         Route::post('/settings/updates/install', [UpdateController::class, 'install'])->name('admin.settings.updates.install');
+        Route::put('/settings/github-token', [UpdateController::class, 'updateGithubToken'])->name('admin.settings.github-token.update');
 
         // Users
         Route::resource('users', UserController::class)->except(['show'])->names('admin.users');

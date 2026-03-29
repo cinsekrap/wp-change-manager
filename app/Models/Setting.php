@@ -15,6 +15,7 @@ class Setting extends Model
     protected static array $encryptedKeys = [
         'mail_password',
         'entra_client_secret',
+        'github_token',
     ];
 
     /**
