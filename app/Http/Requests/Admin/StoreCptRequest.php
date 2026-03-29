@@ -19,8 +19,8 @@ class StoreCptRequest extends FormRequest
             'description' => 'nullable|string',
             'sort_order' => 'integer|min:0',
             'is_active' => 'boolean',
-            'is_blocked' => 'boolean',
-            'blocked_message' => 'nullable|string|max:5000',
+            'request_mode' => 'required|in:normal,blocked,self_service',
+            'mode_message' => 'nullable|string|max:5000',
             'content_areas' => 'nullable|array',
             'content_areas.*.name' => 'required|string|max:255',
             'content_areas.*.type' => 'required|in:text,textarea,select,checkbox,date,file,richtext,group',
@@ -47,7 +47,6 @@ class StoreCptRequest extends FormRequest
         }
 
         $data['is_active'] = $this->boolean('is_active');
-        $data['is_blocked'] = $this->boolean('is_blocked');
 
         $contentAreas = collect($data['content_areas'] ?? [])
             ->filter(fn($area) => !empty($area['name']))

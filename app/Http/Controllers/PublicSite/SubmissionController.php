@@ -36,7 +36,7 @@ class SubmissionController extends Controller
             'deadline_date' => 'nullable|date',
             'deadline_reason' => 'nullable|string|max:500',
             'items' => 'required|array|min:1',
-            'items.*.action_type' => 'required|in:add,change,delete',
+            'items.*.action_type' => 'required|in:add,change,delete,access_request',
             'items.*.content_area' => 'nullable|string|max:255',
             'items.*.description' => 'required|string|max:5000',
             'items.*.current_content' => 'nullable|string|max:5000',
@@ -111,16 +111,17 @@ class SubmissionController extends Controller
                 }
             }
 
-            // Check if all pre-submission checks passed
+            // Check if auto-referral should proceed
+            $site = Site::find($validated['site_id']);
             $checkAnswers = $changeRequest->check_answers ?? [];
             $allChecksPassed = collect($checkAnswers)->every(fn($a) => !empty($a['pass']));
+            $canAutoRefer = $allChecksPassed && !$site->requires_approval;
 
-            // Only auto-add approvers and send emails if all checks pass
-            $site = Site::find($validated['site_id']);
+            // Only auto-add approvers and send emails if checks pass and site doesn't require manual approval
             $defaultApprovers = $site->default_approvers ?? [];
             $createdApprovers = [];
 
-            if ($allChecksPassed && !empty($defaultApprovers)) {
+            if ($canAutoRefer && !empty($defaultApprovers)) {
                 foreach ($defaultApprovers as $approver) {
                     $createdApprovers[] = $changeRequest->approvers()->create([
                         'name' => $approver['name'],

@@ -279,8 +279,8 @@ class SettingsController extends Controller
                     'form_config' => $cpt->form_config,
                     'sort_order' => $cpt->sort_order,
                     'is_active' => $cpt->is_active,
-                    'is_blocked' => $cpt->is_blocked,
-                    'blocked_message' => $cpt->blocked_message,
+                    'request_mode' => $cpt->request_mode ?? 'normal',
+                    'mode_message' => $cpt->mode_message,
                 ];
             })->toArray();
         }
@@ -405,8 +405,8 @@ class SettingsController extends Controller
                         'form_config' => $cptData['form_config'] ?? $existing->form_config,
                         'sort_order' => $cptData['sort_order'] ?? $existing->sort_order,
                         'is_active' => $cptData['is_active'] ?? $existing->is_active,
-                        'is_blocked' => $cptData['is_blocked'] ?? $existing->is_blocked,
-                        'blocked_message' => $cptData['blocked_message'] ?? $existing->blocked_message,
+                        'request_mode' => $cptData['request_mode'] ?? (!empty($cptData['is_blocked']) ? 'blocked' : ($existing->request_mode ?? 'normal')),
+                        'mode_message' => $cptData['mode_message'] ?? $cptData['blocked_message'] ?? $existing->mode_message,
                     ]);
                     $updated++;
                 } else {
@@ -417,8 +417,8 @@ class SettingsController extends Controller
                         'form_config' => $cptData['form_config'] ?? null,
                         'sort_order' => $cptData['sort_order'] ?? 0,
                         'is_active' => $cptData['is_active'] ?? true,
-                        'is_blocked' => $cptData['is_blocked'] ?? false,
-                        'blocked_message' => $cptData['blocked_message'] ?? null,
+                        'request_mode' => $cptData['request_mode'] ?? (!empty($cptData['is_blocked']) ? 'blocked' : 'normal'),
+                        'mode_message' => $cptData['mode_message'] ?? $cptData['blocked_message'] ?? null,
                     ]);
                     $created++;
                 }
