@@ -91,7 +91,7 @@ class AdminCrudTest extends TestCase
             'description' => 'News content type',
             'sort_order' => 1,
             'is_active' => true,
-            'is_blocked' => false,
+            'request_mode' => 'normal',
             'content_areas' => [],
         ]);
 
