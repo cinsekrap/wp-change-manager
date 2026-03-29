@@ -327,6 +327,11 @@ class UpdateService
      */
     public function rollback(string $backupFilename): array
     {
+        $backupFilename = basename($backupFilename); // strip path components
+        if (!preg_match('/^pre-update-[\w.\-]+\.zip$/', $backupFilename)) {
+            return ['timestamp' => date('Y-m-d H:i:s'), 'success' => false, 'error' => 'Invalid backup filename.', 'steps' => []];
+        }
+
         $log = [
             'timestamp' => date('Y-m-d H:i:s'),
             'success' => false,
