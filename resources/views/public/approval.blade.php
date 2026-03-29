@@ -17,13 +17,21 @@
                 <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site->name }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Page</p>
-                <p class="text-sm text-gray-800">{{ $changeRequest->page_title ?: $changeRequest->page_url }}</p>
-            </div>
-            <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Changes requested</p>
                 <p class="text-sm text-gray-800">{{ $changeRequest->items->count() }} item(s)</p>
             </div>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4">
+            <p class="text-sm text-gray-600">The page these changes are requested for is:</p>
+            @if($changeRequest->is_new_page)
+                <p class="text-sm font-medium text-gray-800 mt-1">New page: {{ $changeRequest->page_title }}</p>
+            @else
+                <a href="{{ $changeRequest->page_url }}" target="_blank" class="inline-flex items-center mt-1 text-sm font-medium text-hcrg-burgundy hover:underline">
+                    {{ $changeRequest->page_title ?: $changeRequest->page_url }}
+                    <svg class="w-3.5 h-3.5 ml-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+            @endif
         </div>
 
         @if($changeRequest->deadline_date)
@@ -40,8 +48,15 @@
         {{-- Items overview --}}
         <div class="space-y-3">
             @foreach($changeRequest->items as $item)
-                <div class="bg-white rounded border border-gray-200 p-3">
-                    <div class="flex items-center gap-2 mb-1">
+                @php
+                    $borderColor = match($item->action_type) {
+                        'add' => 'border-green-200',
+                        'delete' => 'border-red-200',
+                        default => 'border-hcrg-burgundy/20',
+                    };
+                @endphp
+                <div class="bg-white rounded-lg border-2 {{ $borderColor }} p-4">
+                    <div class="flex items-center gap-2 mb-2">
                         <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full
                             @if($item->action_type === 'add') bg-green-100 text-green-800
                             @elseif($item->action_type === 'change') bg-hcrg-burgundy/10 text-hcrg-burgundy
@@ -52,17 +67,59 @@
                             <span class="text-xs text-gray-500">{{ $item->content_area }}</span>
                         @endif
                     </div>
-                    <p class="text-sm text-gray-700">{{ Str::limit($item->description, 200) }}</p>
+
+                    @if($item->action_type === 'change' && $item->current_content)
+                        <div class="space-y-2">
+                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p class="text-xs font-medium text-red-700 mb-1">Current content</p>
+                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->current_content }}</p>
+                            </div>
+                            <div class="flex justify-center">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                            </div>
+                            <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p class="text-xs font-medium text-green-700 mb-1">Replace with</p>
+                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
+                            </div>
+                        </div>
+                    @elseif($item->action_type === 'delete')
+                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-xs font-medium text-red-700 mb-1">Content to remove</p>
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
+                        </div>
+                        @if($item->current_content)
+                            <p class="mt-2 text-sm text-gray-500"><span class="font-medium">Reason:</span> {{ $item->current_content }}</p>
+                        @endif
+                    @elseif($item->action_type === 'add')
+                        <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-xs font-medium text-green-700 mb-1">New content</p>
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
+                    @endif
                 </div>
             @endforeach
         </div>
     </div>
 
     {{-- Approver info --}}
-    <div class="bg-hcrg-grey-100 rounded-lg px-6 py-4 mb-6">
+    @php
+        $otherApprovers = $changeRequest->approvers->where('id', '!=', $approver->id);
+    @endphp
+    <div class="bg-hcrg-grey-100 rounded-lg px-6 py-4 mb-6 space-y-2">
         <p class="text-sm text-gray-700">
-            <strong>{{ $approver->name }}</strong>, you have been asked to review this change request as an approver.
+            <strong>{{ $approver->name }}</strong>, you have been asked to review this change request.
         </p>
+        @if($otherApprovers->count() > 0)
+            <p class="text-sm text-gray-600">
+                We have also asked {{ $otherApprovers->count() }} other {{ Str::plural('person', $otherApprovers->count()) }} for their approval. All approvers must approve before this change will be scheduled and implemented.
+            </p>
+        @else
+            <p class="text-sm text-gray-600">
+                You are the only approver for this request. Your approval is required before this change will be scheduled and implemented.
+            </p>
+        @endif
     </div>
 
     {{-- Approval form --}}

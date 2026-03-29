@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Site extends Model
 {
-    protected $fillable = ['name', 'domain', 'sitemap_url', 'default_approvers', 'default_assignee_id', 'is_active'];
+    protected $fillable = ['name', 'domain', 'sitemap_url', 'default_approvers', 'default_assignee_id', 'requires_approval', 'is_active'];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'requires_approval' => 'boolean',
             'default_approvers' => 'array',
         ];
     }
