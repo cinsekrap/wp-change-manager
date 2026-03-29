@@ -12,12 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            \App\Http\Middleware\RedirectToInstaller::class,
             \App\Http\Middleware\ContentSecurityPolicy::class,
         ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\RequireAdmin::class,
             'super_admin' => \App\Http\Middleware\RequireSuperAdmin::class,
             'mfa' => \App\Http\Middleware\RequireMfa::class,
+            'installer' => \App\Http\Middleware\InstallerAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
