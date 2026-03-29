@@ -293,6 +293,12 @@ class InstallerController extends Controller
             ], 500);
         }
 
+        // Clean up bootstrap .env.install
+        $installEnv = base_path('.env.install');
+        if (file_exists($installEnv)) {
+            @unlink($installEnv);
+        }
+
         // Clear installer session data
         $request->session()->forget('installer');
 
