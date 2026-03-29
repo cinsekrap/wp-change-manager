@@ -139,5 +139,31 @@
             </div>
         </form>
     </div>
+
+    {{-- Rollback --}}
+    @if(!empty($backups))
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">Rollback</h2>
+        <p class="text-sm text-gray-500 mb-4">A backup is created automatically before each update. You can restore to a previous version if something goes wrong.</p>
+
+        <div class="space-y-2">
+            @foreach($backups as $backup)
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                    <p class="text-sm font-medium text-gray-900">{{ $backup['filename'] }}</p>
+                    <p class="text-xs text-gray-500">{{ $backup['date'] }} &middot; {{ $backup['size'] }}</p>
+                </div>
+                <form method="POST" action="{{ route('admin.settings.updates.rollback') }}" onsubmit="return confirm('This will restore the app to this backup. The current version will be overwritten. Continue?')">
+                    @csrf
+                    <input type="hidden" name="backup" value="{{ $backup['filename'] }}">
+                    <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 rounded-full border border-red-300 hover:bg-red-50 transition-colors">
+                        Restore
+                    </button>
+                </form>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
 </div>
 @endsection
