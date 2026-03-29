@@ -93,7 +93,7 @@ class UpdateService
     }
 
     /**
-     * Pull latest code, run migrations, and clear caches.
+     * Download latest release zip from GitHub, extract, run migrations, clear caches.
      */
     public function installUpdate(): array
     {
@@ -104,19 +104,52 @@ class UpdateService
         ];
 
         try {
-            // 1. Git fetch
-            $fetchOutput = shell_exec('git fetch origin main 2>&1');
-            $log['steps']['git_fetch'] = $fetchOutput ?: 'git not available';
+            $repo = config('version.repo');
 
-            // 2. Git pull
-            $pullOutput = shell_exec('git pull origin main 2>&1');
-            $log['steps']['git_pull'] = $pullOutput ?: 'git not available';
+            // 1. Download release zip from GitHub
+            $zipUrl = "https://github.com/{$repo}/archive/refs/heads/main.zip";
+            $tempZip = storage_path('app/update.zip');
+            $tempDir = storage_path('app/update-extract');
 
-            if ($pullOutput && str_contains($pullOutput, 'fatal')) {
-                throw new \RuntimeException('Git pull failed: ' . $pullOutput);
+            $response = Http::timeout(60)->get($zipUrl);
+            if (!$response->successful()) {
+                throw new \RuntimeException('Failed to download update: HTTP ' . $response->status());
             }
+            file_put_contents($tempZip, $response->body());
+            $log['steps']['download'] = 'Downloaded ' . round(strlen($response->body()) / 1024 / 1024, 1) . 'MB';
 
-            // 3. Migrate
+            // 2. Extract zip
+            $zip = new \ZipArchive();
+            if ($zip->open($tempZip) !== true) {
+                throw new \RuntimeException('Failed to open zip file.');
+            }
+            // Clean extract dir
+            if (is_dir($tempDir)) {
+                $this->deleteDirectory($tempDir);
+            }
+            $zip->extractTo($tempDir);
+            $zip->close();
+            $log['steps']['extract'] = 'Extracted successfully.';
+
+            // 3. Find the extracted directory (GitHub zips have a top-level folder like repo-main/)
+            $extractedDirs = glob($tempDir . '/*', GLOB_ONLYDIR);
+            if (empty($extractedDirs)) {
+                throw new \RuntimeException('No directory found in extracted zip.');
+            }
+            $sourceDir = $extractedDirs[0];
+
+            // 4. Copy files to app root, preserving .env, storage, and installed.lock
+            $appRoot = base_path();
+            $protectedPaths = ['.env', '.env.install', 'storage', '.git'];
+            $this->copyDirectory($sourceDir, $appRoot, $protectedPaths);
+            $log['steps']['copy'] = 'Files updated.';
+
+            // 5. Clean up temp files
+            @unlink($tempZip);
+            $this->deleteDirectory($tempDir);
+            $log['steps']['cleanup'] = 'Temp files removed.';
+
+            // 6. Migrate
             try {
                 Artisan::call('migrate', ['--force' => true]);
                 $log['steps']['migrate'] = trim(Artisan::output()) ?: 'Nothing to migrate.';
@@ -124,7 +157,7 @@ class UpdateService
                 $log['steps']['migrate'] = 'Error: ' . $e->getMessage();
             }
 
-            // 4. Clear view cache
+            // 7. Clear caches
             try {
                 Artisan::call('view:clear');
                 $log['steps']['view_clear'] = trim(Artisan::output());
@@ -132,7 +165,6 @@ class UpdateService
                 $log['steps']['view_clear'] = 'Error: ' . $e->getMessage();
             }
 
-            // 5. Clear config cache
             try {
                 Artisan::call('config:clear');
                 $log['steps']['config_clear'] = trim(Artisan::output());
@@ -149,6 +181,12 @@ class UpdateService
         } catch (\Exception $e) {
             $log['error'] = $e->getMessage();
             Log::error('App update failed', $log);
+
+            // Clean up on failure
+            @unlink($tempZip ?? '');
+            if (isset($tempDir) && is_dir($tempDir)) {
+                $this->deleteDirectory($tempDir);
+            }
         }
 
         // Append to deploy log for history
@@ -159,5 +197,68 @@ class UpdateService
         );
 
         return $log;
+    }
+
+    /**
+     * Recursively copy directory, skipping protected paths.
+     */
+    protected function copyDirectory(string $source, string $dest, array $protectedPaths = []): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $relativePath = substr($item->getPathname(), strlen($source) + 1);
+
+            // Skip protected paths
+            $skip = false;
+            foreach ($protectedPaths as $protected) {
+                if ($relativePath === $protected || str_starts_with($relativePath, $protected . '/') || str_starts_with($relativePath, $protected . DIRECTORY_SEPARATOR)) {
+                    $skip = true;
+                    break;
+                }
+            }
+            if ($skip) continue;
+
+            $targetPath = $dest . '/' . $relativePath;
+
+            if ($item->isDir()) {
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0775, true);
+                }
+            } else {
+                // Ensure parent directory exists
+                $parentDir = dirname($targetPath);
+                if (!is_dir($parentDir)) {
+                    mkdir($parentDir, 0775, true);
+                }
+                copy($item->getPathname(), $targetPath);
+            }
+        }
+    }
+
+    /**
+     * Recursively delete a directory.
+     */
+    protected function deleteDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) return;
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->isDir()) {
+                rmdir($item->getPathname());
+            } else {
+                unlink($item->getPathname());
+            }
+        }
+
+        rmdir($dir);
     }
 }
