@@ -20,11 +20,13 @@ class RedirectToInstaller
             return $next($request);
         }
 
-        // Check if .env exists and has a valid APP_KEY
+        // Check if .env has a real APP_KEY (not the bootstrap install placeholder)
         $envPath = base_path('.env');
         if (file_exists($envPath)) {
             $envContents = file_get_contents($envPath);
-            if (preg_match('/^APP_KEY=base64:.+$/m', $envContents)) {
+            $hasKey = preg_match('/^APP_KEY=base64:.+$/m', $envContents);
+            $isBootstrap = str_contains($envContents, 'C0jQeZJHEtJ1EA6Qe1cT/pSPqzsEu90PrwAzvYmJZW8=');
+            if ($hasKey && !$isBootstrap) {
                 return $next($request);
             }
         }
