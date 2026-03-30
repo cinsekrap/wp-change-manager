@@ -10,6 +10,7 @@ use App\Models\ChangeRequest;
 use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestApprover;
+use App\Models\EmailLog;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -140,12 +141,12 @@ class SubmissionController extends Controller
         });
 
         // Send email notifications
-        Mail::to($changeRequest->requester_email)->queue(new RequestSubmitted($changeRequest));
+        EmailLog::dispatch($changeRequest->requester_email, new RequestSubmitted($changeRequest), $changeRequest);
 
         // Send approval request emails (only if approvers were auto-added)
         foreach ($createdApprovers as $approver) {
             if ($approver->email && $approver->token) {
-                Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
+                EmailLog::dispatch($approver->email, new ApprovalRequested($changeRequest, $approver), $changeRequest);
             }
         }
 
@@ -155,7 +156,7 @@ class SubmissionController extends Controller
             $assignee = User::find($site->default_assignee_id);
             if ($assignee && $assignee->is_active) {
                 $changeRequest->update(['assigned_to' => $assignee->id]);
-                Mail::to($assignee->email)->queue(new RequestAssigned($changeRequest, $assignee));
+                EmailLog::dispatch($assignee->email, new RequestAssigned($changeRequest, $assignee), $changeRequest);
             }
         }
 
