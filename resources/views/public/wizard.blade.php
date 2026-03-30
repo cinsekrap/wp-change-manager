@@ -140,13 +140,10 @@
 
         {{-- Structured form (used when CPT has rich content areas) --}}
         <div id="structuredFlow" class="hidden">
-            <p class="text-sm text-gray-500 mb-4">Select the content areas you'd like to change, then describe what you need for each.</p>
+            <p class="text-sm text-gray-500 mb-4">Tick the sections you need to change — each one will open so you can describe what's needed.</p>
 
-            <!-- Area checklist -->
-            <div id="areaChecklist" class="space-y-2 mb-6"></div>
-
-            <!-- Per-area forms (shown for checked areas) -->
-            <div id="structuredFields" class="space-y-5"></div>
+            <!-- Accordion: each area is a row with inline-expanding form -->
+            <div id="areaAccordion" class="space-y-2"></div>
         </div>
     </div>
 
@@ -508,10 +505,8 @@
     let structuredUploadedFiles = {}; // keyed by area index
 
     function buildStructuredForm() {
-        const checklistContainer = document.getElementById('areaChecklist');
-        const fieldsContainer = document.getElementById('structuredFields');
-        checklistContainer.innerHTML = '';
-        fieldsContainer.innerHTML = '';
+        const accordion = document.getElementById('areaAccordion');
+        accordion.innerHTML = '';
         structuredUploadedFiles = {};
 
         const areas = getContentAreas();
@@ -525,41 +520,58 @@
             const typeLabels = { text: 'Text', textarea: 'Text', richtext: 'Rich text', select: 'Dropdown', checkbox: 'Checkbox', date: 'Date', file: 'File upload', group: 'Group' };
             const typeLabel = typeLabels[areaObj.type] || areaObj.type;
 
-            const item = document.createElement('label');
-            item.className = 'flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
-            item.innerHTML = `<input type="checkbox" class="area-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy" data-area-idx="${idx}">` +
+            // Accordion item wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'area-accordion-item';
+            wrapper.dataset.areaIdx = idx;
+
+            // Checkbox header row
+            const header = document.createElement('label');
+            header.className = 'flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
+            header.innerHTML = `<input type="checkbox" class="area-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy" data-area-idx="${idx}">` +
                 `<span class="flex-1"><span class="text-sm font-medium text-gray-900">${esc(areaObj.name)}</span>` +
                 `<span class="ml-2 text-xs text-gray-400">${esc(typeLabel)}</span></span>`;
 
-            const checkbox = item.querySelector('.area-checkbox');
+            // Collapsible panel (hidden by default)
+            const panel = document.createElement('div');
+            panel.className = 'area-accordion-panel hidden mt-1 ml-4 border-l-2 border-hcrg-burgundy/20 pl-4';
+
+            const checkbox = header.querySelector('.area-checkbox');
             checkbox.addEventListener('change', function() {
                 if (this.checked) {
-                    item.classList.remove('border-gray-200');
-                    item.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
-                    buildAreaForm(areaObj, idx);
+                    header.classList.remove('border-gray-200');
+                    header.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    buildAreaForm(areaObj, idx, panel);
+                    panel.classList.remove('hidden');
                 } else {
-                    item.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
-                    item.classList.add('border-gray-200');
+                    header.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    header.classList.add('border-gray-200');
                     removeAreaForm(idx);
+                    panel.classList.add('hidden');
                 }
                 checkStepValid();
             });
 
-            checklistContainer.appendChild(item);
+            wrapper.appendChild(header);
+            wrapper.appendChild(panel);
+            accordion.appendChild(wrapper);
         });
     }
 
     function removeAreaForm(idx) {
-        const card = document.querySelector(`#structuredFields .structured-field[data-area-index="${idx}"]`);
-        if (card) card.remove();
+        const wrapper = document.querySelector(`#areaAccordion .area-accordion-item[data-area-idx="${idx}"]`);
+        if (wrapper) {
+            const panel = wrapper.querySelector('.area-accordion-panel');
+            if (panel) panel.innerHTML = '';
+        }
         delete structuredUploadedFiles[idx];
     }
 
-    function buildAreaForm(area, idx) {
-        // Remove existing card if any (shouldn't happen, but safety)
-        removeAreaForm(idx);
+    function buildAreaForm(area, idx, panel) {
+        // Clear panel content before rebuilding
+        if (panel) panel.innerHTML = '';
 
-        const container = document.getElementById('structuredFields');
+        const container = panel || document.querySelector(`#areaAccordion .area-accordion-item[data-area-idx="${idx}"] .area-accordion-panel`);
         const card = document.createElement('div');
         card.className = 'structured-field border-2 border-gray-200 shadow-sm rounded-lg p-5 transition-colors';
         card.dataset.areaIndex = idx;
@@ -570,15 +582,13 @@
         card.dataset.actionType = '';
         if (area.word_limit) card.dataset.wordLimit = area.word_limit;
 
-        const typeLabels = { text: 'Text', textarea: 'Text', richtext: 'Rich text', select: 'Dropdown', checkbox: 'Checkbox', date: 'Date', file: 'File upload', group: 'Group' };
-        const typeLabel = typeLabels[area.type] || area.type || 'Text';
-
-        let html = `<div class="mb-3">`;
-        html += `<h4 class="text-sm font-bold text-gray-900">${esc(area.name)}${area.required ? '<span class="text-red-500 ml-1">*</span>' : ''} <span class="font-normal text-xs text-gray-400">${esc(typeLabel)}</span></h4>`;
+        let html = '';
         if (area.help) {
-            html += `<p class="text-xs text-gray-400 mt-1">${esc(area.help)}</p>`;
+            html += `<div class="mb-4 flex gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">`;
+            html += `<svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>`;
+            html += `<p class="text-sm text-amber-800">${esc(area.help)}</p>`;
+            html += `</div>`;
         }
-        html += `</div>`;
 
         // Action type selector — depends on context
         const isNewPage = document.getElementById('isNewPage').checked;
@@ -605,17 +615,8 @@
 
         card.innerHTML = html;
 
-        // Insert card in order based on idx
-        const existingCards = container.querySelectorAll('.structured-field');
-        let inserted = false;
-        for (const existing of existingCards) {
-            if (parseInt(existing.dataset.areaIndex) > idx) {
-                container.insertBefore(card, existing);
-                inserted = true;
-                break;
-            }
-        }
-        if (!inserted) container.appendChild(card);
+        // Insert card into its accordion panel
+        container.appendChild(card);
 
         // Attach action button listeners
         card.querySelectorAll('.area-action-btn').forEach(btn => {
@@ -1020,7 +1021,7 @@
     function getStructuredItems() {
         const items = [];
 
-        document.querySelectorAll('#structuredFields .structured-field').forEach(section => {
+        document.querySelectorAll('#areaAccordion .structured-field').forEach(section => {
             const areaName = section.dataset.areaName;
             const areaType = section.dataset.areaType;
             const action = section.dataset.actionType;
@@ -1425,11 +1426,11 @@
 
     function validateStructuredForm() {
         // At least one area must be checked
-        const checkedBoxes = document.querySelectorAll('#areaChecklist .area-checkbox:checked');
+        const checkedBoxes = document.querySelectorAll('#areaAccordion .area-checkbox:checked');
         if (checkedBoxes.length === 0) return false;
 
         // Each checked area must have a card with an action selected
-        const fields = document.querySelectorAll('#structuredFields .structured-field');
+        const fields = document.querySelectorAll('#areaAccordion .structured-field');
         if (fields.length === 0) return false;
 
         for (const field of fields) {
