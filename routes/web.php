@@ -138,6 +138,10 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
         Route::put('/settings/chase', [SettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
 
+        // Email Log
+        Route::get('/settings/email-log', [SettingsController::class, 'emailLog'])->name('admin.settings.email-log');
+        Route::get('/settings/email-log/{emailLog}', [SettingsController::class, 'emailLogShow'])->name('admin.settings.email-log.show');
+
         // Email Templates
         Route::get('/settings/email-templates', [SettingsController::class, 'emailTemplates'])->name('admin.settings.email-templates');
         Route::put('/settings/email-templates', [SettingsController::class, 'updateEmailTemplates'])->name('admin.settings.email-templates.update');

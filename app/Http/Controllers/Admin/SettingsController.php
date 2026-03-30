@@ -12,6 +12,7 @@ use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequest;
 use App\Models\CheckQuestion;
 use App\Models\CptType;
+use App\Models\EmailLog;
 use App\Models\Setting;
 use App\Models\Tag;
 use App\Services\AuditService;
@@ -41,6 +42,25 @@ class SettingsController extends Controller
     public function notifications()
     {
         return view('admin.settings.notifications');
+    }
+
+    public function emailLog(Request $request)
+    {
+        $logs = EmailLog::with('changeRequest')
+            ->when($request->search, function ($q, $search) {
+                $q->where('recipient_email', 'like', "%{$search}%")
+                  ->orWhere('subject', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.settings.email-log', compact('logs'));
+    }
+
+    public function emailLogShow(EmailLog $emailLog)
+    {
+        return $emailLog->body_html;
     }
 
     public function update(Request $request)
