@@ -38,7 +38,7 @@
                     <tr>
                         <td style="background-color:#f0f0f0;padding:20px 32px;text-align:center;">
                             <p style="margin:0;color:#999999;font-size:12px;line-height:1.5;">
-                                &copy; {{ date('Y') }} HCRG Care Group. All rights reserved.
+                                &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
                             </p>
                         </td>
                     </tr>

@@ -20,7 +20,7 @@ class TrackingController extends Controller
         }
 
         $changeRequest = ChangeRequest::where('reference', $reference)
-            ->with(['site', 'statusLogs'])
+            ->with(['site', 'statusLogs', 'items'])
             ->withCount('items')
             ->first();
 
@@ -47,7 +47,7 @@ class TrackingController extends Controller
 
         $changeRequest = ChangeRequest::whereRaw('LOWER(reference) = ?', [strtolower($validated['reference'])])
             ->whereRaw('LOWER(requester_email) = ?', [strtolower($validated['email'])])
-            ->with(['site', 'statusLogs'])
+            ->with(['site', 'statusLogs', 'items'])
             ->withCount('items')
             ->first();
 
