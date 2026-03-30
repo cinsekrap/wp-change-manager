@@ -11,6 +11,7 @@ use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestStatusLog;
+use App\Models\EmailLog;
 use App\Models\Site;
 use App\Models\Tag;
 use App\Models\User;
@@ -195,8 +196,7 @@ class ChangeRequestController extends Controller
             );
 
             // Notify the requester of the status change
-            Mail::to($changeRequest->requester_email)
-                ->queue(new RequestStatusChanged($changeRequest, $oldStatus, $newStatus));
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
         }
 
         return back()->with('success', 'Status updated.');
@@ -237,7 +237,7 @@ class ChangeRequestController extends Controller
 
         // Send approval request email if approver has an email
         if ($approver->email && $approver->token) {
-            Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
+            EmailLog::dispatch($approver->email, new ApprovalRequested($changeRequest, $approver), $changeRequest);
         }
 
         $changeRequest->notes()->create([
@@ -311,8 +311,7 @@ class ChangeRequestController extends Controller
             ]);
 
             // Notify the requester their request was approved
-            Mail::to($changeRequest->requester_email)
-                ->queue(new RequestStatusChanged($changeRequest, $oldStatus, 'approved'));
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
 
             return back()->with('success', 'Approval recorded. All approvers approved — status moved to Approved.');
         }
@@ -347,7 +346,7 @@ class ChangeRequestController extends Controller
         $sent = 0;
         foreach ($changeRequest->approvers->where('status', 'pending') as $approver) {
             if ($approver->email && $approver->token) {
-                Mail::to($approver->email)->queue(new ApprovalRequested($changeRequest, $approver));
+                EmailLog::dispatch($approver->email, new ApprovalRequested($changeRequest, $approver), $changeRequest);
                 $sent++;
             }
         }
@@ -498,7 +497,7 @@ class ChangeRequestController extends Controller
 
             // Send email notification if assigned to someone else
             if ((int) $newAssigneeId !== auth()->id()) {
-                Mail::to($assignee->email)->queue(new RequestAssigned($changeRequest, $assignee));
+                EmailLog::dispatch($assignee->email, new RequestAssigned($changeRequest, $assignee), $changeRequest);
             }
             AuditService::log(
                 action: 'assigned',

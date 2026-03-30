@@ -5,9 +5,9 @@ namespace App\Console\Commands;
 use App\Mail\RequestChase;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestNote;
+use App\Models\EmailLog;
 use App\Models\Setting;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Mail;
 
 class ChaseStaleRequests extends Command
 {
@@ -46,7 +46,7 @@ class ChaseStaleRequests extends Command
                 continue;
             }
 
-            Mail::to($recipient)->send(new RequestChase($request));
+            EmailLog::dispatch($recipient, new RequestChase($request), $request);
 
             // Log a note on the request
             ChangeRequestNote::create([
