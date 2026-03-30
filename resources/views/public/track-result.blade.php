@@ -62,6 +62,40 @@
         </dl>
     </div>
 
+    {{-- Changes requested --}}
+    @if ($changeRequest->items->isNotEmpty())
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-sm font-semibold text-gray-900 mb-4">Changes Requested</h2>
+            <div class="space-y-3">
+                @foreach ($changeRequest->items as $item)
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            @php
+                                $actionColors = [
+                                    'add' => 'bg-green-100 text-green-700',
+                                    'change' => 'bg-amber-100 text-amber-700',
+                                    'delete' => 'bg-red-100 text-red-700',
+                                    'access_request' => 'bg-blue-100 text-blue-700',
+                                ];
+                                $actionColor = $actionColors[$item->action_type] ?? 'bg-gray-100 text-gray-700';
+                            @endphp
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $actionColor }}">
+                                {{ ucfirst(str_replace('_', ' ', $item->action_type)) }}
+                            </span>
+                            @if ($item->content_area)
+                                <span class="text-sm font-medium text-gray-700">{{ $item->content_area }}</span>
+                            @endif
+                        </div>
+                        @if ($item->current_content)
+                            <p class="text-sm text-gray-500 mb-1"><span class="font-medium">Currently:</span> {{ Str::limit($item->current_content, 200) }}</p>
+                        @endif
+                        <p class="text-sm text-gray-700">{!! nl2br(e(Str::limit($item->description, 300))) !!}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- Rejection reason --}}
     @if (in_array($changeRequest->status, ['declined', 'cancelled']) && $changeRequest->rejection_reason)
         <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
