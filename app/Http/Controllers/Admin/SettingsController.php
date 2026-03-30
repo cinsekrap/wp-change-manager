@@ -107,7 +107,10 @@ class SettingsController extends Controller
                 'requester_name' => 'Jane Smith',
                 'requester_email' => 'jane@example.com',
                 'deadline_date' => now()->addDays(7),
+                'created_at' => now()->subHours(72),
+                'updated_at' => now()->subHours(48),
             ]);
+            $sample->id = 0;
             $sample->setRelation('site', new \App\Models\Site(['name' => 'Example Site', 'domain' => 'example.com']));
             $sample->setRelation('items', collect());
         }
