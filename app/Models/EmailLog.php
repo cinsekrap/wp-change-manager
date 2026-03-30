@@ -43,9 +43,20 @@ class EmailLog extends Model
 
             if ($sentMessage) {
                 $symfonySent = $sentMessage->getSymfonySentMessage();
+                $debug = $symfonySent?->getDebug();
+
+                // Strip AUTH exchange — contains base64-encoded credentials
+                if ($debug) {
+                    $debug = preg_replace('/^.*AUTH\b.*$\n?/mi', '', $debug);
+                    $debug = preg_replace('/^[A-Za-z0-9+\/=]{8,}$\n?/m', '', $debug);
+                    $debug = preg_replace('/^334 .*$\n?/m', '', $debug);
+                    $debug = preg_replace('/^235 .*$\n?/m', '', $debug);
+                    $debug = trim(preg_replace('/\n{3,}/', "\n\n", $debug));
+                }
+
                 $log->update(array_filter([
                     'message_id' => $symfonySent?->getMessageId(),
-                    'smtp_debug' => $symfonySent?->getDebug(),
+                    'smtp_debug' => $debug ?: null,
                 ]));
             }
         } catch (\Throwable $e) {
