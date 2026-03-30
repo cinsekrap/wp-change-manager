@@ -100,8 +100,18 @@
         </div>
     </div>
 
-    {{-- Right column (1/3): Template previews --}}
+    {{-- Right column (1/3): Email log + Template previews --}}
     <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">Email Log</h2>
+            <p class="text-sm text-gray-500 mb-4">View all emails sent by the system with their content.</p>
+            <a href="{{ route('admin.settings.email-log') }}"
+               class="inline-flex items-center px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                View email log &rarr;
+            </a>
+        </div>
+
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-2">Template Previews</h2>
             <p class="text-sm text-gray-500 mb-4">Preview emails with sample data.</p>
