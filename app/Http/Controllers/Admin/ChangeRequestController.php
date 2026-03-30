@@ -180,6 +180,11 @@ class ChangeRequestController extends Controller
 
             $changeRequest->update($updateData);
 
+            // Auto-complete unresolved items when marking request as done
+            if ($newStatus === 'done') {
+                $changeRequest->items()->whereNotIn('status', ['done', 'not_done', 'deferred'])->update(['status' => 'done']);
+            }
+
             ChangeRequestStatusLog::create([
                 'change_request_id' => $changeRequest->id,
                 'user_id' => auth()->id(),
@@ -583,6 +588,10 @@ class ChangeRequestController extends Controller
             }
 
             $cr->update($updateData);
+
+            if ($newStatus === 'done') {
+                $cr->items()->whereNotIn('status', ['done', 'not_done', 'deferred'])->update(['status' => 'done']);
+            }
 
             ChangeRequestStatusLog::create([
                 'change_request_id' => $cr->id,
