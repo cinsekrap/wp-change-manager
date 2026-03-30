@@ -630,6 +630,10 @@ class ChangeRequestController extends Controller
                 'note' => $assignee ? 'Bulk assigned to ' . $assignee->name : 'Bulk unassigned',
             ]);
 
+            if ($assignee && (int) $assignedTo !== auth()->id()) {
+                EmailLog::dispatch($assignee->email, new RequestAssigned($cr, $assignee), $cr);
+            }
+
             AuditService::log(
                 action: 'assigned',
                 model: $cr,

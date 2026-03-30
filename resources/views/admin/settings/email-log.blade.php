@@ -79,9 +79,38 @@
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ $log->error_message }}">Failed</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
+                        @if($log->message_id || $log->smtp_debug || $log->error_message)
+                            <button type="button" onclick="toggleDetail({{ $log->id }})"
+                                class="text-sm text-gray-400 hover:text-gray-600">Detail</button>
+                        @endif
                         <button type="button" onclick="previewEmail({{ $log->id }})"
                             class="text-sm text-hcrg-burgundy hover:underline">View</button>
+                    </td>
+                </tr>
+                {{-- Expandable SMTP detail row --}}
+                <tr id="detail-{{ $log->id }}" class="hidden">
+                    <td colspan="7" class="px-4 py-3 bg-gray-50">
+                        <dl class="text-xs space-y-1.5">
+                            @if($log->message_id)
+                                <div class="flex gap-2">
+                                    <dt class="font-medium text-gray-500 w-24 shrink-0">Message ID</dt>
+                                    <dd class="text-gray-700 font-mono break-all">{{ $log->message_id }}</dd>
+                                </div>
+                            @endif
+                            @if($log->smtp_debug)
+                                <div class="flex gap-2">
+                                    <dt class="font-medium text-gray-500 w-24 shrink-0">SMTP response</dt>
+                                    <dd class="text-gray-700 font-mono whitespace-pre-wrap break-all">{{ $log->smtp_debug }}</dd>
+                                </div>
+                            @endif
+                            @if($log->error_message)
+                                <div class="flex gap-2">
+                                    <dt class="font-medium text-gray-500 w-24 shrink-0">Error</dt>
+                                    <dd class="text-red-600">{{ $log->error_message }}</dd>
+                                </div>
+                            @endif
+                        </dl>
                     </td>
                 </tr>
                 @endforeach
@@ -106,6 +135,9 @@
 </div>
 
 <script>
+function toggleDetail(id) {
+    document.getElementById('detail-' + id).classList.toggle('hidden');
+}
 function previewEmail(id) {
     const modal = document.getElementById('emailModal');
     const frame = document.getElementById('emailFrame');
