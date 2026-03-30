@@ -11,6 +11,7 @@ class EmailLog extends Model
     protected $fillable = [
         'mailable_class', 'recipient_email', 'subject', 'body_html',
         'change_request_id', 'status', 'error_message',
+        'message_id', 'smtp_debug',
     ];
 
     public function changeRequest()
@@ -38,7 +39,15 @@ class EmailLog extends Model
         ]);
 
         try {
-            Mail::to($to)->send($mailable);
+            $sentMessage = Mail::to($to)->send($mailable);
+
+            if ($sentMessage) {
+                $symfonySent = $sentMessage->getSymfonySentMessage();
+                $log->update(array_filter([
+                    'message_id' => $symfonySent?->getMessageId(),
+                    'smtp_debug' => $symfonySent?->getDebug(),
+                ]));
+            }
         } catch (\Throwable $e) {
             $log->update([
                 'status' => 'failed',

@@ -4,16 +4,12 @@ namespace App\Mail;
 
 use App\Models\ChangeRequest;
 use App\Models\Setting;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
 
-class RequestChase extends Mailable implements ShouldQueue
+class RequestChase extends Mailable
 {
-    use Queueable, SerializesModels;
 
     public function __construct(
         public ChangeRequest $changeRequest,
