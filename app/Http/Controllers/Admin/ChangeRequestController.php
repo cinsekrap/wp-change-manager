@@ -29,7 +29,25 @@ class ChangeRequestController extends Controller
             $q->where('status', 'done');
         }]));
 
-        $requests = $query->orderByRaw("FIELD(priority, 'urgent', 'high', 'normal', 'low')")->latest()->paginate(25)->withQueryString();
+        // Sorting
+        $sortColumn = $request->input('sort');
+        $sortDirection = in_array($request->input('direction'), ['asc', 'desc']) ? $request->input('direction') : 'asc';
+
+        if ($sortColumn === 'site') {
+            $dir = $sortDirection;
+            $query->orderByRaw("(SELECT name FROM sites WHERE sites.id = change_requests.site_id) $dir");
+        } elseif ($sortColumn === 'priority') {
+            $order = $sortDirection === 'asc'
+                ? "FIELD(priority, 'urgent', 'high', 'normal', 'low')"
+                : "FIELD(priority, 'low', 'normal', 'high', 'urgent')";
+            $query->orderByRaw($order);
+        } elseif (in_array($sortColumn, ['reference', 'requester_name', 'status', 'created_at'])) {
+            $query->orderBy("change_requests.{$sortColumn}", $sortDirection);
+        } else {
+            $query->orderByRaw("FIELD(priority, 'urgent', 'high', 'normal', 'low')")->latest();
+        }
+
+        $requests = $query->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
         $adminUsers = User::where('is_active', true)
             ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])

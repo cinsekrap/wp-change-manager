@@ -10,6 +10,14 @@
     $selectedPriorities = (array) request('priority', []);
     $selectedTags = (array) request('tags', []);
     $myRequestsActive = request('my_requests');
+    $currentSort = request('sort');
+    $currentDir = request('direction', 'asc');
+    $sortParams = function($column) use ($currentSort, $currentDir) {
+        $params = request()->except('page');
+        $params['sort'] = $column;
+        $params['direction'] = ($currentSort === $column && $currentDir === 'asc') ? 'desc' : 'asc';
+        return $params;
+    };
 @endphp
 
 {{-- My Requests toggle --}}
@@ -31,6 +39,7 @@
 {{-- Filters --}}
 <form method="GET" action="{{ route('admin.requests.index') }}" class="bg-white rounded-lg shadow p-4 mb-6" id="filterForm">
     @if($myRequestsActive)<input type="hidden" name="my_requests" value="1">@endif
+    @if($currentSort)<input type="hidden" name="sort" value="{{ $currentSort }}"><input type="hidden" name="direction" value="{{ $currentDir }}">@endif
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
@@ -48,6 +57,10 @@
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div class="hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
+                    <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 font-medium">
+                        <input type="checkbox" id="statusSelectAll" class="select-all-toggle h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
+                        All
+                    </label>
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
                         <input type="checkbox" name="status[]" value="{{ $status }}" {{ in_array($status, $selectedStatuses) ? 'checked' : '' }}
@@ -154,8 +167,8 @@
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export CSV
         </a>
-        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || !empty($selectedTags) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests'))
-            <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</a>
+        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || !empty($selectedTags) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests') || request('sort'))
+            <a href="{{ route('admin.requests.index') }}" onclick="localStorage.removeItem('acme_requests_filters')" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</a>
         @endif
     </div>
 </form>
@@ -169,14 +182,40 @@
                 <th class="px-3 py-3 text-left w-8">
                     <input type="checkbox" id="selectAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded">
                 </th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Site</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
+                @foreach([
+                    'reference' => 'Reference',
+                    'site' => 'Site',
+                    'requester_name' => 'Requester',
+                ] as $col => $label)
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
+                        {{ $label }}
+                        @if($currentSort === $col)
+                            <svg class="w-3 h-3 ml-1 text-hcrg-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
+                        @else
+                            <svg class="w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5 5 5M7 13l5 5 5-5"/></svg>
+                        @endif
+                    </a>
+                </th>
+                @endforeach
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority / SLA</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                @foreach([
+                    'priority' => 'Priority / SLA',
+                    'status' => 'Status',
+                    'created_at' => 'Date',
+                ] as $col => $label)
+                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
+                        {{ $label }}
+                        @if($currentSort === $col)
+                            <svg class="w-3 h-3 ml-1 text-hcrg-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
+                        @else
+                            <svg class="w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5 5 5M7 13l5 5 5-5"/></svg>
+                        @endif
+                    </a>
+                </th>
+                @endforeach
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
@@ -306,6 +345,24 @@
 var form = document.getElementById('filterForm');
 var submitTimer = null;
 var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+var FILTER_KEY = 'acme_requests_filters';
+
+// Filter persistence — save filters to localStorage, restore on empty visit
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    params.delete('page');
+    if (params.toString().length > 0) {
+        var saveParams = new URLSearchParams(window.location.search);
+        saveParams.delete('page');
+        localStorage.setItem(FILTER_KEY, '?' + saveParams.toString());
+    } else {
+        var saved = localStorage.getItem(FILTER_KEY);
+        if (saved) {
+            window.location.replace(window.location.pathname + saved);
+            return;
+        }
+    }
+})();
 
 // Debounced auto-submit -- waits 800ms after last checkbox change
 function debouncedSubmit() {
@@ -313,19 +370,44 @@ function debouncedSubmit() {
     submitTimer = setTimeout(function() { form.submit(); }, 800);
 }
 
-form.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+form.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)').forEach(function(cb) {
     cb.addEventListener('change', function() {
-        // Update the label immediately
         var dd = this.closest('.multi-dropdown');
-        var checked = dd.querySelectorAll('input[type="checkbox"]:checked');
+        if (!dd) return;
+        var checked = dd.querySelectorAll('input[type="checkbox"]:checked:not(.select-all-toggle)');
+        var total = dd.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)');
         var label = dd.querySelector('.multi-label');
         var nameAttr = this.name;
         var defaultLabels = { 'status[]': 'All statuses', 'priority[]': 'All priorities', 'site_id[]': 'All sites', 'tags[]': 'All tags' };
         var defaultLabel = defaultLabels[nameAttr] || 'All';
         label.textContent = checked.length === 0 ? defaultLabel : checked.length + ' selected';
+        // Update "All" toggle if present
+        var toggle = dd.querySelector('.select-all-toggle');
+        if (toggle) {
+            toggle.checked = checked.length === total.length;
+            toggle.indeterminate = checked.length > 0 && checked.length < total.length;
+        }
         debouncedSubmit();
     });
 });
+
+// "All" toggle for status dropdown
+var statusSelectAll = document.getElementById('statusSelectAll');
+if (statusSelectAll) {
+    var statusDd = statusSelectAll.closest('.multi-dropdown');
+    var statusCbs = statusDd.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)');
+    var statusChecked = statusDd.querySelectorAll('input[type="checkbox"]:checked:not(.select-all-toggle)');
+    statusSelectAll.checked = statusCbs.length > 0 && statusChecked.length === statusCbs.length;
+    statusSelectAll.indeterminate = statusChecked.length > 0 && statusChecked.length < statusCbs.length;
+
+    statusSelectAll.addEventListener('change', function() {
+        var cbs = statusDd.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)');
+        cbs.forEach(function(cb) { cb.checked = statusSelectAll.checked; });
+        var label = statusDd.querySelector('.multi-label');
+        label.textContent = statusSelectAll.checked ? cbs.length + ' selected' : 'All statuses';
+        debouncedSubmit();
+    });
+}
 
 // Submit search on Enter
 form.querySelector('input[name="search"]').addEventListener('keydown', function(e) {
