@@ -94,6 +94,7 @@ class UpdateService
                 'release_notes' => $data['body'] ?? '',
                 'published_at' => $data['published_at'] ?? null,
                 'html_url' => $data['html_url'] ?? null,
+                'zipball_url' => $data['zipball_url'] ?? null,
                 'checked_at' => now()->toIso8601String(),
             ];
         } catch (\Exception $e) {
@@ -117,19 +118,48 @@ class UpdateService
         try {
             $repo = config('version.repo');
 
-            // 1. Download release zip from GitHub
-            $zipUrl = "https://github.com/{$repo}/archive/refs/heads/main.zip";
+            // 1. Fetch release info for pinned download URL and optional checksum
+            $release = $this->checkForUpdates(force: true);
+            $zipUrl = $release['zipball_url']
+                ?? "https://github.com/{$repo}/archive/refs/heads/main.zip";
             $tempZip = storage_path('app/update.zip');
             $tempDir = storage_path('app/update-extract');
 
-            $response = Http::timeout(60)->get($zipUrl);
+            $headers = [
+                'Accept' => 'application/vnd.github.v3+json',
+                'User-Agent' => config('app.name', 'ACME-Change'),
+            ];
+            $token = \App\Models\Setting::get('github_token');
+            if ($token) {
+                $headers['Authorization'] = 'Bearer ' . $token;
+            }
+
+            $response = Http::timeout(60)->withHeaders($headers)->get($zipUrl);
             if (!$response->successful()) {
                 throw new \RuntimeException('Failed to download update: HTTP ' . $response->status());
             }
             file_put_contents($tempZip, $response->body());
-            $log['steps']['download'] = 'Downloaded ' . round(strlen($response->body()) / 1024 / 1024, 1) . 'MB';
 
-            // 2. Extract zip
+            // 2. Verify SHA-256 integrity
+            $downloadHash = hash_file('sha256', $tempZip);
+            $log['steps']['download'] = 'Downloaded ' . round(filesize($tempZip) / 1024 / 1024, 1) . 'MB (SHA-256: ' . $downloadHash . ')';
+
+            $expectedHash = null;
+            if (preg_match('/SHA-?256:\s*([a-f0-9]{64})/i', $release['release_notes'] ?? '', $matches)) {
+                $expectedHash = strtolower($matches[1]);
+            }
+
+            if ($expectedHash) {
+                if (!hash_equals($expectedHash, $downloadHash)) {
+                    @unlink($tempZip);
+                    throw new \RuntimeException("SHA-256 checksum mismatch. Expected: {$expectedHash}, Got: {$downloadHash}");
+                }
+                $log['steps']['verify'] = 'SHA-256 checksum verified.';
+            } else {
+                $log['steps']['verify'] = 'No checksum published in release notes — skipped verification.';
+            }
+
+            // 3. Extract zip
             $zip = new \ZipArchive();
             if ($zip->open($tempZip) !== true) {
                 throw new \RuntimeException('Failed to open zip file.');
@@ -396,6 +426,24 @@ class UpdateService
         );
 
         return $log;
+    }
+
+    /**
+     * Delete a backup zip.
+     */
+    public function deleteBackup(string $filename): bool
+    {
+        $filename = basename($filename);
+        if (!preg_match('/^pre-update-[\w.\-]+\.zip$/', $filename)) {
+            return false;
+        }
+
+        $path = storage_path('app/backups/' . $filename);
+        if (file_exists($path)) {
+            return unlink($path);
+        }
+
+        return false;
     }
 
     /**

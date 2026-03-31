@@ -92,6 +92,22 @@ class UpdateController extends Controller
     }
 
     /**
+     * DELETE /admin/settings/updates/backup — delete a backup zip.
+     */
+    public function deleteBackup(Request $request)
+    {
+        $request->validate(['backup' => 'required|string']);
+
+        if ($this->updateService->deleteBackup($request->backup)) {
+            return redirect()->route('admin.settings.updates')
+                ->with('success', 'Backup deleted.');
+        }
+
+        return redirect()->route('admin.settings.updates')
+            ->with('error', 'Failed to delete backup.');
+    }
+
+    /**
      * PUT /admin/settings/github-token — save GitHub API token.
      */
     public function updateGithubToken(Request $request)
