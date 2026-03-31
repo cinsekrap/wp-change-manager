@@ -46,11 +46,12 @@ class EmailLog extends Model
                 $debug = $symfonySent?->getDebug();
 
                 // Strip AUTH exchange — contains base64-encoded credentials
+                // Lines are prefixed with timestamps: [2026-03-31T15:22:23.912Z] < 334 ...
                 if ($debug) {
-                    $debug = preg_replace('/^.*AUTH\b.*$\n?/mi', '', $debug);
-                    $debug = preg_replace('/^[A-Za-z0-9+\/=]{8,}$\n?/m', '', $debug);
-                    $debug = preg_replace('/^334 .*$\n?/m', '', $debug);
-                    $debug = preg_replace('/^235 .*$\n?/m', '', $debug);
+                    $debug = preg_replace('/^.*\bAUTH\b.*$\n?/mi', '', $debug);
+                    $debug = preg_replace('/^.*\b334\s.*$\n?/m', '', $debug);
+                    $debug = preg_replace('/^.*>\s*[A-Za-z0-9+\/=]{8,}\s*$\n?/m', '', $debug);
+                    $debug = preg_replace('/^.*\b235\s.*$\n?/m', '', $debug);
                     $debug = trim(preg_replace('/\n{3,}/', "\n\n", $debug));
                 }
 
