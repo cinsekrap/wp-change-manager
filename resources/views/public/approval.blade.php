@@ -123,78 +123,117 @@
     </div>
 
     {{-- Approval form --}}
-    <form method="POST" action="{{ route('approval.respond', $approver->token) }}">
+    <form method="POST" action="{{ route('approval.respond', $approver->token) }}" id="approvalForm">
         @csrf
 
-        <div class="mb-6">
-            <label for="notes" class="block text-sm font-semibold text-gray-700 mb-2">Notes <span id="notesHint" class="font-normal text-gray-400">(optional)</span></label>
+        {{-- Approve notes (optional) --}}
+        <div id="approveNotes" class="mb-6">
+            <label for="approveNotesField" class="block text-sm font-semibold text-gray-700 mb-2">Notes <span class="font-normal text-gray-400">(optional)</span></label>
             <textarea
-                id="notes"
-                name="notes"
+                id="approveNotesField"
                 rows="3"
                 maxlength="1000"
                 class="w-full rounded-lg border-gray-300 shadow-sm focus:border-hcrg-burgundy focus:ring-hcrg-burgundy text-sm p-3 border"
-                placeholder="Add any comments about your decision..."
+                placeholder="Add any comments about your approval..."
             >{{ old('notes') }}</textarea>
-            @error('notes')
-                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div id="rejectOptions" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg hidden">
-            <p class="text-sm text-red-800 mb-3">Rejecting this request will decline it. Please provide a reason above.</p>
-            <label class="flex items-start space-x-2 cursor-pointer">
-                <input type="checkbox" name="share_details" value="1" class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
-                <span class="text-sm text-gray-700">Share my name with the requester, so they can contact me to discuss other options</span>
-            </label>
         </div>
 
         @error('status')
             <p class="mb-4 text-sm text-red-600">{{ $message }}</p>
         @enderror
 
-        <div class="flex flex-col sm:flex-row gap-4">
+        {{-- Step 1: Approve / Reject buttons --}}
+        <div id="decisionButtons" class="flex flex-col sm:flex-row gap-4">
             <button
                 type="submit"
                 name="status"
                 value="approved"
-                id="approveBtn"
+                onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
                 class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
             >
                 Approve
             </button>
             <button
-                type="submit"
-                name="status"
-                value="rejected"
+                type="button"
                 id="rejectBtn"
-                onclick="if(!document.getElementById('notes').value.trim()){event.preventDefault();document.getElementById('notes').focus();alert('Please provide a reason for rejecting this request.');}"
                 class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
             >
                 Reject
             </button>
         </div>
+
+        {{-- Step 2: Rejection details (hidden until Reject is clicked) --}}
+        <div id="rejectPanel" class="hidden">
+            <div class="p-5 bg-red-50 border border-red-200 rounded-lg space-y-4">
+                <div>
+                    <p class="text-sm font-semibold text-red-800 mb-1">Rejecting this request will decline it.</p>
+                    <p class="text-xs text-red-700">Your comments below will be shared with the requester as the reason for the decision.</p>
+                </div>
+
+                <div>
+                    <label for="rejectReason" class="block text-sm font-semibold text-gray-700 mb-1">Reason for rejection <span class="text-red-500">*</span></label>
+                    <textarea
+                        id="rejectReason"
+                        rows="3"
+                        maxlength="1000"
+                        required
+                        class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3 border"
+                        placeholder="Please explain why you are rejecting this request..."
+                    ></textarea>
+                </div>
+
+                <label class="flex items-start space-x-2 cursor-pointer">
+                    <input type="checkbox" name="share_details" value="1" class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    <span class="text-sm text-gray-700">Share my name with the requester, so they can contact me to discuss other options</span>
+                </label>
+
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="submit"
+                        name="status"
+                        value="rejected"
+                        id="confirmRejectBtn"
+                        class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                    >
+                        Confirm Rejection
+                    </button>
+                    <button
+                        type="button"
+                        id="cancelRejectBtn"
+                        class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {{-- Hidden field that carries the notes value for both flows --}}
+        <input type="hidden" name="notes" id="notesField">
     </form>
 
     <script>
-    var rejectBtn = document.getElementById('rejectBtn');
-    var approveBtn = document.getElementById('approveBtn');
-    var rejectOptions = document.getElementById('rejectOptions');
-    var notesHint = document.getElementById('notesHint');
-    var notes = document.getElementById('notes');
+    document.getElementById('rejectBtn').addEventListener('click', function() {
+        document.getElementById('decisionButtons').classList.add('hidden');
+        document.getElementById('approveNotes').classList.add('hidden');
+        document.getElementById('rejectPanel').classList.remove('hidden');
+        document.getElementById('rejectReason').focus();
+    });
 
-    // Show rejection options when notes field has content and user hovers/focuses reject
-    notes.addEventListener('input', function() {
-        if (this.value.trim()) {
-            rejectOptions.classList.remove('hidden');
+    document.getElementById('cancelRejectBtn').addEventListener('click', function() {
+        document.getElementById('rejectPanel').classList.add('hidden');
+        document.getElementById('decisionButtons').classList.remove('hidden');
+        document.getElementById('approveNotes').classList.remove('hidden');
+    });
+
+    document.getElementById('confirmRejectBtn').addEventListener('click', function(e) {
+        var reason = document.getElementById('rejectReason').value.trim();
+        if (!reason) {
+            e.preventDefault();
+            document.getElementById('rejectReason').focus();
+            return;
         }
-    });
-    rejectBtn.addEventListener('mouseenter', function() {
-        rejectOptions.classList.remove('hidden');
-    });
-    approveBtn.addEventListener('mouseenter', function() {
-        rejectOptions.classList.add('hidden');
-        notesHint.textContent = '(optional)';
+        document.getElementById('notesField').value = reason;
     });
     </script>
 </div>
