@@ -10,14 +10,10 @@
     <p class="text-gray-600 mb-6">
         You've made several requests in a short time. Please wait
         @if($exception->getHeaders()['Retry-After'] ?? null)
-            @php $seconds = (int) $exception->getHeaders()['Retry-After']; @endphp
-            @if($seconds <= 60)
-                about a minute
-            @else
-                about {{ ceil($seconds / 60) }} minutes
-            @endif
+            @php $minutes = (int) ceil((int) $exception->getHeaders()['Retry-After'] / 60); @endphp
+            about {{ $minutes }} {{ Str::plural('minute', $minutes) }}
         @else
-            a moment
+            a few minutes
         @endif
         and try again.
     </p>
