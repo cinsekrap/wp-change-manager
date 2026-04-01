@@ -371,6 +371,14 @@
                                 @endif
                                 <p class="text-xs text-gray-400 mt-0.5">{{ $activity->date->format('d M Y H:i') }} &middot; {{ $activity->date->diffForHumans() }}</p>
                             </div>
+                        @elseif($activity->type === 'override')
+                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center ring-4 ring-white z-10">
+                                <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-gray-700"><span class="font-medium">{{ $activity->user }}</span> overrode the approval gate</p>
+                                <p class="text-xs text-gray-400 mt-0.5">{{ $activity->date->format('d M Y H:i') }} &middot; {{ $activity->date->diffForHumans() }}</p>
+                            </div>
                         @elseif($activity->type === 'note')
                             <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center ring-4 ring-white z-10">
                                 <div class="w-2 h-2 rounded-full bg-gray-400"></div>
@@ -439,6 +447,7 @@
                                 'sent_for_approval' => 'bg-purple-100 text-purple-700',
                                 'item_status_changed' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
                                 'priority_changed' => 'bg-orange-100 text-orange-700',
+                                'approval_overridden' => 'bg-amber-100 text-amber-700',
                             ];
                         @endphp
                         <span class="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium {{ $auditActionColors[$entry->action] ?? 'bg-gray-100 text-gray-600' }}">
@@ -569,6 +578,17 @@
                 @endif
             </div>
 
+            @if($changeRequest->approval_overridden)
+            <div class="mb-3 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-xs font-medium text-amber-800">
+                    Approval gate overridden by {{ $changeRequest->approvalOverriddenByUser->name ?? 'Unknown' }}
+                </p>
+                <p class="text-xs text-amber-600 mt-0.5">
+                    {{ $changeRequest->approval_overridden_at->format('d M Y H:i') }}
+                </p>
+            </div>
+            @endif
+
             {{-- Existing approvers --}}
             @if($changeRequest->approvers->isNotEmpty())
             <div class="space-y-3 mb-4">
@@ -632,6 +652,20 @@
             </div>
             @else
                 <p class="text-sm text-gray-400 mb-4">No approvers added. Status can progress freely.</p>
+            @endif
+
+            @php $pendingCount = $changeRequest->approvers->where('status', 'pending')->count(); @endphp
+            @if(auth()->user()->isSuperAdmin() && !$changeRequest->approval_overridden && $pendingCount > 0)
+            <div class="border-t border-gray-100 pt-3 mb-3">
+                <form method="POST" action="{{ route('admin.requests.override-approvals', $changeRequest) }}"
+                      onsubmit="return confirm('This will override the approval gate and notify {{ $pendingCount }} pending approver(s). Continue?')">
+                    @csrf
+                    <button type="submit" class="w-full bg-amber-500 text-white px-4 py-2 rounded-full hover:bg-amber-600 text-sm font-medium transition-colors">
+                        Override Approvals
+                    </button>
+                    <p class="text-xs text-gray-400 mt-1 text-center">Skip the approval gate (super-admin only)</p>
+                </form>
+            </div>
             @endif
 
             {{-- Add approver form --}}
