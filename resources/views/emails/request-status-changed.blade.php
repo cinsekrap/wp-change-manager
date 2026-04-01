@@ -70,7 +70,7 @@
 
     @if($newStatus === 'Approved')
     <p style="margin:0 0 16px;">
-        Your request has been approved and is now in the queue to be actioned by the web team. Please note that approved requests are scheduled based on priority and team capacity — we'll update you when work is complete.
+        Your request has been approved and is now in the queue to be actioned by the marketing team. Please note that approved requests are scheduled based on priority and team capacity — we'll update you when work is complete.
     </p>
     @elseif($newStatus === 'Scheduled')
     <p style="margin:0 0 16px;">
@@ -82,7 +82,7 @@
     </p>
     @elseif($newStatus === 'Declined' || $newStatus === 'Cancelled')
     <p style="margin:0 0 16px;">
-        If you have any questions about this decision, please contact the web team.
+        If you have any questions about this decision, please contact the marketing team.
     </p>
     @elseif($newStatus === 'Referred' || $newStatus === 'Requires referral')
     <p style="margin:0 0 16px;">

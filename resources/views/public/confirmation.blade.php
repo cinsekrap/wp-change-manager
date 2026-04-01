@@ -23,7 +23,7 @@
         <p><strong>Changes:</strong> {{ $changeRequest->items->count() }} item(s)</p>
     </div>
 
-    <p class="text-sm text-gray-400 mb-6">Please keep your reference number for your records. The web team will review your request shortly.</p>
+    <p class="text-sm text-gray-400 mb-6">Please keep your reference number for your records. The marketing team will review your request shortly.</p>
 
     <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-hcrg-burgundy hover:underline font-medium">track the status of your request</a> at any time.</p>
 

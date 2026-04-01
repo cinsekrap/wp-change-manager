@@ -5,7 +5,7 @@ return [
         'name' => 'Request Submitted',
         'description' => 'Sent to the requester when they submit a change request.',
         'subject' => 'Change Request {reference} — Submitted',
-        'body' => 'Thank you for submitting your website change request. Our web team will review it and be in touch if we need any further information.',
+        'body' => 'Thank you for submitting your website change request. Our marketing team will review it and be in touch if we need any further information.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'item_count', 'deadline_date'],
     ],
 
@@ -29,7 +29,7 @@ return [
         'name' => 'Approval Requested',
         'description' => 'Sent to approvers when their approval is needed for a change request.',
         'subject' => 'Approval Requested: {reference}',
-        'body' => 'A website change request has been submitted that requires your approval before our web team can begin work on it. Please review the details below and let us know whether you\'re happy for this to go ahead.',
+        'body' => 'A website change request has been submitted that requires your approval before our marketing team can begin work on it. Please review the details below and let us know whether you\'re happy for this to go ahead.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name', 'requester_name', 'item_count', 'deadline_date'],
     ],
 

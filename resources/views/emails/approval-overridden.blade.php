@@ -31,6 +31,6 @@
     </table>
 
     <p style="margin:0 0 8px;font-size:13px;color:#6E6E6D;">
-        {{ $overriddenBy }} has decided to progress this request. If you have any concerns, please contact the web team directly.
+        {{ $overriddenBy }} has decided to progress this request. If you have any concerns, please contact the marketing team directly.
     </p>
 @endsection
