@@ -1924,6 +1924,7 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Submitting...';
         document.getElementById('submitError').classList.add('hidden');
+        document.getElementById('submitError').classList.remove('bg-amber-50', 'border-amber-200', 'text-amber-700');
 
         const isNew = document.getElementById('isNewPage').checked;
         const isStructured = hasRichContentAreas();
@@ -1985,6 +1986,22 @@
                 },
                 body: JSON.stringify(payload),
             });
+
+            if (res.status === 429) {
+                const retryAfter = res.headers.get('Retry-After');
+                const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 1;
+                const msg = minutes <= 1
+                    ? 'You\'ve made several submissions recently. Please wait about a minute and try again.'
+                    : 'You\'ve made several submissions recently. Please wait about ' + minutes + ' minutes and try again.';
+                const errEl = document.getElementById('submitError');
+                errEl.textContent = msg;
+                errEl.classList.remove('hidden');
+                errEl.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-700');
+                errEl.classList.remove('bg-red-50', 'border-red-200', 'text-red-700');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Request';
+                return;
+            }
 
             const data = await res.json();
 
