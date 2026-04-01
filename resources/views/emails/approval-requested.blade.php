@@ -62,7 +62,7 @@
     </table>
 
     <p style="margin:0 0 8px;font-size:13px;color:#6E6E6D;">
-        <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for the web team to make the requested changes to the website. If you have concerns or need changes to the request, you can reject it with a note explaining why.
+        <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for the marketing team to make the requested changes to the website. If you have concerns or need changes to the request, you can reject it with a note explaining why.
     </p>
 
     <p style="margin:16px 0 0;font-size:13px;color:#A0A09F;">

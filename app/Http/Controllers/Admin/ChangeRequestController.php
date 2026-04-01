@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
 use App\Mail\RequestAssigned;
 use App\Mail\RequestStatusChanged;
@@ -110,7 +111,7 @@ class ChangeRequestController extends Controller
 
     public function show(ChangeRequest $changeRequest)
     {
-        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags']);
+        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags', 'approvalOverriddenByUser', 'emailLogs']);
 
         $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
             ->where('site_id', $changeRequest->site_id)
@@ -147,6 +148,24 @@ class ChangeRequestController extends Controller
                 'user' => $approver->name,
                 'approval_status' => $approver->status,
                 'notes' => $approver->notes,
+            ]);
+        }
+
+        if ($changeRequest->approval_overridden) {
+            $activities->push((object) [
+                'type' => 'override',
+                'date' => $changeRequest->approval_overridden_at,
+                'user' => $changeRequest->approvalOverriddenByUser->name ?? 'Unknown',
+            ]);
+        }
+
+        foreach ($changeRequest->emailLogs as $emailLog) {
+            $activities->push((object) [
+                'type' => 'email',
+                'date' => $emailLog->created_at,
+                'subject' => $emailLog->subject,
+                'recipient' => $emailLog->recipient_email,
+                'status' => $emailLog->status,
             ]);
         }
 
@@ -263,6 +282,18 @@ class ChangeRequestController extends Controller
             EmailLog::dispatch($approver->email, new ApprovalRequested($changeRequest, $approver), $changeRequest);
         }
 
+        if ($changeRequest->approval_overridden) {
+            $changeRequest->update([
+                'approval_overridden' => false,
+                'approval_overridden_by' => null,
+                'approval_overridden_at' => null,
+            ]);
+            $changeRequest->notes()->create([
+                'user_id' => auth()->id(),
+                'note' => 'Approval override cleared — new approver added.',
+            ]);
+        }
+
         $changeRequest->notes()->create([
             'user_id' => auth()->id(),
             'note' => 'Added approver: ' . $request->name,
@@ -302,6 +333,7 @@ class ChangeRequestController extends Controller
             'status' => 'required|in:approved,rejected',
             'notes' => 'nullable|string|max:1000',
             'responded_at' => 'required|date',
+            'share_details' => 'nullable|boolean',
         ]);
 
         $oldApproverStatus = $approver->status;
@@ -333,10 +365,42 @@ class ChangeRequestController extends Controller
                 'new_status' => 'approved',
             ]);
 
-            // Notify the requester their request was approved
             EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
 
             return back()->with('success', 'Approval recorded. All approvers approved — status moved to Approved.');
+        }
+
+        // Auto-decline if an approver rejected and request is at referred
+        if ($request->status === 'rejected' && $changeRequest->status === 'referred') {
+            $rejectionReason = $request->share_details
+                ? "Declined by {$approver->name}: {$request->notes}"
+                : ($request->notes ?: 'Rejected by approver.');
+
+            $changeRequest->update([
+                'status' => 'declined',
+                'rejection_reason' => $rejectionReason,
+            ]);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => 'referred',
+                'new_status' => 'declined',
+            ]);
+
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, 'referred', 'declined'), $changeRequest);
+
+            // Notify other pending approvers
+            $pendingApprovers = $changeRequest->approvers()
+                ->where('status', 'pending')
+                ->whereNotNull('email')
+                ->get();
+
+            foreach ($pendingApprovers as $pending) {
+                EmailLog::dispatch($pending->email, new \App\Mail\ApprovalOverridden($changeRequest, $pending), $changeRequest);
+            }
+
+            return back()->with('success', 'Rejection recorded. Request has been declined and notifications sent.');
         }
 
         return back()->with('success', 'Approval recorded.');
@@ -404,6 +468,50 @@ class ChangeRequestController extends Controller
         return back()->with('success', $sent > 0
             ? "Approval emails sent to {$sent} " . str('approver')->plural($sent) . ". Status moved to Referred."
             : 'Approvers added. Manual follow-up required — no approver emails configured.');
+    }
+
+    public function overrideApprovals(ChangeRequest $changeRequest)
+    {
+        abort_unless(auth()->user()->isSuperAdmin(), 403);
+
+        if ($changeRequest->approval_overridden) {
+            return back()->with('info', 'Approval gate has already been overridden.');
+        }
+
+        if (!$changeRequest->hasPendingApprovers()) {
+            return back()->with('info', 'There are no pending approvers to override.');
+        }
+
+        $pendingApprovers = $changeRequest->approvers()->where('status', 'pending')->get();
+        $pendingCount = $pendingApprovers->count();
+
+        $changeRequest->update([
+            'approval_overridden' => true,
+            'approval_overridden_by' => auth()->id(),
+            'approval_overridden_at' => now(),
+        ]);
+
+        $changeRequest->notes()->create([
+            'user_id' => auth()->id(),
+            'note' => 'Approval gate overridden by ' . auth()->user()->name . '. ' . $pendingCount . ' pending ' . str('approver')->plural($pendingCount) . ' bypassed.',
+        ]);
+
+        AuditService::log(
+            action: 'approval_overridden',
+            model: $changeRequest,
+            description: "Approval gate overridden on {$changeRequest->reference} by " . auth()->user()->name,
+            newValues: ['pending_approvers_bypassed' => $pendingCount],
+        );
+
+        $changeRequest->loadMissing('approvalOverriddenByUser');
+
+        foreach ($pendingApprovers as $approver) {
+            if ($approver->email) {
+                EmailLog::dispatch($approver->email, new ApprovalOverridden($changeRequest, $approver), $changeRequest);
+            }
+        }
+
+        return back()->with('success', 'Approval gate overridden. ' . $pendingCount . ' pending ' . str('approver')->plural($pendingCount) . ' notified.');
     }
 
     public function removeApprover(ChangeRequest $changeRequest, ChangeRequestApprover $approver)
