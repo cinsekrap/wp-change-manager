@@ -167,7 +167,8 @@
             <div id="deadlineFields" class="hidden space-y-3">
                 <div>
                     <label for="deadlineDate" class="block text-xs font-medium text-gray-500 mb-1">When is this needed by?</label>
-                    <input type="date" id="deadlineDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    <input type="date" id="deadlineDate" min="{{ now()->addDay()->format('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    <p class="mt-1 text-xs text-gray-400">Must be at least 1 day from today.</p>
                 </div>
                 <div>
                     <label for="deadlineReason" class="block text-xs font-medium text-gray-500 mb-1">Why is this date important?</label>

@@ -334,7 +334,7 @@
                 <div class="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200"></div>
 
                 <div class="space-y-4">
-                    @foreach($activities as $activity)
+                    @forelse($activities as $activity)
                     <div class="relative flex items-start space-x-3 pl-1">
                         @if($activity->type === 'created')
                             <div class="flex-shrink-0 w-6 h-6 rounded-full bg-hcrg-burgundy/20 flex items-center justify-center ring-4 ring-white z-10">
@@ -403,7 +403,9 @@
                             </div>
                         @endif
                     </div>
-                    @endforeach
+                    @empty
+                    <p class="text-sm text-gray-400 pl-1">No activity recorded.</p>
+                    @endforelse
                 </div>
             </div>
 

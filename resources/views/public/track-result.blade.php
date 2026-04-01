@@ -9,7 +9,7 @@
         @php
             $statusColors = [
                 'requested' => 'bg-amber-100 text-amber-800',
-                'requires_referral' => 'bg-red-100 text-red-800',
+                'requires_referral' => 'bg-pink-100 text-pink-800',
                 'referred' => 'bg-orange-100 text-orange-800',
                 'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
                 'scheduled' => 'bg-purple-100 text-purple-800',

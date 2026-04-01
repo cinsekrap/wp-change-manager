@@ -51,7 +51,7 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
             <div class="relative multi-dropdown">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedStatuses) ? 'All statuses' : count($selectedStatuses) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -76,7 +76,7 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Priority</label>
             <div class="relative multi-dropdown">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedPriorities) ? 'All priorities' : count($selectedPriorities) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -97,7 +97,7 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Site</label>
             <div class="relative multi-dropdown">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedSites) ? 'All sites' : count($selectedSites) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -119,7 +119,7 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Tags</label>
             <div class="relative multi-dropdown">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedTags) ? 'All tags' : count($selectedTags) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
