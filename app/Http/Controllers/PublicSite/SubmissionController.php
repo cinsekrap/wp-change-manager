@@ -44,6 +44,8 @@ class SubmissionController extends Controller
             'items.*.files' => 'nullable|array|max:5',
             'items.*.files.*.filename' => 'required|string',
             'items.*.files.*.original_name' => 'required|string',
+            'items.*.files.*.title' => 'nullable|string|max:255',
+            'items.*.files.*.description' => 'nullable|string|max:2000',
             'items.*.files.*.mime_type' => 'required|string',
             'items.*.files.*.file_size' => 'required|integer',
         ]);
@@ -106,6 +108,8 @@ class SubmissionController extends Controller
                         ChangeRequestItemFile::create([
                             'change_request_item_id' => $item->id,
                             'original_filename' => $fileData['original_name'],
+                            'title' => $fileData['title'] ?? null,
+                            'description' => $fileData['description'] ?? null,
                             'stored_path' => $permanentPath,
                             'mime_type' => $actualMime,
                             'file_size' => $actualSize,
