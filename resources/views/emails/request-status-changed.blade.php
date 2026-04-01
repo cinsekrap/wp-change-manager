@@ -61,6 +61,48 @@
         </tr>
     </table>
 
+    {{-- Progress indicator --}}
+    @php
+        $steps = ['requested', 'referred', 'approved', 'scheduled', 'done'];
+        $stepLabels = ['Submitted', 'Referred', 'Approved', 'Scheduled', 'Complete'];
+        $isTerminal = in_array($rawStatus, ['declined', 'cancelled']);
+        $currentIndex = array_search($rawStatus, $steps);
+        if ($currentIndex === false && !$isTerminal) {
+            // requires_referral maps to between requested and referred
+            $currentIndex = in_array($rawStatus, ['requires_referral']) ? 0 : -1;
+        }
+    @endphp
+    @if(!$isTerminal)
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-collapse:collapse;">
+        <tr>
+            @foreach($steps as $i => $step)
+                @php
+                    $isComplete = $i <= $currentIndex;
+                    $isCurrent = $i === $currentIndex;
+                    $dotColor = $isComplete ? '#B52159' : '#D2D2D1';
+                    $dotSize = $isCurrent ? '14' : '10';
+                    $lineColor = ($i > 0 && $i <= $currentIndex) ? '#B52159' : '#D2D2D1';
+                    $labelWeight = $isCurrent ? '700' : '400';
+                    $labelColor = $isCurrent ? '#B52159' : ($isComplete ? '#3C3C3B' : '#A0A09F');
+                @endphp
+                <td style="text-align:center;vertical-align:top;width:{{ 100 / count($steps) }}%;padding:0;">
+                    {{-- Dot with connecting lines --}}
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                        <tr>
+                            <td style="width:50%;height:2px;background-color:{{ $i === 0 ? 'transparent' : $lineColor }};"></td>
+                            <td style="width:{{ $dotSize }}px;padding:0;">
+                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(181,33,89,0.2);' : '' }}"></div>
+                            </td>
+                            <td style="width:50%;height:2px;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#B52159' : '#D2D2D1') }};"></td>
+                        </tr>
+                    </table>
+                    <p style="margin:6px 0 0;font-size:10px;font-weight:{{ $labelWeight }};color:{{ $labelColor }};line-height:1.2;">{{ $stepLabels[$i] }}</p>
+                </td>
+            @endforeach
+        </tr>
+    </table>
+    @endif
+
     @if($rejectionReason)
     <div style="margin:0 0 24px;padding:12px 16px;background-color:#FEF2F2;border:1px solid #FECACA;border-radius:8px;">
         <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#991B1B;">Reason provided:</p>

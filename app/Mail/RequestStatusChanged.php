@@ -46,6 +46,7 @@ class RequestStatusChanged extends Mailable
                 'items' => $this->changeRequest->items->take(5),
                 'oldStatus' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
                 'newStatus' => ucfirst(str_replace('_', ' ', $this->newStatus)),
+                'rawStatus' => $this->newStatus,
                 'rejectionReason' => $this->changeRequest->rejection_reason,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
                 'customBody' => Setting::get('email_status_changed_body') ? $emailContent['body'] : null,
