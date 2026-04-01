@@ -397,7 +397,7 @@ class ChangeRequestController extends Controller
                 ->get();
 
             foreach ($pendingApprovers as $pending) {
-                EmailLog::dispatch($pending->email, new \App\Mail\ApprovalOverridden($changeRequest, $pending), $changeRequest);
+                EmailLog::dispatch($pending->email, new \App\Mail\ApprovalDeclined($changeRequest, $pending), $changeRequest);
             }
 
             return back()->with('success', 'Rejection recorded. Request has been declined and notifications sent.');
