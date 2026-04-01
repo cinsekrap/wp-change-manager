@@ -381,7 +381,7 @@
                             </div>
                         @elseif($activity->type === 'email')
                             <div class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center ring-4 ring-white z-10">
-                                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm text-gray-700">
