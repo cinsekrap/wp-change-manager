@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\PublicSite;
 
 use App\Http\Controllers\Controller;
-use App\Mail\ApprovalOverridden;
+use App\Mail\ApprovalDeclined;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestStatusLog;
@@ -112,7 +112,7 @@ class ApprovalController extends Controller
             foreach ($pendingApprovers as $pending) {
                 EmailLog::dispatch(
                     $pending->email,
-                    new ApprovalOverridden($changeRequest, $pending),
+                    new ApprovalDeclined($changeRequest, $pending),
                     $changeRequest
                 );
             }
