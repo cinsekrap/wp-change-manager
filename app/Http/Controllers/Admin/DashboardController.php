@@ -56,6 +56,12 @@ class DashboardController extends Controller
             ->take(10)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts'));
+        $topRequesters = ChangeRequest::selectRaw('requester_email, requester_name, count(*) as total')
+            ->groupBy('requester_email', 'requester_name')
+            ->orderByDesc('total')
+            ->take(5)
+            ->get();
+
+        return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts', 'topRequesters'));
     }
 }
