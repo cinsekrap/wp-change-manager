@@ -323,6 +323,7 @@ class ChangeRequestController extends Controller
             'status' => 'required|in:approved,rejected',
             'notes' => 'nullable|string|max:1000',
             'responded_at' => 'required|date',
+            'share_details' => 'nullable|boolean',
         ]);
 
         $oldApproverStatus = $approver->status;
@@ -354,10 +355,42 @@ class ChangeRequestController extends Controller
                 'new_status' => 'approved',
             ]);
 
-            // Notify the requester their request was approved
             EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
 
             return back()->with('success', 'Approval recorded. All approvers approved — status moved to Approved.');
+        }
+
+        // Auto-decline if an approver rejected and request is at referred
+        if ($request->status === 'rejected' && $changeRequest->status === 'referred') {
+            $rejectionReason = $request->share_details
+                ? "Declined by {$approver->name}: {$request->notes}"
+                : ($request->notes ?: 'Rejected by approver.');
+
+            $changeRequest->update([
+                'status' => 'declined',
+                'rejection_reason' => $rejectionReason,
+            ]);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => 'referred',
+                'new_status' => 'declined',
+            ]);
+
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, 'referred', 'declined'), $changeRequest);
+
+            // Notify other pending approvers
+            $pendingApprovers = $changeRequest->approvers()
+                ->where('status', 'pending')
+                ->whereNotNull('email')
+                ->get();
+
+            foreach ($pendingApprovers as $pending) {
+                EmailLog::dispatch($pending->email, new \App\Mail\ApprovalOverridden($changeRequest, $pending), $changeRequest);
+            }
+
+            return back()->with('success', 'Rejection recorded. Request has been declined and notifications sent.');
         }
 
         return back()->with('success', 'Approval recorded.');

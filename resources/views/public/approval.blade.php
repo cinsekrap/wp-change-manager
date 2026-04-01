@@ -127,7 +127,7 @@
         @csrf
 
         <div class="mb-6">
-            <label for="notes" class="block text-sm font-semibold text-gray-700 mb-2">Notes (optional)</label>
+            <label for="notes" class="block text-sm font-semibold text-gray-700 mb-2">Notes <span id="notesHint" class="font-normal text-gray-400">(optional)</span></label>
             <textarea
                 id="notes"
                 name="notes"
@@ -141,6 +141,14 @@
             @enderror
         </div>
 
+        <div id="rejectOptions" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg hidden">
+            <p class="text-sm text-red-800 mb-3">Rejecting this request will decline it. Please provide a reason above.</p>
+            <label class="flex items-start space-x-2 cursor-pointer">
+                <input type="checkbox" name="share_details" value="1" class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                <span class="text-sm text-gray-700">Share my name with the requester, so they can contact me to discuss other options</span>
+            </label>
+        </div>
+
         @error('status')
             <p class="mb-4 text-sm text-red-600">{{ $message }}</p>
         @enderror
@@ -150,6 +158,7 @@
                 type="submit"
                 name="status"
                 value="approved"
+                id="approveBtn"
                 class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
             >
                 Approve
@@ -158,11 +167,35 @@
                 type="submit"
                 name="status"
                 value="rejected"
+                id="rejectBtn"
+                onclick="if(!document.getElementById('notes').value.trim()){event.preventDefault();document.getElementById('notes').focus();alert('Please provide a reason for rejecting this request.');}"
                 class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
             >
                 Reject
             </button>
         </div>
     </form>
+
+    <script>
+    var rejectBtn = document.getElementById('rejectBtn');
+    var approveBtn = document.getElementById('approveBtn');
+    var rejectOptions = document.getElementById('rejectOptions');
+    var notesHint = document.getElementById('notesHint');
+    var notes = document.getElementById('notes');
+
+    // Show rejection options when notes field has content and user hovers/focuses reject
+    notes.addEventListener('input', function() {
+        if (this.value.trim()) {
+            rejectOptions.classList.remove('hidden');
+        }
+    });
+    rejectBtn.addEventListener('mouseenter', function() {
+        rejectOptions.classList.remove('hidden');
+    });
+    approveBtn.addEventListener('mouseenter', function() {
+        rejectOptions.classList.add('hidden');
+        notesHint.textContent = '(optional)';
+    });
+    </script>
 </div>
 @endsection
