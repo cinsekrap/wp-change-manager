@@ -39,13 +39,13 @@ Route::middleware('installer')->prefix('install')->group(function () {
 Route::get('/', [WizardController::class, 'index'])->name('wizard');
 Route::post('/submit', [SubmissionController::class, 'store'])
     ->name('submit')
-    ->middleware('throttle:10,60');
+    ->middleware('throttle:60,60');
 Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmation'])->name('confirmation');
 
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');
 Route::get('/track/{reference}', [TrackingController::class, 'direct'])->name('tracking.direct');
-Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show')->middleware('throttle:10,1');
+Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show')->middleware('throttle:30,1');
 
 // Public approval links
 Route::get('/approve/{token}', [ApprovalController::class, 'show'])->name('approval.show');
