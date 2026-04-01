@@ -18,6 +18,10 @@ class ApprovalController extends Controller
 
         $changeRequest = $approver->changeRequest()->with(['site', 'items'])->first();
 
+        if ($changeRequest->approval_overridden) {
+            return view('public.approval-overridden', compact('approver', 'changeRequest'));
+        }
+
         return view('public.approval', compact('approver', 'changeRequest'));
     }
 
@@ -31,6 +35,12 @@ class ApprovalController extends Controller
         $approver = ChangeRequestApprover::where('token', $token)
             ->where('status', 'pending')
             ->firstOrFail();
+
+        $changeRequest = $approver->changeRequest()->with(['site', 'items'])->first();
+
+        if ($changeRequest->approval_overridden) {
+            return view('public.approval-overridden', compact('approver', 'changeRequest'));
+        }
 
         $approver->update([
             'status' => $request->status,

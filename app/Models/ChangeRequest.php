@@ -13,6 +13,7 @@ class ChangeRequest extends Model
         'is_new_page', 'status', 'priority', 'rejection_reason', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
         'deadline_date', 'deadline_reason', 'assigned_to',
+        'approval_overridden', 'approval_overridden_by', 'approval_overridden_at',
     ];
 
     protected function casts(): array
@@ -21,6 +22,8 @@ class ChangeRequest extends Model
             'is_new_page' => 'boolean',
             'check_answers' => 'array',
             'deadline_date' => 'date',
+            'approval_overridden' => 'boolean',
+            'approval_overridden_at' => 'datetime',
         ];
     }
 
@@ -70,6 +73,11 @@ class ChangeRequest extends Model
         return $this->hasMany(ChangeRequestApprover::class)->orderBy('created_at');
     }
 
+    public function approvalOverriddenByUser()
+    {
+        return $this->belongsTo(User::class, 'approval_overridden_by');
+    }
+
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'change_request_tag')->withTimestamps();
@@ -95,7 +103,12 @@ class ChangeRequest extends Model
 
     public function canMovePastReferred(): bool
     {
-        return $this->approvalsAllApproved();
+        return $this->approval_overridden || $this->approvalsAllApproved();
+    }
+
+    public function hasPendingApprovers(): bool
+    {
+        return $this->approvers()->where('status', 'pending')->exists();
     }
 
     public function scopeStatus($query, string $status)
