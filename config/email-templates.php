@@ -56,4 +56,12 @@ return [
         'body' => '{overridden_by} has progressed this change request, so your approval is no longer required. No action is needed from you.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name', 'overridden_by'],
     ],
+
+    'approval_declined' => [
+        'name' => 'Request Declined (to other approvers)',
+        'description' => 'Sent to other pending approvers when a request is declined following a rejection.',
+        'subject' => 'Request Declined: {reference}',
+        'body' => 'The change request below has been declined following a review by another approver. Your approval is no longer needed and no action is required from you.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name'],
+    ],
 ];
