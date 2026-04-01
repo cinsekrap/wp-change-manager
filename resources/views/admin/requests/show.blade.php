@@ -660,9 +660,10 @@
                 <form method="POST" action="{{ route('admin.requests.override-approvals', $changeRequest) }}"
                       onsubmit="return confirm('This will override the approval gate and notify {{ $pendingCount }} pending approver(s). Continue?')">
                     @csrf
-                    <button type="submit" class="w-full relative overflow-hidden text-white px-4 py-2 rounded-full text-sm font-medium transition-opacity hover:opacity-90" style="background: repeating-linear-gradient(-45deg, #f59e0b, #f59e0b 10px, #1a1a1a 10px, #1a1a1a 20px);">
-                        <span class="relative drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">Override Approvals</span>
+                    <button type="submit" class="override-btn w-full relative overflow-hidden text-white px-4 py-2 rounded-full text-sm font-medium bg-amber-500 transition-all duration-300">
+                        <span class="relative">Override Approvals</span>
                     </button>
+                    <style>.override-btn:hover{background:repeating-linear-gradient(-45deg,#f59e0b,#f59e0b 10px,#1a1a1a 10px,#1a1a1a 20px);text-shadow:0 1px 2px rgba(0,0,0,.5)}</style>
                 </form>
             </div>
             @endif
