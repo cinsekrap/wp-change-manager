@@ -379,6 +379,20 @@
                                 <p class="text-sm text-gray-700"><span class="font-medium">{{ $activity->user }}</span> overrode the approval gate</p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ $activity->date->format('d M Y H:i') }} &middot; {{ $activity->date->diffForHumans() }}</p>
                             </div>
+                        @elseif($activity->type === 'email')
+                            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center ring-4 ring-white z-10">
+                                <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-gray-700">
+                                    <span class="font-medium">{{ $activity->subject }}</span>
+                                    <span class="text-gray-400">&rarr;</span> {{ $activity->recipient }}
+                                    @if($activity->status === 'failed')
+                                        <span class="text-xs text-red-500 font-medium ml-1">Failed</span>
+                                    @endif
+                                </p>
+                                <p class="text-xs text-gray-400 mt-0.5">{{ $activity->date->format('d M Y H:i') }} &middot; {{ $activity->date->diffForHumans() }}</p>
+                            </div>
                         @elseif($activity->type === 'note')
                             <div class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center ring-4 ring-white z-10">
                                 <div class="w-2 h-2 rounded-full bg-gray-400"></div>

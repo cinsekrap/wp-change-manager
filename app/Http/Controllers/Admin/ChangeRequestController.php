@@ -111,7 +111,7 @@ class ChangeRequestController extends Controller
 
     public function show(ChangeRequest $changeRequest)
     {
-        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags', 'approvalOverriddenByUser']);
+        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags', 'approvalOverriddenByUser', 'emailLogs']);
 
         $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
             ->where('site_id', $changeRequest->site_id)
@@ -156,6 +156,16 @@ class ChangeRequestController extends Controller
                 'type' => 'override',
                 'date' => $changeRequest->approval_overridden_at,
                 'user' => $changeRequest->approvalOverriddenByUser->name ?? 'Unknown',
+            ]);
+        }
+
+        foreach ($changeRequest->emailLogs as $emailLog) {
+            $activities->push((object) [
+                'type' => 'email',
+                'date' => $emailLog->created_at,
+                'subject' => $emailLog->subject,
+                'recipient' => $emailLog->recipient_email,
+                'status' => $emailLog->status,
             ]);
         }
 
