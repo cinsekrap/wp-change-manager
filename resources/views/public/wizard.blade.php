@@ -927,7 +927,7 @@
                 break;
             case 'file':
                 html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx">`;
-                html += `<div class="sf-file-list mt-2 space-y-1"></div>`;
+                html += `<div class="sf-file-list mt-3 space-y-3"></div>`;
                 break;
         }
 
@@ -967,13 +967,31 @@
                 const data = await res.json();
 
                 if (data.success) {
+                    data.title = '';
+                    data.description = '';
                     structuredUploadedFiles[areaIndex].push(data);
                     const fileEl = document.createElement('div');
-                    fileEl.className = 'flex items-center justify-between bg-gray-50 px-3 py-1.5 rounded text-sm';
+                    fileEl.className = 'bg-gray-50 rounded-lg p-3 border border-gray-200';
                     fileEl.dataset.filename = data.filename;
-                    fileEl.innerHTML = `<span class="text-gray-700 truncate mr-2">${esc(data.original_name)}</span>` +
-                        `<button type="button" class="text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>`;
+                    fileEl.innerHTML = `<div class="flex items-center justify-between mb-2">` +
+                        `<span class="text-sm text-gray-700 truncate mr-2 font-medium">${esc(data.original_name)}</span>` +
+                        `<button type="button" class="text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>` +
+                        `</div>` +
+                        `<div class="space-y-2">` +
+                        `<input type="text" placeholder="Document title (required)" class="sf-file-title w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#B52159] focus:border-[#B52159]">` +
+                        `<textarea placeholder="Description (required)" rows="2" class="sf-file-desc w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#B52159] focus:border-[#B52159]"></textarea>` +
+                        `</div>`;
 
+                    fileEl.querySelector('.sf-file-title').addEventListener('input', function() {
+                        const f = structuredUploadedFiles[areaIndex].find(f => f.filename === data.filename);
+                        if (f) f.title = this.value;
+                        checkStepValid();
+                    });
+                    fileEl.querySelector('.sf-file-desc').addEventListener('input', function() {
+                        const f = structuredUploadedFiles[areaIndex].find(f => f.filename === data.filename);
+                        if (f) f.description = this.value;
+                        checkStepValid();
+                    });
                     fileEl.querySelector('button').addEventListener('click', async () => {
                         await fetch(`/api/upload/${data.filename}`, {
                             method: 'DELETE',
@@ -1115,15 +1133,17 @@
                 }
             } else if (areaType === 'file') {
                 const uploaded = structuredUploadedFiles[idx] || [];
-                description = uploaded.map(f => f.original_name).join(', ');
+                description = uploaded.map(f => f.title || f.original_name).join(', ');
                 files = uploaded.map(f => ({
                     filename: f.filename,
                     original_name: f.original_name,
+                    title: f.title || '',
+                    description: f.description || '',
                     mime_type: f.mime_type,
                     file_size: f.file_size,
                 }));
 
-                if (description) {
+                if (uploaded.length > 0) {
                     items.push({
                         action_type: action,
                         content_area: areaName,
@@ -1485,6 +1505,7 @@
 
             if (type === 'file') {
                 if (!structuredUploadedFiles[idx] || structuredUploadedFiles[idx].length === 0) return false;
+                if (structuredUploadedFiles[idx].some(f => !f.title || !f.title.trim() || !f.description || !f.description.trim())) return false;
             } else if (type === 'checkbox') {
                 continue;
             } else {
@@ -1812,7 +1833,7 @@
                     <span class="text-xs font-medium text-gray-500 ml-1">${esc(item.content_area)}</span>
                     ${item.current_content ? `<p class="text-xs text-gray-400 mt-1">Current: ${esc((item.current_content || '').substring(0, 100))}${(item.current_content || '').length > 100 ? '...' : ''}</p>` : ''}
                     <p class="text-sm text-gray-700 mt-1">${esc((item.description || '').substring(0, 200))}${(item.description || '').length > 200 ? '...' : ''}</p>
-                    ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}
+                    ${fileCount > 0 ? `<div class="mt-2 space-y-1">${(item.files || []).map(f => `<div class="text-xs text-gray-500"><span class="font-medium text-gray-600">${esc(f.title || f.original_name)}</span> — ${esc((f.description || '').substring(0, 80))}${(f.description || '').length > 80 ? '...' : ''}</div>`).join('')}</div>` : ''}
                 </div>`;
             });
             html += `</div>`;

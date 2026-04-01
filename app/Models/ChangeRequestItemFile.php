@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChangeRequestItemFile extends Model
 {
-    protected $fillable = ['change_request_item_id', 'original_filename', 'stored_path', 'mime_type', 'file_size'];
+    protected $fillable = ['change_request_item_id', 'original_filename', 'title', 'description', 'stored_path', 'mime_type', 'file_size'];
 
     public function item()
     {
