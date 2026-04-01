@@ -46,7 +46,7 @@
         <strong>What happens next?</strong>
     </p>
     <ul style="margin:0 0 24px;padding-left:20px;color:#3C3C3B;">
-        <li style="margin-bottom:6px;">Your request will be reviewed by the web team.</li>
+        <li style="margin-bottom:6px;">Your request will be reviewed by the marketing team.</li>
         <li style="margin-bottom:6px;">Some requests may need approval from a service lead before work can start.</li>
         <li style="margin-bottom:6px;">You'll receive an email when the status of your request changes.</li>
     </ul>
@@ -67,6 +67,6 @@
     </table>
 
     <p style="margin:24px 0 0;font-size:13px;color:#A0A09F;">
-        Please keep your reference number <strong>{{ $reference }}</strong> for your records. If you have any questions, contact the web team.
+        Please keep your reference number <strong>{{ $reference }}</strong> for your records. If you have any questions, contact the marketing team.
     </p>
 @endsection

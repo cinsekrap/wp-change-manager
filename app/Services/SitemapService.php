@@ -49,7 +49,7 @@ class SitemapService
             return ['success' => true, 'message' => "Refreshed {$count} pages.", 'count' => $count];
         } catch (\Exception $e) {
             Log::error("Sitemap refresh failed for site {$site->id}: {$e->getMessage()}");
-            return ['success' => false, 'message' => 'Failed to update site data. Please try again or contact the web team.'];
+            return ['success' => false, 'message' => 'Failed to update site data. Please try again or contact the marketing team.'];
         }
     }
 

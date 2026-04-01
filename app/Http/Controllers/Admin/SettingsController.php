@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
 use App\Mail\NewRequestAlert;
 use App\Mail\RequestChase;
@@ -148,6 +149,7 @@ class SettingsController extends Controller
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),
             'new-request-alert' => new NewRequestAlert($sample),
             'approval-requested' => new ApprovalRequested($sample, $sampleApprover),
+            'approval-overridden' => new ApprovalOverridden($sample, $sampleApprover),
             'request-chase' => new RequestChase($sample),
             default => abort(404),
         };
