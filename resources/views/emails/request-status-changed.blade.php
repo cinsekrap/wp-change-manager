@@ -79,11 +79,11 @@
                 @php
                     $isComplete = $i <= $currentIndex;
                     $isCurrent = $i === $currentIndex;
-                    $dotColor = $isComplete ? '#B52159' : '#D2D2D1';
+                    $dotColor = $isCurrent ? '#059669' : ($isComplete ? '#B52159' : '#D2D2D1');
                     $dotSize = $isCurrent ? '14' : '10';
                     $lineColor = ($i > 0 && $i <= $currentIndex) ? '#B52159' : '#D2D2D1';
                     $labelWeight = $isCurrent ? '700' : '400';
-                    $labelColor = $isCurrent ? '#B52159' : ($isComplete ? '#3C3C3B' : '#A0A09F');
+                    $labelColor = $isCurrent ? '#059669' : ($isComplete ? '#3C3C3B' : '#A0A09F');
                 @endphp
                 <td style="text-align:center;vertical-align:top;width:{{ 100 / count($steps) }}%;padding:0;">
                     {{-- Dot with connecting lines --}}
@@ -91,7 +91,7 @@
                         <tr>
                             <td style="width:50%;height:2px;background-color:{{ $i === 0 ? 'transparent' : $lineColor }};"></td>
                             <td style="width:{{ $dotSize }}px;padding:0;">
-                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(181,33,89,0.2);' : '' }}"></div>
+                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(5,150,105,0.2);' : '' }}"></div>
                             </td>
                             <td style="width:50%;height:2px;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#B52159' : '#D2D2D1') }};"></td>
                         </tr>
