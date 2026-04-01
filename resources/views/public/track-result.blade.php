@@ -28,6 +28,80 @@
         </span>
     </div>
 
+    {{-- Status explainer card --}}
+    @php
+        $statusExplainers = [
+            'requested' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'bg' => 'bg-amber-50 border-amber-200',
+                'iconColor' => 'text-amber-500',
+                'title' => 'Your request has been received',
+                'text' => 'Our marketing team is reviewing your submission. You\'ll receive an email when there\'s an update.',
+            ],
+            'requires_referral' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'bg' => 'bg-amber-50 border-amber-200',
+                'iconColor' => 'text-amber-500',
+                'title' => 'Awaiting referral',
+                'text' => 'Your request needs approval from a service lead before work can begin. Our team is arranging this.',
+            ],
+            'referred' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>',
+                'bg' => 'bg-orange-50 border-orange-200',
+                'iconColor' => 'text-orange-500',
+                'title' => 'Waiting for approval',
+                'text' => 'Your request has been referred for approval. We\'re waiting on a response from the relevant approver(s) before we can proceed.',
+            ],
+            'approved' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'bg' => 'bg-hcrg-burgundy/5 border-hcrg-burgundy/20',
+                'iconColor' => 'text-hcrg-burgundy',
+                'title' => 'Approved',
+                'text' => 'Your request has been approved and is in the queue to be actioned. Requests are scheduled based on priority and team capacity.',
+            ],
+            'scheduled' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>',
+                'bg' => 'bg-purple-50 border-purple-200',
+                'iconColor' => 'text-purple-500',
+                'title' => 'Scheduled',
+                'text' => 'Your request has been scheduled for implementation. We\'ll update you once the changes have been made.',
+            ],
+            'done' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>',
+                'bg' => 'bg-emerald-50 border-emerald-200',
+                'iconColor' => 'text-emerald-500',
+                'title' => 'Complete',
+                'text' => 'The changes you requested have been made. Please check the page and let us know if anything doesn\'t look right.',
+            ],
+            'declined' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'bg' => 'bg-red-50 border-red-200',
+                'iconColor' => 'text-red-500',
+                'title' => 'Declined',
+                'text' => 'Unfortunately this request has been declined. Please see the reason below for more information.',
+            ],
+            'cancelled' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>',
+                'bg' => 'bg-gray-50 border-gray-200',
+                'iconColor' => 'text-gray-400',
+                'title' => 'Cancelled',
+                'text' => 'This request has been cancelled and will not be actioned.',
+            ],
+        ];
+        $explainer = $statusExplainers[$changeRequest->status] ?? null;
+    @endphp
+    @if($explainer)
+    <div class="rounded-lg border p-5 mb-6 {{ $explainer['bg'] }}">
+        <div class="flex items-start space-x-3">
+            <svg class="w-6 h-6 {{ $explainer['iconColor'] }} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{!! $explainer['icon'] !!}</svg>
+            <div>
+                <h2 class="text-base font-bold text-gray-900">{{ $explainer['title'] }}</h2>
+                <p class="text-sm text-gray-600 mt-1">{{ $explainer['text'] }}</p>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Details card --}}
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <dl class="space-y-3 text-sm">
