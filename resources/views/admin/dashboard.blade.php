@@ -104,6 +104,29 @@
     </div>
 </div>
 
+{{-- Top Requesters --}}
+@if($topRequesters->isNotEmpty())
+<div class="bg-white rounded-lg shadow mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Top Requesters</h2>
+    </div>
+    <div class="divide-y divide-gray-100">
+        @foreach($topRequesters as $i => $requester)
+        <a href="{{ route('admin.requests.index', ['search' => $requester->requester_email]) }}" class="flex items-center justify-between px-6 py-3 hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-xs font-bold">{{ $i + 1 }}</span>
+                <div>
+                    <p class="text-sm font-medium text-gray-900">{{ $requester->requester_name }}</p>
+                    <p class="text-xs text-gray-500">{{ $requester->requester_email }}</p>
+                </div>
+            </div>
+            <span class="text-sm font-semibold text-hcrg-burgundy">{{ $requester->total }} <span class="text-xs font-normal text-gray-400">requests</span></span>
+        </a>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="bg-white rounded-lg shadow">
     <div class="px-6 py-4 border-b border-gray-200">
         <h2 class="text-lg font-semibold text-gray-900">Recent Requests</h2>
