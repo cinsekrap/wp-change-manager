@@ -73,6 +73,11 @@ class ChangeRequest extends Model
         return $this->hasMany(ChangeRequestApprover::class)->orderBy('created_at');
     }
 
+    public function emailLogs()
+    {
+        return $this->hasMany(EmailLog::class)->orderBy('created_at');
+    }
+
     public function approvalOverriddenByUser()
     {
         return $this->belongsTo(User::class, 'approval_overridden_by');
