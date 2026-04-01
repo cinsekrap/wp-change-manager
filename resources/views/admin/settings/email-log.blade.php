@@ -32,6 +32,7 @@
             <p class="text-sm">No emails sent yet.</p>
         </div>
     @else
+        <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
@@ -116,6 +117,7 @@
                 @endforeach
             </tbody>
         </table>
+        </div>
         <div class="p-4">{{ $logs->links() }}</div>
     @endif
 </div>
