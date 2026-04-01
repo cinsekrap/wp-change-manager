@@ -39,20 +39,20 @@ Route::middleware('installer')->prefix('install')->group(function () {
 Route::get('/', [WizardController::class, 'index'])->name('wizard');
 Route::post('/submit', [SubmissionController::class, 'store'])
     ->name('submit')
-    ->middleware('throttle:60,60');
+    ->middleware('throttle:public-submit');
 Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmation'])->name('confirmation');
 
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');
 Route::get('/track/{reference}', [TrackingController::class, 'direct'])->name('tracking.direct');
-Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show')->middleware('throttle:30,1');
+Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show')->middleware('throttle:public-tracking');
 
 // Public approval links
 Route::get('/approve/{token}', [ApprovalController::class, 'show'])->name('approval.show');
 Route::post('/approve/{token}', [ApprovalController::class, 'respond'])->name('approval.respond')->middleware('throttle:5,1');
 
 // AJAX API endpoints (public, rate-limited)
-Route::prefix('api')->middleware('throttle:60,1')->group(function () {
+Route::prefix('api')->middleware('throttle:public-api')->group(function () {
     Route::post('/sitemap/refresh/{site}', [SitemapController::class, 'refresh'])->name('api.sitemap.refresh');
     Route::get('/sitemap/status/{site}', [SitemapController::class, 'status'])->name('api.sitemap.status');
     Route::get('/pages/{site}', [SitemapController::class, 'pages'])->name('api.pages');
