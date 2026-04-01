@@ -149,14 +149,14 @@
                 name="status"
                 value="approved"
                 onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
-                class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
+                class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
                 Approve
             </button>
             <button
                 type="button"
                 id="rejectBtn"
-                class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
+                class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
                 Reject
             </button>
@@ -180,6 +180,7 @@
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3 border"
                         placeholder="Please explain why you are rejecting this request..."
                     ></textarea>
+                    <p id="rejectReasonError" class="hidden mt-1 text-xs text-red-600">Please provide a reason for rejection.</p>
                 </div>
 
                 <label class="flex items-start space-x-2 cursor-pointer">
@@ -193,14 +194,14 @@
                         name="status"
                         value="rejected"
                         id="confirmRejectBtn"
-                        class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                        class="flex-1 bg-status-error hover:bg-red-800 text-white font-bold py-3 px-6 rounded-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
                         Confirm Rejection
                     </button>
                     <button
                         type="button"
                         id="cancelRejectBtn"
-                        class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
                     >
                         Cancel
                     </button>
@@ -227,13 +228,26 @@
     });
 
     document.getElementById('confirmRejectBtn').addEventListener('click', function(e) {
-        var reason = document.getElementById('rejectReason').value.trim();
+        var textarea = document.getElementById('rejectReason');
+        var errorMsg = document.getElementById('rejectReasonError');
+        var reason = textarea.value.trim();
         if (!reason) {
             e.preventDefault();
-            document.getElementById('rejectReason').focus();
+            textarea.classList.add('border-red-500');
+            errorMsg.classList.remove('hidden');
+            textarea.focus();
             return;
         }
+        textarea.classList.remove('border-red-500');
+        errorMsg.classList.add('hidden');
         document.getElementById('notesField').value = reason;
+    });
+
+    document.getElementById('rejectReason').addEventListener('input', function() {
+        if (this.value.trim()) {
+            this.classList.remove('border-red-500');
+            document.getElementById('rejectReasonError').classList.add('hidden');
+        }
     });
     </script>
 </div>
