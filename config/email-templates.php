@@ -53,7 +53,7 @@ return [
         'name' => 'Approval Overridden',
         'description' => 'Sent to pending approvers when a super-admin overrides the approval gate.',
         'subject' => 'Approval No Longer Required: {reference}',
-        'body' => 'A super-admin has progressed this change request, so your approval is no longer required. No action is needed from you.',
+        'body' => '{overridden_by} has progressed this change request, so your approval is no longer required. No action is needed from you.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name', 'overridden_by'],
     ],
 ];
