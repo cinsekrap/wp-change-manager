@@ -633,6 +633,10 @@
                                         class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                                 </div>
                                 <input type="text" name="notes" placeholder="Notes (optional)" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                <label class="flex items-center space-x-1.5 cursor-pointer">
+                                    <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-hcrg-burgundy border-gray-300 rounded">
+                                    <span class="text-[10px] text-gray-500">Share approver name with requester</span>
+                                </label>
                                 <button type="submit" class="w-full bg-hcrg-burgundy text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-[#9A1B4B]">Record</button>
                             </form>
                             <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" onsubmit="return confirm('Remove this approver?')">
