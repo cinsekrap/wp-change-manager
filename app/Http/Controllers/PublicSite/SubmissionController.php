@@ -34,7 +34,7 @@ class SubmissionController extends Controller
             'requester_role' => 'nullable|string|max:255',
             'check_answers' => 'nullable|array',
             'priority' => 'nullable|in:low,normal,high,urgent',
-            'deadline_date' => 'nullable|date',
+            'deadline_date' => 'nullable|date|after:today',
             'deadline_reason' => 'nullable|string|max:500',
             'items' => 'required|array|min:1',
             'items.*.action_type' => 'required|in:add,change,delete,access_request',
