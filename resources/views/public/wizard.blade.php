@@ -1653,7 +1653,7 @@
                 const refreshData = await refreshRes.json();
 
                 if (!refreshData.success) {
-                    siteLoadError = refreshData.message || 'Could not load site data. Please contact the web team.';
+                    siteLoadError = refreshData.message || 'Could not load site data. Please contact the marketing team.';
                     await minDelay;
                     overlay.classList.add('hidden');
                     showSiteError(siteLoadError);
@@ -1669,7 +1669,7 @@
             siteData = await pagesRes.json();
 
             if (!siteData.pages || siteData.pages.length === 0) {
-                siteLoadError = 'No pages found for this site. The sitemap may not be configured correctly. Please contact the web team.';
+                siteLoadError = 'No pages found for this site. The sitemap may not be configured correctly. Please contact the marketing team.';
                 await minDelay;
                 overlay.classList.add('hidden');
                 showSiteError(siteLoadError);
@@ -1682,7 +1682,7 @@
             renderPages();
         } catch (err) {
             console.error('Failed to load pages:', err);
-            siteLoadError = 'Something went wrong loading site data. Please try again or contact the web team.';
+            siteLoadError = 'Something went wrong loading site data. Please try again or contact the marketing team.';
             showSiteError(siteLoadError);
         }
 

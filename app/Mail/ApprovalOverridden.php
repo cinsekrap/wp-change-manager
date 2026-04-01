@@ -44,7 +44,7 @@ class ApprovalOverridden extends Mailable
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
                 'customBody' => Setting::get('email_approval_overridden_body') ? $emailContent['body'] : null,
                 'defaultBody' => $defaults['body'],
-                'overriddenBy' => $this->changeRequest->approvalOverriddenByUser->name ?? 'The web team',
+                'overriddenBy' => $this->changeRequest->approvalOverriddenByUser->name ?? 'The marketing team',
             ],
         );
     }

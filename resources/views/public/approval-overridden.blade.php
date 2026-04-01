@@ -10,7 +10,7 @@
     </div>
 
     <h1 class="text-2xl font-bold text-gray-900 mb-2">Approval No Longer Required</h1>
-    <p class="text-gray-600 mb-6">Hi {{ $approver->name }}, {{ $changeRequest->approvalOverriddenByUser->name ?? 'the web team' }} has progressed this change request ({{ $changeRequest->reference }}), so your approval is no longer needed.</p>
+    <p class="text-gray-600 mb-6">Hi {{ $approver->name }}, {{ $changeRequest->approvalOverriddenByUser->name ?? 'the marketing team' }} has progressed this change request ({{ $changeRequest->reference }}), so your approval is no longer needed.</p>
 
     <p class="text-sm text-gray-400">You can close this page.</p>
 </div>
