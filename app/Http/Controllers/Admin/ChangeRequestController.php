@@ -511,6 +511,29 @@ class ChangeRequestController extends Controller
             }
         }
 
+        // Auto-advance to approved if currently at requires_referral or referred
+        if (in_array($changeRequest->status, ['requires_referral', 'referred'])) {
+            $oldStatus = $changeRequest->status;
+            $changeRequest->update(['status' => 'approved']);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => $oldStatus,
+                'new_status' => 'approved',
+            ]);
+
+            AuditService::log(
+                action: 'status_changed',
+                model: $changeRequest,
+                description: "Status changed on {$changeRequest->reference}: {$oldStatus} → approved (approval override)",
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => 'approved'],
+            );
+
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
+        }
+
         return back()->with('success', 'Approval gate overridden. ' . $pendingCount . ' pending ' . str('approver')->plural($pendingCount) . ' notified.');
     }
 
