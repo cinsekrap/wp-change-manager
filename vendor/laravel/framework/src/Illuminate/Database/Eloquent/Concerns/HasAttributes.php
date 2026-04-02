@@ -214,9 +214,7 @@ trait HasAttributes
             ?? static::resolveClassAttribute(Table::class)->dateFormat
             ?? null;
 
-        if (empty($this->appends)) {
-            $this->appends = static::resolveClassAttribute(Appends::class, 'columns') ?? [];
-        }
+        $this->mergeAppends(static::resolveClassAttribute(Appends::class, 'columns') ?? []);
     }
 
     /**
@@ -1724,7 +1722,7 @@ trait HasAttributes
     /**
      * Get the attributes that should be cast.
      *
-     * @return array<string, string>
+     * @return array<string, Stringable|string>
      */
     protected function casts()
     {

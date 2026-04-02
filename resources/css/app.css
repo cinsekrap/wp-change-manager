@@ -6,6 +6,52 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /* Font family */
+    --font-sans: 'Nunito Sans', Verdana, Geneva, sans-serif;
+
+    /* HCRG brand colours */
+    --color-hcrg-burgundy: #B52159;
+    --color-hcrg-charcoal: #3C3C3B;
+    --color-hcrg-grey-100: #F0F0EF;
+    --color-hcrg-grey-200: #D2D2D1;
+    --color-hcrg-grey-300: #A0A09F;
+    --color-hcrg-grey-400: #6E6E6D;
+    --color-hcrg-grey-500: #3C3C3B;
+    --color-hcrg-white: #FFFFFF;
+
+    /* Status colours */
+    --color-status-success: #3CB764;
+    --color-status-error: #CC0000;
+    --color-status-warning: #F39204;
+    --color-status-gold: #F4991A;
+
+    /* Burgundy palette (installer) */
+    --color-burgundy-50: #fdf2f6;
+    --color-burgundy-100: #fce7ef;
+    --color-burgundy-200: #fad0e0;
+    --color-burgundy-300: #f6a9c5;
+    --color-burgundy-400: #ef72a0;
+    --color-burgundy-500: #e5477e;
+    --color-burgundy-600: #d32a5e;
+    --color-burgundy-700: #B52159;
+    --color-burgundy-800: #961c3e;
+    --color-burgundy-900: #7d1b37;
+
+    /* Border-radius tokens */
+    --radius-pill: 3rem;
+    --radius-medium: 1rem;
+}
+
+/* Base styles previously in head.blade.php <style> tag */
+@layer base {
+    body {
+        font-weight: 300;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+        color: #B52159;
+    }
+    a, button, select, input, textarea, [class*="hover:"] {
+        transition: all 200ms ease;
+    }
 }
