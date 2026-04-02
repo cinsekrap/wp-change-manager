@@ -1,12 +1,18 @@
 <?php
 
+use App\Http\Controllers\Admin\ApproverController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\BulkActionController;
 use App\Http\Controllers\Admin\ChangeRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ConfigController;
 use App\Http\Controllers\DeployController;
-use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\EmailLogController;
+use App\Http\Controllers\Admin\EmailTemplateController;
+use App\Http\Controllers\Admin\MailSettingsController;
+use App\Http\Controllers\Admin\NotificationSettingsController;
 use App\Http\Controllers\Admin\SiteController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Api\SitemapController;
@@ -91,19 +97,19 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
 
     // Change requests
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
-    Route::post('/requests/bulk/status', [ChangeRequestController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
-    Route::post('/requests/bulk/assign', [ChangeRequestController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
+    Route::post('/requests/bulk/status', [BulkActionController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
+    Route::post('/requests/bulk/assign', [BulkActionController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
     Route::get('/requests', [ChangeRequestController::class, 'index'])->name('admin.requests.index');
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
     Route::post('/requests/{changeRequest}/notes', [ChangeRequestController::class, 'addNote'])->name('admin.requests.notes');
     Route::get('/requests/{changeRequest}/files/{file}', [ChangeRequestController::class, 'downloadFile'])->name('admin.requests.download');
-    Route::post('/requests/{changeRequest}/approvers', [ChangeRequestController::class, 'addApprover'])->name('admin.requests.approvers.add');
-    Route::patch('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'updateApprover'])->name('admin.requests.approvers.update');
-    Route::delete('/requests/{changeRequest}/approvers/{approver}', [ChangeRequestController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
+    Route::post('/requests/{changeRequest}/approvers', [ApproverController::class, 'addApprover'])->name('admin.requests.approvers.add');
+    Route::patch('/requests/{changeRequest}/approvers/{approver}', [ApproverController::class, 'updateApprover'])->name('admin.requests.approvers.update');
+    Route::delete('/requests/{changeRequest}/approvers/{approver}', [ApproverController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
     Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
-    Route::post('/requests/{changeRequest}/send-for-approval', [ChangeRequestController::class, 'sendForApproval'])->name('admin.requests.send-approval');
-    Route::post('/requests/{changeRequest}/override-approvals', [ChangeRequestController::class, 'overrideApprovals'])->name('admin.requests.override-approvals')->middleware('super_admin');
+    Route::post('/requests/{changeRequest}/send-for-approval', [ApproverController::class, 'sendForApproval'])->name('admin.requests.send-approval');
+    Route::post('/requests/{changeRequest}/override-approvals', [ApproverController::class, 'overrideApprovals'])->name('admin.requests.override-approvals')->middleware('super_admin');
     Route::patch('/requests/{changeRequest}/assign', [ChangeRequestController::class, 'updateAssignment'])->name('admin.requests.assign');
     Route::patch('/requests/{changeRequest}/priority', [ChangeRequestController::class, 'updatePriority'])->name('admin.requests.priority');
 
@@ -131,31 +137,31 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         // CPT Types
         Route::resource('cpts', CptController::class)->names('admin.cpts');
 
-        // Settings
-        Route::get('/settings/mail', [SettingsController::class, 'edit'])->name('admin.settings.mail');
-        Route::put('/settings/mail', [SettingsController::class, 'update'])->name('admin.settings.mail.update');
-        Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
-        Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
+        // Mail Settings
+        Route::get('/settings/mail', [MailSettingsController::class, 'edit'])->name('admin.settings.mail');
+        Route::put('/settings/mail', [MailSettingsController::class, 'update'])->name('admin.settings.mail.update');
+        Route::post('/settings/mail/test', [MailSettingsController::class, 'test'])->name('admin.settings.mail.test');
 
-        // Notifications (SLA, chase, alerts, template hub)
-        Route::get('/settings/notifications', [SettingsController::class, 'notifications'])->name('admin.settings.notifications');
-        Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
-        Route::put('/settings/chase', [SettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
-        Route::put('/settings/new-request-alert', [SettingsController::class, 'updateNewRequestAlert'])->name('admin.settings.new-request-alert.update');
+        // Notifications (SLA, chase, alerts)
+        Route::get('/settings/notifications', [NotificationSettingsController::class, 'edit'])->name('admin.settings.notifications');
+        Route::put('/settings/sla', [NotificationSettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
+        Route::put('/settings/chase', [NotificationSettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
+        Route::put('/settings/new-request-alert', [NotificationSettingsController::class, 'updateNewRequestAlert'])->name('admin.settings.new-request-alert.update');
 
         // Email Log
-        Route::get('/settings/email-log', [SettingsController::class, 'emailLog'])->name('admin.settings.email-log');
-        Route::get('/settings/email-log/{emailLog}', [SettingsController::class, 'emailLogShow'])->name('admin.settings.email-log.show');
+        Route::get('/settings/email-log', [EmailLogController::class, 'index'])->name('admin.settings.email-log');
+        Route::get('/settings/email-log/{emailLog}', [EmailLogController::class, 'show'])->name('admin.settings.email-log.show');
 
         // Email Templates
-        Route::get('/settings/email-templates', [SettingsController::class, 'emailTemplates'])->name('admin.settings.email-templates');
-        Route::put('/settings/email-templates', [SettingsController::class, 'updateEmailTemplates'])->name('admin.settings.email-templates.update');
-        Route::post('/settings/email-templates/reset', [SettingsController::class, 'resetEmailTemplate'])->name('admin.settings.email-templates.reset');
+        Route::get('/settings/email-templates', [EmailTemplateController::class, 'index'])->name('admin.settings.email-templates');
+        Route::put('/settings/email-templates', [EmailTemplateController::class, 'update'])->name('admin.settings.email-templates.update');
+        Route::post('/settings/email-templates/reset', [EmailTemplateController::class, 'reset'])->name('admin.settings.email-templates.reset');
+        Route::get('/settings/mail/preview/{template}', [EmailTemplateController::class, 'preview'])->name('admin.settings.mail.preview');
 
         // Configuration Import/Export
-        Route::get('/settings/config', [SettingsController::class, 'configPage'])->name('admin.settings.config');
-        Route::post('/settings/config/export', [SettingsController::class, 'exportConfig'])->name('admin.settings.config.export');
-        Route::post('/settings/config/import', [SettingsController::class, 'importConfig'])->name('admin.settings.config.import');
+        Route::get('/settings/config', [ConfigController::class, 'index'])->name('admin.settings.config');
+        Route::post('/settings/config/export', [ConfigController::class, 'export'])->name('admin.settings.config.export');
+        Route::post('/settings/config/import', [ConfigController::class, 'import'])->name('admin.settings.config.import');
 
         // SSO Settings
         Route::get('/settings/entra', [EntraSettingsController::class, 'edit'])->name('admin.settings.entra');
