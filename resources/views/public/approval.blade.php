@@ -176,7 +176,6 @@
                         id="rejectReason"
                         rows="3"
                         maxlength="1000"
-                        required
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3 border"
                         placeholder="Please explain why you are rejecting this request..."
                     ></textarea>
