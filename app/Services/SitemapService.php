@@ -55,10 +55,6 @@ class SitemapService
 
     protected function discover(string $domain): ?string
     {
-        // Strip scheme, trailing slashes, paths — just the hostname
-        $domain = preg_replace('#^https?://#i', '', $domain);
-        $domain = rtrim(explode('/', $domain)[0], '/');
-
         $candidates = [
             "https://{$domain}/sitemap_index.xml",
             "https://{$domain}/sitemap.xml",

@@ -178,6 +178,20 @@ class SettingsController extends Controller
     }
 
     /**
+     * Save new-request alert settings.
+     */
+    public function updateNewRequestAlert(Request $request)
+    {
+        $validated = $request->validate([
+            'new_request_alert_email' => 'nullable|email|max:255',
+        ]);
+
+        Setting::set('new_request_alert_email', $validated['new_request_alert_email'] ?? '');
+
+        return redirect()->route('admin.settings.notifications')->with('success', 'New request alert settings saved.');
+    }
+
+    /**
      * Save SLA turnaround times.
      */
     public function updateSla(Request $request)

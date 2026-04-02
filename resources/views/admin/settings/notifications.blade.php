@@ -25,6 +25,28 @@
             </a>
         </div>
 
+        {{-- New Request Alert --}}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-2">New Request Alert</h2>
+            <p class="text-sm text-gray-500 mb-4">Send an email notification when a new change request is submitted.</p>
+
+            <form method="POST" action="{{ route('admin.settings.new-request-alert.update') }}">
+                @csrf @method('PUT')
+                <div>
+                    <label for="new_request_alert_email" class="block text-sm font-medium text-gray-700 mb-1">Recipient email</label>
+                    <input type="email" name="new_request_alert_email" id="new_request_alert_email"
+                        value="{{ \App\Models\Setting::get('new_request_alert_email') }}" placeholder="team@example.com"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    <p class="mt-1 text-xs text-gray-500">Leave blank to disable. The alert uses the <em>New Request Alert</em> email template.</p>
+                    @error('new_request_alert_email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                </div>
+
+                <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                    Save Alert Settings
+                </button>
+            </form>
+        </div>
+
         {{-- SLA Settings --}}
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-2">SLA Turnaround Times</h2>

@@ -13,12 +13,12 @@ class RequestSubmitted extends Mailable
 
     public function __construct(
         public ChangeRequest $changeRequest,
-    ) {}
+    ) {
+        $this->changeRequest->loadMissing(['site', 'items']);
+    }
 
     public function envelope(): Envelope
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('request_submitted', $this->placeholderValues());
 
         return new Envelope(
@@ -28,8 +28,6 @@ class RequestSubmitted extends Mailable
 
     public function content(): Content
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('request_submitted', $this->placeholderValues());
         $defaults = config('email-templates.request_submitted');
 

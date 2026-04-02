@@ -24,10 +24,7 @@ class SiteController extends Controller
 
     public function create()
     {
-        $adminUsers = User::where('is_active', true)
-            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
-            ->orderBy('name')
-            ->get();
+        $adminUsers = User::admins()->orderBy('name')->get();
 
         return view('admin.sites.form', ['site' => new Site(), 'adminUsers' => $adminUsers]);
     }
@@ -48,10 +45,7 @@ class SiteController extends Controller
 
     public function edit(Site $site)
     {
-        $adminUsers = User::where('is_active', true)
-            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
-            ->orderBy('name')
-            ->get();
+        $adminUsers = User::admins()->orderBy('name')->get();
 
         return view('admin.sites.form', compact('site', 'adminUsers'));
     }

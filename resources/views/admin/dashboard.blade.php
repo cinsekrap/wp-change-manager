@@ -153,7 +153,7 @@
                     <td class="px-6 py-4 text-sm text-gray-600">{{ $req->site->name ?? '—' }}</td>
                     <td class="px-6 py-4 text-sm text-gray-600">{{ $req->requester_name }}</td>
                     <td class="px-6 py-4">
-                        @include('admin.partials.status-badge', ['status' => $req->status])
+                        @include('partials.status-badge', ['status' => $req->status])
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-500">{{ $req->created_at->format('d M Y H:i') }}</td>
                 </tr>

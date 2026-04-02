@@ -9,7 +9,7 @@
     </div>
     <div class="flex items-center space-x-2">
         @include('admin.partials.priority-badge', ['priority' => $changeRequest->priority ?? 'normal'])
-        @include('admin.partials.status-badge', ['status' => $changeRequest->status])
+        @include('partials.status-badge', ['status' => $changeRequest->status])
     </div>
 </div>
 
@@ -351,9 +351,9 @@
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm text-gray-700">
                                     <span class="font-medium">{{ $activity->user }}</span> changed status
-                                    @include('admin.partials.status-badge', ['status' => $activity->old_status])
+                                    @include('partials.status-badge', ['status' => $activity->old_status])
                                     <span class="text-gray-400 mx-0.5">&rarr;</span>
-                                    @include('admin.partials.status-badge', ['status' => $activity->new_status])
+                                    @include('partials.status-badge', ['status' => $activity->new_status])
                                 </p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ $activity->date->format('d M Y H:i') }} &middot; {{ $activity->date->diffForHumans() }}</p>
                             </div>
@@ -842,7 +842,7 @@
                 <a href="{{ route('admin.requests.show', $prev) }}" class="block px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-medium text-hcrg-burgundy">{{ $prev->reference }}</span>
-                        @include('admin.partials.status-badge', ['status' => $prev->status])
+                        @include('partials.status-badge', ['status' => $prev->status])
                     </div>
                     <p class="text-xs text-gray-500 mt-0.5">{{ $prev->requester_name }} &middot; {{ $prev->created_at->format('d M Y') }} ({{ $prev->created_at->diffForHumans() }})</p>
                 </a>

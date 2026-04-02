@@ -13,12 +13,12 @@ class NewRequestAlert extends Mailable
 
     public function __construct(
         public ChangeRequest $changeRequest,
-    ) {}
+    ) {
+        $this->changeRequest->loadMissing(['site', 'items']);
+    }
 
     public function envelope(): Envelope
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('new_request_alert', $this->placeholderValues());
 
         return new Envelope(
@@ -28,8 +28,6 @@ class NewRequestAlert extends Mailable
 
     public function content(): Content
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('new_request_alert', $this->placeholderValues());
         $defaults = config('email-templates.new_request_alert');
 
