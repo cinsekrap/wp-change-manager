@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'current' => '1.2.20',
+    'current' => '1.2.21',
     'repo' => 'cinsekrap/wp-change-manager',
 ];
