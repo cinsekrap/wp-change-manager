@@ -48,6 +48,7 @@ Route::get('/track/{reference}', [TrackingController::class, 'direct'])->name('t
 Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show')->middleware('throttle:public-tracking');
 
 // Public approval links
+Route::get('/approve/queue/{approver}', [ApprovalController::class, 'showFromQueue'])->name('approval.queue')->middleware(['signed', 'throttle:5,1']);
 Route::get('/approve/{token}', [ApprovalController::class, 'show'])->name('approval.show');
 Route::post('/approve/{token}', [ApprovalController::class, 'respond'])->name('approval.respond')->middleware('throttle:5,1');
 
