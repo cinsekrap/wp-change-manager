@@ -11,12 +11,16 @@ namespace PHPUnit\Framework\Constraint;
 
 use const DIRECTORY_SEPARATOR;
 use const PHP_EOL;
+use function assert;
 use function explode;
 use function implode;
+use function preg_last_error_msg;
 use function preg_match;
 use function preg_quote;
 use function preg_replace;
+use function sprintf;
 use function strtr;
+use PHPUnit\Framework\Exception as FrameworkException;
 use SebastianBergmann\Diff\Differ;
 use SebastianBergmann\Diff\Output\UnifiedDiffOutputBuilder;
 
@@ -40,17 +44,28 @@ final class StringMatchesFormatDescription extends Constraint
     /**
      * Evaluates the constraint for parameter $other. Returns true if the
      * constraint is met, false otherwise.
+     *
+     * @throws FrameworkException
      */
     protected function matches(mixed $other): bool
     {
         $other = $this->convertNewlines($other);
 
-        $matches = preg_match(
+        $matches = @preg_match(
             $this->regularExpressionForFormatDescription(
                 $this->convertNewlines($this->formatDescription),
             ),
             $other,
         );
+
+        if ($matches === false) {
+            throw new FrameworkException(
+                sprintf(
+                    'Format description cannot be matched: %s',
+                    preg_last_error_msg(),
+                ),
+            );
+        }
 
         return $matches > 0;
     }
@@ -125,7 +140,11 @@ final class StringMatchesFormatDescription extends Constraint
 
     private function convertNewlines(string $text): string
     {
-        return preg_replace('/\r\n/', "\n", $text);
+        $result = preg_replace('/\r\n/', "\n", $text);
+
+        assert($result !== null);
+
+        return $result;
     }
 
     private function differ(): Differ
