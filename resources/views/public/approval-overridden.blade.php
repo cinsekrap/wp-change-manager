@@ -13,5 +13,7 @@
     <p class="text-gray-600 mb-6">Hi {{ $approver->name }}, {{ $changeRequest->approvalOverriddenByUser->name ?? 'the marketing team' }} has progressed this change request ({{ $changeRequest->reference }}), so your approval is no longer needed.</p>
 
     <p class="text-sm text-gray-400">You can close this page.</p>
+
+    @include('public.partials.approval-queue')
 </div>
 @endsection
