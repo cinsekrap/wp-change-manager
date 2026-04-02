@@ -50,10 +50,7 @@ class ChangeRequestController extends Controller
 
         $requests = $query->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
-        $adminUsers = User::where('is_active', true)
-            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
-            ->orderBy('name')
-            ->get();
+        $adminUsers = User::admins()->orderBy('name')->get();
         $allTags = Tag::orderBy('name')->get();
 
         return view('admin.requests.index', compact('requests', 'sites', 'adminUsers', 'allTags'));
@@ -177,10 +174,7 @@ class ChangeRequestController extends Controller
 
         $activities = $activities->sortBy('date');
 
-        $adminUsers = User::where('is_active', true)
-            ->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_EDITOR])
-            ->orderBy('name')
-            ->get();
+        $adminUsers = User::admins()->orderBy('name')->get();
 
         return view('admin.requests.show', compact('changeRequest', 'pageHistory', 'activities', 'adminUsers'));
     }
@@ -202,8 +196,7 @@ class ChangeRequestController extends Controller
 
         if ($oldStatus !== $newStatus) {
             // Block moving past "referred" if approvals are outstanding
-            $postReferredStatuses = ['approved', 'scheduled', 'done'];
-            if (in_array($newStatus, $postReferredStatuses) && !$changeRequest->canMovePastReferred()) {
+            if (in_array($newStatus, ChangeRequest::POST_REFERRED_STATUSES) && !$changeRequest->canMovePastReferred()) {
                 return back()->with('error', 'Cannot move to "' . ucfirst($newStatus) . '" — there are outstanding approvals.');
             }
 
@@ -307,8 +300,7 @@ class ChangeRequestController extends Controller
         );
 
         // Pull back to "requires_referral" if currently past it
-        $postReferred = ['approved', 'scheduled', 'done'];
-        if (in_array($changeRequest->status, $postReferred)) {
+        if (in_array($changeRequest->status, ChangeRequest::POST_REFERRED_STATUSES)) {
             $oldStatus = $changeRequest->status;
             $changeRequest->update(['status' => 'requires_referral']);
 
@@ -712,7 +704,6 @@ class ChangeRequestController extends Controller
         ]);
 
         $newStatus = $request->status;
-        $postReferredStatuses = ['approved', 'scheduled', 'done'];
         $updated = 0;
         $skipped = 0;
 
@@ -724,7 +715,7 @@ class ChangeRequestController extends Controller
             }
 
             // Respect the approval gate
-            if (in_array($newStatus, $postReferredStatuses) && !$cr->canMovePastReferred()) {
+            if (in_array($newStatus, ChangeRequest::POST_REFERRED_STATUSES) && !$cr->canMovePastReferred()) {
                 $skipped++;
                 continue;
             }

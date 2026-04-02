@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\ChangeRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\DeployController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SiteController;
 use App\Http\Controllers\Admin\UserController;
@@ -117,7 +118,6 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::get('/password', [UserController::class, 'editPassword'])->name('admin.password.edit');
     Route::put('/password', [UserController::class, 'updatePassword'])->name('admin.password.update');
 
-    // Super admin only routes
     // All admins (editor + super_admin)
     Route::resource('sites', SiteController::class)->names('admin.sites');
     Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
@@ -137,10 +137,11 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::post('/settings/mail/test', [SettingsController::class, 'test'])->name('admin.settings.mail.test');
         Route::get('/settings/mail/preview/{template}', [SettingsController::class, 'previewEmail'])->name('admin.settings.mail.preview');
 
-        // Notifications (SLA, chase, template hub)
+        // Notifications (SLA, chase, alerts, template hub)
         Route::get('/settings/notifications', [SettingsController::class, 'notifications'])->name('admin.settings.notifications');
         Route::put('/settings/sla', [SettingsController::class, 'updateSla'])->name('admin.settings.sla.update');
         Route::put('/settings/chase', [SettingsController::class, 'updateChase'])->name('admin.settings.chase.update');
+        Route::put('/settings/new-request-alert', [SettingsController::class, 'updateNewRequestAlert'])->name('admin.settings.new-request-alert.update');
 
         // Email Log
         Route::get('/settings/email-log', [SettingsController::class, 'emailLog'])->name('admin.settings.email-log');
@@ -178,32 +179,4 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
 });
 
 // Deploy endpoint — POST only, token required, no output leaked
-Route::post('/deploy/{token}', function (string $token) {
-    $expected = config('app.deploy_token');
-
-    if (!$expected || !hash_equals($expected, $token)) {
-        abort(403);
-    }
-
-    if ($expected === 'change-me-to-a-long-random-string') {
-        abort(503, 'Deploy token has not been changed from the default. Update DEPLOY_TOKEN in .env.');
-    }
-
-    $log = ['timestamp' => date('Y-m-d H:i:s'), 'ip' => request()->ip()];
-
-    // Try git pull
-    $gitResult = shell_exec('git pull origin main 2>&1');
-    $log['git'] = $gitResult ?: 'git not available';
-
-    // Try migrations
-    try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $log['migrate'] = trim(\Illuminate\Support\Facades\Artisan::output()) ?: 'Nothing to migrate.';
-    } catch (\Exception $e) {
-        $log['migrate'] = 'Error: ' . $e->getMessage();
-    }
-
-    file_put_contents(storage_path('logs/deploy.log'), json_encode($log) . "\n", FILE_APPEND);
-
-    return response()->json(['status' => 'ok']);
-})->name('deploy')->middleware('throttle:3,1');
+Route::post('/deploy/{token}', DeployController::class)->name('deploy')->middleware('throttle:3,1');

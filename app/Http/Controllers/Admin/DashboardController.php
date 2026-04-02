@@ -19,7 +19,7 @@ class DashboardController extends Controller
             'done' => ChangeRequest::where('status', 'done')->count(),
             'sites' => Site::active()->count(),
             'my_requests' => ChangeRequest::where('assigned_to', auth()->id())
-                ->whereNotIn('status', ['done', 'declined', 'cancelled'])
+                ->whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
                 ->count(),
         ];
 
@@ -44,8 +44,8 @@ class DashboardController extends Controller
         }
 
         // Count overdue requests (active requests past SLA deadline)
-        $overdueCount = ChangeRequest::whereNotIn('status', ['done', 'declined', 'cancelled'])
-            ->get()
+        $overdueCount = ChangeRequest::whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
+            ->select(['id', 'priority', 'created_at'])->get()
             ->filter(fn($cr) => $cr->isOverSla())
             ->count();
 

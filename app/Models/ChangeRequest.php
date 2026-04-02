@@ -29,6 +29,10 @@ class ChangeRequest extends Model
 
     public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'scheduled', 'done', 'declined', 'cancelled'];
 
+    public const POST_REFERRED_STATUSES = ['approved', 'scheduled', 'done'];
+
+    public const TERMINAL_STATUSES = ['done', 'declined', 'cancelled'];
+
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
     public static function generateReference(): string
@@ -249,6 +253,6 @@ class ChangeRequest extends Model
      */
     public function isActive(): bool
     {
-        return !in_array($this->status, ['done', 'declined', 'cancelled']);
+        return !in_array($this->status, self::TERMINAL_STATUSES);
     }
 }
