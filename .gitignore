@@ -27,7 +27,7 @@ Thumbs.db
 /storage/pail
 
 ## Laravel — compiled & generated
-/public/build
+# /public/build — committed because the server has no Node.js
 /public/hot
 /public/storage
 

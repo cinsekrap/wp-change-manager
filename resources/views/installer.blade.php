@@ -5,35 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Install - ACME Change</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,300;0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Nunito Sans"', 'sans-serif'],
-                    },
-                    colors: {
-                        burgundy: {
-                            50: '#fdf2f6',
-                            100: '#fce7ef',
-                            200: '#fad0e0',
-                            300: '#f6a9c5',
-                            400: '#ef72a0',
-                            500: '#e5477e',
-                            600: '#d32a5e',
-                            700: '#B52159',
-                            800: '#961c3e',
-                            900: '#7d1b37',
-                        },
-                    },
-                },
-            },
-        }
-    </script>
+    @vite('resources/css/app.css')
     <style>
         [x-cloak] { display: none !important; }
         body { font-family: 'Nunito Sans', sans-serif; }
