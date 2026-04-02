@@ -29,5 +29,7 @@
     </div>
 
     <p class="text-sm text-gray-400">You can close this page.</p>
+
+    @include('public.partials.approval-queue')
 </div>
 @endsection

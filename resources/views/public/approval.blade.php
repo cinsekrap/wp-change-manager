@@ -249,5 +249,7 @@
         }
     });
     </script>
+
+    @include('public.partials.approval-queue')
 </div>
 @endsection
