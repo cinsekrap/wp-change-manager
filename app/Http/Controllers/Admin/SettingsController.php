@@ -62,7 +62,7 @@ class SettingsController extends Controller
 
     public function emailLogShow(EmailLog $emailLog)
     {
-        return $emailLog->body_html;
+        return response($emailLog->body_html)->header('Content-Security-Policy', 'sandbox');
     }
 
     public function update(Request $request)
@@ -182,6 +182,13 @@ class SettingsController extends Controller
      */
     public function updateSla(Request $request)
     {
+        $request->validate([
+            'sla_low' => 'nullable|integer|min:1',
+            'sla_normal' => 'nullable|integer|min:1',
+            'sla_high' => 'nullable|integer|min:1',
+            'sla_urgent' => 'nullable|integer|min:1',
+        ]);
+
         $priorities = ChangeRequest::PRIORITIES;
 
         foreach ($priorities as $priority) {
@@ -295,7 +302,7 @@ class SettingsController extends Controller
         ];
 
         // Sensitive keys that must never be exported
-        $sensitiveKeys = ['mail_password', 'entra_client_secret'];
+        $sensitiveKeys = ['mail_password', 'entra_client_secret', 'github_token'];
 
         if (in_array('cpt_types', $sections)) {
             $data['cpt_types'] = CptType::ordered()->get()->map(function ($cpt) {
@@ -409,7 +416,7 @@ class SettingsController extends Controller
                 ->with('error', 'Invalid configuration file: missing version field.');
         }
 
-        $sensitiveKeys = ['mail_password', 'entra_client_secret'];
+        $sensitiveKeys = ['mail_password', 'entra_client_secret', 'github_token'];
         $sections = $request->input('import_sections', []);
         $summary = [];
 
