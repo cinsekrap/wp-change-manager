@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ChangeRequest;
 use App\Models\Site;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class PublicWizardTest extends TestCase
@@ -33,7 +34,9 @@ class PublicWizardTest extends TestCase
             'requester_email' => 'john@example.com',
         ]);
 
-        $response = $this->get("/confirmation/{$changeRequest->reference}");
+        $url = URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]);
+
+        $response = $this->get($url);
 
         $response->assertStatus(200);
     }

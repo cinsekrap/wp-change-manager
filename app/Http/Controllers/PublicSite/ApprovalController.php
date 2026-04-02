@@ -3,12 +3,9 @@
 namespace App\Http\Controllers\PublicSite;
 
 use App\Http\Controllers\Controller;
-use App\Mail\ApprovalDeclined;
-use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestStatusLog;
-use App\Models\EmailLog;
-use App\Models\User;
+use App\Services\ApprovalWorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
@@ -98,42 +95,12 @@ class ApprovalController extends Controller
 
         // Auto-decline if an approver rejected and request is at referred
         if ($request->status === 'rejected' && $changeRequest->status === 'referred') {
-            $rejectionReason = $request->share_details
-                ? "Declined by {$approver->name}: {$request->notes}"
-                : $request->notes;
-
-            $changeRequest->update([
-                'status' => 'declined',
-                'rejection_reason' => $rejectionReason,
-            ]);
-
-            ChangeRequestStatusLog::create([
-                'change_request_id' => $changeRequest->id,
-                'user_id' => null,
-                'old_status' => 'referred',
-                'new_status' => 'declined',
-            ]);
-
-            // Notify the requester
-            EmailLog::dispatch(
-                $changeRequest->requester_email,
-                new RequestStatusChanged($changeRequest, 'referred', 'declined'),
-                $changeRequest
+            ApprovalWorkflowService::handleRejection(
+                $changeRequest,
+                $approver,
+                $request->notes,
+                (bool) $request->share_details,
             );
-
-            // Notify other pending approvers that their approval is no longer needed
-            $pendingApprovers = $changeRequest->approvers()
-                ->where('status', 'pending')
-                ->whereNotNull('email')
-                ->get();
-
-            foreach ($pendingApprovers as $pending) {
-                EmailLog::dispatch(
-                    $pending->email,
-                    new ApprovalDeclined($changeRequest, $pending),
-                    $changeRequest
-                );
-            }
         }
 
         $queue = $this->getApproverQueue($approver);

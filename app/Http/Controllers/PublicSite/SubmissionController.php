@@ -4,6 +4,7 @@ namespace App\Http\Controllers\PublicSite;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ApprovalRequested;
+use App\Mail\NewRequestAlert;
 use App\Mail\RequestAssigned;
 use App\Mail\RequestSubmitted;
 use App\Models\ChangeRequest;
@@ -11,12 +12,14 @@ use App\Models\ChangeRequestItem;
 use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestApprover;
 use App\Models\EmailLog;
+use App\Models\Setting;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class SubmissionController extends Controller
 {
@@ -164,15 +167,21 @@ class SubmissionController extends Controller
             }
         }
 
+        // Notify admins about the new request (if configured)
+        $alertEmail = Setting::get('new_request_alert_email');
+        if ($alertEmail) {
+            EmailLog::dispatch($alertEmail, new NewRequestAlert($changeRequest), $changeRequest);
+        }
+
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'reference' => $changeRequest->reference,
-                'redirect' => route('confirmation', $changeRequest->reference),
+                'redirect' => URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]),
             ]);
         }
 
-        return redirect()->route('confirmation', $changeRequest->reference);
+        return redirect(URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]));
     }
 
     public function confirmation(string $reference)

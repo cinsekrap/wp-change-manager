@@ -268,7 +268,7 @@
                 </td>
                 <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1">
-                        @include('admin.partials.status-badge', ['status' => $req->status])
+                        @include('partials.status-badge', ['status' => $req->status])
                         @if($req->tags->isNotEmpty())
                             <span class="inline-flex items-center space-x-0.5 ml-0.5">
                                 @foreach($req->tags->take(3) as $tag)

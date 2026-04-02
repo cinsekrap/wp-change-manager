@@ -60,6 +60,12 @@ class User extends Authenticatable
         return $this->mfa_enabled && $this->mfa_confirmed_at !== null;
     }
 
+    public function scopeAdmins($query)
+    {
+        return $query->where('is_active', true)
+            ->whereIn('role', [self::ROLE_SUPER_ADMIN, self::ROLE_EDITOR]);
+    }
+
     public function assignedRequests()
     {
         return $this->hasMany(ChangeRequest::class, 'assigned_to');

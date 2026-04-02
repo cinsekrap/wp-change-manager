@@ -15,12 +15,12 @@ class RequestStatusChanged extends Mailable
         public ChangeRequest $changeRequest,
         public string $oldStatus,
         public string $newStatus,
-    ) {}
+    ) {
+        $this->changeRequest->loadMissing(['site', 'items']);
+    }
 
     public function envelope(): Envelope
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
 
         return new Envelope(
@@ -30,8 +30,6 @@ class RequestStatusChanged extends Mailable
 
     public function content(): Content
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
         $defaults = config('email-templates.status_changed');
 

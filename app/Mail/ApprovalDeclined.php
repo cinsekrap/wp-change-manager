@@ -15,12 +15,12 @@ class ApprovalDeclined extends Mailable
     public function __construct(
         public ChangeRequest $changeRequest,
         public ChangeRequestApprover $approver,
-    ) {}
+    ) {
+        $this->changeRequest->loadMissing(['site', 'items']);
+    }
 
     public function envelope(): Envelope
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('approval_declined', $this->placeholderValues());
 
         return new Envelope(
@@ -30,8 +30,6 @@ class ApprovalDeclined extends Mailable
 
     public function content(): Content
     {
-        $this->changeRequest->loadMissing(['site', 'items']);
-
         $emailContent = Setting::getEmailContent('approval_declined', $this->placeholderValues());
         $defaults = config('email-templates.approval_declined');
 
