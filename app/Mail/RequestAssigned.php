@@ -15,12 +15,12 @@ class RequestAssigned extends Mailable
     public function __construct(
         public ChangeRequest $changeRequest,
         public User $assignee,
-    ) {}
+    ) {
+        $this->changeRequest->loadMissing(['site']);
+    }
 
     public function envelope(): Envelope
     {
-        $this->changeRequest->loadMissing(['site']);
-
         $emailContent = Setting::getEmailContent('request_assigned', $this->placeholderValues());
 
         return new Envelope(
@@ -30,8 +30,6 @@ class RequestAssigned extends Mailable
 
     public function content(): Content
     {
-        $this->changeRequest->loadMissing(['site']);
-
         $emailContent = Setting::getEmailContent('request_assigned', $this->placeholderValues());
         $defaults = config('email-templates.request_assigned');
 

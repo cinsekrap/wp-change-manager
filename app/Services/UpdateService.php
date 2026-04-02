@@ -172,14 +172,14 @@ class UpdateService
             $zip->close();
             $log['steps']['extract'] = 'Extracted successfully.';
 
-            // 3. Find the extracted directory (GitHub zips have a top-level folder like repo-main/)
+            // 4. Find the extracted directory (GitHub zips have a top-level folder like repo-main/)
             $extractedDirs = glob($tempDir . '/*', GLOB_ONLYDIR);
             if (empty($extractedDirs)) {
                 throw new \RuntimeException('No directory found in extracted zip.');
             }
             $sourceDir = $extractedDirs[0];
 
-            // 4. Backup current app before overwriting
+            // 5. Backup current app before overwriting
             $backupDir = storage_path('app/backups');
             if (!is_dir($backupDir)) {
                 mkdir($backupDir, 0775, true);
@@ -188,18 +188,18 @@ class UpdateService
             $this->createBackup($backupZip);
             $log['steps']['backup'] = 'Backup created: ' . basename($backupZip);
 
-            // 5. Copy files to app root, preserving .env, storage, and installed.lock
+            // 6. Copy files to app root, preserving .env, storage, and installed.lock
             $appRoot = base_path();
             $protectedPaths = ['.env', '.env.install', 'storage', '.git'];
             $this->copyDirectory($sourceDir, $appRoot, $protectedPaths);
             $log['steps']['copy'] = 'Files updated.';
 
-            // 5. Clean up temp files
+            // 7. Clean up temp files
             @unlink($tempZip);
             $this->deleteDirectory($tempDir);
             $log['steps']['cleanup'] = 'Temp files removed.';
 
-            // 6. Migrate
+            // 8. Migrate
             try {
                 Artisan::call('migrate', ['--force' => true]);
                 $log['steps']['migrate'] = trim(Artisan::output()) ?: 'Nothing to migrate.';
@@ -207,7 +207,7 @@ class UpdateService
                 $log['steps']['migrate'] = 'Error: ' . $e->getMessage();
             }
 
-            // 7. Clear caches
+            // 9. Clear caches
             try {
                 Artisan::call('view:clear');
                 $log['steps']['view_clear'] = trim(Artisan::output());
