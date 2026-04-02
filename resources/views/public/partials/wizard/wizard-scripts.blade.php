@@ -1700,6 +1700,7 @@
                 const contentType = res.headers.get('content-type') || '';
                 const errEl = document.getElementById('submitError');
                 errEl.innerHTML = '<p>Something went wrong. This may be caused by your network or firewall. Please try again, or contact your IT team if the problem persists.</p>'
+                    + '<p class="mt-2 text-sm">If the problem continues, please take a screenshot of the details below and send it to the marketing team.</p>'
                     + '<details class="mt-2 text-xs"><summary class="cursor-pointer text-gray-500 hover:text-gray-700">Technical details</summary>'
                     + '<pre class="mt-1 p-2 bg-gray-100 rounded overflow-auto max-h-40 text-gray-600">HTTP ' + esc(String(res.status)) + ' — ' + esc(contentType) + '\n\n' + esc(responseText.substring(0, 2000)) + '</pre></details>';
                 errEl.classList.remove('hidden');
