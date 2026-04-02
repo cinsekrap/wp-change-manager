@@ -44,6 +44,7 @@ Route::middleware('installer')->prefix('install')->group(function () {
 
 // Public wizard
 Route::get('/', [WizardController::class, 'index'])->name('wizard');
+Route::get('/csrf-token', fn () => response()->json(['token' => csrf_token()]))->name('csrf-token');
 Route::post('/submit', [SubmissionController::class, 'store'])
     ->name('submit')
     ->middleware('throttle:public-submit');

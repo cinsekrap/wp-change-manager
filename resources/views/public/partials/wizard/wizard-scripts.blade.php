@@ -9,6 +9,10 @@
         return d.innerHTML;
     }
 
+    function stripTags(str) {
+        return str ? str.replace(/<[^>]*>/g, '') : str;
+    }
+
     function countWords(str) {
         if (!str || !str.trim()) return 0;
         return str.trim().split(/\s+/).length;
@@ -1633,16 +1637,36 @@
             priority: document.querySelector('input[name="priority"]:checked')?.value || 'normal',
             check_answers: checkAnswers,
             deadline_date: document.querySelector('input[name="has_deadline"]:checked')?.value === 'yes' ? document.getElementById('deadlineDate').value : null,
-            deadline_reason: document.querySelector('input[name="has_deadline"]:checked')?.value === 'yes' ? document.getElementById('deadlineReason').value : null,
-            items: items,
+            deadline_reason: document.querySelector('input[name="has_deadline"]:checked')?.value === 'yes' ? stripTags(document.getElementById('deadlineReason').value) : null,
+            items: items.map(item => ({
+                ...item,
+                description: stripTags(item.description),
+                current_content: stripTags(item.current_content),
+                content_area: stripTags(item.content_area),
+                files: (item.files || []).map(f => ({
+                    ...f,
+                    title: stripTags(f.title),
+                    description: stripTags(f.description),
+                })),
+            })),
         };
 
         try {
+            // Refresh CSRF token in case the session has expired
+            let freshToken = csrfToken;
+            try {
+                const tokenRes = await fetch('{{ route("csrf-token") }}', { headers: { 'Accept': 'application/json' } });
+                if (tokenRes.ok) {
+                    const tokenData = await tokenRes.json();
+                    freshToken = tokenData.token;
+                }
+            } catch (e) {}
+
             const res = await fetch('{{ route("submit") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
+                    'X-CSRF-TOKEN': freshToken,
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify(payload),
@@ -1664,7 +1688,26 @@
                 return;
             }
 
-            const data = await res.json();
+            if (res.status === 419) {
+                throw new Error('Your session has expired. Please refresh the page and try again.');
+            }
+
+            const responseText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                const contentType = res.headers.get('content-type') || '';
+                const errEl = document.getElementById('submitError');
+                errEl.innerHTML = '<p>Something went wrong. This may be caused by your network or firewall. Please try again, or contact your IT team if the problem persists.</p>'
+                    + '<p class="mt-2 text-sm">If the problem continues, please take a screenshot of the details below and send it to the marketing team.</p>'
+                    + '<details class="mt-2 text-xs"><summary class="cursor-pointer text-gray-500 hover:text-gray-700">Technical details</summary>'
+                    + '<pre class="mt-1 p-2 bg-gray-100 rounded overflow-auto max-h-40 text-gray-600">HTTP ' + esc(String(res.status)) + ' — ' + esc(contentType) + '\n\n' + esc(responseText.substring(0, 2000)) + '</pre></details>';
+                errEl.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Request';
+                return;
+            }
 
             if (data.success) {
                 sessionStorage.removeItem(STORAGE_KEY);

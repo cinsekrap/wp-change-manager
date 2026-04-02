@@ -24,10 +24,25 @@ class EmailLog extends Model
      */
     public static function dispatch(string $to, Mailable $mailable, ?ChangeRequest $changeRequest = null): self
     {
-        // Render the email content before sending
-        $html = $mailable->render();
-        $subject = $mailable->envelope()->subject;
         $className = class_basename($mailable);
+
+        try {
+            // Render the email content before sending
+            $html = $mailable->render();
+            $subject = $mailable->envelope()->subject;
+        } catch (\Throwable $e) {
+            $log = self::create([
+                'mailable_class' => $className,
+                'recipient_email' => $to,
+                'subject' => null,
+                'body_html' => null,
+                'change_request_id' => $changeRequest?->id,
+                'status' => 'failed',
+                'error_message' => "Render failed: {$e->getMessage()}",
+            ]);
+
+            return $log;
+        }
 
         $log = self::create([
             'mailable_class' => $className,
