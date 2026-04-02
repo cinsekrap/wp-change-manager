@@ -10,6 +10,7 @@ use App\Models\ChangeRequestStatusLog;
 use App\Models\EmailLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 
 class ApprovalController extends Controller
 {
@@ -29,7 +30,22 @@ class ApprovalController extends Controller
             return view('public.approval-closed', compact('approver', 'changeRequest'));
         }
 
-        return view('public.approval', compact('approver', 'changeRequest'));
+        $queue = $this->getApproverQueue($approver);
+
+        return view('public.approval', compact('approver', 'changeRequest', 'queue'));
+    }
+
+    public function showFromQueue(Request $request, ChangeRequestApprover $approver)
+    {
+        if (!$approver->token || $approver->status !== 'pending') {
+            return view('public.approval-complete', [
+                'status' => $approver->status,
+                'changeRequest' => $approver->changeRequest,
+                'queue' => [],
+            ]);
+        }
+
+        return $this->show($approver->token);
     }
 
     public function respond(Request $request, string $token)
@@ -47,7 +63,9 @@ class ApprovalController extends Controller
         $changeRequest = $approver->changeRequest()->with(['site', 'items'])->first();
 
         if ($changeRequest->approval_overridden) {
-            return view('public.approval-overridden', compact('approver', 'changeRequest'));
+            $queue = $this->getApproverQueue($approver);
+
+            return view('public.approval-overridden', compact('approver', 'changeRequest', 'queue'));
         }
 
         if (in_array($changeRequest->status, ['declined', 'cancelled'])) {
@@ -118,9 +136,31 @@ class ApprovalController extends Controller
             }
         }
 
+        $queue = $this->getApproverQueue($approver);
+
         return view('public.approval-complete', [
             'status' => $request->status,
             'changeRequest' => $changeRequest,
+            'queue' => $queue,
         ]);
+    }
+
+    private function getApproverQueue(ChangeRequestApprover $currentApprover): array
+    {
+        return ChangeRequestApprover::where('email', $currentApprover->email)
+            ->where('id', '!=', $currentApprover->id)
+            ->where('status', 'pending')
+            ->whereNotNull('token')
+            ->with(['changeRequest.site'])
+            ->get()
+            ->filter(fn ($a) => !$a->changeRequest->approval_overridden)
+            ->map(fn ($a) => [
+                'reference' => $a->changeRequest->reference,
+                'site_name' => $a->changeRequest->site->name ?? '—',
+                'page_title' => $a->changeRequest->page_title ?? $a->changeRequest->page_url,
+                'url' => URL::signedRoute('approval.queue', ['approver' => $a->id], now()->addHours(4)),
+            ])
+            ->values()
+            ->toArray();
     }
 }
