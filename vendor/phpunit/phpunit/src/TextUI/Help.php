@@ -186,6 +186,7 @@ final class Help
                 ['arg' => '--filter <pattern>', 'desc' => 'Filter which tests to run'],
                 ['arg' => '--exclude-filter <pattern>', 'desc' => 'Exclude tests for the specified filter pattern'],
                 ['arg' => '--test-suffix <suffixes>', 'desc' => 'Only search for test in files with specified suffix(es). Default: Test.php,.phpt'],
+                ['arg' => '--test-files-file <file>', 'desc' => 'Only run test files listed in file (one file by line)'],
             ],
 
             'Execution' => [
@@ -247,7 +248,7 @@ final class Help
             ],
 
             'Reporting' => [
-                ['arg' => '--colors <flag>', 'desc' => 'Use colors in output ("never", "auto" or "always")'],
+                ['arg' => '--colors=<flag>', 'desc' => 'Use colors in output ("never", "auto" or "always")'],
                 ['arg'    => '--columns <n>', 'desc' => 'Number of columns to use for progress output'],
                 ['arg'    => '--columns max', 'desc' => 'Use maximum number of columns for progress output'],
                 ['arg'    => '--stderr', 'desc' => 'Write to STDERR instead of STDOUT'],
