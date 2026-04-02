@@ -12,6 +12,7 @@
 /.vscode
 /.zed
 .phpactor.json
+.phpunit.result.cache
 
 ## Planning (internal, not distributed)
 /Planning
