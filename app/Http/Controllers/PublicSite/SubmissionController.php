@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 
 class SubmissionController extends Controller
 {
@@ -168,11 +169,11 @@ class SubmissionController extends Controller
             return response()->json([
                 'success' => true,
                 'reference' => $changeRequest->reference,
-                'redirect' => route('confirmation', $changeRequest->reference),
+                'redirect' => URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]),
             ]);
         }
 
-        return redirect()->route('confirmation', $changeRequest->reference);
+        return redirect(URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]));
     }
 
     public function confirmation(string $reference)

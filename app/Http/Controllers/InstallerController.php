@@ -314,21 +314,29 @@ class InstallerController extends Controller
      */
     private function buildEnvContent(array $app, array $db): string
     {
-        $appName = str_contains($app['name'], ' ') ? '"' . $app['name'] . '"' : $app['name'];
+        $appName = $this->escapeEnvValue($app['name']);
+        $appKey = $this->escapeEnvValue($app['key']);
+        $appUrl = $this->escapeEnvValue($app['url']);
+        $dbHost = $this->escapeEnvValue($db['host']);
+        $dbPort = $this->escapeEnvValue($db['port']);
+        $dbDatabase = $this->escapeEnvValue($db['database']);
+        $dbUsername = $this->escapeEnvValue($db['username']);
+        $dbPassword = $this->escapeEnvValue($db['password']);
+        $deployToken = $this->escapeEnvValue($app['deploy_token']);
 
         return <<<ENV
 APP_NAME={$appName}
 APP_ENV=production
-APP_KEY={$app['key']}
+APP_KEY={$appKey}
 APP_DEBUG=false
-APP_URL={$app['url']}
+APP_URL={$appUrl}
 
 DB_CONNECTION=mysql
-DB_HOST={$db['host']}
-DB_PORT={$db['port']}
-DB_DATABASE={$db['database']}
-DB_USERNAME={$db['username']}
-DB_PASSWORD={$db['password']}
+DB_HOST={$dbHost}
+DB_PORT={$dbPort}
+DB_DATABASE={$dbDatabase}
+DB_USERNAME={$dbUsername}
+DB_PASSWORD={$dbPassword}
 
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
@@ -338,8 +346,21 @@ MAIL_MAILER=smtp
 MAIL_FROM_ADDRESS="noreply@example.com"
 MAIL_FROM_NAME="\${APP_NAME}"
 
-DEPLOY_TOKEN={$app['deploy_token']}
+DEPLOY_TOKEN={$deployToken}
 ENV;
+    }
+
+    /**
+     * Escape a value for safe inclusion in a .env file.
+     *
+     * Wraps the value in double quotes after escaping any embedded
+     * backslashes and double quotes.
+     */
+    private function escapeEnvValue(string $value): string
+    {
+        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+
+        return '"' . $value . '"';
     }
 
     /**

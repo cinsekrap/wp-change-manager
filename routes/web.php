@@ -40,7 +40,7 @@ Route::get('/', [WizardController::class, 'index'])->name('wizard');
 Route::post('/submit', [SubmissionController::class, 'store'])
     ->name('submit')
     ->middleware('throttle:public-submit');
-Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmation'])->name('confirmation');
+Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmation'])->name('confirmation')->middleware('signed');
 
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');
@@ -82,7 +82,6 @@ Route::middleware('auth')->prefix('admin/mfa')->group(function () {
     Route::post('/setup', [MfaController::class, 'confirmSetup'])->name('mfa.confirm');
     Route::get('/challenge', [MfaController::class, 'challenge'])->name('mfa.challenge');
     Route::post('/challenge', [MfaController::class, 'verify'])->name('mfa.verify')->middleware('throttle:5,1');
-    Route::post('/disable', [MfaController::class, 'disable'])->name('mfa.disable');
 });
 
 // Admin routes (editor + super_admin)
@@ -110,6 +109,9 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     // Tags on requests
     Route::post('/requests/{changeRequest}/tags', [ChangeRequestController::class, 'addTag'])->name('admin.requests.tags.add');
     Route::delete('/requests/{changeRequest}/tags/{tag}', [ChangeRequestController::class, 'removeTag'])->name('admin.requests.tags.remove');
+
+    // MFA disable (requires full auth + admin + mfa)
+    Route::post('/mfa/disable', [MfaController::class, 'disable'])->name('mfa.disable');
 
     // Password change (all admins)
     Route::get('/password', [UserController::class, 'editPassword'])->name('admin.password.edit');
