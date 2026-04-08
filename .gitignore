@@ -5,6 +5,7 @@
 /auth.json
 
 ## IDE & editor
+/.claude
 /.fleet
 /.idea
 /.nova
