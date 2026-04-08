@@ -46,6 +46,8 @@ class SitemapService
                 ->whereNotIn('url', $urls)
                 ->delete();
 
+            $site->update(['sitemap_refreshed_at' => now()]);
+
             return ['success' => true, 'message' => "Refreshed {$count} pages.", 'count' => $count];
         } catch (\Exception $e) {
             Log::error("Sitemap refresh failed for site {$site->id}: {$e->getMessage()}");
@@ -208,13 +210,11 @@ class SitemapService
 
     public function needsRefresh(Site $site): bool
     {
-        $oldest = $site->sitemapPages()->min('updated_at');
-
-        if (!$oldest) {
+        if (!$site->sitemap_refreshed_at) {
             return true;
         }
 
-        return now()->diffInHours($oldest) >= 24;
+        return $site->sitemap_refreshed_at->diffInHours(now()) >= 24;
     }
 
     public function hasData(Site $site): bool
