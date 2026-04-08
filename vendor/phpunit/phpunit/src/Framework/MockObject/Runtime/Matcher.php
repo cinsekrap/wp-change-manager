@@ -31,6 +31,11 @@ final class Matcher
     private readonly InvocationOrder $invocationRule;
 
     /**
+     * @var class-string
+     */
+    private readonly string $className;
+
+    /**
      * @var ?non-empty-string
      */
     private ?string $afterMatchBuilderId    = null;
@@ -38,9 +43,13 @@ final class Matcher
     private ?ParametersRule $parametersRule = null;
     private ?Stub $stub                     = null;
 
-    public function __construct(InvocationOrder $rule)
+    /**
+     * @param class-string $className
+     */
+    public function __construct(InvocationOrder $rule, string $className)
     {
         $this->invocationRule = $rule;
+        $this->className      = $className;
     }
 
     public function hasInvocationCountRule(): bool
@@ -129,9 +138,8 @@ final class Matcher
         } catch (ExpectationFailedException $e) {
             throw new ExpectationFailedException(
                 sprintf(
-                    "Expectation failed for %s when %s\n%s",
-                    $this->methodNameRule->toString(),
-                    $this->invocationRule->toString(),
+                    "Expectation for %s failed.\n%s",
+                    $this->methodNameRule->failureDescription($this->className),
                     $e->getMessage(),
                 ),
                 $e->getComparisonFailure(),
@@ -182,9 +190,8 @@ final class Matcher
         } catch (ExpectationFailedException $e) {
             throw new ExpectationFailedException(
                 sprintf(
-                    "Expectation failed for %s when %s\n%s",
-                    $this->methodNameRule->toString(),
-                    $this->invocationRule->toString(),
+                    "Expectation for %s failed.\n%s",
+                    $this->methodNameRule->failureDescription($this->className),
                     $e->getMessage(),
                 ),
                 $e->getComparisonFailure(),
@@ -206,27 +213,50 @@ final class Matcher
 
         try {
             $this->invocationRule->verify();
+        } catch (ExpectationFailedException) {
+            $actual = $this->invocationRule->numberOfInvocations();
 
-            if ($this->parametersRule === null) {
-                $this->parametersRule = new AnyParameters;
+            if ($actual === 0) {
+                $invoked = 'never invoked';
+            } elseif ($actual === 1) {
+                $invoked = 'invoked once';
+            } else {
+                $invoked = sprintf(
+                    'invoked %d times',
+                    $actual,
+                );
             }
 
-            $invocationIsAny    = $this->invocationRule instanceof AnyInvokedCount;
-            $invocationIsNever  = $this->invocationRule instanceof InvokedCount && $this->invocationRule->isNever();
-            $invocationIsAtMost = $this->invocationRule instanceof InvokedAtMostCount;
-
-            if (!$invocationIsAny && !$invocationIsNever && !$invocationIsAtMost) {
-                $this->parametersRule->verify();
-            }
-        } catch (ExpectationFailedException $e) {
             throw new ExpectationFailedException(
                 sprintf(
-                    "Expectation failed for %s when %s.\n%s",
-                    $this->methodNameRule->toString(),
+                    '%s was expected to be %s but was %s.',
+                    $this->methodNameRule->failureDescription($this->className),
                     $this->invocationRule->toString(),
-                    ThrowableToStringMapper::map($e),
+                    $invoked,
                 ),
             );
+        }
+
+        if ($this->parametersRule === null) {
+            $this->parametersRule = new AnyParameters;
+        }
+
+        $invocationIsAny    = $this->invocationRule instanceof AnyInvokedCount;
+        $invocationIsNever  = $this->invocationRule instanceof InvokedCount && $this->invocationRule->isNever();
+        $invocationIsAtMost = $this->invocationRule instanceof InvokedAtMostCount;
+
+        if (!$invocationIsAny && !$invocationIsNever && !$invocationIsAtMost) {
+            try {
+                $this->parametersRule->verify();
+            } catch (ExpectationFailedException $e) {
+                throw new ExpectationFailedException(
+                    sprintf(
+                        "Expectation for %s failed.\n%s",
+                        $this->methodNameRule->failureDescription($this->className),
+                        ThrowableToStringMapper::map($e),
+                    ),
+                );
+            }
         }
     }
 }
