@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Site extends Model
 {
-    protected $fillable = ['name', 'domain', 'sitemap_url', 'default_approvers', 'default_assignee_id', 'requires_approval', 'is_active'];
+    protected $fillable = ['name', 'domain', 'sitemap_url', 'sitemap_refreshed_at', 'default_approvers', 'default_assignee_id', 'requires_approval', 'is_active'];
 
     protected function casts(): array
     {
@@ -15,6 +15,7 @@ class Site extends Model
             'is_active' => 'boolean',
             'requires_approval' => 'boolean',
             'default_approvers' => 'array',
+            'sitemap_refreshed_at' => 'datetime',
         ];
     }
 
