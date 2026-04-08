@@ -2,6 +2,12 @@
 
 All notable changes are documented in this file using the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
+## [8.1.0] - 2026-04-05
+
+### Added
+
+* [#135](https://github.com/sebastianbergmann/diff/issues/135): Add `$contextLines` constructor parameter on `UnifiedDiffOutputBuilder`
+
 ## [8.0.0] - 2026-02-06
 
 ### Removed
@@ -163,6 +169,7 @@ All notable changes are documented in this file using the [Keep a CHANGELOG](htt
 
 * This component is no longer supported on PHP 5.6
 
+[8.1.0]: https://github.com/sebastianbergmann/diff/compare/8.0.0...8.1.0
 [8.0.0]: https://github.com/sebastianbergmann/diff/compare/7.0...8.0.0
 [7.0.0]: https://github.com/sebastianbergmann/diff/compare/6.0.2...7.0.0
 [6.0.2]: https://github.com/sebastianbergmann/diff/compare/6.0.1...6.0.2

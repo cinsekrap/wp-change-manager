@@ -38,16 +38,17 @@
         "myclabs/deep-copy": "^1.13.4",
         "phar-io/manifest": "^2.0.4",
         "phar-io/version": "^3.2.1",
-        "phpunit/php-code-coverage": "^13.0.1",
+        "phpunit/php-code-coverage": "^14.0",
         "phpunit/php-file-iterator": "^7.0.0",
         "phpunit/php-invoker": "^7.0.0",
         "phpunit/php-text-template": "^6.0.0",
         "phpunit/php-timer": "^9.0.0",
         "sebastian/cli-parser": "^5.0.0",
-        "sebastian/comparator": "^8.0.0",
-        "sebastian/diff": "^8.0.0",
-        "sebastian/environment": "^9.1.0",
+        "sebastian/comparator": "^8.1.0",
+        "sebastian/diff": "^8.1.0",
+        "sebastian/environment": "^9.2.0",
         "sebastian/exporter": "^8.0.0",
+        "sebastian/git-state": "^1.0",
         "sebastian/global-state": "^9.0.0",
         "sebastian/object-enumerator": "^8.0.0",
         "sebastian/recursion-context": "^8.0.0",
@@ -120,7 +121,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "13.0-dev"
+            "dev-main": "13.1-dev"
         }
     }
 }
