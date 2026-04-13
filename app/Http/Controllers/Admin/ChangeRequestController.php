@@ -11,7 +11,7 @@ use App\Models\ChangeRequestItemFile;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\EmailLog;
 use App\Models\Site;
-use App\Models\Tag;
+
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
@@ -22,7 +22,7 @@ class ChangeRequestController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'assignee', 'tags'])->withCount('items')->withCount(['items as items_done_count' => function ($q) {
+        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'assignee'])->withCount('items')->withCount(['items as items_done_count' => function ($q) {
             $q->where('status', 'done');
         }]));
 
@@ -47,14 +47,13 @@ class ChangeRequestController extends Controller
         $requests = $query->paginate(25)->withQueryString();
         $sites = Site::orderBy('name')->get();
         $adminUsers = User::admins()->orderBy('name')->get();
-        $allTags = Tag::orderBy('name')->get();
 
-        return view('admin.requests.index', compact('requests', 'sites', 'adminUsers', 'allTags'));
+        return view('admin.requests.index', compact('requests', 'sites', 'adminUsers'));
     }
 
     public function export(Request $request): StreamedResponse
     {
-        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'tags'])->withCount('items'));
+        $query = $this->applyFilters($request, ChangeRequest::with(['site'])->withCount('items'));
 
         // Support exporting specific IDs (for bulk export)
         if ($request->filled('ids')) {
@@ -75,7 +74,7 @@ class ChangeRequestController extends Controller
             fputcsv($handle, [
                 'Reference', 'Site', 'Page', 'Content Type', 'Requester Name',
                 'Requester Email', 'Requester Role', 'Status', 'Priority', 'Items Count',
-                'Deadline', 'Submitted Date', 'Tags',
+                'Deadline', 'Submitted Date',
             ]);
 
             $query->chunk(500, function ($rows) use ($handle) {
@@ -93,7 +92,6 @@ class ChangeRequestController extends Controller
                         $row->items_count,
                         $row->deadline_date?->format('Y-m-d') ?? '',
                         $row->created_at->format('Y-m-d H:i'),
-                        $row->tags->pluck('name')->implode(', '),
                     ]);
                 }
             });
@@ -104,7 +102,7 @@ class ChangeRequestController extends Controller
 
     public function show(ChangeRequest $changeRequest)
     {
-        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'tags', 'approvalOverriddenByUser', 'emailLogs']);
+        $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'approvalOverriddenByUser', 'emailLogs']);
 
         $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
             ->where('site_id', $changeRequest->site_id)
@@ -206,9 +204,9 @@ class ChangeRequestController extends Controller
 
             $changeRequest->update($updateData);
 
-            // Auto-complete unresolved items when marking request as done
-            if ($newStatus === 'done') {
-                $changeRequest->items()->whereNotIn('status', ['done', 'not_done', 'deferred'])->update(['status' => 'done']);
+            // Mark any unresolved items as not done when closing a request
+            if (in_array($newStatus, ChangeRequest::TERMINAL_STATUSES)) {
+                $changeRequest->items()->where('status', 'in_progress')->update(['status' => 'not_done']);
             }
 
             ChangeRequestStatusLog::create([
@@ -292,6 +290,31 @@ class ChangeRequestController extends Controller
             newValues: ['item_status' => $request->status],
         );
 
+        // Auto-complete request when all items are resolved (done or not done)
+        if ($changeRequest->items()->where('status', 'in_progress')->doesntExist() && !in_array($changeRequest->status, ChangeRequest::TERMINAL_STATUSES)) {
+            $oldStatus = $changeRequest->status;
+            $changeRequest->update(['status' => 'done']);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => $oldStatus,
+                'new_status' => 'done',
+            ]);
+
+            AuditService::log(
+                action: 'status_changed',
+                model: $changeRequest,
+                description: "Status changed on {$changeRequest->reference}: {$oldStatus} → done (all items complete)",
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => 'done'],
+            );
+
+            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'done'), $changeRequest);
+
+            return back()->with('success', 'Item status updated. All items complete — request marked as done.');
+        }
+
         return back()->with('success', 'Item status updated.');
     }
 
@@ -372,31 +395,6 @@ class ChangeRequestController extends Controller
         return back()->with('success', 'Assignment updated.');
     }
 
-    public function addTag(Request $request, ChangeRequest $changeRequest)
-    {
-        $request->validate([
-            'tag_name' => 'required|string|max:100',
-        ]);
-
-        $tag = Tag::firstOrCreate(
-            ['name' => trim($request->tag_name)],
-            ['colour' => '#6E6E6D']
-        );
-
-        if (!$changeRequest->tags()->where('tag_id', $tag->id)->exists()) {
-            $changeRequest->tags()->attach($tag->id);
-        }
-
-        return response()->json(['success' => true, 'tag' => $tag]);
-    }
-
-    public function removeTag(ChangeRequest $changeRequest, Tag $tag)
-    {
-        $changeRequest->tags()->detach($tag->id);
-
-        return response()->json(['success' => true]);
-    }
-
     private function applyFilters(Request $request, $query)
     {
         if ($request->filled('status')) {
@@ -442,13 +440,6 @@ class ChangeRequestController extends Controller
         if ($request->filled('priority')) {
             $priorities = (array) $request->priority;
             $query->whereIn('priority', $priorities);
-        }
-
-        if ($request->filled('tags')) {
-            $tagIds = (array) $request->tags;
-            $query->whereHas('tags', function ($q) use ($tagIds) {
-                $q->whereIn('tags.id', $tagIds);
-            });
         }
 
         return $query;

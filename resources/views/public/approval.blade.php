@@ -111,7 +111,15 @@
         <p class="text-sm text-gray-700">
             <strong>{{ $approver->name }}</strong>, you have been asked to review this change request.
         </p>
-        @if($otherApprovers->count() > 0)
+        @if($approver->group)
+            @php $groupMembers = $changeRequest->approvers->where('group', $approver->group)->where('id', '!=', $approver->id); @endphp
+            <p class="text-sm text-gray-600">
+                You are part of the <strong>{{ $approver->group }}</strong> group — only one member needs to approve.
+                @if($groupMembers->isNotEmpty())
+                    We have also asked {{ $groupMembers->pluck('name')->join(', ', ' and ') }} from your group.
+                @endif
+            </p>
+        @elseif($otherApprovers->count() > 0)
             <p class="text-sm text-gray-600">
                 We have also asked {{ $otherApprovers->count() }} other {{ Str::plural('person', $otherApprovers->count()) }} for their approval. All approvers must approve before this change will be scheduled and implemented.
             </p>

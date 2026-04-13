@@ -21,11 +21,13 @@ class ApproverController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
+            'group' => 'nullable|string|max:255',
         ]);
 
         $approver = $changeRequest->approvers()->create([
             'name' => $request->name,
             'email' => $request->email,
+            'group' => $request->group ?: null,
             'token' => ChangeRequestApprover::generateToken(),
         ]);
 
@@ -48,7 +50,7 @@ class ApproverController extends Controller
 
         $changeRequest->notes()->create([
             'user_id' => auth()->id(),
-            'note' => 'Added approver: ' . $request->name,
+            'note' => 'Added approver: ' . $request->name . ($request->group ? " (group: {$request->group})" : ''),
         ]);
 
         AuditService::log(
@@ -102,6 +104,11 @@ class ApproverController extends Controller
             oldValues: ['approver_status' => $oldApproverStatus],
             newValues: ['approver_status' => $request->status],
         );
+
+        // Notify remaining group members if this approval satisfies the group
+        if ($request->status === 'approved' && $approver->group) {
+            ApprovalWorkflowService::handleGroupSatisfied($changeRequest, $approver);
+        }
 
         // Auto-advance to "approved" if all approvers have approved
         $changeRequest->refresh();
@@ -170,6 +177,7 @@ class ApproverController extends Controller
                 $changeRequest->approvers()->create([
                     'name' => $approver['name'],
                     'email' => $approver['email'] ?? null,
+                    'group' => $approver['group'] ?? null,
                     'token' => ChangeRequestApprover::generateToken(),
                 ]);
             }
@@ -235,7 +243,7 @@ class ApproverController extends Controller
             return back()->with('info', 'There are no pending approvers to override.');
         }
 
-        $pendingApprovers = $changeRequest->approvers()->where('status', 'pending')->get();
+        $pendingApprovers = $changeRequest->approvers()->where('status', 'pending')->whereNotNull('token')->get();
         $pendingCount = $pendingApprovers->count();
 
         $changeRequest->update([

@@ -27,6 +27,10 @@ class ApprovalController extends Controller
             return view('public.approval-closed', compact('approver', 'changeRequest'));
         }
 
+        if ($approver->group && $changeRequest->groupSatisfied($approver->group)) {
+            return view('public.approval-group-satisfied', compact('approver', 'changeRequest'));
+        }
+
         $queue = $this->getApproverQueue($approver);
 
         return view('public.approval', compact('approver', 'changeRequest', 'queue'));
@@ -69,6 +73,11 @@ class ApprovalController extends Controller
             return view('public.approval-closed', compact('approver', 'changeRequest'));
         }
 
+        // Guard against race condition: another group member may have already responded
+        if ($approver->group && $changeRequest->groupSatisfied($approver->group)) {
+            return view('public.approval-group-satisfied', compact('approver', 'changeRequest'));
+        }
+
         $approver->update([
             'status' => $request->status,
             'notes' => $request->notes,
@@ -79,6 +88,11 @@ class ApprovalController extends Controller
 
         $changeRequest = $approver->changeRequest;
         $changeRequest->refresh();
+
+        // Notify remaining group members if this approval satisfies the group
+        if ($request->status === 'approved' && $approver->group) {
+            ApprovalWorkflowService::handleGroupSatisfied($changeRequest, $approver);
+        }
 
         // Auto-advance to approved if all approvers have approved
         if ($changeRequest->approvalsAllApproved() && in_array($changeRequest->status, ['requires_referral', 'referred'])) {

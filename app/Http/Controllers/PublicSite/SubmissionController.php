@@ -135,6 +135,7 @@ class SubmissionController extends Controller
                     $createdApprovers[] = $changeRequest->approvers()->create([
                         'name' => $approver['name'],
                         'email' => $approver['email'] ?? null,
+                        'group' => $approver['group'] ?? null,
                         'token' => ChangeRequestApprover::generateToken(),
                     ]);
                 }

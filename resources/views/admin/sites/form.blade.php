@@ -44,7 +44,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Default Approvers</label>
-                <p class="text-xs text-gray-500 mb-2">Automatically added to every new request for this site.</p>
+                <p class="text-xs text-gray-500 mb-2">Automatically added to every new request for this site. Approvers sharing the same group name form a group — only one member of a group needs to approve.</p>
                 @php
                     $approvers = old('default_approvers', $site->default_approvers ?? []);
                 @endphp
@@ -55,6 +55,8 @@
                             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                         <input type="email" name="default_approvers[{{ $index }}][email]" value="{{ $approver['email'] ?? '' }}" placeholder="Email (optional)"
                             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        <input type="text" name="default_approvers[{{ $index }}][group]" value="{{ $approver['group'] ?? '' }}" placeholder="Group (optional)"
+                            class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                         <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm px-2">&times;</button>
                     </div>
                     @endforeach
@@ -121,6 +123,7 @@ function addApprover() {
     div.className = 'flex items-center space-x-2 approver-row';
     div.innerHTML = `<input type="text" name="default_approvers[${idx}][name]" required placeholder="Name" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">` +
         `<input type="email" name="default_approvers[${idx}][email]" placeholder="Email (optional)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">` +
+        `<input type="text" name="default_approvers[${idx}][group]" placeholder="Group (optional)" class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">` +
         `<button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm px-2">&times;</button>`;
     list.appendChild(div);
     div.querySelector('input').focus();

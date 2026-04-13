@@ -26,10 +26,6 @@
 
         @include('admin.requests.partials._sidebar-approvals')
 
-        @include('admin.requests.partials._sidebar-tags')
-
-        @include('admin.requests.partials._sidebar-links')
-
         @include('admin.requests.partials._sidebar-page-history')
     </div>
 </div>

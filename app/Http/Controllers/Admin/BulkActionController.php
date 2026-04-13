@@ -47,8 +47,9 @@ class BulkActionController extends Controller
 
             $cr->update($updateData);
 
-            if ($newStatus === 'done') {
-                $cr->items()->whereNotIn('status', ['done', 'not_done', 'deferred'])->update(['status' => 'done']);
+            // Mark any unresolved items as not done when closing a request
+            if (in_array($newStatus, ChangeRequest::TERMINAL_STATUSES)) {
+                $cr->items()->where('status', 'in_progress')->update(['status' => 'not_done']);
             }
 
             ChangeRequestStatusLog::create([

@@ -87,18 +87,26 @@ class ChangeRequest extends Model
         return $this->belongsTo(User::class, 'approval_overridden_by');
     }
 
-    public function tags()
-    {
-        return $this->belongsToMany(Tag::class, 'change_request_tag')->withTimestamps();
-    }
-
     public function approvalsComplete(): bool
     {
         $approvers = $this->approvers;
         if ($approvers->isEmpty()) {
             return true;
         }
-        return $approvers->every(fn($a) => $a->status !== 'pending');
+
+        // All ungrouped approvers must have responded
+        if ($approvers->whereNull('group')->contains(fn($a) => $a->status === 'pending')) {
+            return false;
+        }
+
+        // Each group must have at least one response
+        foreach ($approvers->whereNotNull('group')->groupBy('group') as $members) {
+            if ($members->every(fn($a) => $a->status === 'pending')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function approvalsAllApproved(): bool
@@ -107,7 +115,20 @@ class ChangeRequest extends Model
         if ($approvers->isEmpty()) {
             return true;
         }
-        return $approvers->every(fn($a) => $a->status === 'approved');
+
+        // All ungrouped approvers must be approved
+        if ($approvers->whereNull('group')->contains(fn($a) => $a->status !== 'approved')) {
+            return false;
+        }
+
+        // Each group must have at least one approved member
+        foreach ($approvers->whereNotNull('group')->groupBy('group') as $members) {
+            if (!$members->contains(fn($a) => $a->status === 'approved')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function canMovePastReferred(): bool
@@ -117,7 +138,31 @@ class ChangeRequest extends Model
 
     public function hasPendingApprovers(): bool
     {
-        return $this->approvers()->where('status', 'pending')->exists();
+        $approvers = $this->approvers;
+
+        if ($approvers->where('group', null)->where('status', 'pending')->isNotEmpty()) {
+            return true;
+        }
+
+        foreach ($approvers->whereNotNull('group')->groupBy('group') as $members) {
+            $hasPending = $members->contains(fn($a) => $a->status === 'pending');
+            $hasResponse = $members->contains(fn($a) => $a->status !== 'pending');
+            if ($hasPending && !$hasResponse) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function groupSatisfied(string $group): bool
+    {
+        return $this->approvers()->where('group', $group)->where('status', 'approved')->exists();
+    }
+
+    public function pendingGroupMembers(string $group)
+    {
+        return $this->approvers()->where('group', $group)->where('status', 'pending')->get();
     }
 
     public function scopeStatus($query, string $status)

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChangeRequestItem extends Model
 {
-    public const STATUSES = ['pending', 'in_progress', 'done', 'not_done', 'deferred'];
+    public const STATUSES = ['in_progress', 'done', 'not_done'];
 
     protected $fillable = ['change_request_id', 'action_type', 'content_area', 'description', 'current_content', 'sort_order', 'status'];
 
