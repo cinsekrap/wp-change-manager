@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CheckQuestion;
 use App\Models\CptType;
 use App\Models\Setting;
-use App\Models\Tag;
+
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 
@@ -20,7 +20,6 @@ class ConfigController extends Controller
         $counts = [
             'cpt_types' => CptType::count(),
             'check_questions' => CheckQuestion::count(),
-            'tags' => Tag::count(),
         ];
 
         return view('admin.settings.config', compact('counts'));
@@ -107,15 +106,6 @@ class ConfigController extends Controller
             }
 
             $data['email_templates'] = $customised;
-        }
-
-        if (in_array('tags', $sections)) {
-            $data['tags'] = Tag::orderBy('name')->get()->map(function ($tag) {
-                return [
-                    'name' => $tag->name,
-                    'colour' => $tag->colour,
-                ];
-            })->toArray();
         }
 
         $filename = 'acme-change-config-' . now()->format('Y-m-d') . '.json';
@@ -273,35 +263,6 @@ class ConfigController extends Controller
             }
 
             $summary[] = "Email Templates: {$count} imported";
-        }
-
-        // Import Tags
-        if (in_array('tags', $sections) && !empty($data['tags'])) {
-            $created = 0;
-            $updated = 0;
-
-            foreach ($data['tags'] as $tagData) {
-                if (empty($tagData['name'])) {
-                    continue;
-                }
-
-                $existing = Tag::where('name', $tagData['name'])->first();
-
-                if ($existing) {
-                    $existing->update([
-                        'colour' => $tagData['colour'] ?? $existing->colour,
-                    ]);
-                    $updated++;
-                } else {
-                    Tag::create([
-                        'name' => $tagData['name'],
-                        'colour' => $tagData['colour'] ?? '#6B7280',
-                    ]);
-                    $created++;
-                }
-            }
-
-            $summary[] = "Tags: {$created} created, {$updated} updated";
         }
 
         if (empty($summary)) {

@@ -57,6 +57,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name', 'overridden_by'],
     ],
 
+    'group_approval_satisfied' => [
+        'name' => 'Group Approval Satisfied',
+        'description' => 'Sent to remaining group members when another member in their group has approved.',
+        'subject' => 'Approval No Longer Required: {reference}',
+        'body' => '{satisfied_by} has approved this request on behalf of your group, so your approval is no longer required. No action is needed from you.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name', 'satisfied_by', 'group_name'],
+    ],
+
     'approval_declined' => [
         'name' => 'Request Declined (to other approvers)',
         'description' => 'Sent to other pending approvers when a request is declined following a rejection.',

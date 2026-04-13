@@ -20,6 +20,7 @@ class StoreSiteRequest extends FormRequest
             'default_approvers' => 'nullable|array',
             'default_approvers.*.name' => 'required|string|max:255',
             'default_approvers.*.email' => 'nullable|email|max:255',
+            'default_approvers.*.group' => 'nullable|string|max:255',
             'default_assignee_id' => 'nullable|exists:users,id',
             'requires_approval' => 'boolean',
             'is_active' => 'boolean',
@@ -35,10 +36,15 @@ class StoreSiteRequest extends FormRequest
         }
 
         $data['is_active'] = $this->boolean('is_active');
-        $data['default_approvers'] = array_values(array_filter(
-            $data['default_approvers'] ?? [],
-            fn($a) => !empty($a['name'])
-        ));
+        $data['default_approvers'] = collect($data['default_approvers'] ?? [])
+            ->filter(fn($a) => !empty($a['name']))
+            ->map(fn($a) => [
+                'name' => $a['name'],
+                'email' => $a['email'] ?? null,
+                'group' => !empty($a['group']) ? $a['group'] : null,
+            ])
+            ->values()
+            ->all();
         $data['default_assignee_id'] = ($data['default_assignee_id'] ?? null) ?: null;
         $data['requires_approval'] = $this->boolean('requires_approval');
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\ApprovalDeclined;
+use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
@@ -62,6 +63,35 @@ class ApprovalWorkflowService
                 new ApprovalDeclined($changeRequest, $pending),
                 $changeRequest,
             );
+        }
+    }
+
+    /**
+     * Handle a group approval being satisfied.
+     *
+     * Notifies remaining pending group members that their approval is no
+     * longer needed and clears their tokens to prevent stale approval links.
+     */
+    public static function handleGroupSatisfied(
+        ChangeRequest $changeRequest,
+        ChangeRequestApprover $respondent,
+    ): void {
+        $pendingMembers = $changeRequest->approvers()
+            ->where('group', $respondent->group)
+            ->where('status', 'pending')
+            ->where('id', '!=', $respondent->id)
+            ->get();
+
+        foreach ($pendingMembers as $member) {
+            if ($member->email) {
+                EmailLog::dispatch(
+                    $member->email,
+                    new GroupApprovalSatisfied($changeRequest, $member, $respondent->name),
+                    $changeRequest,
+                );
+            }
+
+            $member->update(['token' => null]);
         }
     }
 }

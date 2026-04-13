@@ -18,7 +18,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Api\SitemapController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Admin\EntraSettingsController;
-use App\Http\Controllers\Admin\TagController;
+
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Auth\EntraController;
 use App\Http\Controllers\Auth\LoginController;
@@ -114,10 +114,6 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::patch('/requests/{changeRequest}/assign', [ChangeRequestController::class, 'updateAssignment'])->name('admin.requests.assign');
     Route::patch('/requests/{changeRequest}/priority', [ChangeRequestController::class, 'updatePriority'])->name('admin.requests.priority');
 
-    // Tags on requests
-    Route::post('/requests/{changeRequest}/tags', [ChangeRequestController::class, 'addTag'])->name('admin.requests.tags.add');
-    Route::delete('/requests/{changeRequest}/tags/{tag}', [ChangeRequestController::class, 'removeTag'])->name('admin.requests.tags.remove');
-
     // MFA disable (requires full auth + admin + mfa)
     Route::post('/mfa/disable', [MfaController::class, 'disable'])->name('mfa.disable');
 
@@ -129,9 +125,6 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::resource('sites', SiteController::class)->names('admin.sites');
     Route::post('/sites/{site}/refresh', [SiteController::class, 'refreshSitemap'])->name('admin.sites.refresh');
     Route::resource('questions', CheckQuestionController::class)->names('admin.questions');
-    Route::get('/tags', [TagController::class, 'index'])->name('admin.tags.index');
-    Route::put('/tags/{tag}', [TagController::class, 'update'])->name('admin.tags.update');
-    Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('admin.tags.destroy');
 
     // Super admin only
     Route::middleware('super_admin')->group(function () {

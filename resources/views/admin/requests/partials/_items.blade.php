@@ -5,25 +5,9 @@
         $doneItems = $changeRequest->items->where('status', 'done')->count();
         $allDone = $totalItems > 0 && $doneItems === $totalItems;
         $itemStatusColors = [
-            'pending' => 'bg-gray-400',
             'in_progress' => 'bg-hcrg-burgundy',
             'done' => 'bg-emerald-500',
             'not_done' => 'bg-red-500',
-            'deferred' => 'bg-amber-500',
-        ];
-        $itemStatusRingColors = [
-            'pending' => 'ring-gray-400',
-            'in_progress' => 'ring-hcrg-burgundy',
-            'done' => 'ring-emerald-500',
-            'not_done' => 'ring-red-500',
-            'deferred' => 'ring-amber-500',
-        ];
-        $itemStatusLabels = [
-            'pending' => 'Pending',
-            'in_progress' => 'In Progress',
-            'done' => 'Done',
-            'not_done' => 'Not Done',
-            'deferred' => 'Deferred',
         ];
     @endphp
 
@@ -38,23 +22,6 @@
         </div>
         @endif
     </div>
-
-    {{-- All complete banner --}}
-    @if($allDone && $changeRequest->status !== 'done')
-    <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm font-medium text-emerald-800">All items are complete. Would you like to mark this request as done?</span>
-        </div>
-        <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}">
-            @csrf @method('PATCH')
-            <input type="hidden" name="status" value="done">
-            <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-full hover:bg-emerald-700 transition-colors">
-                Mark as Done
-            </button>
-        </form>
-    </div>
-    @endif
 
     <div class="space-y-4">
         @foreach($changeRequest->items as $index => $item)
@@ -80,16 +47,35 @@
                         <span class="text-sm text-gray-500">{{ $item->content_area }}</span>
                     @endif
                 </div>
-                <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="flex-shrink-0">
-                    @csrf @method('PATCH')
-                    <select name="status" onchange="this.form.submit()"
-                        class="text-xs pl-2 pr-7 py-1 border border-gray-300 rounded-full focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy {{ $itemStatusRingColors[$item->status] ?? '' }} ring-1 appearance-none bg-white cursor-pointer"
-                        style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22 fill=%22%236b7280%22%3E%3Cpath fill-rule=%22evenodd%22 d=%22M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z%22 clip-rule=%22evenodd%22/%3E%3C/svg%3E'); background-position: right 0.35rem center; background-repeat: no-repeat; background-size: 0.9em 0.9em;">
-                        @foreach(\App\Models\ChangeRequestItem::STATUSES as $s)
-                            <option value="{{ $s }}" {{ $item->status === $s ? 'selected' : '' }}>{{ $itemStatusLabels[$s] }}</option>
-                        @endforeach
-                    </select>
-                </form>
+                <div class="flex items-center space-x-1 flex-shrink-0">
+                    {{-- In Progress --}}
+                    <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="inline">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="status" value="in_progress">
+                        <button type="submit" title="In Progress"
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'in_progress' ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-400 hover:bg-hcrg-burgundy/10 hover:text-hcrg-burgundy' }}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                    </form>
+                    {{-- Done --}}
+                    <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="inline">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="status" value="done">
+                        <button type="submit" title="Done"
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'done' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600' }}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        </button>
+                    </form>
+                    {{-- Not Done --}}
+                    <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="inline">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="status" value="not_done">
+                        <button type="submit" title="Not Done"
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'not_done' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-600' }}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </form>
+                </div>
             </div>
 
             @if($item->action_type === 'change' && $item->current_content)

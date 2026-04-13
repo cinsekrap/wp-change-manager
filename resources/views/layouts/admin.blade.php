@@ -11,7 +11,7 @@
     <nav class="bg-hcrg-burgundy">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                @php $isConfig = request()->routeIs('admin.sites.*', 'admin.cpts.*', 'admin.questions.*', 'admin.settings.*', 'admin.settings.updates*', 'admin.settings.config*', 'admin.settings.notifications*', 'admin.users.*', 'admin.tags.*', 'admin.audit-log'); @endphp
+                @php $isConfig = request()->routeIs('admin.sites.*', 'admin.cpts.*', 'admin.questions.*', 'admin.settings.*', 'admin.settings.updates*', 'admin.settings.config*', 'admin.settings.notifications*', 'admin.users.*', 'admin.audit-log'); @endphp
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold text-white">{{ config('app.name') }}</a>
                     <span class="text-xs text-white/50">v{{ config('version.current') }}</span>
@@ -43,11 +43,6 @@
                                     <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     Check Questions
                                 </a>
-                                <a href="{{ route('admin.tags.index') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.tags.*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
-                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
-                                    Tags
-                                </a>
-
                                 @if(auth()->user()->isSuperAdmin())
                                 {{-- Super admin only --}}
                                 <div class="border-t border-gray-200 my-1"></div>

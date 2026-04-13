@@ -41,11 +41,6 @@
                     <span class="text-sm text-gray-700">Email Templates <span class="text-gray-400">(customised only)</span></span>
                 </label>
 
-                <label class="flex items-center space-x-3 cursor-pointer">
-                    <input type="checkbox" name="sections[]" value="tags" checked
-                        class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
-                    <span class="text-sm text-gray-700">Tags <span class="text-gray-400">({{ $counts['tags'] }})</span></span>
-                </label>
             </div>
 
             <button type="submit" class="inline-flex items-center bg-hcrg-burgundy text-white px-5 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium transition-colors">
@@ -141,11 +136,6 @@ function parseImportFile(input) {
             html += sectionCheckbox('email_templates', 'Email Templates', Object.keys(data.email_templates).length + ' template(s)');
             hasContent = true;
         }
-        if (data.tags && data.tags.length) {
-            html += sectionCheckbox('tags', 'Tags', data.tags.length + ' tag(s)');
-            hasContent = true;
-        }
-
         if (!hasContent) {
             html = '<p class="text-sm text-gray-500">No importable data found in file.</p>';
         }

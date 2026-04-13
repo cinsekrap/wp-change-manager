@@ -39,6 +39,7 @@ class RequestStatusChanged extends Mailable
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageUrl' => $this->changeRequest->is_new_page ? null : $this->changeRequest->page_url,
                 'isNewPage' => $this->changeRequest->is_new_page,
                 'itemCount' => $this->changeRequest->items->count(),
                 'items' => $this->changeRequest->items->take(5),

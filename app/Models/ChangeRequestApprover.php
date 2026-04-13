@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ChangeRequestApprover extends Model
 {
     protected $fillable = [
-        'change_request_id', 'name', 'email', 'status', 'notes', 'responded_at', 'recorded_by', 'token',
+        'change_request_id', 'name', 'email', 'group', 'status', 'notes', 'responded_at', 'recorded_by', 'token',
     ];
 
     public static function generateToken(): string
@@ -37,5 +37,10 @@ class ChangeRequestApprover extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    public function isGrouped(): bool
+    {
+        return $this->group !== null;
     }
 }

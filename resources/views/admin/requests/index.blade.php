@@ -8,7 +8,6 @@
     $selectedStatuses = (array) request('status', []);
     $selectedSites = (array) request('site_id', []);
     $selectedPriorities = (array) request('priority', []);
-    $selectedTags = (array) request('tags', []);
     $myRequestsActive = request('my_requests');
     $currentSort = request('sort');
     $currentDir = request('direction', 'asc');
@@ -114,30 +113,6 @@
             </div>
         </div>
 
-        {{-- Tags multi-select dropdown --}}
-        @if($allTags->isNotEmpty())
-        <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">Tags</label>
-            <div class="relative multi-dropdown">
-                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
-                    <span class="multi-label truncate">{{ empty($selectedTags) ? 'All tags' : count($selectedTags) . ' selected' }}</span>
-                    <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                <div class="hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
-                    @foreach($allTags as $tag)
-                    <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm whitespace-nowrap">
-                        <input type="checkbox" name="tags[]" value="{{ $tag->id }}" {{ in_array((string)$tag->id, $selectedTags) ? 'checked' : '' }}
-                            class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2 flex-shrink-0">
-                        <span class="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0" style="background-color: {{ $tag->colour }}"></span>
-                        <span class="truncate">{{ $tag->name }}</span>
-                    </label>
-                    @endforeach
-                </div>
-            </div>
-        </div>
-        @endif
-
         {{-- Assigned to dropdown --}}
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Assigned to</label>
@@ -167,7 +142,7 @@
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export CSV
         </a>
-        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || !empty($selectedTags) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests') || request('sort'))
+        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests') || request('sort'))
             <a href="{{ route('admin.requests.index') }}" onclick="localStorage.removeItem('acme_requests_filters')" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</a>
         @endif
     </div>
@@ -267,19 +242,7 @@
                     </div>
                 </td>
                 <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    <div class="flex items-center space-x-1">
-                        @include('partials.status-badge', ['status' => $req->status])
-                        @if($req->tags->isNotEmpty())
-                            <span class="inline-flex items-center space-x-0.5 ml-0.5">
-                                @foreach($req->tags->take(3) as $tag)
-                                    <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{ $tag->colour }}" title="{{ $tag->name }}"></span>
-                                @endforeach
-                                @if($req->tags->count() > 3)
-                                    <span class="text-[10px] text-gray-400">+{{ $req->tags->count() - 3 }}</span>
-                                @endif
-                            </span>
-                        @endif
-                    </div>
+                    @include('partials.status-badge', ['status' => $req->status])
                 </td>
                 <td class="px-3 py-3 text-gray-500 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
             </tr>
@@ -378,7 +341,7 @@ form.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)').forEach(
         var total = dd.querySelectorAll('input[type="checkbox"]:not(.select-all-toggle)');
         var label = dd.querySelector('.multi-label');
         var nameAttr = this.name;
-        var defaultLabels = { 'status[]': 'All statuses', 'priority[]': 'All priorities', 'site_id[]': 'All sites', 'tags[]': 'All tags' };
+        var defaultLabels = { 'status[]': 'All statuses', 'priority[]': 'All priorities', 'site_id[]': 'All sites' };
         var defaultLabel = defaultLabels[nameAttr] || 'All';
         label.textContent = checked.length === 0 ? defaultLabel : checked.length + ' selected';
         // Update "All" toggle if present
