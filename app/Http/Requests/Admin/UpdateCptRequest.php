@@ -35,6 +35,7 @@ class UpdateCptRequest extends FormRequest
             'content_areas.*.sub_fields.*.type' => 'required|in:text,textarea',
             'content_areas.*.repeatable' => 'nullable',
             'content_areas.*.allow_add' => 'nullable',
+            'content_areas.*.reading_age' => 'nullable',
         ];
     }
 
@@ -77,6 +78,7 @@ class UpdateCptRequest extends FormRequest
                     'sub_fields' => $subFields,
                     'repeatable' => !empty($area['repeatable']),
                     'allow_add' => !empty($area['allow_add']),
+                    'reading_age' => !empty($area['reading_age']),
                 ];
             })
             ->values()

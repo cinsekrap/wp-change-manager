@@ -18,6 +18,53 @@
         return str.trim().split(/\s+/).length;
     }
 
+    function countSyllables(word) {
+        word = word.toLowerCase().replace(/[^a-z]/g, '');
+        if (!word) return 1;
+        if (word.length <= 3) return 1;
+        word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+        word = word.replace(/^y/, '');
+        const matches = word.match(/[aeiouy]{1,2}/g);
+        return matches ? Math.max(matches.length, 1) : 1;
+    }
+
+    function calculateReadingAge(text) {
+        if (!text || !text.trim()) return null;
+        const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+        if (words.length < 30) return null;
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        const sentenceCount = Math.max(sentences.length, 1);
+        let totalSyllables = 0;
+        words.forEach(w => { totalSyllables += countSyllables(w); });
+        const gradeLevel = 0.39 * (words.length / sentenceCount) + 11.8 * (totalSyllables / words.length) - 15.59;
+        return Math.max(Math.round(gradeLevel + 5), 5);
+    }
+
+    function readingAgeBadgeHtml(age) {
+        if (age === null) return '<span class="text-gray-400">Reading age: not enough text</span>';
+        let colour, dotColour;
+        if (age <= 11) { colour = 'text-green-600'; dotColour = 'bg-green-500'; }
+        else if (age <= 13) { colour = 'text-amber-600'; dotColour = 'bg-amber-500'; }
+        else { colour = 'text-red-600'; dotColour = 'bg-red-500'; }
+        return `<span class="${colour} font-medium inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full ${dotColour} inline-block"></span>Reading age: ${age}</span>`;
+    }
+
+    let readingAgeBypass = false;
+
+    function checkReadingAgeFields() {
+        const offending = [];
+        document.querySelectorAll('.structured-field[data-reading-age="1"]').forEach(field => {
+            const input = field.querySelector('.area-form-fields .sf-input');
+            if (input && input.value) {
+                const age = calculateReadingAge(input.value);
+                if (age !== null && age > 13) {
+                    offending.push({ name: field.dataset.areaName, age });
+                }
+            }
+        });
+        return offending;
+    }
+
     function getCurrentCptSlug() {
         const isNew = document.getElementById('isNewPage').checked;
         if (isNew) return document.getElementById('newPageCpt').value;
@@ -179,7 +226,7 @@
 
         areas.forEach((area, idx) => {
             const areaObj = typeof area === 'string'
-                ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [] }
+                ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [], reading_age: true }
                 : area;
 
             const typeLabels = { text: 'Text', textarea: 'Text', richtext: 'Rich text', select: 'Dropdown', checkbox: 'Checkbox', date: 'Date', file: 'File upload', group: 'Group' };
@@ -246,6 +293,7 @@
         card.dataset.areaRepeatable = area.repeatable ? '1' : '0';
         card.dataset.actionType = '';
         if (area.word_limit) card.dataset.wordLimit = area.word_limit;
+        if (area.reading_age) card.dataset.readingAge = '1';
 
         let html = '';
         if (area.help) {
@@ -336,7 +384,7 @@
         const idx = parseInt(card.dataset.areaIndex);
         const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
         const areaObj = typeof area === 'string'
-            ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [], repeatable: false }
+            ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [], repeatable: false, reading_age: true }
             : area;
 
         // Repeatable group: delegate to dedicated renderer
@@ -450,6 +498,16 @@
                     wordCounter.classList.remove('text-red-600', 'font-medium');
                     wordCounter.classList.add('text-gray-400');
                 }
+            });
+        }
+
+        // Reading age listener
+        const readingAgeBadge = fieldsContainer.querySelector('.sf-reading-age-badge');
+        const readingAgeInput = readingAgeBadge ? (fieldsContainer.querySelector('.sf-input')) : null;
+        if (readingAgeBadge && readingAgeInput) {
+            readingAgeInput.addEventListener('input', function() {
+                const age = calculateReadingAge(this.value);
+                readingAgeBadge.innerHTML = readingAgeBadgeHtml(age);
             });
         }
 
@@ -599,6 +657,14 @@
         // Word counter for text/textarea/richtext with word_limit
         if (areaObj.word_limit && ['text', 'textarea', 'richtext'].includes(areaObj.type)) {
             html += `<div class="sf-word-counter text-xs text-gray-400 mt-1" data-limit="${areaObj.word_limit}">0 / ${areaObj.word_limit} words</div>`;
+        }
+
+        // Reading age indicator for textarea/richtext with reading_age enabled
+        if (areaObj.reading_age && ['textarea', 'richtext'].includes(areaObj.type)) {
+            html += `<div class="sf-reading-age text-xs mt-1 text-right">`;
+            html += `<span class="sf-reading-age-badge text-gray-400">Reading age: not enough text</span>`;
+            html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-hcrg-burgundy hover:underline inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
+            html += `</div>`;
         }
 
         return html;
@@ -881,9 +947,39 @@
 
     // Event listeners
     prevBtn.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateUI(); } });
-    nextBtn.addEventListener('click', () => { if (validateStep(currentStep) && currentStep < totalSteps) { currentStep++; updateUI(); saveState(); } });
+    nextBtn.addEventListener('click', () => {
+        if (!validateStep(currentStep) || currentStep >= totalSteps) return;
+        // Reading age warning on leaving step 3
+        if (currentStep === 3 && !readingAgeBypass) {
+            const offending = checkReadingAgeFields();
+            if (offending.length > 0) {
+                const list = document.getElementById('readingAgeWarningList');
+                list.innerHTML = offending.map(f => `<li>${esc(f.name)} (reading age: ${f.age})</li>`).join('');
+                document.getElementById('navButtonGroup').classList.add('hidden');
+                document.getElementById('readingAgeWarning').classList.remove('hidden');
+                return;
+            }
+        }
+        readingAgeBypass = false;
+        currentStep++;
+        updateUI();
+        saveState();
+    });
     submitBtn.addEventListener('click', submitForm);
     document.getElementById('addItemBtn').addEventListener('click', addLineItem);
+
+    // Reading age: "Continue anyway" bypass
+    const raSubmitAnyway = document.getElementById('readingAgeSubmitAnyway');
+    if (raSubmitAnyway) {
+        raSubmitAnyway.addEventListener('click', function() {
+            readingAgeBypass = true;
+            document.getElementById('readingAgeWarning').classList.add('hidden');
+            document.getElementById('navButtonGroup').classList.remove('hidden');
+            currentStep++;
+            updateUI();
+            saveState();
+        });
+    }
 
     // Self-service access request handler
     document.getElementById('ssSubmitBtn').addEventListener('click', submitSelfServiceRequest);
@@ -1057,6 +1153,13 @@
         if (currentStep === totalSteps) {
             buildReview();
         }
+
+        // Reset reading age bypass when navigating between steps
+        readingAgeBypass = false;
+        const raWarning = document.getElementById('readingAgeWarning');
+        if (raWarning) raWarning.classList.add('hidden');
+        const navBtnGroup = document.getElementById('navButtonGroup');
+        if (navBtnGroup) navBtnGroup.classList.remove('hidden');
 
         checkStepValid();
         window.scrollTo({ top: 0, behavior: 'smooth' });
