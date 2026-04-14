@@ -122,6 +122,36 @@
 
         @yield('content')
     </main>
+
+    @php
+        $whatsNewVersion = config('version.current');
+        $whatsNewSeen = \App\Models\Setting::get('whats_new_seen_' . auth()->id());
+        $whatsNewNotes = ($whatsNewSeen !== $whatsNewVersion) ? \App\Models\Setting::get('release_notes') : null;
+    @endphp
+
+    @if($whatsNewNotes)
+    <div id="whatsNewModal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/50" onclick="dismissWhatsNew()"></div>
+        <div class="relative w-[90vw] max-w-lg max-h-[60vh] bg-white rounded-lg shadow-xl flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">What's new in v{{ $whatsNewVersion }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">This update has been installed</p>
+                </div>
+                <button onclick="dismissWhatsNew()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-6 py-4 prose prose-sm max-w-none">
+                {!! \Illuminate\Support\Str::markdown($whatsNewNotes) !!}
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 text-right">
+                <button onclick="dismissWhatsNew()" class="px-5 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] transition-colors">Got it</button>
+            </div>
+        </div>
+    </div>
+    @endif
+
 <script>
 document.addEventListener('click', function(e) {
     [['configDropdown','configMenu'], ['userDropdown','userMenu']].forEach(function(pair) {
@@ -130,6 +160,22 @@ document.addEventListener('click', function(e) {
         if (dd && menu && !dd.contains(e.target)) menu.classList.add('hidden');
     });
 });
+
+@if($whatsNewNotes ?? false)
+function dismissWhatsNew() {
+    document.getElementById('whatsNewModal').remove();
+    fetch('{{ route("admin.whats-new.dismiss") }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+            'Accept': 'application/json',
+        },
+    });
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('whatsNewModal')) dismissWhatsNew();
+});
+@endif
 </script>
 </body>
 </html>

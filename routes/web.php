@@ -95,6 +95,7 @@ Route::middleware('auth')->prefix('admin/mfa')->group(function () {
 // Admin routes (editor + super_admin)
 Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::post('/whats-new/dismiss', [DashboardController::class, 'dismissWhatsNew'])->name('admin.whats-new.dismiss');
 
     // Change requests
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
