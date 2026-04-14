@@ -224,6 +224,11 @@ class UpdateService
 
             $log['success'] = true;
 
+            // Store release notes so the "What's new" modal can display them
+            if (!empty($release['release_notes'])) {
+                \App\Models\Setting::set('release_notes', $release['release_notes']);
+            }
+
             // Clear the update cache so the next check reflects new version
             Cache::forget('app_update_check');
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChangeRequest;
 use App\Models\Setting;
 use App\Models\Site;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
@@ -63,5 +64,12 @@ class DashboardController extends Controller
             ->get();
 
         return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts', 'topRequesters'));
+    }
+
+    public function dismissWhatsNew(Request $request)
+    {
+        Setting::set('whats_new_seen_' . auth()->id(), config('version.current'));
+
+        return response()->json(['ok' => true]);
     }
 }
