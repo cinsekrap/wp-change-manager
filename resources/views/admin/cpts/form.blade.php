@@ -119,6 +119,17 @@
                                 class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                         </div>
 
+                        <div class="reading-age-row" style="{{ in_array($area['type'] ?? 'text', ['textarea', 'richtext']) ? '' : 'display:none' }}">
+                            <div class="flex items-center">
+                                <input type="hidden" name="content_areas[{{ $index }}][reading_age]" value="0">
+                                <input type="checkbox" name="content_areas[{{ $index }}][reading_age]" value="1"
+                                    {{ ($area['reading_age'] ?? true) ? 'checked' : '' }}
+                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                <label class="ml-2 text-sm text-gray-700">Show reading age</label>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Displays a Flesch-Kincaid reading age indicator below the field</p>
+                        </div>
+
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1">Help text</label>
                             <input type="text" name="content_areas[{{ $index }}][help]" value="{{ $area['help'] ?? '' }}" placeholder="Guidance shown below the field label"
@@ -317,6 +328,16 @@ function addContentArea() {
                     class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
             </div>
 
+            <div class="reading-age-row" style="display:none">
+                <div class="flex items-center">
+                    <input type="hidden" name="content_areas[${idx}][reading_age]" value="0">
+                    <input type="checkbox" name="content_areas[${idx}][reading_age]" value="1" checked
+                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    <label class="ml-2 text-sm text-gray-700">Show reading age</label>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">Displays a Flesch-Kincaid reading age indicator below the field</p>
+            </div>
+
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Help text</label>
                 <input type="text" name="content_areas[${idx}][help]" placeholder="Guidance shown below the field label"
@@ -392,6 +413,12 @@ function onTypeChange(select) {
     const wordLimitRow = card.querySelector('.word-limit-row');
     if (wordLimitRow) {
         wordLimitRow.style.display = ['text', 'textarea', 'richtext'].includes(type) ? '' : 'none';
+    }
+
+    // Show/hide reading age row (textarea, richtext only)
+    const readingAgeRow = card.querySelector('.reading-age-row');
+    if (readingAgeRow) {
+        readingAgeRow.style.display = ['textarea', 'richtext'].includes(type) ? '' : 'none';
     }
 
     // Show/hide placeholder row

@@ -20,4 +20,5 @@
         <!-- Accordion: each area is a row with inline-expanding form -->
         <div id="areaAccordion" class="space-y-2"></div>
     </div>
+
 </div>
