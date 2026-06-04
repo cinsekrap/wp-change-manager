@@ -7,24 +7,24 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace PHPUnit\Framework;
+namespace PHPUnit\Logging\TeamCity;
 
-use function sprintf;
+use PHPUnit\Event\InvalidArgumentException;
+use PHPUnit\Event\Test\PreparationErrored;
+use PHPUnit\Event\Test\PreparationErroredSubscriber;
 
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for PHPUnit
  *
  * @internal This class is not covered by the backward compatibility promise for PHPUnit
  */
-final class UnknownNativeTypeException extends InvalidArgumentException
+final readonly class TestPreparationErroredSubscriber extends Subscriber implements PreparationErroredSubscriber
 {
-    public function __construct(string $type)
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function notify(PreparationErrored $event): void
     {
-        parent::__construct(
-            sprintf(
-                'Native type "%s" is not known',
-                $type,
-            ),
-        );
+        $this->logger()->testPreparationErrored();
     }
 }

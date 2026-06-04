@@ -56,6 +56,9 @@ final readonly class Facade
         );
     }
 
+    /**
+     * @param array<string, array{size: string, status: string, time: float}> $testResults
+     */
     private function __construct(Directory $report, array $testResults)
     {
         $this->report      = $report;
@@ -150,6 +153,7 @@ final readonly class Facade
             $this->report->numberOfExecutedBranches(),
             $this->report->numberOfExecutablePaths(),
             $this->report->numberOfExecutedPaths(),
+            $this->report->numberOfFilesWithoutBranchCoverageData(),
         );
     }
 
