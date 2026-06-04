@@ -293,7 +293,7 @@
         card.dataset.areaRepeatable = area.repeatable ? '1' : '0';
         card.dataset.actionType = '';
         if (area.word_limit) card.dataset.wordLimit = area.word_limit;
-        if (area.reading_age) card.dataset.readingAge = '1';
+        if ((area.reading_age ?? true) && ['textarea', 'richtext'].includes(area.type || 'textarea')) card.dataset.readingAge = '1';
 
         let html = '';
         if (area.help) {
@@ -660,7 +660,7 @@
         }
 
         // Reading age indicator for textarea/richtext with reading_age enabled
-        if (areaObj.reading_age && ['textarea', 'richtext'].includes(areaObj.type)) {
+        if ((areaObj.reading_age ?? true) && ['textarea', 'richtext'].includes(areaObj.type)) {
             html += `<div class="sf-reading-age text-xs mt-1 text-right">`;
             html += `<span class="sf-reading-age-badge text-gray-400">Reading age: not enough text</span>`;
             html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-hcrg-burgundy hover:underline inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
