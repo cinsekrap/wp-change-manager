@@ -64,7 +64,7 @@
                             {{ $typeLabels[$log->mailable_class] ?? $log->mailable_class }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">{{ $log->recipient_email }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title="{{ $log->recipient_email }}">{{ $log->recipient_email }}</td>
                     <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{{ $log->subject }}</td>
                     <td class="px-4 py-3 text-sm whitespace-nowrap">
                         @if($log->changeRequest)
