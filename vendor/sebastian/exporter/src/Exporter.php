@@ -10,8 +10,6 @@
 namespace SebastianBergmann\Exporter;
 
 use const COUNT_RECURSIVE;
-use const PHP_INT_MAX;
-use const PHP_INT_MIN;
 use function assert;
 use function bin2hex;
 use function count;
@@ -30,11 +28,17 @@ use function is_resource;
 use function is_string;
 use function mb_strlen;
 use function mb_substr;
+use function ord;
 use function preg_match;
+use function preg_match_all;
+use function preg_replace_callback;
 use function spl_object_id;
 use function sprintf;
+use function str_contains;
 use function str_repeat;
 use function str_replace;
+use function strlen;
+use function strpbrk;
 use function strtr;
 use function var_export;
 use BackedEnum;
@@ -187,27 +191,41 @@ final readonly class Exporter
             return (array) $value;
         }
 
-        $array = [];
+        $properties = (array) $value;
+        $shadowed   = $this->shadowedPropertyNames($properties);
+        $array      = [];
 
-        foreach ((array) $value as $key => $val) {
+        foreach ($properties as $key => $val) {
+            $key = (string) $key;
+
             // Exception traces commonly reference hundreds to thousands of
             // objects currently loaded in memory. Including them in the result
             // has a severe negative performance impact.
-            if ("\0Error\0trace" === $key || "\0Exception\0trace" === $key) {
+            if ($key === "\0Error\0trace" || $key === "\0Exception\0trace") {
                 continue;
-            }
-
-            // properties are transformed to keys in the following way:
-            // private   $propertyName => "\0ClassName\0propertyName"
-            // protected $propertyName => "\0*\0propertyName"
-            // public    $propertyName => "propertyName"
-            if (preg_match('/\0.+\0(.+)/', (string) $key, $matches) === 1) {
-                $key = $matches[1];
             }
 
             // See https://github.com/php/php-src/commit/5721132
             if ($key === "\0gcdata") {
                 continue;
+            }
+
+            // Properties are transformed to keys in the following way:
+            // private   $propertyName => "\0DeclaringClassName\0propertyName"
+            // protected $propertyName => "\0*\0propertyName"
+            // public    $propertyName => "propertyName"
+            //
+            // A private property that is redeclared in a derived class and the
+            // private property of the same name that it shadows both exist,
+            // independently of each other. To keep one from overwriting the
+            // other, the name of a shadowed private property is prefixed with
+            // the name of the class that declares it.
+            if (preg_match('/^\0([^\0]+)\0([^\0]+)$/', $key, $matches) === 1) {
+                if ($matches[1] !== '*' && isset($shadowed[$matches[2]])) {
+                    $key = $matches[1] . '::' . $matches[2];
+                } else {
+                    $key = $matches[2];
+                }
             }
 
             $array[$key] = $val;
@@ -217,6 +235,12 @@ final readonly class Exporter
         // above (fast) mechanism nor with reflection in Zend.
         // Format the output similarly to print_r() in this case
         if ($value instanceof SplObjectStorage) {
+            $key = null;
+
+            if ($value->valid()) {
+                $key = $value->key();
+            }
+
             foreach ($value as $_value) {
                 $array['Object #' . spl_object_id($_value)] = [
                     'obj' => $_value,
@@ -224,7 +248,9 @@ final readonly class Exporter
                 ];
             }
 
-            $value->rewind();
+            if ($key !== null) {
+                $value->seek($key);
+            }
         }
 
         return $array;
@@ -244,6 +270,43 @@ final readonly class Exporter
         }
 
         return count(new ReflectionObject($value)->getProperties());
+    }
+
+    /**
+     * Returns, as keys of the returned array, the names of properties that
+     * are declared more than once in the inheritance chain of an object.
+     *
+     * This can only happen when a derived class redeclares a private property
+     * that one of its parent classes also declares.
+     *
+     * @param array<array-key, mixed> $properties
+     *
+     * @return array<string, true>
+     */
+    private function shadowedPropertyNames(array $properties): array
+    {
+        $seen     = [];
+        $shadowed = [];
+
+        foreach ($properties as $key => $unused) {
+            $key = (string) $key;
+
+            if ($key === "\0Error\0trace" || $key === "\0Exception\0trace" || $key === "\0gcdata") {
+                continue;
+            }
+
+            if (preg_match('/^\0[^\0]+\0([^\0]+)$/', $key, $matches) === 1) {
+                $key = $matches[1];
+            }
+
+            if (isset($seen[$key])) {
+                $shadowed[$key] = true;
+            }
+
+            $seen[$key] = true;
+        }
+
+        return $shadowed;
     }
 
     /**
@@ -368,7 +431,8 @@ final readonly class Exporter
 
         ini_set('precision', $precisionBackup);
 
-        if ($value >= PHP_INT_MIN && $value <= PHP_INT_MAX && (string) (int) $value === $valueAsString) {
+        // Add '.0' only if decimals and scientific notation are absent.
+        if (strpbrk($valueAsString, '.E') === false) {
             return $valueAsString . '.0';
         }
 
@@ -378,21 +442,44 @@ final readonly class Exporter
     private function exportString(string $value): string
     {
         // Match for most non-printable chars somewhat taking multibyte chars into account
-        if (preg_match('/[^\x09-\x0d\x1b\x20-\xff]/', $value) === 1) {
+        $unprintableCount = preg_match_all('/[^\x09-\x0d\x1b\x20-\xff]/', $value);
+
+        if ($unprintableCount === false || $unprintableCount === 0) {
+            return "'" .
+                strtr(
+                    $value,
+                    [
+                        "\r\n" => '\r\n' . "\n",
+                        "\n\r" => '\n\r' . "\n",
+                        "\r"   => '\r' . "\n",
+                        "\n"   => '\n' . "\n",
+                    ],
+                ) .
+                "'";
+        }
+
+        // A NUL byte or a high ratio of unprintable bytes signals truly
+        // binary data; keep the compact hex dump in those cases.
+        if (str_contains($value, "\x00") || ($unprintableCount / strlen($value)) > 0.3) {
             return 'Binary String: 0x' . bin2hex($value);
         }
 
-        return "'" .
-            strtr(
+        // Mostly printable: keep printable bytes visible and escape only
+        // the offending ones inline using PHP-style \xNN escapes.
+        return 'Binary String: "' .
+            preg_replace_callback(
+                '/[\x00-\x1f\x7f"\\\\]/',
+                static fn (array $m): string => match ($m[0]) {
+                    "\t"    => '\t',
+                    "\n"    => '\n',
+                    "\r"    => '\r',
+                    '"'     => '\"',
+                    '\\'    => '\\\\',
+                    default => sprintf('\x%02x', ord($m[0])),
+                },
                 $value,
-                [
-                    "\r\n" => '\r\n' . "\n",
-                    "\n\r" => '\n\r' . "\n",
-                    "\r"   => '\r' . "\n",
-                    "\n"   => '\n' . "\n",
-                ],
             ) .
-            "'";
+            '"';
     }
 
     /**

@@ -11,7 +11,7 @@ namespace SebastianBergmann\Comparator;
 
 use RuntimeException;
 use SebastianBergmann\Diff\Differ;
-use SebastianBergmann\Diff\Output\UnifiedDiffOutputBuilder;
+use SebastianBergmann\Diff\Output\StrictUnifiedDiffOutputBuilder;
 
 /**
  * @no-named-arguments Parameter names are not covered by the backward compatibility promise for sebastian/comparator
@@ -38,6 +38,34 @@ final class ComparisonFailure extends RuntimeException
         $this->expectedAsString = $expectedAsString;
         $this->actualAsString   = $actualAsString;
         $this->contextLines     = $contextLines;
+    }
+
+    /**
+     * @return array{expected: mixed, actual: mixed, expectedAsString: string, actualAsString: string, message: string, contextLines: positive-int}
+     */
+    public function __serialize(): array
+    {
+        return [
+            'expected'         => $this->expected,
+            'actual'           => $this->actual,
+            'expectedAsString' => $this->expectedAsString,
+            'actualAsString'   => $this->actualAsString,
+            'message'          => $this->message,
+            'contextLines'     => $this->contextLines,
+        ];
+    }
+
+    /**
+     * @param array{expected: mixed, actual: mixed, expectedAsString: string, actualAsString: string, message: string, contextLines: positive-int} $data
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->expected         = $data['expected'];
+        $this->actual           = $data['actual'];
+        $this->expectedAsString = $data['expectedAsString'];
+        $this->actualAsString   = $data['actualAsString'];
+        $this->message          = $data['message'];
+        $this->contextLines     = $data['contextLines'];
     }
 
     public function getActual(): mixed
@@ -67,10 +95,14 @@ final class ComparisonFailure extends RuntimeException
         }
 
         $differ = new Differ(
-            new UnifiedDiffOutputBuilder(
-                "\n--- Expected\n+++ Actual\n",
-                false,
-                $this->contextLines,
+            new StrictUnifiedDiffOutputBuilder(
+                [
+                    'header'                  => "\n--- Expected\n+++ Actual\n",
+                    'addLineNumbers'          => false,
+                    'contextLines'            => $this->contextLines,
+                    'emitDiffLineEndWarning'  => true,
+                    'emitNoLineEndEofWarning' => false,
+                ],
             ),
         );
 

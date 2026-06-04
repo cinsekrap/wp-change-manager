@@ -2,6 +2,91 @@
 
 All notable changes of the PHPUnit 13.1 release series are documented in this file using the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## [13.1.14] - 2026-06-04
+
+### Fixed
+
+* [#6683](https://github.com/sebastianbergmann/phpunit/issues/6683): `assertNotEquals()` failure message says "is equal to" instead of "is not equal to" when comparing arrays or objects
+* [#6700](https://github.com/sebastianbergmann/phpunit/issues/6700): `expectOutputString()` and `expectOutputRegex()` silently replace themselves and each other
+
+## [13.1.13] - 2026-05-27
+
+### Fixed
+
+* [#6681](https://github.com/sebastianbergmann/phpunit/pull/6681): XML assertions such as `assertXmlStringEqualsXmlString()` regressed into treating comments as significant
+
+## [13.1.12] - 2026-05-25
+
+### Fixed
+
+* [#6673](https://github.com/sebastianbergmann/phpunit/issues/6673): Empty PHP settings from the parent process override per-test `-d` settings forwarded to child processes (breaks PCOV coverage)
+
+## [13.1.11] - 2026-05-21
+
+### Fixed
+
+* PHP setting values containing `=` need to be quoted before forwarding via `-d`
+
+## [13.1.10] - 2026-05-15
+
+### Changed
+
+* Pass configuration options introduced in sebastian/diff 8.3.0
+
+## [13.1.9] - 2026-05-13
+
+### Changed
+
+* A `Test` or `Tests` prefix is no longer stripped from class names when they are processed for TestDox output
+
+### Fixed
+
+* [#6605](https://github.com/sebastianbergmann/phpunit/issues/6605): Data set names and provider values containing Unicode bidirectional control characters distort terminal output
+* [#6610](https://github.com/sebastianbergmann/phpunit/issues/6610): Per-testsuite bootstrap script not loaded in process isolation
+* TestDox output collapsed separate test classes into a single group when their prettified class names matched
+
+## [13.1.8] - 2026-05-01
+
+### Fixed
+
+* [#6595](https://github.com/sebastianbergmann/phpunit/issues/6595): Crash when before-class or after-class method fails with assertion failure
+* [#6599](https://github.com/sebastianbergmann/phpunit/issues/6599): TeamCity logger does not wrap failures in before-test methods with `testStarted` and `testFinished`
+* [#6601](https://github.com/sebastianbergmann/phpunit/issues/6601): Anonymous classes are not rejected with a clear error when creating a test double
+* [#6603](https://github.com/sebastianbergmann/phpunit/issues/6603): `assertArrays*IgnoringOrder()` fails on mixed scalar types and on reordered nested associative arrays
+* `MockBuilder::setMockClassName()` and `TestStubBuilder::setStubClassName()` now reject values that are not valid unqualified PHP class identifiers, throwing the new `InvalidClassNameException`
+* The regular expression used by `Generator::ensureValidMethods()` to validate method names passed to `MockBuilder::onlyMethods()` and `addMethods()` was not anchored, so any string containing a valid identifier substring (including strings with parentheses, braces, comments, or newlines) was accepted
+
+## [13.1.7] - 2026-04-18
+
+### Changed
+
+* Pass `LIBXML_NONET` when parsing/validating XML configuration files to make explicit that no network I/O is performed
+* Verify the result file written by an isolated child process with a random nonce before deserializing it
+
+## [13.1.6] - 2026-04-17
+
+### Fixed
+
+* [#6590](https://github.com/sebastianbergmann/phpunit/issues/6590): Silent failure when configuration file is invalid
+* [#6592](https://github.com/sebastianbergmann/phpunit/pull/6592): INI metacharacters `;` and `"` are not preserved when forwarding settings to child processes
+
+## [13.1.5] - 2026-04-16
+
+### Fixed
+
+* [#5860](https://github.com/sebastianbergmann/phpunit/issues/5860): PHP CLI `-d` settings are not forwarded to child processes for process isolation
+* [#6451](https://github.com/sebastianbergmann/phpunit/issues/6451): Incomplete version in `RequiresPhp` (e.g. `<=8.5`) is compared against full PHP version, causing unexpected skips
+* [#6589](https://github.com/sebastianbergmann/phpunit/issues/6589): `dataSetAsStringWithData()` raises "float is not representable as int" warning for large floats in data sets
+
+## [13.1.4] - 2026-04-15
+
+### Fixed
+
+* [#5993](https://github.com/sebastianbergmann/phpunit/issues/5993): `DefaultJobRunner` deadlocks on child processes that write large amounts of stderr output
+* [#6465](https://github.com/sebastianbergmann/phpunit/issues/6465): SAPI-populated `$_SERVER` entries leak from parent into child process
+* [#6587](https://github.com/sebastianbergmann/phpunit/issues/6587): `failOnEmptyTestSuite="false"` in `phpunit.xml` is ignored when `--group`/`--filter`/`--testsuite` matches no tests
+* [#6588](https://github.com/sebastianbergmann/phpunit/issues/6588): Order of issue baseline entries is not canonicalized
+
 ## [13.1.3] - 2026-04-13
 
 ### Fixed
@@ -65,6 +150,17 @@ All notable changes of the PHPUnit 13.1 release series are documented in this fi
 * [#6433](https://github.com/sebastianbergmann/phpunit/issues/6433): Logic in `TestSuiteLoader` is brittle and causes "Class FooTest not found" even for valid tests in valid filenames
 * [#6463](https://github.com/sebastianbergmann/phpunit/issues/6463): Process Isolation fails on non-serializable globals and quietly ignore closures
 
+[13.1.14]: https://github.com/sebastianbergmann/phpunit/compare/13.1.13...13.1.14
+[13.1.13]: https://github.com/sebastianbergmann/phpunit/compare/13.1.12...13.1.13
+[13.1.12]: https://github.com/sebastianbergmann/phpunit/compare/13.1.11...13.1.12
+[13.1.11]: https://github.com/sebastianbergmann/phpunit/compare/13.1.10...13.1.11
+[13.1.10]: https://github.com/sebastianbergmann/phpunit/compare/13.1.9...13.1.10
+[13.1.9]: https://github.com/sebastianbergmann/phpunit/compare/13.1.8...13.1.9
+[13.1.8]: https://github.com/sebastianbergmann/phpunit/compare/13.1.7...13.1.8
+[13.1.7]: https://github.com/sebastianbergmann/phpunit/compare/13.1.6...13.1.7
+[13.1.6]: https://github.com/sebastianbergmann/phpunit/compare/13.1.5...13.1.6
+[13.1.5]: https://github.com/sebastianbergmann/phpunit/compare/13.1.4...13.1.5
+[13.1.4]: https://github.com/sebastianbergmann/phpunit/compare/13.1.3...13.1.4
 [13.1.3]: https://github.com/sebastianbergmann/phpunit/compare/13.1.2...13.1.3
 [13.1.2]: https://github.com/sebastianbergmann/phpunit/compare/13.1.1...13.1.2
 [13.1.1]: https://github.com/sebastianbergmann/phpunit/compare/13.1.0...13.1.1

@@ -2,6 +2,43 @@
 
 All notable changes are documented in this file using the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
+## [8.2.1] - 2026-05-21
+
+### Changed
+
+* [#136](https://github.com/sebastianbergmann/comparator/pull/136): Cleaner diff output for canonicalized list comparisons
+* [#160](https://github.com/sebastianbergmann/comparator/pull/160): Use by-value comparison for closures
+
+### Fixed
+
+* [#136](https://github.com/sebastianbergmann/comparator/pull/136): Canonicalized array comparison destroys string keys
+
+## [8.2.0] - 2026-05-20
+
+### Added
+
+* [#126](https://github.com/sebastianbergmann/comparator/issues/126): `DateIntervalComparator` for comparing `DateInterval` objects with a delta tolerance
+
+### Fixed
+
+* [#70](https://github.com/sebastianbergmann/comparator/issues/70): Non-ASCII text in XML diffs is rendered as numeric character references, making diffs unreadable
+* [#87](https://github.com/sebastianbergmann/comparator/issues/87): `DOMNodeComparator` crashes or returns false positives when `DOMNode::C14N()` fails
+* [#107](https://github.com/sebastianbergmann/comparator/issues/107): `DOMNodeComparator` reports XML documents as equal when they differ only in comments
+* [#115](https://github.com/sebastianbergmann/comparator/issues/115): `DateTimeComparator` does not track processed pairs, producing misleading diffs in nested structures
+* [#158](https://github.com/sebastianbergmann/comparator/issues/158): `ComparisonFailure` cannot be serialized when stack trace contains non-serializable objects
+
+## [8.1.4] - 2026-05-15
+
+### Changed
+
+* [#138](https://github.com/sebastianbergmann/comparator/issues/138): Use `StrictUnifiedDiffOutputBuilder` instead of `UnifiedDiffOutputBuilder`
+
+## [8.1.3] - 2026-05-15
+
+### Changed
+
+* Pass configuration options introduced in sebastian/diff 8.3.0
+
 ## [8.1.2] - 2026-04-14
 
 ### Fixed
@@ -25,6 +62,27 @@ All notable changes are documented in this file using the [Keep a CHANGELOG](htt
 ### Removed
 
 * Removed support for PHP 8.3
+
+## [7.1.8] - 2026-05-21
+
+### Changed
+
+* [#136](https://github.com/sebastianbergmann/comparator/pull/136): Cleaner diff output for canonicalized list comparisons
+* [#160](https://github.com/sebastianbergmann/comparator/pull/160): Use by-value comparison for closures
+
+### Fixed
+
+* [#136](https://github.com/sebastianbergmann/comparator/pull/136): Canonicalized array comparison destroys string keys
+
+## [7.1.7] - 2026-05-20
+
+### Fixed
+
+* [#70](https://github.com/sebastianbergmann/comparator/issues/70): Non-ASCII text in XML diffs is rendered as numeric character references, making diffs unreadable
+* [#87](https://github.com/sebastianbergmann/comparator/issues/87): `DOMNodeComparator` crashes or returns false positives when `DOMNode::C14N()` fails
+* [#107](https://github.com/sebastianbergmann/comparator/issues/107): `DOMNodeComparator` reports XML documents as equal when they differ only in comments
+* [#115](https://github.com/sebastianbergmann/comparator/issues/115): `DateTimeComparator` does not track processed pairs, producing misleading diffs in nested structures
+* [#158](https://github.com/sebastianbergmann/comparator/issues/158): `ComparisonFailure` cannot be serialized when stack trace contains non-serializable objects
 
 ## [7.1.6] - 2026-04-14
 
@@ -336,11 +394,16 @@ All notable changes are documented in this file using the [Keep a CHANGELOG](htt
 * Added `SebastianBergmann\Comparator\Factory::reset()` to unregister all non-default comparators
 * Added support for `phpunit/phpunit-mock-objects` version `^5.0`
 
+[8.2.1]: https://github.com/sebastianbergmann/comparator/compare/8.2.0...8.2.1
+[8.2.0]: https://github.com/sebastianbergmann/comparator/compare/8.1.4...8.2.0
+[8.1.4]: https://github.com/sebastianbergmann/comparator/compare/8.1.3...8.1.4
+[8.1.3]: https://github.com/sebastianbergmann/comparator/compare/8.1.2...8.1.3
 [8.1.2]: https://github.com/sebastianbergmann/comparator/compare/8.1.1...8.1.2
 [8.1.1]: https://github.com/sebastianbergmann/comparator/compare/8.1.0...8.1.1
 [8.1.0]: https://github.com/sebastianbergmann/comparator/compare/8.0.0...8.1.0
 [8.0.0]: https://github.com/sebastianbergmann/comparator/compare/7.1...8.0.0
-[7.1.6]: https://github.com/sebastianbergmann/comparator/compare/7.1.4...7.1
+[7.1.8]: https://github.com/sebastianbergmann/comparator/compare/7.1.7...7.1.8
+[7.1.7]: https://github.com/sebastianbergmann/comparator/compare/7.1.6...7.1.7
 [7.1.6]: https://github.com/sebastianbergmann/comparator/compare/7.1.5...7.1.6
 [7.1.5]: https://github.com/sebastianbergmann/comparator/compare/7.1.4...7.1.5
 [7.1.4]: https://github.com/sebastianbergmann/comparator/compare/7.1.3...7.1.4
