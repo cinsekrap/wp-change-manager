@@ -57,12 +57,16 @@ class SubmissionController extends Controller
         ]);
 
         // A change must actually differ from the current content (no-op guard).
+        // Compare normalised text so a curly-quote/nbsp-only "difference" — which
+        // renders as an empty diff — is still rejected.
         $validator = \Illuminate\Support\Facades\Validator::make([], []);
         foreach ($validated['items'] as $i => $item) {
-            if (($item['action_type'] ?? null) === 'change'
-                && isset($item['current_content'])
-                && trim((string) $item['current_content']) === trim((string) $item['description'])) {
-                $validator->errors()->add("items.{$i}.description", 'The updated content is identical to the current content — please mark up what should change.');
+            if (($item['action_type'] ?? null) === 'change' && isset($item['current_content'])) {
+                $current = trim(\App\Support\WordDiff::normalize((string) $item['current_content']));
+                $updated = trim(\App\Support\WordDiff::normalize((string) $item['description']));
+                if ($current === $updated) {
+                    $validator->errors()->add("items.{$i}.description", 'The updated content is identical to the current content — please mark up what should change.');
+                }
             }
         }
         if ($validator->errors()->isNotEmpty()) {

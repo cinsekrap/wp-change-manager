@@ -12,7 +12,14 @@
     // Word-level inline diff between current and updated text. Mirrors the
     // server-side App\Support\WordDiff so the live preview matches the admin view.
     function wordDiffHtml(oldStr, newStr) {
-        const tokenize = s => (s || '').match(/\s+|\S+/g) || [];
+        // Must match App\Support\WordDiff::normalize() so the preview agrees
+        // with the admin view for Word / rich-editor pastes.
+        const normalize = s => (s || '')
+            .replace(/\r\n?/g, '\n')
+            .replace(/ /g, ' ')
+            .replace(/[‘’]/g, "'")
+            .replace(/[“”]/g, '"');
+        const tokenize = s => (normalize(s).match(/\s+|\S+/g) || []);
         const a = tokenize(oldStr), b = tokenize(newStr);
         const n = a.length, m = b.length;
         // LCS table

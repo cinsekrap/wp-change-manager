@@ -18,8 +18,8 @@ class WordDiff
      */
     public static function toHtml(?string $old, ?string $new): HtmlString
     {
-        $oldTokens = self::tokenize((string) $old);
-        $newTokens = self::tokenize((string) $new);
+        $oldTokens = self::tokenize(self::normalize((string) $old));
+        $newTokens = self::tokenize(self::normalize((string) $new));
 
         $html = '';
         foreach (self::diff($oldTokens, $newTokens) as [$op, $token]) {
@@ -33,6 +33,26 @@ class WordDiff
         }
 
         return new HtmlString($html);
+    }
+
+    /**
+     * Normalise characters that Word and rich editors silently substitute, so
+     * visually-identical text compares as identical (and the JS live preview,
+     * which applies the same rules, stays in agreement). Must match the
+     * normalize() in the wizard's wordDiffHtml(). Only used for comparison and
+     * display of the diff — the raw text is stored unchanged.
+     */
+    public static function normalize(string $text): string
+    {
+        return strtr($text, [
+            "\r\n" => "\n",
+            "\r" => "\n",
+            "\u{00A0}" => ' ', // non-breaking space
+            "\u{2018}" => "'",  // left single quote
+            "\u{2019}" => "'",  // right single quote / apostrophe
+            "\u{201C}" => '"',  // left double quote
+            "\u{201D}" => '"',  // right double quote
+        ]);
     }
 
     /**

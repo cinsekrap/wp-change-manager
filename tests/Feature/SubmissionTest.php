@@ -129,6 +129,28 @@ class SubmissionTest extends TestCase
         $this->assertDatabaseCount('change_requests', 0);
     }
 
+    public function test_change_rejects_noop_that_differs_only_by_smart_characters(): void
+    {
+        // Straight quotes vs Word curly quotes/nbsp — identical once normalised,
+        // so the diff would be empty; must still be rejected as a no-op.
+        $data = $this->validSubmissionData([
+            'items' => [
+                [
+                    'action_type' => 'change',
+                    'content_area' => 'Body',
+                    'current_content' => "the team's \"big\" launch",
+                    'description' => "the team\u{2019}s \u{201C}big\u{201D}\u{00A0}launch",
+                ],
+            ],
+        ]);
+
+        $response = $this->postJson('/submit', $data);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('items.0.description');
+        $this->assertDatabaseCount('change_requests', 0);
+    }
+
     public function test_change_persists_current_content(): void
     {
         $response = $this->postJson('/submit', $this->validSubmissionData());
