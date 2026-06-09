@@ -49,6 +49,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'page_title', 'status', 'stale_hours', 'requester_name', 'requester_email'],
     ],
 
+    'scheduled_today' => [
+        'name' => 'Scheduled for Action Today',
+        'description' => 'Sent to the assignee on the day a request is scheduled to be actioned.',
+        'subject' => 'Scheduled for today: Change Request {reference}',
+        'body' => 'This change request is scheduled to be actioned today. Please make the changes and mark the items done once complete.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'scheduled_date', 'assignee_name'],
+    ],
+
     'approval_overridden' => [
         'name' => 'Approval Overridden',
         'description' => 'Sent to pending approvers when a super-admin overrides the approval gate.',

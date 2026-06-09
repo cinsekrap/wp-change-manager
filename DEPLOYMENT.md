@@ -98,6 +98,18 @@ php artisan uploads:clean --hours=24
 
 On shared hosting without cron, set up an external cron service (e.g., cron-job.org) to hit a URL that triggers this, or clean up manually via the hosting panel.
 
+### Scheduled Tasks (cron)
+
+The hosting panel's **Scheduled Tasks** feature runs PHP CLI commands on a cron schedule. Add the daily reminder there:
+
+```
+<php-interpreter-path> <site-path>/artisan requests:notify-scheduled-today
+```
+
+Set it to run once a day in the morning (e.g. Minutes `0`, Hour `7`). It emails the assignee of every request whose status is `scheduled` and whose scheduled date is that day; it is safe to run more than once (it won't re-send the same day).
+
+The chase reminder (`requests:chase`) can be scheduled the same way if/when desired.
+
 ### Sitemap Refresh
 
 Sitemaps auto-refresh when stale (>24hrs), but can be manually refreshed:
