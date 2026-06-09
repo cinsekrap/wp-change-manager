@@ -38,7 +38,12 @@
     </div>
     @endif
 
-    @if($changeRequest->isActive())
+    @if($changeRequest->status === 'scheduled' && $changeRequest->scheduled_date)
+    <div class="mt-2 text-sm flex items-center gap-x-2">
+        <span class="text-gray-500">SLA:</span>
+        <span class="font-medium text-purple-700">Scheduled for {{ $changeRequest->scheduled_date->format('d M Y') }}</span>
+    </div>
+    @elseif($changeRequest->isActive())
     @php
         $slaStatus = $changeRequest->slaStatus();
         $slaHoursRemaining = $changeRequest->slaRemainingHours();

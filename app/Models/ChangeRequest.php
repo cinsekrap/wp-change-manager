@@ -12,7 +12,7 @@ class ChangeRequest extends Model
         'reference', 'site_id', 'page_url', 'page_title', 'cpt_slug',
         'is_new_page', 'status', 'priority', 'rejection_reason', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
-        'deadline_date', 'deadline_reason', 'assigned_to',
+        'deadline_date', 'deadline_reason', 'scheduled_date', 'assigned_to',
         'approval_overridden', 'approval_overridden_by', 'approval_overridden_at',
     ];
 
@@ -22,6 +22,7 @@ class ChangeRequest extends Model
             'is_new_page' => 'boolean',
             'check_answers' => 'array',
             'deadline_date' => 'date',
+            'scheduled_date' => 'date',
             'approval_overridden' => 'boolean',
             'approval_overridden_at' => 'datetime',
         ];
@@ -225,10 +226,23 @@ class ChangeRequest extends Model
     }
 
     /**
+     * Whether the SLA clock has been stopped. Scheduling a request to an
+     * agreed date counts as meeting the SLA, so it no longer accrues time.
+     */
+    public function slaStopped(): bool
+    {
+        return $this->status === 'scheduled';
+    }
+
+    /**
      * Check if this request is overdue (past SLA deadline).
      */
     public function isOverSla(): bool
     {
+        if ($this->slaStopped()) {
+            return false;
+        }
+
         return now()->greaterThan($this->slaDeadline());
     }
 

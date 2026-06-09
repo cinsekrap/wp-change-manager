@@ -229,7 +229,9 @@
                 <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1.5">
                         @include('admin.partials.priority-badge', ['priority' => $req->priority ?? 'normal'])
-                        @if($req->isActive())
+                        @if($req->slaStopped())
+                            <span class="inline-block w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" title="Scheduled{{ $req->scheduled_date ? ' for ' . $req->scheduled_date->format('d M Y') : '' }}"></span>
+                        @elseif($req->isActive())
                             @php $slaStatus = $req->slaStatus(); @endphp
                             @if($slaStatus === 'on_track')
                                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="On track"></span>

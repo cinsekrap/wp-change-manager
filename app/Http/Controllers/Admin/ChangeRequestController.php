@@ -183,6 +183,10 @@ class ChangeRequestController extends Controller
             $rules['rejection_reason'] = 'required|string|max:2000';
         }
 
+        if ($request->status === 'scheduled') {
+            $rules['scheduled_date'] = 'required|date|after_or_equal:today';
+        }
+
         $request->validate($rules);
 
         $oldStatus = $changeRequest->status;
@@ -201,6 +205,10 @@ class ChangeRequestController extends Controller
             } else {
                 $updateData['rejection_reason'] = null;
             }
+
+            // Record the scheduled date when scheduling; clear it otherwise so
+            // un-scheduling restarts the SLA clock.
+            $updateData['scheduled_date'] = $newStatus === 'scheduled' ? $request->scheduled_date : null;
 
             $changeRequest->update($updateData);
 
