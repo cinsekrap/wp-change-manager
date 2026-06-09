@@ -117,7 +117,7 @@ class ChangeRequestController extends Controller
             $activities->push((object) [
                 'type' => 'note',
                 'date' => $note->created_at,
-                'user' => $note->user->name,
+                'user' => $note->user?->name ?? 'System',
                 'note' => $note->note,
             ]);
         }
