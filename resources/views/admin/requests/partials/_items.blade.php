@@ -4,6 +4,8 @@
         $totalItems = $changeRequest->items->count();
         $doneItems = $changeRequest->items->where('status', 'done')->count();
         $allDone = $totalItems > 0 && $doneItems === $totalItems;
+        // Items can't be resolved until approvals are satisfied (or overridden).
+        $canResolveItems = $changeRequest->canMovePastReferred();
         $itemStatusColors = [
             'in_progress' => 'bg-hcrg-burgundy',
             'done' => 'bg-emerald-500',
@@ -61,8 +63,8 @@
                     <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="inline">
                         @csrf @method('PATCH')
                         <input type="hidden" name="status" value="done">
-                        <button type="submit" title="Done"
-                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'done' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600' }}">
+                        <button type="submit" title="{{ $canResolveItems ? 'Done' : 'Approvals required before items can be marked done' }}" {{ $canResolveItems ? '' : 'disabled' }}
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'done' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600' }} {{ $canResolveItems ? '' : 'opacity-40 cursor-not-allowed' }}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                         </button>
                     </form>
@@ -70,8 +72,8 @@
                     <form method="POST" action="{{ route('admin.requests.items.status', [$changeRequest, $item]) }}" class="inline">
                         @csrf @method('PATCH')
                         <input type="hidden" name="status" value="not_done">
-                        <button type="submit" title="Not Done"
-                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'not_done' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-600' }}">
+                        <button type="submit" title="{{ $canResolveItems ? 'Not Done' : 'Approvals required before items can be marked not done' }}" {{ $canResolveItems ? '' : 'disabled' }}
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'not_done' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-600' }} {{ $canResolveItems ? '' : 'opacity-40 cursor-not-allowed' }}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </form>
