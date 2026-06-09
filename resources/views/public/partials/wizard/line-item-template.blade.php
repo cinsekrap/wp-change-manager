@@ -26,10 +26,24 @@
             <div class="content-area-container">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Content area <span class="text-gray-400">(optional)</span></label>
             </div>
+            {{-- Current content (changes only) --}}
+            <div class="item-current-container hidden">
+                <label class="block text-xs font-medium text-red-700 mb-1">Current content <span class="text-red-500">*</span></label>
+                <textarea class="item-current w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                    rows="3" placeholder="Paste exactly what's on the page now, so we can see what changes..."></textarea>
+            </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Description <span class="text-red-500">*</span></label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">
+                    <span class="item-description-label">Description</span> <span class="text-red-500">*</span>
+                    <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-hcrg-burgundy hover:underline">reset to current</button>
+                </label>
                 <textarea class="item-description w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
                     rows="3" placeholder="Describe the change you need in detail..."></textarea>
+            </div>
+            {{-- Live diff preview (changes only) --}}
+            <div class="diff-preview-container hidden">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Preview of your changes</label>
+                <div class="diff-preview text-sm text-gray-800 whitespace-pre-wrap leading-relaxed p-3 bg-gray-50 border border-gray-200 rounded-lg min-h-[2.5rem]"></div>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="text-gray-400">(max 5 files, 10MB each)</span></label>

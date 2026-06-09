@@ -9,6 +9,32 @@
         return d.innerHTML;
     }
 
+    // Word-level inline diff between current and updated text. Mirrors the
+    // server-side App\Support\WordDiff so the live preview matches the admin view.
+    function wordDiffHtml(oldStr, newStr) {
+        const tokenize = s => (s || '').match(/\s+|\S+/g) || [];
+        const a = tokenize(oldStr), b = tokenize(newStr);
+        const n = a.length, m = b.length;
+        // LCS table
+        const lcs = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+        for (let i = n - 1; i >= 0; i--) {
+            for (let j = m - 1; j >= 0; j--) {
+                lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+            }
+        }
+        let out = '', i = 0, j = 0;
+        const del = t => `<del class="bg-red-100 text-red-700 line-through rounded px-0.5">${esc(t)}</del>`;
+        const ins = t => `<ins class="bg-green-100 text-green-800 no-underline rounded px-0.5">${esc(t)}</ins>`;
+        while (i < n && j < m) {
+            if (a[i] === b[j]) { out += esc(a[i]); i++; j++; }
+            else if (lcs[i + 1][j] >= lcs[i][j + 1]) { out += del(a[i]); i++; }
+            else { out += ins(b[j]); j++; }
+        }
+        while (i < n) { out += del(a[i]); i++; }
+        while (j < m) { out += ins(b[j]); j++; }
+        return out;
+    }
+
     function stripTags(str) {
         return str ? str.replace(/<[^>]*>/g, '') : str;
     }
@@ -439,6 +465,10 @@
                 fieldHtml += `<label class="block text-xs font-medium text-green-700 mb-1">What should it be?</label>`;
                 fieldHtml += renderTypedField(areaObj, inputClass, true);
                 fieldHtml += `</div>`;
+                fieldHtml += `<div class="sf-diff-container mt-3">`;
+                fieldHtml += `<label class="block text-xs font-medium text-gray-500 mb-1">Preview of your changes</label>`;
+                fieldHtml += `<div class="sf-diff-preview text-sm text-gray-800 whitespace-pre-wrap leading-relaxed p-3 bg-gray-50 border border-gray-200 rounded-lg min-h-[2.5rem]"></div>`;
+                fieldHtml += `</div>`;
             }
         } else {
             // Add: just the typed field
@@ -474,6 +504,23 @@
         fieldsContainer.querySelectorAll('.sf-current').forEach(el => {
             el.addEventListener('input', checkStepValid);
         });
+
+        // Single-field change: auto-seed the new value from current + live diff
+        const sfDiffPreview = fieldsContainer.querySelector('.sf-diff-preview');
+        const sfCurrent = fieldsContainer.querySelector('.sf-current');
+        const sfNew = fieldsContainer.querySelector('.sf-input');
+        if (sfDiffPreview && sfCurrent && sfNew) {
+            let sfPrevCurrent = '';
+            const refreshSfDiff = () => { sfDiffPreview.innerHTML = wordDiffHtml(sfCurrent.value, sfNew.value); };
+            sfCurrent.addEventListener('input', function() {
+                if (sfNew.value === '' || sfNew.value === sfPrevCurrent) {
+                    sfNew.value = sfCurrent.value;
+                }
+                sfPrevCurrent = sfCurrent.value;
+                refreshSfDiff();
+            });
+            sfNew.addEventListener('input', refreshSfDiff);
+        }
 
         fieldsContainer.querySelectorAll('.sf-group-input').forEach(gInput => {
             gInput.addEventListener('input', checkStepValid);
@@ -1185,6 +1232,11 @@
                     const actionType = item.querySelector('.action-type:checked');
                     const desc = item.querySelector('.item-description').value.trim();
                     if (!actionType || !desc) return false;
+                    // A change must show how it differs from the current content.
+                    if (actionType.value === 'change') {
+                        const current = item.querySelector('.item-current').value.trim();
+                        if (!current || current === desc) return false;
+                    }
                 }
                 return true;
             case 4:
@@ -1227,6 +1279,15 @@
 
             const isRequired = field.dataset.areaRequired === '1';
             const type = field.dataset.areaType;
+
+            // A single-field change must show how it differs from the current content
+            if (action === 'change' && type !== 'group' && type !== 'file' && type !== 'checkbox') {
+                const cur = field.querySelector('.area-form-fields .sf-current');
+                const inp = field.querySelector('.area-form-fields .sf-input');
+                if (inp && inp.value.trim()) {
+                    if (!cur || !cur.value.trim() || cur.value.trim() === inp.value.trim()) return false;
+                }
+            }
             const idx = parseInt(field.dataset.areaIndex);
 
             if (action === 'delete') {
@@ -1323,11 +1384,51 @@
         const fileInput = item.querySelector('.file-input');
         fileInput.addEventListener('change', function() { handleFileUpload(this, index); });
 
-        // Validation listeners
+        // Change diff: current-content box, auto-seed, and live preview
+        const currentContainer = item.querySelector('.item-current-container');
+        const currentBox = item.querySelector('.item-current');
+        const descBox = item.querySelector('.item-description');
+        const descLabel = item.querySelector('.item-description-label');
+        const diffContainer = item.querySelector('.diff-preview-container');
+        const diffEl = item.querySelector('.diff-preview');
+        const resetBtn = item.querySelector('.reset-to-current');
+        let prevCurrent = '';
+
+        function refreshDiff() {
+            diffEl.innerHTML = wordDiffHtml(currentBox.value, descBox.value);
+        }
+
+        function updateChangeUI() {
+            const isChange = item.querySelector('.action-type:checked')?.value === 'change';
+            currentContainer.classList.toggle('hidden', !isChange);
+            diffContainer.classList.toggle('hidden', !isChange);
+            resetBtn.classList.toggle('hidden', !isChange);
+            descLabel.textContent = isChange ? 'Updated content' : 'Description';
+            if (isChange) refreshDiff();
+        }
+
         item.querySelectorAll('.action-type').forEach(radio => {
-            radio.addEventListener('change', checkStepValid);
+            radio.addEventListener('change', function() { updateChangeUI(); checkStepValid(); });
         });
-        item.querySelector('.item-description').addEventListener('input', checkStepValid);
+
+        // When the current content changes, seed the updated box (so the user
+        // edits in place) as long as they haven't diverged from it yet.
+        currentBox.addEventListener('input', function() {
+            if (descBox.value === '' || descBox.value === prevCurrent) {
+                descBox.value = currentBox.value;
+            }
+            prevCurrent = currentBox.value;
+            refreshDiff();
+            checkStepValid();
+        });
+        descBox.addEventListener('input', function() { refreshDiff(); checkStepValid(); });
+        resetBtn.addEventListener('click', function() {
+            descBox.value = currentBox.value;
+            refreshDiff();
+            checkStepValid();
+        });
+
+        updateChangeUI();
 
         container.appendChild(clone);
         checkStepValid();
@@ -1618,12 +1719,17 @@
                 const action = item.querySelector('.action-type:checked')?.value || '';
                 const area = item.querySelector('.content-area').value;
                 const desc = item.querySelector('.item-description').value;
+                const current = item.querySelector('.item-current')?.value || '';
                 const fileCount = (uploadedFiles[item.dataset.itemIndex] || []).length;
+
+                const body = (action === 'change' && current)
+                    ? `<p class="text-sm text-gray-800 mt-1 whitespace-pre-wrap leading-relaxed">${wordDiffHtml(current, desc)}</p>`
+                    : `<p class="text-sm text-gray-700 mt-1">${esc(desc.substring(0, 200))}${desc.length > 200 ? '...' : ''}</p>`;
 
                 html += `<div class="pl-3 border-l-2 border-gray-200">
                     <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-[#B52159]/10 text-[#B52159]'}">${esc(action)}</span>
                     ${area ? `<span class="text-xs text-gray-500 ml-1">${esc(area)}</span>` : ''}
-                    <p class="text-sm text-gray-700 mt-1">${esc(desc.substring(0, 200))}${desc.length > 200 ? '...' : ''}</p>
+                    ${body}
                     ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}
                 </div>`;
             });
@@ -1703,10 +1809,12 @@
         } else {
             document.querySelectorAll('.line-item').forEach(item => {
                 const idx = item.dataset.itemIndex;
+                const itemAction = item.querySelector('.action-type:checked').value;
                 items.push({
-                    action_type: item.querySelector('.action-type:checked').value,
+                    action_type: itemAction,
                     content_area: item.querySelector('.content-area').value || null,
                     description: item.querySelector('.item-description').value,
+                    current_content: itemAction === 'change' ? (item.querySelector('.item-current').value || null) : null,
                     files: (uploadedFiles[idx] || []).map(f => ({
                         filename: f.filename,
                         original_name: f.original_name,

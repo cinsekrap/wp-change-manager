@@ -81,19 +81,22 @@
             </div>
 
             @if($item->action_type === 'change' && $item->current_content)
-                {{-- Change: show before -> after --}}
+                {{-- Change: inline diff is the primary view; full updated text below for copying --}}
                 <div class="space-y-2">
-                    <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p class="text-xs font-medium text-red-700 mb-1">Current content</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->current_content }}</p>
-                    </div>
-                    <div class="flex justify-center">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                    <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <p class="text-xs font-medium text-gray-500 mb-1">Requested change</p>
+                        <p class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{!! \App\Support\WordDiff::toHtml($item->current_content, $item->description) !!}</p>
                     </div>
                     <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p class="text-xs font-medium text-green-700 mb-1">Replace with</p>
+                        <p class="text-xs font-medium text-green-700 mb-1">Updated content</p>
                         <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
                     </div>
+                </div>
+            @elseif($item->action_type === 'change')
+                {{-- Legacy change with no captured current content --}}
+                <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-xs font-medium text-green-700 mb-1">Requested change</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
                 </div>
             @elseif($item->action_type === 'delete')
                 {{-- Delete: show what's being removed --}}

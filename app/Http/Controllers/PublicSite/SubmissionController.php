@@ -43,7 +43,8 @@ class SubmissionController extends Controller
             'items.*.action_type' => 'required|in:add,change,delete,access_request',
             'items.*.content_area' => 'nullable|string|max:255',
             'items.*.description' => 'required|string|max:5000',
-            'items.*.current_content' => 'nullable|string|max:5000',
+            // A change must capture the current content so the difference is clear.
+            'items.*.current_content' => 'required_if:items.*.action_type,change|nullable|string|max:5000',
             'items.*.files' => 'nullable|array|max:5',
             'items.*.files.*.filename' => 'required|string',
             'items.*.files.*.original_name' => 'required|string',
@@ -51,7 +52,22 @@ class SubmissionController extends Controller
             'items.*.files.*.description' => 'nullable|string|max:2000',
             'items.*.files.*.mime_type' => 'required|string',
             'items.*.files.*.file_size' => 'required|integer',
+        ], [
+            'items.*.current_content.required_if' => 'Please provide the current content for each change so we can see what is different.',
         ]);
+
+        // A change must actually differ from the current content (no-op guard).
+        $validator = \Illuminate\Support\Facades\Validator::make([], []);
+        foreach ($validated['items'] as $i => $item) {
+            if (($item['action_type'] ?? null) === 'change'
+                && isset($item['current_content'])
+                && trim((string) $item['current_content']) === trim((string) $item['description'])) {
+                $validator->errors()->add("items.{$i}.description", 'The updated content is identical to the current content — please mark up what should change.');
+            }
+        }
+        if ($validator->errors()->isNotEmpty()) {
+            throw new \Illuminate\Validation\ValidationException($validator);
+        }
 
         $createdApprovers = [];
 
