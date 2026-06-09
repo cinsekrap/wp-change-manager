@@ -10,6 +10,7 @@ use App\Mail\NewRequestAlert;
 use App\Mail\RequestChase;
 use App\Mail\RequestStatusChanged;
 use App\Mail\RequestSubmitted;
+use App\Mail\ScheduledForActionToday;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
 use App\Models\Setting;
@@ -109,6 +110,7 @@ class EmailTemplateController extends Controller
                 'requester_name' => 'Jane Smith',
                 'requester_email' => 'jane@example.com',
                 'deadline_date' => now()->addDays(7),
+                'scheduled_date' => now(),
                 'created_at' => now()->subHours(72),
                 'updated_at' => now()->subHours(48),
             ]);
@@ -133,6 +135,7 @@ class EmailTemplateController extends Controller
             'approval-overridden' => new ApprovalOverridden($sample, $sampleApprover),
             'approval-declined' => new ApprovalDeclined($sample, $sampleApprover),
             'request-chase' => new RequestChase($sample),
+            'scheduled-today' => new ScheduledForActionToday($sample),
             default => abort(404),
         };
 
