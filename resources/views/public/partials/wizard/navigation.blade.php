@@ -13,6 +13,41 @@
     </div>
 </div>
 
+{{-- Governance acknowledgement (shown when advancing past step 2 / page selection) --}}
+<div id="governanceGate" class="hidden mt-4 p-4 bg-white border border-gray-200 border-l-4 border-hcrg-burgundy rounded-lg">
+    <p class="text-sm font-semibold text-gray-900">Before you continue</p>
+    <p class="mt-1 text-sm text-gray-600">Website changes are a managed process. Every request is reviewed and approved before anything goes live, so it's important your request is accurate.</p>
+
+    {{-- Existing-page acknowledgements --}}
+    <div id="govExistingChecks" class="hidden mt-3 space-y-2">
+        <label class="flex items-start space-x-2 cursor-pointer">
+            <input type="checkbox" class="gov-check mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+            <span class="text-sm text-gray-700">I've selected the correct page. If the page I need isn't listed, I'll contact the marketing team rather than picking another one.</span>
+        </label>
+        <label class="flex items-start space-x-2 cursor-pointer">
+            <input type="checkbox" class="gov-check mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+            <span class="text-sm text-gray-700">I'm requesting changes to this existing page &mdash; not asking for a new page to be created. <span class="text-gray-500">(Need a new page? Go back and tick &ldquo;This is a new page&rdquo;.)</span></span>
+        </label>
+    </div>
+
+    {{-- New-page acknowledgement --}}
+    <div id="govNewChecks" class="hidden mt-3 space-y-2">
+        <label class="flex items-start space-x-2 cursor-pointer">
+            <input type="checkbox" class="gov-check mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+            <span class="text-sm text-gray-700">I've checked and this page doesn't already exist on the site.</span>
+        </label>
+    </div>
+
+    <div class="mt-4 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+        <button type="button" id="govBack" class="px-6 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50">
+            &larr; Back to page
+        </button>
+        <button type="button" id="govContinue" class="px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            Continue &rarr;
+        </button>
+    </div>
+</div>
+
 {{-- Reading age warning (shown when advancing past step 3 with high reading age) --}}
 <div id="readingAgeWarning" class="hidden mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
     <div class="flex gap-3">
