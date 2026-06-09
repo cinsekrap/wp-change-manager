@@ -45,6 +45,27 @@
             </div>
         @endif
 
+        {{-- Reading-age guidance: shown when any change raises the reading age --}}
+        @php
+            $anyReadingAgeIncrease = $changeRequest->items->contains(fn($i) =>
+                $i->action_type === 'change'
+                && \App\Support\ReadingAge::increase($i->current_content, $i->description) !== null
+            );
+        @endphp
+        @if($anyReadingAgeIncrease)
+            <div class="mb-4 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p class="text-sm font-bold text-amber-900 uppercase tracking-wide">Important — some of these changes raise the reading age</p>
+                </div>
+                <div class="space-y-2 text-sm text-amber-800">
+                    <p>We often see requests where professionals prefer different wording, but many of these changes make content harder for our audience because they use more complex words or longer sentences.</p>
+                    <p>We know it's important that we're taken seriously &mdash; but wording things simply is what helps our users.</p>
+                    <p class="font-medium">If the meaning hasn't changed, please don't approve the change. Making changes that aren't needed still takes the team's time.</p>
+                </div>
+            </div>
+        @endif
+
         {{-- Items overview --}}
         <div class="space-y-3">
             @foreach($changeRequest->items as $item)
@@ -69,18 +90,21 @@
                     </div>
 
                     @if($item->action_type === 'change' && $item->current_content)
+                        @php $raIncrease = \App\Support\ReadingAge::increase($item->current_content, $item->description); @endphp
                         <div class="space-y-2">
-                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p class="text-xs font-medium text-red-700 mb-1">Current content</p>
-                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->current_content }}</p>
-                            </div>
-                            <div class="flex justify-center">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                            <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                <p class="text-xs font-medium text-gray-500 mb-1">Requested change</p>
+                                <p class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{!! \App\Support\WordDiff::toHtml($item->current_content, $item->description) !!}</p>
                             </div>
                             <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p class="text-xs font-medium text-green-700 mb-1">Replace with</p>
+                                <p class="text-xs font-medium text-green-700 mb-1">Updated content</p>
                                 <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
                             </div>
+                            @if($raIncrease)
+                                <div class="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                                    &#9888; This change raises the reading age from {{ $raIncrease['from'] }} to {{ $raIncrease['to'] }} (the average reading age in the UK is 9&ndash;10). Check the meaning has actually changed, not just the wording.
+                                </div>
+                            @endif
                         </div>
                     @elseif($item->action_type === 'delete')
                         <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -153,10 +177,9 @@
         {{-- Step 1: Approve / Reject buttons --}}
         <div id="decisionButtons" class="flex flex-col sm:flex-row gap-4">
             <button
-                type="submit"
-                name="status"
-                value="approved"
-                onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
+                type="{{ $anyReadingAgeIncrease ? 'button' : 'submit' }}"
+                id="approveBtn"
+                @unless($anyReadingAgeIncrease) name="status" value="approved" onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;" @endunless
                 class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
                 Approve
@@ -216,11 +239,59 @@
             </div>
         </div>
 
+        {{-- Approve confirmation (only when a change raises the reading age) --}}
+        @if($anyReadingAgeIncrease)
+        <div id="approveConfirmPanel" class="hidden">
+            <div class="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg space-y-4">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p class="text-sm font-bold text-amber-900 uppercase tracking-wide">Before you approve</p>
+                </div>
+                <p class="text-sm text-amber-800">One or more of these changes raises the reading age, which can make the content harder for our audience to understand (the average reading age in the UK is 9&ndash;10). Please only approve if the change is genuinely needed &mdash; not just a preferred way of wording it.</p>
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="submit"
+                        name="status"
+                        value="approved"
+                        id="confirmApproveBtn"
+                        onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
+                        class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                        Yes, approve anyway
+                    </button>
+                    <button
+                        type="button"
+                        id="cancelApproveBtn"
+                        class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Hidden field that carries the notes value for both flows --}}
         <input type="hidden" name="notes" id="notesField">
     </form>
 
     <script>
+    // Approve confirmation step — only present when a change raises the reading age
+    var approveBtn = document.getElementById('approveBtn');
+    var approveConfirmPanel = document.getElementById('approveConfirmPanel');
+    if (approveBtn && approveConfirmPanel) {
+        approveBtn.addEventListener('click', function() {
+            document.getElementById('decisionButtons').classList.add('hidden');
+            document.getElementById('approveNotes').classList.add('hidden');
+            approveConfirmPanel.classList.remove('hidden');
+        });
+        document.getElementById('cancelApproveBtn').addEventListener('click', function() {
+            approveConfirmPanel.classList.add('hidden');
+            document.getElementById('decisionButtons').classList.remove('hidden');
+            document.getElementById('approveNotes').classList.remove('hidden');
+        });
+    }
+
     document.getElementById('rejectBtn').addEventListener('click', function() {
         document.getElementById('decisionButtons').classList.add('hidden');
         document.getElementById('approveNotes').classList.add('hidden');
