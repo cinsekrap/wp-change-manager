@@ -46,7 +46,7 @@ class DashboardController extends Controller
 
         // Count overdue requests (active requests past SLA deadline)
         $overdueCount = ChangeRequest::whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
-            ->select(['id', 'priority', 'created_at'])->get()
+            ->select(['id', 'status', 'priority', 'created_at'])->get()
             ->filter(fn($cr) => $cr->isOverSla())
             ->count();
 

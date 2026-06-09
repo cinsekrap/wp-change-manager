@@ -61,9 +61,11 @@ class AdminRequestsTest extends TestCase
     {
         $user = $this->loginAsAdmin();
         $cr = $this->createChangeRequest();
+        $date = now()->addDays(7)->format('Y-m-d');
 
         $response = $this->patch("/admin/requests/{$cr->id}/status", [
             'status' => 'scheduled',
+            'scheduled_date' => $date,
         ]);
 
         $response->assertRedirect();
@@ -71,12 +73,61 @@ class AdminRequestsTest extends TestCase
             'id' => $cr->id,
             'status' => 'scheduled',
         ]);
+        $this->assertEquals($date, $cr->refresh()->scheduled_date->format('Y-m-d'));
         $this->assertDatabaseHas('change_request_status_log', [
             'change_request_id' => $cr->id,
             'old_status' => 'requested',
             'new_status' => 'scheduled',
             'user_id' => $user->id,
         ]);
+    }
+
+    public function test_scheduling_requires_a_date(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest();
+
+        $response = $this->patch("/admin/requests/{$cr->id}/status", [
+            'status' => 'scheduled',
+        ]);
+
+        $response->assertSessionHasErrors('scheduled_date');
+        $this->assertDatabaseHas('change_requests', [
+            'id' => $cr->id,
+            'status' => 'requested',
+        ]);
+    }
+
+    public function test_scheduled_request_is_not_over_sla(): void
+    {
+        // An urgent request created two weeks ago would normally be well overdue.
+        $cr = $this->createChangeRequest([], [
+            'priority' => 'urgent',
+            'status' => 'scheduled',
+            'scheduled_date' => now()->addDays(7)->format('Y-m-d'),
+            'created_at' => now()->subWeeks(2),
+        ]);
+
+        $this->assertTrue($cr->slaStopped());
+        $this->assertFalse($cr->isOverSla());
+    }
+
+    public function test_scheduled_date_cleared_when_status_changes(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest([], [
+            'status' => 'scheduled',
+            'scheduled_date' => now()->addDays(7)->format('Y-m-d'),
+        ]);
+
+        $response = $this->patch("/admin/requests/{$cr->id}/status", [
+            'status' => 'approved',
+        ]);
+
+        $response->assertRedirect();
+        $cr->refresh();
+        $this->assertEquals('approved', $cr->status);
+        $this->assertNull($cr->scheduled_date);
     }
 
     public function test_cannot_move_past_referred_without_approvals(): void

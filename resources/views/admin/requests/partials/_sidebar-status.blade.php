@@ -17,13 +17,25 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('rejection_reason') }}</textarea>
             @error('rejection_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
+        <div id="scheduledField" class="hidden mb-2">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Scheduled for (required)</label>
+            <input type="date" name="scheduled_date" min="{{ now()->format('Y-m-d') }}"
+                value="{{ old('scheduled_date', $changeRequest->scheduled_date?->format('Y-m-d')) }}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            @error('scheduled_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+        </div>
         <button type="submit" class="w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Update Status</button>
     </form>
     <script>
     function toggleReasonField() {
         var val = document.getElementById('statusSelect').value;
-        var show = val === 'declined' || val === 'cancelled';
-        document.getElementById('reasonField').classList.toggle('hidden', !show);
+        var showReason = val === 'declined' || val === 'cancelled';
+        document.getElementById('reasonField').classList.toggle('hidden', !showReason);
+
+        var showScheduled = val === 'scheduled';
+        var scheduledField = document.getElementById('scheduledField');
+        scheduledField.classList.toggle('hidden', !showScheduled);
+        scheduledField.querySelector('input[name="scheduled_date"]').required = showScheduled;
     }
     toggleReasonField();
     </script>
