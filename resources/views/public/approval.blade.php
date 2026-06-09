@@ -53,9 +53,16 @@
             );
         @endphp
         @if($anyReadingAgeIncrease)
-            <div class="mb-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p class="text-sm font-medium text-amber-800">Some of these changes raise the reading age.</p>
-                <p class="mt-1 text-sm text-amber-700">Please check that these changes are actually needed &mdash; not just that you're happy with them. Raising the reading age is often a purely stylistic reword; if the meaning hasn't changed, please don't approve changes that aren't needed, as making them still takes the team's time.</p>
+            <div class="mb-4 p-4 bg-amber-50 border-2 border-amber-400 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p class="text-sm font-bold text-amber-900 uppercase tracking-wide">Important — some of these changes raise the reading age</p>
+                </div>
+                <div class="space-y-2 text-sm text-amber-800">
+                    <p>We often see requests where professionals prefer different wording, but many of these changes make content harder for our audience because they use more complex words or longer sentences.</p>
+                    <p>We know it's important that we're taken seriously &mdash; but wording things simply is what helps our users.</p>
+                    <p class="font-medium">If the meaning hasn't changed, please don't approve the change. Making changes that aren't needed still takes the team's time.</p>
+                </div>
             </div>
         @endif
 

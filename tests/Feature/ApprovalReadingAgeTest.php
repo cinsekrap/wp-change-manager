@@ -64,7 +64,7 @@ class ApprovalReadingAgeTest extends TestCase
 
         $response->assertOk();
         // Guidance banner + per-item flag
-        $response->assertSee('Please check that these changes are actually needed', false);
+        $response->assertSee('make content harder for our audience', false);
         $response->assertSee('This change raises the reading age', false);
         // Inline diff is rendered (added wording wrapped in <ins>)
         $response->assertSee('<ins', false);
@@ -78,7 +78,7 @@ class ApprovalReadingAgeTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('This change raises the reading age', false);
-        $response->assertDontSee('Some of these changes raise the reading age', false);
+        $response->assertDontSee('make content harder for our audience', false);
         // Diff still renders.
         $response->assertSee('<del', false);
     }
