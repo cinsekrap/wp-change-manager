@@ -102,7 +102,7 @@
                             </div>
                             @if($raIncrease)
                                 <div class="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                                    &#9888; This change raises the reading age ({{ $raIncrease['from'] }} &rarr; {{ $raIncrease['to'] }}). Check the meaning has actually changed, not just the wording.
+                                    &#9888; This change raises the reading age from {{ $raIncrease['from'] }} to {{ $raIncrease['to'] }} (the average reading age in the UK is 9&ndash;10). Check the meaning has actually changed, not just the wording.
                                 </div>
                             @endif
                         </div>
