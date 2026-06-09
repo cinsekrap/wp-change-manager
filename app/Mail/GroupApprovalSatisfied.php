@@ -41,7 +41,7 @@ class GroupApprovalSatisfied extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
                 'customBody' => Setting::get('email_group_approval_satisfied_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
                 'satisfiedBy' => $this->satisfiedBy,
                 'groupName' => $this->approver->group,
             ],

@@ -41,7 +41,7 @@ class ApprovalDeclined extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
                 'customBody' => Setting::get('email_approval_declined_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }

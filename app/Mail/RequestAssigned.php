@@ -43,7 +43,7 @@ class RequestAssigned extends Mailable
                 'assigneeName' => $this->assignee->name,
                 'adminUrl' => route('admin.requests.show', $this->changeRequest),
                 'customBody' => Setting::get('email_request_assigned_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }

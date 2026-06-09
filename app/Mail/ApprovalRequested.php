@@ -46,7 +46,7 @@ class ApprovalRequested extends Mailable
                 'deadlineDate' => $this->changeRequest->deadline_date,
                 'approvalUrl' => route('approval.show', $this->approver->token),
                 'customBody' => Setting::get('email_approval_requested_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }
