@@ -45,6 +45,20 @@
             </div>
         @endif
 
+        {{-- Reading-age guidance: shown when any change raises the reading age --}}
+        @php
+            $anyReadingAgeIncrease = $changeRequest->items->contains(fn($i) =>
+                $i->action_type === 'change'
+                && \App\Support\ReadingAge::increase($i->current_content, $i->description) !== null
+            );
+        @endphp
+        @if($anyReadingAgeIncrease)
+            <div class="mb-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-sm font-medium text-amber-800">Some of these changes raise the reading age.</p>
+                <p class="mt-1 text-sm text-amber-700">Please check that these changes are actually needed &mdash; not just that you're happy with them. Raising the reading age is often a purely stylistic reword; if the meaning hasn't changed, please don't approve changes that aren't needed, as making them still takes the team's time.</p>
+            </div>
+        @endif
+
         {{-- Items overview --}}
         <div class="space-y-3">
             @foreach($changeRequest->items as $item)
@@ -69,18 +83,21 @@
                     </div>
 
                     @if($item->action_type === 'change' && $item->current_content)
+                        @php $raIncrease = \App\Support\ReadingAge::increase($item->current_content, $item->description); @endphp
                         <div class="space-y-2">
-                            <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p class="text-xs font-medium text-red-700 mb-1">Current content</p>
-                                <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->current_content }}</p>
-                            </div>
-                            <div class="flex justify-center">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                            <div class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                <p class="text-xs font-medium text-gray-500 mb-1">Requested change</p>
+                                <p class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{!! \App\Support\WordDiff::toHtml($item->current_content, $item->description) !!}</p>
                             </div>
                             <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <p class="text-xs font-medium text-green-700 mb-1">Replace with</p>
+                                <p class="text-xs font-medium text-green-700 mb-1">Updated content</p>
                                 <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ $item->description }}</p>
                             </div>
+                            @if($raIncrease)
+                                <div class="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                                    &#9888; This change raises the reading age ({{ $raIncrease['from'] }} &rarr; {{ $raIncrease['to'] }}). Check the meaning has actually changed, not just the wording.
+                                </div>
+                            @endif
                         </div>
                     @elseif($item->action_type === 'delete')
                         <div class="p-3 bg-red-50 border border-red-200 rounded-lg">

@@ -98,6 +98,36 @@
         return offending;
     }
 
+    // Change items whose updated text reads OLDER than the current content —
+    // i.e. the edit raised the reading age (often a purely stylistic reword).
+    function checkReadingAgeIncreaseFields() {
+        const increased = [];
+        const consider = (name, currentText, newText) => {
+            const from = calculateReadingAge(currentText);
+            const to = calculateReadingAge(newText);
+            if (from !== null && to !== null && to > from) {
+                increased.push({ name: name || 'this change', from, to });
+            }
+        };
+        // Structured single-field changes
+        document.querySelectorAll('.structured-field').forEach(field => {
+            if (field.dataset.actionType !== 'change') return;
+            const cur = field.querySelector('.area-form-fields .sf-current');
+            const inp = field.querySelector('.area-form-fields .sf-input');
+            if (cur && inp) consider(field.dataset.areaName, cur.value, inp.value);
+        });
+        // Generic line items
+        document.querySelectorAll('.line-item').forEach((item, i) => {
+            const action = item.querySelector('.action-type:checked');
+            if (!action || action.value !== 'change') return;
+            const cur = item.querySelector('.item-current');
+            const inp = item.querySelector('.item-description');
+            const name = item.querySelector('.content-area')?.value || `Change #${i + 1}`;
+            if (cur && inp) consider(name, cur.value, inp.value);
+        });
+        return increased;
+    }
+
     function getCurrentCptSlug() {
         const isNew = document.getElementById('isNewPage').checked;
         if (isNew) return document.getElementById('newPageCpt').value;
@@ -1009,12 +1039,30 @@
             showGovernanceGate();
             return;
         }
-        // Reading age warning on leaving step 3
+        // Reading age warnings on leaving step 3: absolute (too high) and/or
+        // changes that raise the reading age. Both share one panel + bypass.
         if (currentStep === 3 && !readingAgeBypass) {
             const offending = checkReadingAgeFields();
-            if (offending.length > 0) {
-                const list = document.getElementById('readingAgeWarningList');
-                list.innerHTML = offending.map(f => `<li>${esc(f.name)} (reading age: ${f.age})</li>`).join('');
+            const increased = checkReadingAgeIncreaseFields();
+            if (offending.length > 0 || increased.length > 0) {
+                const highSection = document.getElementById('readingAgeHighSection');
+                if (offending.length > 0) {
+                    document.getElementById('readingAgeWarningList').innerHTML =
+                        offending.map(f => `<li>${esc(f.name)} (reading age: ${f.age})</li>`).join('');
+                    highSection.classList.remove('hidden');
+                } else {
+                    highSection.classList.add('hidden');
+                }
+
+                const increaseSection = document.getElementById('readingAgeIncreaseSection');
+                if (increased.length > 0) {
+                    document.getElementById('readingAgeIncreaseList').innerHTML =
+                        increased.map(f => `<li>${esc(f.name)} (reading age ${f.from} &rarr; ${f.to})</li>`).join('');
+                    increaseSection.classList.remove('hidden');
+                } else {
+                    increaseSection.classList.add('hidden');
+                }
+
                 document.getElementById('navButtonGroup').classList.add('hidden');
                 document.getElementById('readingAgeWarning').classList.remove('hidden');
                 return;
