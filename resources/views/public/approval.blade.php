@@ -177,10 +177,9 @@
         {{-- Step 1: Approve / Reject buttons --}}
         <div id="decisionButtons" class="flex flex-col sm:flex-row gap-4">
             <button
-                type="submit"
-                name="status"
-                value="approved"
-                onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
+                type="{{ $anyReadingAgeIncrease ? 'button' : 'submit' }}"
+                id="approveBtn"
+                @unless($anyReadingAgeIncrease) name="status" value="approved" onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;" @endunless
                 class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
                 Approve
@@ -240,11 +239,59 @@
             </div>
         </div>
 
+        {{-- Approve confirmation (only when a change raises the reading age) --}}
+        @if($anyReadingAgeIncrease)
+        <div id="approveConfirmPanel" class="hidden">
+            <div class="p-5 bg-amber-50 border-2 border-amber-400 rounded-lg space-y-4">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p class="text-sm font-bold text-amber-900 uppercase tracking-wide">Before you approve</p>
+                </div>
+                <p class="text-sm text-amber-800">One or more of these changes raises the reading age, which can make the content harder for our audience to understand (the average reading age in the UK is 9&ndash;10). Please only approve if the change is genuinely needed &mdash; not just a preferred way of wording it.</p>
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="submit"
+                        name="status"
+                        value="approved"
+                        id="confirmApproveBtn"
+                        onclick="document.getElementById('notesField').value = document.getElementById('approveNotesField').value;"
+                        class="flex-1 bg-status-success hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                        Yes, approve anyway
+                    </button>
+                    <button
+                        type="button"
+                        id="cancelApproveBtn"
+                        class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Hidden field that carries the notes value for both flows --}}
         <input type="hidden" name="notes" id="notesField">
     </form>
 
     <script>
+    // Approve confirmation step — only present when a change raises the reading age
+    var approveBtn = document.getElementById('approveBtn');
+    var approveConfirmPanel = document.getElementById('approveConfirmPanel');
+    if (approveBtn && approveConfirmPanel) {
+        approveBtn.addEventListener('click', function() {
+            document.getElementById('decisionButtons').classList.add('hidden');
+            document.getElementById('approveNotes').classList.add('hidden');
+            approveConfirmPanel.classList.remove('hidden');
+        });
+        document.getElementById('cancelApproveBtn').addEventListener('click', function() {
+            approveConfirmPanel.classList.add('hidden');
+            document.getElementById('decisionButtons').classList.remove('hidden');
+            document.getElementById('approveNotes').classList.remove('hidden');
+        });
+    }
+
     document.getElementById('rejectBtn').addEventListener('click', function() {
         document.getElementById('decisionButtons').classList.add('hidden');
         document.getElementById('approveNotes').classList.add('hidden');

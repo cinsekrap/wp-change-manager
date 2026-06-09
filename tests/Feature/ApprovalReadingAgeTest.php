@@ -69,6 +69,9 @@ class ApprovalReadingAgeTest extends TestCase
         // Inline diff is rendered (added wording wrapped in <ins>)
         $response->assertSee('<ins', false);
         $response->assertSee('establishment', false);
+        // Approve goes through a confirmation step
+        $response->assertSee('id="approveConfirmPanel"', false);
+        $response->assertSee('Yes, approve anyway', false);
     }
 
     public function test_no_flag_when_change_simplifies(): void
@@ -79,6 +82,8 @@ class ApprovalReadingAgeTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('This change raises the reading age', false);
         $response->assertDontSee('make content harder for our audience', false);
+        // No approve confirmation step for a normal change.
+        $response->assertDontSee('id="approveConfirmPanel"', false);
         // Diff still renders.
         $response->assertSee('<del', false);
     }
