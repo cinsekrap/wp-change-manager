@@ -281,6 +281,13 @@ class ChangeRequestController extends Controller
             'status' => 'required|in:' . implode(',', ChangeRequestItem::STATUSES),
         ]);
 
+        // Block resolving an item while approvals are outstanding — mirrors the
+        // request-level gate in updateStatus() so item-by-item completion can't
+        // bypass approval (and trip the auto-complete below).
+        if (in_array($request->status, ['done', 'not_done']) && !$changeRequest->canMovePastReferred()) {
+            return back()->with('error', 'Cannot resolve items — there are outstanding approvals.');
+        }
+
         $oldItemStatus = $item->status;
         $item->update(['status' => $request->status]);
 
