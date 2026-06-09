@@ -53,4 +53,15 @@ class ReadingAgeTest extends TestCase
         $this->assertNull(ReadingAge::increase($this->complex, $this->simple));
         $this->assertNull(ReadingAge::increase('too short', $this->complex));
     }
+
+    public function test_increase_uses_a_lower_floor_than_absolute_grade(): void
+    {
+        // ~15-word passages: below the 30-word grade() floor, but the increase
+        // comparison scores from 10 words, so a wordier reword is still caught.
+        $current = 'Do not come to school if you are ill. Just let us know today.';
+        $updated = 'Please refrain from attending the educational establishment should you be experiencing illness; notify administration.';
+
+        $this->assertNull(ReadingAge::grade($current));            // too short for the absolute grade
+        $this->assertNotNull(ReadingAge::increase($current, $updated)); // but the comparison still flags it
+    }
 }

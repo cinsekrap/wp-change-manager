@@ -12,9 +12,15 @@ class ReadingAge
 {
     public const MIN_WORDS = 30;
 
+    // Flesch-Kincaid is unreliable on very short text, so the badge / absolute
+    // "too high" check require 30 words. The increase comparison is a softer
+    // nudge, so it scores from a lower floor to catch edits to shorter passages.
+    public const MIN_WORDS_FOR_COMPARISON = 10;
+
     /** Estimated reading age, or null when there isn't enough text to score. */
-    public static function grade(?string $text): ?int
+    public static function grade(?string $text, ?int $minWords = null): ?int
     {
+        $minWords ??= self::MIN_WORDS;
         $text = trim((string) $text);
         if ($text === '') {
             return null;
@@ -22,7 +28,7 @@ class ReadingAge
 
         $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
         $wordCount = count($words);
-        if ($wordCount < self::MIN_WORDS) {
+        if ($wordCount < $minWords) {
             return null;
         }
 
@@ -50,8 +56,8 @@ class ReadingAge
      */
     public static function increase(?string $current, ?string $updated): ?array
     {
-        $from = self::grade($current);
-        $to = self::grade($updated);
+        $from = self::grade($current, self::MIN_WORDS_FOR_COMPARISON);
+        $to = self::grade($updated, self::MIN_WORDS_FOR_COMPARISON);
 
         if ($from !== null && $to !== null && $to > $from) {
             return ['from' => $from, 'to' => $to];

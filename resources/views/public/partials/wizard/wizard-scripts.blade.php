@@ -61,10 +61,10 @@
         return matches ? Math.max(matches.length, 1) : 1;
     }
 
-    function calculateReadingAge(text) {
+    function calculateReadingAge(text, minWords = 30) {
         if (!text || !text.trim()) return null;
         const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-        if (words.length < 30) return null;
+        if (words.length < minWords) return null;
         const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
         const sentenceCount = Math.max(sentences.length, 1);
         let totalSyllables = 0;
@@ -102,9 +102,10 @@
     // i.e. the edit raised the reading age (often a purely stylistic reword).
     function checkReadingAgeIncreaseFields() {
         const increased = [];
+        const COMPARISON_MIN_WORDS = 10; // softer floor than the absolute check (30)
         const consider = (name, currentText, newText) => {
-            const from = calculateReadingAge(currentText);
-            const to = calculateReadingAge(newText);
+            const from = calculateReadingAge(currentText, COMPARISON_MIN_WORDS);
+            const to = calculateReadingAge(newText, COMPARISON_MIN_WORDS);
             if (from !== null && to !== null && to > from) {
                 increased.push({ name: name || 'this change', from, to });
             }
