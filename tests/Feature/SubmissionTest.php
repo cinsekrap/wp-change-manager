@@ -40,7 +40,8 @@ class SubmissionTest extends TestCase
                 [
                     'action_type' => 'change',
                     'content_area' => 'Main Body',
-                    'description' => 'Update the paragraph about our history.',
+                    'current_content' => 'We were founded in 1990.',
+                    'description' => 'We were founded in 1992.',
                 ],
             ],
         ], $overrides);
@@ -79,7 +80,8 @@ class SubmissionTest extends TestCase
                 [
                     'action_type' => 'change',
                     'content_area' => 'Header',
-                    'description' => 'Update the header text.',
+                    'current_content' => 'Welcome to our site.',
+                    'description' => 'Welcome to our new site.',
                 ],
                 [
                     'action_type' => 'add',
@@ -95,6 +97,70 @@ class SubmissionTest extends TestCase
         $this->assertDatabaseCount('change_request_items', 2);
         $this->assertDatabaseHas('change_request_items', ['content_area' => 'Header']);
         $this->assertDatabaseHas('change_request_items', ['content_area' => 'Sidebar']);
+    }
+
+    public function test_change_requires_current_content(): void
+    {
+        $data = $this->validSubmissionData([
+            'items' => [
+                ['action_type' => 'change', 'content_area' => 'Body', 'description' => 'Some new text.'],
+            ],
+        ]);
+
+        $response = $this->postJson('/submit', $data);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('items.0.current_content');
+        $this->assertDatabaseCount('change_requests', 0);
+    }
+
+    public function test_change_rejects_noop_when_updated_equals_current(): void
+    {
+        $data = $this->validSubmissionData([
+            'items' => [
+                ['action_type' => 'change', 'content_area' => 'Body', 'current_content' => 'Same text.', 'description' => 'Same text.'],
+            ],
+        ]);
+
+        $response = $this->postJson('/submit', $data);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('items.0.description');
+        $this->assertDatabaseCount('change_requests', 0);
+    }
+
+    public function test_change_rejects_noop_that_differs_only_by_smart_characters(): void
+    {
+        // Straight quotes vs Word curly quotes/nbsp — identical once normalised,
+        // so the diff would be empty; must still be rejected as a no-op.
+        $data = $this->validSubmissionData([
+            'items' => [
+                [
+                    'action_type' => 'change',
+                    'content_area' => 'Body',
+                    'current_content' => "the team's \"big\" launch",
+                    'description' => "the team\u{2019}s \u{201C}big\u{201D}\u{00A0}launch",
+                ],
+            ],
+        ]);
+
+        $response = $this->postJson('/submit', $data);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('items.0.description');
+        $this->assertDatabaseCount('change_requests', 0);
+    }
+
+    public function test_change_persists_current_content(): void
+    {
+        $response = $this->postJson('/submit', $this->validSubmissionData());
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('change_request_items', [
+            'action_type' => 'change',
+            'current_content' => 'We were founded in 1990.',
+            'description' => 'We were founded in 1992.',
+        ]);
     }
 
     public function test_submission_auto_adds_approvers_when_checks_pass(): void
@@ -120,7 +186,7 @@ class SubmissionTest extends TestCase
                 ['question' => 'Is content ready?', 'answer' => 'Yes', 'pass' => true],
             ],
             'items' => [
-                ['action_type' => 'change', 'description' => 'Update text.'],
+                ['action_type' => 'change', 'current_content' => 'Old text.', 'description' => 'Update text.'],
             ],
         ];
 
@@ -155,7 +221,7 @@ class SubmissionTest extends TestCase
                 ['question' => 'Is this approved?', 'answer' => 'No', 'pass' => false],
             ],
             'items' => [
-                ['action_type' => 'change', 'description' => 'Update text.'],
+                ['action_type' => 'change', 'current_content' => 'Old text.', 'description' => 'Update text.'],
             ],
         ];
 
