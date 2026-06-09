@@ -42,7 +42,7 @@ class ScheduledForActionToday extends Mailable
                 'requesterEmail' => $this->changeRequest->requester_email,
                 'adminUrl' => route('admin.requests.show', $this->changeRequest),
                 'customBody' => Setting::get('email_scheduled_today_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }

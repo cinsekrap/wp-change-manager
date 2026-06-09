@@ -41,7 +41,7 @@ class RequestSubmitted extends Mailable
                 'deadlineDate' => $this->changeRequest->deadline_date,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
                 'customBody' => Setting::get('email_request_submitted_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }

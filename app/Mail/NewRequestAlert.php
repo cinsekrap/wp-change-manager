@@ -42,7 +42,7 @@ class NewRequestAlert extends Mailable
                 'itemCount' => $this->changeRequest->items->count(),
                 'adminUrl' => route('admin.requests.show', $this->changeRequest),
                 'customBody' => Setting::get('email_new_request_alert_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }

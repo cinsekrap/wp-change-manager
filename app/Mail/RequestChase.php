@@ -38,12 +38,12 @@ class RequestChase extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
                 'status' => ucfirst(str_replace('_', ' ', $this->changeRequest->status)),
-                'staleHours' => $this->changeRequest->updated_at->diffInHours(now()),
+                'staleHours' => (int) $this->changeRequest->updated_at->diffInHours(now()),
                 'requesterName' => $this->changeRequest->requester_name,
                 'requesterEmail' => $this->changeRequest->requester_email,
                 'adminUrl' => route('admin.requests.show', $this->changeRequest),
                 'customBody' => Setting::get('email_request_chase_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }
@@ -55,7 +55,7 @@ class RequestChase extends Mailable
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
             'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
             'status' => ucfirst(str_replace('_', ' ', $this->changeRequest->status)),
-            'stale_hours' => (string) $this->changeRequest->updated_at->diffInHours(now()),
+            'stale_hours' => (string) (int) $this->changeRequest->updated_at->diffInHours(now()),
             'requester_name' => $this->changeRequest->requester_name,
             'requester_email' => $this->changeRequest->requester_email,
         ];

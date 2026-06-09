@@ -49,7 +49,7 @@ class RequestStatusChanged extends Mailable
                 'rejectionReason' => $this->changeRequest->rejection_reason,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
                 'customBody' => Setting::get('email_status_changed_body') ? $emailContent['body'] : null,
-                'defaultBody' => $defaults['body'],
+                'defaultBody' => $emailContent['body'],
             ],
         );
     }
