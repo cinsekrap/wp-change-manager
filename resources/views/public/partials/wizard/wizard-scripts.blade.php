@@ -977,6 +977,7 @@
 
     let currentStep = 1;
     const totalSteps = 6;
+    let governancePassed = false;
     let siteData = { pages: [], cpts: [] };
     let selectedPage = null;
     let selectedCpt = null;
@@ -1003,6 +1004,11 @@
     prevBtn.addEventListener('click', () => { if (currentStep > 1) { currentStep--; updateUI(); } });
     nextBtn.addEventListener('click', () => {
         if (!validateStep(currentStep) || currentStep >= totalSteps) return;
+        // Governance acknowledgement on leaving step 2 (page selection)
+        if (currentStep === 2 && !governancePassed) {
+            showGovernanceGate();
+            return;
+        }
         // Reading age warning on leaving step 3
         if (currentStep === 3 && !readingAgeBypass) {
             const offending = checkReadingAgeFields();
@@ -1021,6 +1027,47 @@
     });
     submitBtn.addEventListener('click', submitForm);
     document.getElementById('addItemBtn').addEventListener('click', addLineItem);
+
+    // Governance acknowledgement gate (leaving step 2)
+    const governanceGate = document.getElementById('governanceGate');
+    const govExistingChecks = document.getElementById('govExistingChecks');
+    const govNewChecks = document.getElementById('govNewChecks');
+    const govContinue = document.getElementById('govContinue');
+    const govBack = document.getElementById('govBack');
+    let govActiveGroup = null;
+
+    function refreshGovContinue() {
+        if (!govActiveGroup) return;
+        const checks = [...govActiveGroup.querySelectorAll('.gov-check')];
+        govContinue.disabled = !(checks.length && checks.every(c => c.checked));
+    }
+
+    function showGovernanceGate() {
+        const isNew = document.getElementById('isNewPage').checked;
+        govActiveGroup = isNew ? govNewChecks : govExistingChecks;
+        govExistingChecks.classList.toggle('hidden', isNew);
+        govNewChecks.classList.toggle('hidden', !isNew);
+        govActiveGroup.querySelectorAll('.gov-check').forEach(c => { c.checked = false; });
+        govContinue.disabled = true;
+        document.getElementById('navButtonGroup').classList.add('hidden');
+        governanceGate.classList.remove('hidden');
+    }
+
+    governanceGate.querySelectorAll('.gov-check').forEach(c => c.addEventListener('change', refreshGovContinue));
+
+    govContinue.addEventListener('click', () => {
+        governancePassed = true;
+        governanceGate.classList.add('hidden');
+        document.getElementById('navButtonGroup').classList.remove('hidden');
+        currentStep++;
+        updateUI();
+        saveState();
+    });
+
+    govBack.addEventListener('click', () => {
+        governanceGate.classList.add('hidden');
+        document.getElementById('navButtonGroup').classList.remove('hidden');
+    });
 
     // Reading age: "Continue anyway" bypass
     const raSubmitAnyway = document.getElementById('readingAgeSubmitAnyway');
@@ -1214,6 +1261,11 @@
         if (raWarning) raWarning.classList.add('hidden');
         const navBtnGroup = document.getElementById('navButtonGroup');
         if (navBtnGroup) navBtnGroup.classList.remove('hidden');
+
+        // Reset governance gate; require re-acknowledgement whenever step 2 is shown
+        const govGate = document.getElementById('governanceGate');
+        if (govGate) govGate.classList.add('hidden');
+        if (currentStep === 2) governancePassed = false;
 
         checkStepValid();
         window.scrollTo({ top: 0, behavior: 'smooth' });
