@@ -16,7 +16,7 @@ class ApprovalRequested extends Mailable
         public ChangeRequest $changeRequest,
         public ChangeRequestApprover $approver,
     ) {
-        $this->changeRequest->loadMissing(['site', 'items']);
+        $this->changeRequest->loadMissing(['site', 'items', 'cptType']);
     }
 
     public function envelope(): Envelope
@@ -41,6 +41,10 @@ class ApprovalRequested extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
                 'isNewPage' => $this->changeRequest->is_new_page,
+                'isAccessRequest' => $this->changeRequest->isAccessRequest(),
+                'cptName' => $this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug,
+                'recipientName' => $this->changeRequest->access_recipient_name,
+                'recipientEmail' => $this->changeRequest->access_recipient_email,
                 'requesterName' => $this->changeRequest->requester_name,
                 'itemCount' => $this->changeRequest->items->count(),
                 'deadlineDate' => $this->changeRequest->deadline_date,
@@ -53,10 +57,16 @@ class ApprovalRequested extends Mailable
 
     protected function placeholderValues(): array
     {
+        // For access requests the stored page_url is a synthetic placeholder,
+        // so substitute something meaningful for the {page_title} token.
+        $pageTitle = $this->changeRequest->isAccessRequest()
+            ? ($this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug) . ' access request'
+            : ($this->changeRequest->page_title ?? $this->changeRequest->page_url);
+
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $pageTitle,
             'approver_name' => $this->approver->name,
             'requester_name' => $this->changeRequest->requester_name,
             'item_count' => (string) $this->changeRequest->items->count(),

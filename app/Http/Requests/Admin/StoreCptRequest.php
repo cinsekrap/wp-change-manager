@@ -21,6 +21,7 @@ class StoreCptRequest extends FormRequest
             'is_active' => 'boolean',
             'request_mode' => 'required|in:normal,blocked,self_service',
             'mode_message' => 'nullable|string|max:5000',
+            'training_url' => 'nullable|url|max:2048',
             'content_areas' => 'nullable|array',
             'content_areas.*.name' => 'required|string|max:255',
             'content_areas.*.type' => 'required|in:text,textarea,select,checkbox,date,file,richtext,group',

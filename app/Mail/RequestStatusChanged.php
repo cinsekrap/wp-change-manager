@@ -16,7 +16,7 @@ class RequestStatusChanged extends Mailable
         public string $oldStatus,
         public string $newStatus,
     ) {
-        $this->changeRequest->loadMissing(['site', 'items']);
+        $this->changeRequest->loadMissing(['site', 'items', 'cptType']);
     }
 
     public function envelope(): Envelope
@@ -39,8 +39,11 @@ class RequestStatusChanged extends Mailable
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
-                'pageUrl' => $this->changeRequest->is_new_page ? null : $this->changeRequest->page_url,
+                'pageUrl' => ($this->changeRequest->is_new_page || $this->changeRequest->isAccessRequest()) ? null : $this->changeRequest->page_url,
                 'isNewPage' => $this->changeRequest->is_new_page,
+                'isAccessRequest' => $this->changeRequest->isAccessRequest(),
+                'cptName' => $this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug,
+                'recipientName' => $this->changeRequest->access_recipient_name,
                 'itemCount' => $this->changeRequest->items->count(),
                 'items' => $this->changeRequest->items->take(5),
                 'oldStatus' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
@@ -56,10 +59,16 @@ class RequestStatusChanged extends Mailable
 
     protected function placeholderValues(): array
     {
+        // For access requests the stored page_url is a synthetic placeholder,
+        // so substitute something meaningful for the {page_title} token.
+        $pageTitle = $this->changeRequest->isAccessRequest()
+            ? ($this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug) . ' access request'
+            : ($this->changeRequest->page_title ?? $this->changeRequest->page_url);
+
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $pageTitle,
             'old_status' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
             'new_status' => ucfirst(str_replace('_', ' ', $this->newStatus)),
             'rejection_reason' => $this->changeRequest->rejection_reason ?? '',

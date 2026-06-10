@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Mail\ApprovalOverridden;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestChase;
+use App\Mail\TrainingConfirmed;
+use App\Mail\TrainingRequested;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
+use App\Models\CptType;
 use App\Models\Site;
 use App\Models\User;
 use Tests\TestCase;
@@ -81,5 +84,47 @@ class EmailPlaceholderTest extends TestCase
         $this->assertStringNotContainsString('{stale_hours}', $html);
         // Substituted to a whole number of hours (no Carbon float leaking through).
         $this->assertStringContainsString('has been inactive for 50 hours', $html);
+    }
+
+    private function accessRequest(): ChangeRequest
+    {
+        CptType::create([
+            'slug' => 'events',
+            'name' => 'Events',
+            'request_mode' => 'self_service',
+            'training_url' => 'https://example.com/training-video',
+        ]);
+
+        return $this->changeRequest([
+            'request_type' => 'access',
+            'cpt_slug' => 'events',
+            'status' => 'training',
+            'access_recipient_name' => 'Alex Recipient',
+            'access_recipient_email' => 'alex@example.com',
+            'training_token' => 'token-abc',
+            'training_sent_at' => now(),
+        ]);
+    }
+
+    /** training_requested email links both the video and the confirmation page. */
+    public function test_training_requested_renders_video_and_confirm_links(): void
+    {
+        $html = (new TrainingRequested($this->accessRequest()))->render();
+
+        $this->assertStringContainsString('https://example.com/training-video', $html);
+        $this->assertStringContainsString('/training/token-abc', $html);
+        $this->assertStringContainsString('Alex Recipient', $html);
+    }
+
+    /** training_confirmed default body uses {recipient_name}. */
+    public function test_training_confirmed_default_body_substitutes_recipient(): void
+    {
+        $cr = $this->accessRequest();
+        $cr->update(['status' => 'trained', 'training_confirmed_at' => now()]);
+
+        $html = (new TrainingConfirmed($cr->fresh()))->render();
+
+        $this->assertStringNotContainsString('{recipient_name}', $html);
+        $this->assertStringContainsString('Alex Recipient has confirmed', $html);
     }
 }

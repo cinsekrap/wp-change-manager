@@ -10,7 +10,9 @@
     </div>
 
     <h1 class="text-2xl font-bold text-gray-900 mb-2">Request Submitted</h1>
-    <p class="text-gray-600 mb-6">Your website change request has been received.</p>
+    <p class="text-gray-600 mb-6">
+        {{ $changeRequest->isAccessRequest() ? 'Your access request has been received.' : 'Your website change request has been received.' }}
+    </p>
 
     <div class="bg-gray-50 rounded-lg p-4 inline-block mb-6">
         <p class="text-sm text-gray-500">Your reference number</p>
@@ -19,11 +21,22 @@
 
     <div class="text-sm text-gray-500 space-y-1 mb-8">
         <p><strong>Site:</strong> {{ $changeRequest->site->name }}</p>
-        <p><strong>Page:</strong> {{ $changeRequest->page_title ?: $changeRequest->page_url }}</p>
-        <p><strong>Changes:</strong> {{ $changeRequest->items->count() }} item(s)</p>
+        @if($changeRequest->isAccessRequest())
+            <p><strong>Access to:</strong> {{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
+            <p><strong>Access for:</strong> {{ $changeRequest->access_recipient_name }}</p>
+        @else
+            <p><strong>Page:</strong> {{ $changeRequest->page_title ?: $changeRequest->page_url }}</p>
+            <p><strong>Changes:</strong> {{ $changeRequest->items->count() }} item(s)</p>
+        @endif
     </div>
 
-    <p class="text-sm text-gray-400 mb-6">Please keep your reference number for your records. The marketing team will review your request shortly.</p>
+    <p class="text-sm text-gray-400 mb-6">
+        @if($changeRequest->isAccessRequest())
+            Please keep your reference number for your records. Once the request is approved, {{ $changeRequest->access_recipient_name }} will receive a training email — access is granted after they confirm they've completed the training.
+        @else
+            Please keep your reference number for your records. The marketing team will review your request shortly.
+        @endif
+    </p>
 
     <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-hcrg-burgundy hover:underline font-medium">track the status of your request</a> at any time.</p>
 

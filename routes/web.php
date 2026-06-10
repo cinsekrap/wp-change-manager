@@ -27,6 +27,7 @@ use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\PublicSite\ApprovalController;
 use App\Http\Controllers\PublicSite\TrackingController;
+use App\Http\Controllers\PublicSite\TrainingController;
 use App\Http\Controllers\PublicSite\WizardController;
 use App\Http\Controllers\PublicSite\SubmissionController;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +60,10 @@ Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show'
 Route::get('/approve/queue/{approver}', [ApprovalController::class, 'showFromQueue'])->name('approval.queue')->middleware(['signed', 'throttle:5,1']);
 Route::get('/approve/{token}', [ApprovalController::class, 'show'])->name('approval.show');
 Route::post('/approve/{token}', [ApprovalController::class, 'respond'])->name('approval.respond')->middleware('throttle:5,1');
+
+// Public training confirmation links (access requests)
+Route::get('/training/{token}', [TrainingController::class, 'show'])->name('training.show');
+Route::post('/training/{token}', [TrainingController::class, 'confirm'])->name('training.confirm')->middleware('throttle:5,1');
 
 // AJAX API endpoints (public, rate-limited)
 Route::prefix('api')->middleware('throttle:public-api')->group(function () {
@@ -111,6 +116,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::delete('/requests/{changeRequest}/approvers/{approver}', [ApproverController::class, 'removeApprover'])->name('admin.requests.approvers.remove');
     Route::patch('/requests/{changeRequest}/items/{item}/status', [ChangeRequestController::class, 'updateItemStatus'])->name('admin.requests.items.status');
     Route::post('/requests/{changeRequest}/send-for-approval', [ApproverController::class, 'sendForApproval'])->name('admin.requests.send-approval');
+    Route::post('/requests/{changeRequest}/training/send', [ChangeRequestController::class, 'sendTrainingEmail'])->name('admin.requests.training.send');
     Route::post('/requests/{changeRequest}/override-approvals', [ApproverController::class, 'overrideApprovals'])->name('admin.requests.override-approvals')->middleware('super_admin');
     Route::patch('/requests/{changeRequest}/assign', [ChangeRequestController::class, 'updateAssignment'])->name('admin.requests.assign');
     Route::patch('/requests/{changeRequest}/priority', [ChangeRequestController::class, 'updatePriority'])->name('admin.requests.priority');

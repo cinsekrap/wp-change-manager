@@ -64,7 +64,7 @@
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
                         <input type="checkbox" name="status[]" value="{{ $status }}" {{ in_array($status, $selectedStatuses) ? 'checked' : '' }}
                             class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
-                        {{ $status === 'requires_referral' ? 'Requires Referral' : ucfirst($status) }}
+                        {{ ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed'][$status] ?? ucfirst($status) }}
                     </label>
                     @endforeach
                 </div>
@@ -276,7 +276,7 @@
                 <div id="bulkStatusMenu" class="hidden absolute bottom-full mb-2 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
                     <button type="button" onclick="bulkChangeStatus('{{ $status }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        {{ $status === 'requires_referral' ? 'Requires Referral' : ucfirst($status) }}
+                        {{ ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed'][$status] ?? ucfirst($status) }}
                     </button>
                     @endforeach
                 </div>

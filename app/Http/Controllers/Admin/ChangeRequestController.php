@@ -13,6 +13,7 @@ use App\Models\EmailLog;
 use App\Models\Site;
 
 use App\Models\User;
+use App\Services\ApprovalWorkflowService;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -176,7 +177,7 @@ class ChangeRequestController extends Controller
     public function updateStatus(Request $request, ChangeRequest $changeRequest)
     {
         $rules = [
-            'status' => 'required|in:' . implode(',', ChangeRequest::STATUSES),
+            'status' => 'required|in:' . implode(',', $changeRequest->statusOptions()),
         ];
 
         if (in_array($request->status, ['declined', 'cancelled'])) {
@@ -212,9 +213,11 @@ class ChangeRequestController extends Controller
 
             $changeRequest->update($updateData);
 
-            // Mark any unresolved items as not done when closing a request
+            // Mark any unresolved items as not done when closing a request,
+            // and clear pending approval tokens so stale links die with it
             if (in_array($newStatus, ChangeRequest::TERMINAL_STATUSES)) {
                 $changeRequest->items()->where('status', 'in_progress')->update(['status' => 'not_done']);
+                $changeRequest->approvers()->where('status', 'pending')->update(['token' => null]);
             }
 
             ChangeRequestStatusLog::create([
@@ -234,9 +237,45 @@ class ChangeRequestController extends Controller
 
             // Notify the requester of the status change
             EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
+
+            // Manually approving an access request kicks off training
+            if ($newStatus === 'approved' && $changeRequest->isAccessRequest()) {
+                ApprovalWorkflowService::startTraining($changeRequest, auth()->id());
+            }
+
+            // Completing an access request tells the recipient their access is ready
+            if ($newStatus === 'done') {
+                ApprovalWorkflowService::notifyAccessGranted($changeRequest);
+            }
         }
 
         return back()->with('success', 'Status updated.');
+    }
+
+    public function sendTrainingEmail(ChangeRequest $changeRequest)
+    {
+        abort_unless($changeRequest->isAccessRequest(), 404);
+
+        if ($changeRequest->training_confirmed_at) {
+            return back()->with('info', 'Training has already been confirmed.');
+        }
+
+        if (!in_array($changeRequest->status, ['approved', 'training'])) {
+            return back()->with('error', 'Training emails can only be sent once the request is approved.');
+        }
+
+        $resend = (bool) $changeRequest->training_sent_at;
+
+        if (!ApprovalWorkflowService::startTraining($changeRequest, auth()->id())) {
+            return back()->with('error', 'Training email could not be sent — check a training video URL is configured for this content type and the request has a recipient email.');
+        }
+
+        $changeRequest->notes()->create([
+            'user_id' => auth()->id(),
+            'note' => ($resend ? 'Training email resent to ' : 'Training email sent to ') . $changeRequest->access_recipient_email . '.',
+        ]);
+
+        return back()->with('success', $resend ? 'Training email resent.' : 'Training email sent.');
     }
 
     public function addNote(Request $request, ChangeRequest $changeRequest)
@@ -326,6 +365,8 @@ class ChangeRequestController extends Controller
             );
 
             EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'done'), $changeRequest);
+
+            ApprovalWorkflowService::notifyAccessGranted($changeRequest);
 
             return back()->with('success', 'Item status updated. All items complete — request marked as done.');
         }

@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\DB;
 class ChangeRequest extends Model
 {
     protected $fillable = [
-        'reference', 'site_id', 'page_url', 'page_title', 'cpt_slug',
+        'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
         'is_new_page', 'status', 'priority', 'rejection_reason', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
+        'access_recipient_name', 'access_recipient_email',
+        'training_token', 'training_sent_at', 'training_confirmed_at',
         'deadline_date', 'deadline_reason', 'scheduled_date', 'assigned_to',
         'approval_overridden', 'approval_overridden_by', 'approval_overridden_at',
     ];
@@ -23,16 +25,22 @@ class ChangeRequest extends Model
             'check_answers' => 'array',
             'deadline_date' => 'date',
             'scheduled_date' => 'date',
+            'training_sent_at' => 'datetime',
+            'training_confirmed_at' => 'datetime',
             'approval_overridden' => 'boolean',
             'approval_overridden_at' => 'datetime',
         ];
     }
 
-    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'scheduled', 'done', 'declined', 'cancelled'];
+    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'done', 'declined', 'cancelled'];
 
-    public const POST_REFERRED_STATUSES = ['approved', 'scheduled', 'done'];
+    public const POST_REFERRED_STATUSES = ['approved', 'training', 'trained', 'scheduled', 'done'];
 
     public const TERMINAL_STATUSES = ['done', 'declined', 'cancelled'];
+
+    public const ACCESS_ONLY_STATUSES = ['training', 'trained'];
+
+    public const CHANGE_ONLY_STATUSES = ['scheduled'];
 
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
@@ -48,9 +56,35 @@ class ChangeRequest extends Model
         });
     }
 
+    public static function generateTrainingToken(): string
+    {
+        return bin2hex(random_bytes(32));
+    }
+
+    public function isAccessRequest(): bool
+    {
+        return $this->request_type === 'access';
+    }
+
+    /**
+     * Statuses applicable to this request's type: access requests can't be
+     * scheduled, change requests don't go through training.
+     */
+    public function statusOptions(): array
+    {
+        $excluded = $this->isAccessRequest() ? self::CHANGE_ONLY_STATUSES : self::ACCESS_ONLY_STATUSES;
+
+        return array_values(array_diff(self::STATUSES, $excluded));
+    }
+
     public function site()
     {
         return $this->belongsTo(Site::class);
+    }
+
+    public function cptType()
+    {
+        return $this->belongsTo(CptType::class, 'cpt_slug', 'slug');
     }
 
     public function assignee()
@@ -228,10 +262,12 @@ class ChangeRequest extends Model
     /**
      * Whether the SLA clock has been stopped. Scheduling a request to an
      * agreed date counts as meeting the SLA, so it no longer accrues time.
+     * Likewise while awaiting training confirmation — the ball is with the
+     * access recipient, not the team.
      */
     public function slaStopped(): bool
     {
-        return $this->status === 'scheduled';
+        return in_array($this->status, ['scheduled', 'training']);
     }
 
     /**

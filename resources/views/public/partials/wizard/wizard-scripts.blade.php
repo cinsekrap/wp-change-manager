@@ -184,19 +184,29 @@
         const ssName = document.getElementById('ssName');
         const ssEmail = document.getElementById('ssEmail');
         const ssReason = document.getElementById('ssReason');
+        const ssAccessName = document.getElementById('ssAccessName');
+        const ssAccessEmail = document.getElementById('ssAccessEmail');
+        const ssSameAsMe = document.getElementById('ssSameAsMe');
         const ssBtn = document.getElementById('ssSubmitBtn');
 
         function checkSsValid() {
-            const valid = ssName.value.trim() !== '' && ssEmail.value.trim() !== '' && ssEmail.value.includes('@') && ssReason.value.trim() !== '';
+            const valid = ssName.value.trim() !== '' && ssEmail.value.trim() !== '' && ssEmail.value.includes('@') && ssReason.value.trim() !== ''
+                && ssAccessName.value.trim() !== '' && ssAccessEmail.value.trim() !== '' && ssAccessEmail.value.includes('@');
             ssBtn.disabled = !valid;
         }
 
-        ssName.removeEventListener('input', checkSsValid);
-        ssEmail.removeEventListener('input', checkSsValid);
-        ssReason.removeEventListener('input', checkSsValid);
-        ssName.addEventListener('input', checkSsValid);
-        ssEmail.addEventListener('input', checkSsValid);
-        ssReason.addEventListener('input', checkSsValid);
+        [ssName, ssEmail, ssReason, ssAccessName, ssAccessEmail].forEach(el => {
+            el.removeEventListener('input', checkSsValid);
+            el.addEventListener('input', checkSsValid);
+        });
+
+        function copyRequesterToRecipient() {
+            ssAccessName.value = ssName.value;
+            ssAccessEmail.value = ssEmail.value;
+            checkSsValid();
+        }
+        ssSameAsMe.removeEventListener('click', copyRequesterToRecipient);
+        ssSameAsMe.addEventListener('click', copyRequesterToRecipient);
 
         // Pre-fill from stored requester details if available
         const storedName = document.getElementById('requesterName').value;
@@ -1146,7 +1156,8 @@
         const isNew = document.getElementById('isNewPage').checked;
         const pageUrl = isNew ? 'new-page' : (selectedPage ? selectedPage.url : '');
         const pageTitle = isNew ? document.getElementById('newPageTitle').value : (selectedPage ? selectedPage.title : '');
-        const cptSlug = isNew ? document.getElementById('newPageCpt').value : (selectedPage ? selectedPage.cpt_slug : '');
+        // Use the selected CPT tab — a page selection isn't needed for access requests
+        const cptSlug = getCurrentCptSlug() || '';
 
         const payload = {
             site_id: parseInt(document.getElementById('siteSelect').value),
@@ -1154,10 +1165,13 @@
             page_title: pageTitle || null,
             cpt_slug: cptSlug,
             is_new_page: false,
+            request_type: 'access',
             requester_name: document.getElementById('ssName').value.trim(),
             requester_email: document.getElementById('ssEmail').value.trim(),
             requester_phone: null,
             requester_role: null,
+            access_recipient_name: document.getElementById('ssAccessName').value.trim(),
+            access_recipient_email: document.getElementById('ssAccessEmail').value.trim(),
             priority: 'normal',
             check_answers: [],
             deadline_date: null,
@@ -1947,7 +1961,7 @@
             site_id: parseInt(document.getElementById('siteSelect').value),
             page_url: isNew ? 'new-page' : selectedPage.url,
             page_title: isNew ? document.getElementById('newPageTitle').value : (selectedPage ? selectedPage.title : null),
-            cpt_slug: isNew ? document.getElementById('newPageCpt').value : (selectedPage ? selectedPage.cpt_slug : 'page'),
+            cpt_slug: isNew ? document.getElementById('newPageCpt').value : (selectedPage ? selectedPage.cpt_slug : (getCurrentCptSlug() || 'page')),
             is_new_page: isNew,
             requester_name: document.getElementById('requesterName').value,
             requester_email: document.getElementById('requesterEmail').value,

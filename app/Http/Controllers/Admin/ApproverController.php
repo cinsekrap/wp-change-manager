@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
-use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestStatusLog;
@@ -113,17 +112,7 @@ class ApproverController extends Controller
         // Auto-advance to "approved" if all approvers have approved
         $changeRequest->refresh();
         if ($changeRequest->approvalsAllApproved() && in_array($changeRequest->status, ['requires_referral', 'referred'])) {
-            $oldStatus = $changeRequest->status;
-            $changeRequest->update(['status' => 'approved']);
-
-            ChangeRequestStatusLog::create([
-                'change_request_id' => $changeRequest->id,
-                'user_id' => auth()->id(),
-                'old_status' => $oldStatus,
-                'new_status' => 'approved',
-            ]);
-
-            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
+            ApprovalWorkflowService::advanceToApproved($changeRequest, auth()->id());
 
             return back()->with('success', 'Approval recorded. All approvers approved — status moved to Approved.');
         }
@@ -275,14 +264,7 @@ class ApproverController extends Controller
         // Auto-advance to approved if currently at requires_referral or referred
         if (in_array($changeRequest->status, ['requires_referral', 'referred'])) {
             $oldStatus = $changeRequest->status;
-            $changeRequest->update(['status' => 'approved']);
-
-            ChangeRequestStatusLog::create([
-                'change_request_id' => $changeRequest->id,
-                'user_id' => auth()->id(),
-                'old_status' => $oldStatus,
-                'new_status' => 'approved',
-            ]);
+            ApprovalWorkflowService::advanceToApproved($changeRequest, auth()->id());
 
             AuditService::log(
                 action: 'status_changed',
@@ -291,8 +273,6 @@ class ApproverController extends Controller
                 oldValues: ['status' => $oldStatus],
                 newValues: ['status' => 'approved'],
             );
-
-            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'approved'), $changeRequest);
         }
 
         return back()->with('success', 'Approval gate overridden. ' . $pendingCount . ' pending ' . str('approver')->plural($pendingCount) . ' notified.');

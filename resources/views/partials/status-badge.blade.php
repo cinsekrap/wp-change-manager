@@ -4,6 +4,8 @@ $colors = [
     'requires_referral' => 'bg-pink-100 text-pink-800',
     'referred' => 'bg-orange-100 text-orange-800',
     'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
+    'training' => 'bg-sky-100 text-sky-800',
+    'trained' => 'bg-teal-100 text-teal-800',
     'scheduled' => 'bg-purple-100 text-purple-800',
     'done' => 'bg-emerald-100 text-emerald-800',
     'declined' => 'bg-red-100 text-red-800',
@@ -11,6 +13,8 @@ $colors = [
 ];
 $labels = [
     'requires_referral' => 'Requires Referral',
+    'training' => 'Awaiting Training',
+    'trained' => 'Training Confirmed',
 ];
 $color = $colors[$status] ?? 'bg-gray-100 text-gray-800';
 $label = $labels[$status] ?? ucfirst($status);

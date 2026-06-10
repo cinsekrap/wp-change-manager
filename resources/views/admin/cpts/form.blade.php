@@ -250,6 +250,19 @@
             @error('mode_message') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
+        <div id="trainingUrlSection" class="{{ $currentMode === 'self_service' ? '' : 'hidden' }}">
+            <label for="training_url" class="block text-sm font-medium text-gray-700 mb-1">
+                Training video URL
+            </label>
+            <input type="url" name="training_url" id="training_url" value="{{ old('training_url', $cpt->training_url) }}"
+                placeholder="https://..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <p class="mt-1 text-xs text-gray-500">
+                Link to the training video the access recipient must watch. The training email cannot be sent without this.
+            </p>
+            @error('training_url') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+        </div>
+
         <div class="flex items-center space-x-3 pt-4">
             <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
                 {{ $cpt->exists ? 'Update' : 'Create' }}
@@ -498,6 +511,9 @@ function updateRequestMode() {
 
     // Show/hide message section
     section.classList.toggle('hidden', mode === 'normal');
+
+    // Training URL only applies to self-service CPTs
+    document.getElementById('trainingUrlSection').classList.toggle('hidden', mode !== 'self_service');
 
     // Update placeholder and help text based on mode
     if (mode === 'blocked') {

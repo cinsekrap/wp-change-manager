@@ -8,6 +8,7 @@ use App\Models\ChangeRequest;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\EmailLog;
 use App\Models\User;
+use App\Services\ApprovalWorkflowService;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 
@@ -38,6 +39,13 @@ class BulkActionController extends Controller
                 continue;
             }
 
+            // Skip statuses that don't apply to this request's type
+            // (e.g. "scheduled" for access requests)
+            if (!in_array($newStatus, $cr->statusOptions())) {
+                $skipped++;
+                continue;
+            }
+
             $updateData = ['status' => $newStatus];
 
             // Clear rejection reason when not declining/cancelling
@@ -47,9 +55,11 @@ class BulkActionController extends Controller
 
             $cr->update($updateData);
 
-            // Mark any unresolved items as not done when closing a request
+            // Mark any unresolved items as not done when closing a request,
+            // and clear pending approval tokens so stale links die with it
             if (in_array($newStatus, ChangeRequest::TERMINAL_STATUSES)) {
                 $cr->items()->where('status', 'in_progress')->update(['status' => 'not_done']);
+                $cr->approvers()->where('status', 'pending')->update(['token' => null]);
             }
 
             ChangeRequestStatusLog::create([
@@ -66,6 +76,14 @@ class BulkActionController extends Controller
                 oldValues: ['status' => $oldStatus],
                 newValues: ['status' => $newStatus],
             );
+
+            if ($newStatus === 'approved' && $cr->isAccessRequest()) {
+                ApprovalWorkflowService::startTraining($cr, auth()->id());
+            }
+
+            if ($newStatus === 'done') {
+                ApprovalWorkflowService::notifyAccessGranted($cr);
+            }
 
             $updated++;
         }

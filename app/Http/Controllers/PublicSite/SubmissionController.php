@@ -31,10 +31,13 @@ class SubmissionController extends Controller
             'page_title' => 'nullable|string|max:512',
             'cpt_slug' => 'required|string|max:100',
             'is_new_page' => 'boolean',
+            'request_type' => 'nullable|in:change,access',
             'requester_name' => 'required|string|max:255',
             'requester_email' => 'required|email|max:255',
             'requester_phone' => 'nullable|string|max:50',
             'requester_role' => 'nullable|string|max:255',
+            'access_recipient_name' => 'required_if:request_type,access|nullable|string|max:255',
+            'access_recipient_email' => 'required_if:request_type,access|nullable|email|max:255',
             'check_answers' => 'nullable|array',
             'priority' => 'nullable|in:low,normal,high,urgent',
             'deadline_date' => 'nullable|date|after:today',
@@ -69,6 +72,14 @@ class SubmissionController extends Controller
                 }
             }
         }
+        // Access requests must target a self-service content type
+        if (($validated['request_type'] ?? 'change') === 'access') {
+            $cptType = \App\Models\CptType::where('slug', $validated['cpt_slug'])->first();
+            if (!$cptType || !$cptType->isSelfService()) {
+                $validator->errors()->add('cpt_slug', 'Access requests are not available for this content type.');
+            }
+        }
+
         if ($validator->errors()->isNotEmpty()) {
             throw new \Illuminate\Validation\ValidationException($validator);
         }
@@ -80,6 +91,7 @@ class SubmissionController extends Controller
 
             $changeRequest = ChangeRequest::create([
                 'reference' => $reference,
+                'request_type' => $validated['request_type'] ?? 'change',
                 'site_id' => $validated['site_id'],
                 'page_url' => $validated['page_url'],
                 'page_title' => $validated['page_title'] ?? null,
@@ -91,6 +103,8 @@ class SubmissionController extends Controller
                 'requester_email' => $validated['requester_email'],
                 'requester_phone' => $validated['requester_phone'] ?? null,
                 'requester_role' => $validated['requester_role'] ?? null,
+                'access_recipient_name' => $validated['access_recipient_name'] ?? null,
+                'access_recipient_email' => $validated['access_recipient_email'] ?? null,
                 'check_answers' => $validated['check_answers'] ?? null,
                 'deadline_date' => $validated['deadline_date'] ?? null,
                 'deadline_reason' => $validated['deadline_reason'] ?? null,
