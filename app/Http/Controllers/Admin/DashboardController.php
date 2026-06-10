@@ -16,7 +16,7 @@ class DashboardController extends Controller
         $stats = [
             'total' => ChangeRequest::count(),
             'requested' => ChangeRequest::whereIn('status', ['requested', 'requires_referral'])->count(),
-            'in_progress' => ChangeRequest::whereIn('status', ['referred', 'approved', 'scheduled'])->count(),
+            'in_progress' => ChangeRequest::whereIn('status', ['referred', 'approved', 'training', 'trained', 'scheduled'])->count(),
             'done' => ChangeRequest::where('status', 'done')->count(),
             'sites' => Site::active()->count(),
             'my_requests' => ChangeRequest::where('assigned_to', auth()->id())

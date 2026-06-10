@@ -8,6 +8,7 @@ use App\Models\ChangeRequest;
 use App\Models\ChangeRequestStatusLog;
 use App\Models\EmailLog;
 use App\Models\User;
+use App\Services\ApprovalWorkflowService;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 
@@ -34,6 +35,13 @@ class BulkActionController extends Controller
 
             // Respect the approval gate
             if (in_array($newStatus, ChangeRequest::POST_REFERRED_STATUSES) && !$cr->canMovePastReferred()) {
+                $skipped++;
+                continue;
+            }
+
+            // Skip statuses that don't apply to this request's type
+            // (e.g. "scheduled" for access requests)
+            if (!in_array($newStatus, $cr->statusOptions())) {
                 $skipped++;
                 continue;
             }
@@ -66,6 +74,10 @@ class BulkActionController extends Controller
                 oldValues: ['status' => $oldStatus],
                 newValues: ['status' => $newStatus],
             );
+
+            if ($newStatus === 'approved' && $cr->isAccessRequest()) {
+                ApprovalWorkflowService::startTraining($cr, auth()->id());
+            }
 
             $updated++;
         }

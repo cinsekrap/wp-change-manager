@@ -9,11 +9,15 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- Main content --}}
     <div class="lg:col-span-2 space-y-6">
-        @include('admin.requests.partials._summary-card')
+        @if($changeRequest->isAccessRequest())
+            @include('admin.requests.partials._summary-card-access')
+        @else
+            @include('admin.requests.partials._summary-card')
 
-        @include('admin.requests.partials._items')
+            @include('admin.requests.partials._items')
 
-        @include('admin.requests.partials._check-answers')
+            @include('admin.requests.partials._check-answers')
+        @endif
 
         @include('admin.requests.partials._activity')
 
@@ -24,9 +28,15 @@
     <div class="space-y-4">
         @include('admin.requests.partials._sidebar-status')
 
+        @if($changeRequest->isAccessRequest())
+            @include('admin.requests.partials._sidebar-training')
+        @endif
+
         @include('admin.requests.partials._sidebar-approvals')
 
-        @include('admin.requests.partials._sidebar-page-history')
+        @unless($changeRequest->isAccessRequest())
+            @include('admin.requests.partials._sidebar-page-history')
+        @endunless
     </div>
 </div>
 @endsection

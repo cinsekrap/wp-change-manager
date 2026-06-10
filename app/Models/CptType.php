@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CptType extends Model
 {
-    protected $fillable = ['slug', 'name', 'description', 'form_config', 'sort_order', 'is_active', 'request_mode', 'mode_message'];
+    protected $fillable = ['slug', 'name', 'description', 'form_config', 'sort_order', 'is_active', 'request_mode', 'mode_message', 'training_url'];
 
     public const REQUEST_MODES = ['normal', 'blocked', 'self_service'];
 

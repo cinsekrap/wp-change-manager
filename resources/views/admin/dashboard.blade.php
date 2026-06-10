@@ -49,6 +49,8 @@
                 'requires_referral' => 'bg-pink-400',
                 'referred' => 'bg-orange-400',
                 'approved' => 'bg-hcrg-burgundy',
+                'training' => 'bg-sky-400',
+                'trained' => 'bg-teal-500',
                 'scheduled' => 'bg-purple-500',
                 'done' => 'bg-emerald-500',
                 'declined' => 'bg-red-500',
@@ -56,6 +58,8 @@
             ];
             $statusLabels = [
                 'requires_referral' => 'Requires Referral',
+                'training' => 'Awaiting Training',
+                'trained' => 'Training Confirmed',
             ];
             $maxStatus = $statusCounts->max() ?: 1;
         @endphp

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\PublicSite;
 
 use App\Http\Controllers\Controller;
 use App\Models\ChangeRequestApprover;
-use App\Models\ChangeRequestStatusLog;
 use App\Services\ApprovalWorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -95,16 +94,8 @@ class ApprovalController extends Controller
         }
 
         // Auto-advance to approved if all approvers have approved
-        if ($changeRequest->approvalsAllApproved() && in_array($changeRequest->status, ['requires_referral', 'referred'])) {
-            $oldStatus = $changeRequest->status;
-            $changeRequest->update(['status' => 'approved']);
-
-            ChangeRequestStatusLog::create([
-                'change_request_id' => $changeRequest->id,
-                'user_id' => null,
-                'old_status' => $oldStatus,
-                'new_status' => 'approved',
-            ]);
+        if ($changeRequest->approvalsAllApproved()) {
+            ApprovalWorkflowService::advanceToApproved($changeRequest, userId: null, notifyRequester: false);
         }
 
         // Auto-decline if an approver rejected and request is at referred

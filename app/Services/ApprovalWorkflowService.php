@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\ApprovalDeclined;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestStatusChanged;
+use App\Mail\TrainingRequested;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestStatusLog;
@@ -12,6 +13,100 @@ use App\Models\EmailLog;
 
 class ApprovalWorkflowService
 {
+    /**
+     * Advance a change request to "approved" once all approvals are in.
+     *
+     * Centralises the auto-advance previously duplicated across the public
+     * approval response, admin approval recording, and the override path.
+     * For access requests this also kicks off the training step.
+     *
+     * @param  int|null  $userId  The admin user ID who triggered the advance (null for public responses)
+     * @param  bool  $notifyRequester  Whether to email the requester about the status change
+     */
+    public static function advanceToApproved(
+        ChangeRequest $changeRequest,
+        ?int $userId = null,
+        bool $notifyRequester = true,
+    ): void {
+        if (!in_array($changeRequest->status, ['requires_referral', 'referred'])) {
+            return;
+        }
+
+        $oldStatus = $changeRequest->status;
+        $changeRequest->update(['status' => 'approved']);
+
+        ChangeRequestStatusLog::create([
+            'change_request_id' => $changeRequest->id,
+            'user_id' => $userId,
+            'old_status' => $oldStatus,
+            'new_status' => 'approved',
+        ]);
+
+        if ($notifyRequester) {
+            EmailLog::dispatch(
+                $changeRequest->requester_email,
+                new RequestStatusChanged($changeRequest, $oldStatus, 'approved'),
+                $changeRequest,
+            );
+        }
+
+        if ($changeRequest->isAccessRequest()) {
+            static::startTraining($changeRequest, $userId);
+        }
+    }
+
+    /**
+     * Send the training email to the access recipient and move the request
+     * to "training". Safe to re-call as a resend: the token is reused, the
+     * email re-dispatched, and the status only transitions from "approved".
+     *
+     * Returns false when no training video URL is configured for the CPT —
+     * the request stays at "approved" and a system note records why.
+     */
+    public static function startTraining(ChangeRequest $changeRequest, ?int $userId = null): bool
+    {
+        $trainingUrl = $changeRequest->cptType?->training_url;
+
+        if (!$trainingUrl || !$changeRequest->access_recipient_email) {
+            $cptName = $changeRequest->cptType->name ?? $changeRequest->cpt_slug;
+            $reason = !$trainingUrl
+                ? "no training video URL configured for content type \"{$cptName}\""
+                : 'no access recipient email on the request';
+
+            $changeRequest->notes()->create([
+                'user_id' => $userId,
+                'note' => "Training email not sent — {$reason}.",
+            ]);
+
+            return false;
+        }
+
+        if (!$changeRequest->training_token) {
+            $changeRequest->training_token = ChangeRequest::generateTrainingToken();
+        }
+        $changeRequest->training_sent_at = now();
+        $changeRequest->save();
+
+        EmailLog::dispatch(
+            $changeRequest->access_recipient_email,
+            new TrainingRequested($changeRequest),
+            $changeRequest,
+        );
+
+        if ($changeRequest->status === 'approved') {
+            $changeRequest->update(['status' => 'training']);
+
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => $userId,
+                'old_status' => 'approved',
+                'new_status' => 'training',
+            ]);
+        }
+
+        return true;
+    }
+
     /**
      * Handle rejection of a change request by an approver.
      *

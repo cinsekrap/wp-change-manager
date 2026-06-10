@@ -45,12 +45,30 @@
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label for="ssName" class="block text-xs font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                        <label for="ssName" class="block text-xs font-medium text-gray-700 mb-1">Your name <span class="text-red-500">*</span></label>
                         <input type="text" id="ssName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                     </div>
                     <div>
-                        <label for="ssEmail" class="block text-xs font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                        <label for="ssEmail" class="block text-xs font-medium text-gray-700 mb-1">Your email <span class="text-red-500">*</span></label>
                         <input type="email" id="ssEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-between mb-1">
+                        <h4 class="text-xs font-bold text-gray-900">Who needs access?</h4>
+                        <button type="button" id="ssSameAsMe" class="text-xs text-hcrg-burgundy hover:underline">Same as me</button>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">This person will receive the training email and be given access — it can be you or someone else.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="ssAccessName" class="block text-xs font-medium text-gray-700 mb-1">Their name <span class="text-red-500">*</span></label>
+                            <input type="text" id="ssAccessName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        </div>
+                        <div>
+                            <label for="ssAccessEmail" class="block text-xs font-medium text-gray-700 mb-1">Their email <span class="text-red-500">*</span></label>
+                            <input type="email" id="ssAccessEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        </div>
                     </div>
                 </div>
                 <div id="ssError" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg"></div>

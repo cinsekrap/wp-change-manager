@@ -80,4 +80,20 @@ return [
         'body' => 'The change request below has been declined following a review by another approver. Your approval is no longer needed and no action is required from you.',
         'placeholders' => ['reference', 'site_name', 'page_title', 'approver_name'],
     ],
+
+    'training_requested' => [
+        'name' => 'Training Requested',
+        'description' => 'Sent to the access recipient when an approved access request needs training to be completed.',
+        'subject' => 'Training Required: {reference}',
+        'body' => 'Your request for access has been approved. Before we can set up your access, please watch the short training video below. Once you\'ve watched it and feel confident, use the confirmation link to let us know.',
+        'placeholders' => ['reference', 'site_name', 'cpt_name', 'recipient_name', 'requester_name', 'training_url', 'confirm_url'],
+    ],
+
+    'training_confirmed' => [
+        'name' => 'Training Confirmed',
+        'description' => 'Sent to the assignee (or admin alert address) when an access recipient confirms they have completed training.',
+        'subject' => 'Training Confirmed: {reference}',
+        'body' => '{recipient_name} has confirmed they\'ve watched the training video and feel competent. The request is ready for access to be granted.',
+        'placeholders' => ['reference', 'site_name', 'cpt_name', 'recipient_name', 'recipient_email', 'confirmed_at'],
+    ],
 ];

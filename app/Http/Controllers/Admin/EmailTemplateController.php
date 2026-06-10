@@ -11,8 +11,11 @@ use App\Mail\RequestChase;
 use App\Mail\RequestStatusChanged;
 use App\Mail\RequestSubmitted;
 use App\Mail\ScheduledForActionToday;
+use App\Mail\TrainingConfirmed;
+use App\Mail\TrainingRequested;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
+use App\Models\CptType;
 use App\Models\Setting;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
@@ -127,6 +130,21 @@ class EmailTemplateController extends Controller
         ]);
         $sampleApprover->setRelation('changeRequest', $sample);
 
+        // Force access-request attributes in memory (not persisted) so the
+        // training previews render even when the latest real request isn't one
+        if (in_array($template, ['training-requested', 'training-confirmed'])) {
+            $sample->request_type = 'access';
+            $sample->access_recipient_name = $sample->access_recipient_name ?: 'Jane Smith';
+            $sample->access_recipient_email = $sample->access_recipient_email ?: 'jane@example.com';
+            $sample->training_token = 'sample-preview-token';
+            $sample->training_confirmed_at = now();
+            $sample->setRelation('cptType', new CptType([
+                'slug' => $sample->cpt_slug ?: 'events',
+                'name' => 'Events',
+                'training_url' => 'https://example.com/training-video',
+            ]));
+        }
+
         $mailable = match ($template) {
             'request-submitted' => new RequestSubmitted($sample),
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),
@@ -136,6 +154,8 @@ class EmailTemplateController extends Controller
             'approval-declined' => new ApprovalDeclined($sample, $sampleApprover),
             'request-chase' => new RequestChase($sample),
             'scheduled-today' => new ScheduledForActionToday($sample),
+            'training-requested' => new TrainingRequested($sample),
+            'training-confirmed' => new TrainingConfirmed($sample),
             default => abort(404),
         };
 
