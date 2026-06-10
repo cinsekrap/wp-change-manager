@@ -39,6 +39,55 @@ class ApprovalTest extends TestCase
         return [$cr, $approver];
     }
 
+    public function test_rejection_clears_other_pending_approver_tokens(): void
+    {
+        [$cr, $approver] = $this->createApproverWithRequest();
+        $other = ChangeRequestApprover::create([
+            'change_request_id' => $cr->id,
+            'name' => 'Other Approver',
+            'email' => 'other@example.com',
+            'status' => 'pending',
+            'token' => 'other-token-xyz',
+        ]);
+
+        $this->post("/approve/{$approver->token}", [
+            'status' => 'rejected',
+            'notes' => 'Not appropriate.',
+        ]);
+
+        $this->assertEquals('declined', $cr->fresh()->status);
+        $this->assertNull($other->fresh()->token);
+    }
+
+    public function test_queue_excludes_approvals_on_closed_requests(): void
+    {
+        [$cr, $approver] = $this->createApproverWithRequest();
+
+        // Same approver email left pending on a request that was declined
+        // without their token being cleared (legacy data)
+        $closedCr = ChangeRequest::create([
+            'reference' => 'WCR-20260327-099',
+            'site_id' => $cr->site_id,
+            'page_url' => 'https://approval.com/old-page',
+            'cpt_slug' => 'page',
+            'status' => 'declined',
+            'requester_name' => 'Requester',
+            'requester_email' => 'requester@example.com',
+        ]);
+        ChangeRequestApprover::create([
+            'change_request_id' => $closedCr->id,
+            'name' => 'Approver Person',
+            'email' => 'approver@example.com',
+            'status' => 'pending',
+            'token' => 'stale-token-on-closed-request',
+        ]);
+
+        $response = $this->get("/approve/{$approver->token}");
+
+        $response->assertStatus(200);
+        $response->assertDontSee('WCR-20260327-099');
+    }
+
     public function test_approval_page_loads_with_valid_token(): void
     {
         [$cr, $approver] = $this->createApproverWithRequest();

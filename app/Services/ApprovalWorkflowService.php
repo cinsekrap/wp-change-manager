@@ -169,18 +169,23 @@ class ApprovalWorkflowService
             $changeRequest,
         );
 
-        // Notify other pending approvers that their approval is no longer needed
+        // Notify other pending approvers that their approval is no longer
+        // needed, and clear their tokens so stale approval links can't be
+        // used and the requests no longer appear in approver queues
         $pendingApprovers = $changeRequest->approvers()
             ->where('status', 'pending')
-            ->whereNotNull('email')
             ->get();
 
         foreach ($pendingApprovers as $pending) {
-            EmailLog::dispatch(
-                $pending->email,
-                new ApprovalDeclined($changeRequest, $pending),
-                $changeRequest,
-            );
+            if ($pending->email) {
+                EmailLog::dispatch(
+                    $pending->email,
+                    new ApprovalDeclined($changeRequest, $pending),
+                    $changeRequest,
+                );
+            }
+
+            $pending->update(['token' => null]);
         }
     }
 

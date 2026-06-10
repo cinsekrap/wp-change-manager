@@ -125,7 +125,8 @@ class ApprovalController extends Controller
             ->whereNotNull('token')
             ->with(['changeRequest.site'])
             ->get()
-            ->filter(fn ($a) => !$a->changeRequest->approval_overridden)
+            ->filter(fn ($a) => !$a->changeRequest->approval_overridden
+                && !in_array($a->changeRequest->status, \App\Models\ChangeRequest::TERMINAL_STATUSES))
             ->map(fn ($a) => [
                 'reference' => $a->changeRequest->reference,
                 'site_name' => $a->changeRequest->site->name ?? '—',

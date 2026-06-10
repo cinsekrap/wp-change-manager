@@ -55,9 +55,11 @@ class BulkActionController extends Controller
 
             $cr->update($updateData);
 
-            // Mark any unresolved items as not done when closing a request
+            // Mark any unresolved items as not done when closing a request,
+            // and clear pending approval tokens so stale links die with it
             if (in_array($newStatus, ChangeRequest::TERMINAL_STATUSES)) {
                 $cr->items()->where('status', 'in_progress')->update(['status' => 'not_done']);
+                $cr->approvers()->where('status', 'pending')->update(['token' => null]);
             }
 
             ChangeRequestStatusLog::create([
