@@ -69,6 +69,20 @@ class TrainingFlowTest extends TestCase
         ]);
     }
 
+    public function test_approval_page_shows_access_details_not_fake_page(): void
+    {
+        $cr = $this->accessRequest();
+        $approver = $this->pendingApprover($cr);
+
+        $response = $this->get("/approve/{$approver->token}");
+
+        $response->assertStatus(200);
+        $response->assertSee('Access Request Approval');
+        $response->assertSee('Events');
+        $response->assertSee('Alex Recipient');
+        $response->assertDontSee('self-service-access-request');
+    }
+
     public function test_final_public_approval_sends_training_email_and_moves_to_training(): void
     {
         $cr = $this->accessRequest();

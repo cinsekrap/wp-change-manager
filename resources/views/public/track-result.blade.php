@@ -127,10 +127,21 @@
                 <dt class="text-gray-500">Site</dt>
                 <dd class="text-gray-900 font-medium">{{ $changeRequest->site->name }}</dd>
             </div>
+            @if($changeRequest->isAccessRequest())
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Access to</dt>
+                <dd class="text-gray-900 font-medium">{{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Access for</dt>
+                <dd class="text-gray-900 font-medium">{{ $changeRequest->access_recipient_name }}</dd>
+            </div>
+            @else
             <div class="flex justify-between">
                 <dt class="text-gray-500">Page</dt>
                 <dd class="text-gray-900 font-medium">{{ $changeRequest->page_title ?: $changeRequest->page_url }}</dd>
             </div>
+            @endif
             <div class="flex justify-between">
                 <dt class="text-gray-500">Submitted</dt>
                 <dd class="text-gray-900">

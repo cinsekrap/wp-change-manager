@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="bg-white rounded-lg shadow p-8">
-    <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">Approval Request</h1>
+    <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">{{ $changeRequest->isAccessRequest() ? 'Access Request Approval' : 'Approval Request' }}</h1>
 
     {{-- Request summary card --}}
     <div class="bg-gray-50 rounded-lg p-6 mb-6">
@@ -16,12 +16,34 @@
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>
                 <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site->name }}</p>
             </div>
+            @if($changeRequest->isAccessRequest())
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Access to</p>
+                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Access for</p>
+                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->access_recipient_name }}</p>
+                <p class="text-xs text-gray-500">{{ $changeRequest->access_recipient_email }}</p>
+            </div>
+            @else
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Changes requested</p>
                 <p class="text-sm text-gray-800">{{ $changeRequest->items->count() }} item(s)</p>
             </div>
+            @endif
         </div>
 
+        @if($changeRequest->isAccessRequest())
+        <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4">
+            <p class="text-sm text-gray-600">{{ $changeRequest->requester_name }} is asking for {{ $changeRequest->access_recipient_name === $changeRequest->requester_name ? 'access' : $changeRequest->access_recipient_name . ' to be given access' }} to manage <strong>{{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</strong> on {{ $changeRequest->site->name }} directly, instead of requesting changes through the marketing team.</p>
+            @if($changeRequest->items->first()?->description)
+                <p class="text-xs text-gray-500 uppercase tracking-wide mt-3">Their reason</p>
+                <p class="text-sm text-gray-800 mt-1 whitespace-pre-wrap">{{ $changeRequest->items->first()->description }}</p>
+            @endif
+            <p class="text-sm text-gray-600 mt-3">If you approve, they'll be asked to complete a short training video and confirm they're competent before access is set up.</p>
+        </div>
+        @else
         <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4">
             <p class="text-sm text-gray-600">The page these changes are requested for is:</p>
             @if($changeRequest->is_new_page)
@@ -33,6 +55,7 @@
                 </a>
             @endif
         </div>
+        @endif
 
         @if($changeRequest->deadline_date)
             <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
@@ -67,6 +90,7 @@
         @endif
 
         {{-- Items overview --}}
+        @unless($changeRequest->isAccessRequest())
         <div class="space-y-3">
             @foreach($changeRequest->items as $item)
                 @php
@@ -125,15 +149,17 @@
                 </div>
             @endforeach
         </div>
+        @endunless
     </div>
 
     {{-- Approver info --}}
     @php
         $otherApprovers = $changeRequest->approvers->where('id', '!=', $approver->id);
+        $approvalOutcome = $changeRequest->isAccessRequest() ? 'access will be granted' : 'this change will be scheduled and implemented';
     @endphp
     <div class="bg-hcrg-grey-100 rounded-lg px-6 py-4 mb-6 space-y-2">
         <p class="text-sm text-gray-700">
-            <strong>{{ $approver->name }}</strong>, you have been asked to review this change request.
+            <strong>{{ $approver->name }}</strong>, you have been asked to review this {{ $changeRequest->isAccessRequest() ? 'access request' : 'change request' }}.
         </p>
         @if($approver->group)
             @php $groupMembers = $changeRequest->approvers->where('group', $approver->group)->where('id', '!=', $approver->id); @endphp
@@ -145,11 +171,11 @@
             </p>
         @elseif($otherApprovers->count() > 0)
             <p class="text-sm text-gray-600">
-                We have also asked {{ $otherApprovers->count() }} other {{ Str::plural('person', $otherApprovers->count()) }} for their approval. All approvers must approve before this change will be scheduled and implemented.
+                We have also asked {{ $otherApprovers->count() }} other {{ Str::plural('person', $otherApprovers->count()) }} for their approval. All approvers must approve before {{ $approvalOutcome }}.
             </p>
         @else
             <p class="text-sm text-gray-600">
-                You are the only approver for this request. Your approval is required before this change will be scheduled and implemented.
+                You are the only approver for this request. Your approval is required before {{ $approvalOutcome }}.
             </p>
         @endif
     </div>

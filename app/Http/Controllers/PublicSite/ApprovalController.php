@@ -129,7 +129,9 @@ class ApprovalController extends Controller
             ->map(fn ($a) => [
                 'reference' => $a->changeRequest->reference,
                 'site_name' => $a->changeRequest->site->name ?? '—',
-                'page_title' => $a->changeRequest->page_title ?? $a->changeRequest->page_url,
+                'page_title' => $a->changeRequest->isAccessRequest()
+                    ? ($a->changeRequest->cptType->name ?? $a->changeRequest->cpt_slug) . ' access request'
+                    : ($a->changeRequest->page_title ?? $a->changeRequest->page_url),
                 'url' => URL::signedRoute('approval.queue', ['approver' => $a->id], now()->addHours(4)),
             ])
             ->values()

@@ -24,6 +24,20 @@
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Site</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $siteName }}</td>
         </tr>
+        @if($isAccessRequest)
+        <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access to</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $cptName }}</td>
+        </tr>
+        <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access for</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $recipientName }} ({{ $recipientEmail }})</td>
+        </tr>
+        <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Requested by</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $requesterName }}</td>
+        </tr>
+        @else
         <tr>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Page</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $isNewPage ? 'New page: ' : '' }}{{ $pageTitle }}</td>
@@ -36,6 +50,7 @@
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Changes</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $itemCount }} {{ Str::plural('item', $itemCount) }}</td>
         </tr>
+        @endif
     </table>
 
     @if($deadlineDate)
@@ -62,7 +77,11 @@
     </table>
 
     <p style="margin:0 0 8px;font-size:13px;color:#6E6E6D;">
-        <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for the marketing team to make the requested changes to the website. If you have concerns or need changes to the request, you can reject it with a note explaining why.
+        @if($isAccessRequest)
+            <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for {{ $recipientName }} to be given access to manage this content directly. They'll need to complete training and confirm they're competent before access is set up. If you have concerns, you can reject the request with a note explaining why.
+        @else
+            <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for the marketing team to make the requested changes to the website. If you have concerns or need changes to the request, you can reject it with a note explaining why.
+        @endif
     </p>
 
     <p style="margin:16px 0 0;font-size:13px;color:#A0A09F;">
