@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AccessGranted;
 use App\Mail\ApprovalDeclined;
 use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
@@ -132,7 +133,7 @@ class EmailTemplateController extends Controller
 
         // Force access-request attributes in memory (not persisted) so the
         // training previews render even when the latest real request isn't one
-        if (in_array($template, ['training-requested', 'training-confirmed'])) {
+        if (in_array($template, ['training-requested', 'training-confirmed', 'access-granted'])) {
             $sample->request_type = 'access';
             $sample->access_recipient_name = $sample->access_recipient_name ?: 'Jane Smith';
             $sample->access_recipient_email = $sample->access_recipient_email ?: 'jane@example.com';
@@ -156,6 +157,7 @@ class EmailTemplateController extends Controller
             'scheduled-today' => new ScheduledForActionToday($sample),
             'training-requested' => new TrainingRequested($sample),
             'training-confirmed' => new TrainingConfirmed($sample),
+            'access-granted' => new AccessGranted($sample),
             default => abort(404),
         };
 

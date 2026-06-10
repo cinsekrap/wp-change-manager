@@ -6,8 +6,18 @@
     {{-- Status-specific heading with colour accent --}}
     @if($rawStatus === 'done')
     <div style="margin:0 0 24px;padding:16px 20px;background-color:#ECFDF5;border-left:4px solid #059669;border-radius:4px;">
-        <h2 style="margin:0 0 4px;color:#065F46;font-size:20px;font-weight:700;">Your changes are complete</h2>
+        <h2 style="margin:0 0 4px;color:#065F46;font-size:20px;font-weight:700;">{{ $isAccessRequest ? 'Access has been set up' : 'Your changes are complete' }}</h2>
         <p style="margin:0;color:#047857;font-size:14px;">Reference {{ $reference }} — all done.</p>
+    </div>
+    @elseif($rawStatus === 'training')
+    <div style="margin:0 0 24px;padding:16px 20px;background-color:#F0F9FF;border-left:4px solid #0284C7;border-radius:4px;">
+        <h2 style="margin:0 0 4px;color:#075985;font-size:20px;font-weight:700;">Approved — training underway</h2>
+        <p style="margin:0;color:#0369A1;font-size:14px;">Reference {{ $reference }} — awaiting training confirmation.</p>
+    </div>
+    @elseif($rawStatus === 'trained')
+    <div style="margin:0 0 24px;padding:16px 20px;background-color:#F0FDFA;border-left:4px solid #0D9488;border-radius:4px;">
+        <h2 style="margin:0 0 4px;color:#115E59;font-size:20px;font-weight:700;">Training confirmed</h2>
+        <p style="margin:0;color:#0F766E;font-size:14px;">Reference {{ $reference }} — access is being set up.</p>
     </div>
     @elseif($rawStatus === 'declined' || $rawStatus === 'cancelled')
     <div style="margin:0 0 24px;padding:16px 20px;background-color:#FEF2F2;border-left:4px solid #DC2626;border-radius:4px;">
@@ -39,7 +49,11 @@
     {{-- What this means — contextual message up front --}}
     @if($rawStatus === 'done')
     <p style="margin:0 0 16px;">
-        The changes you requested have been completed. Please check the page and let us know if anything doesn't look right.
+        @if($isAccessRequest)
+            Access to {{ $cptName }} has been set up for {{ $recipientName }}. They can now manage this content directly.
+        @else
+            The changes you requested have been completed. Please check the page and let us know if anything doesn't look right.
+        @endif
     </p>
     @if($pageUrl)
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
@@ -62,9 +76,21 @@
     <p style="margin:0 0 16px;">
         If you have any questions about this decision, please contact the marketing team.
     </p>
+    @elseif($rawStatus === 'training')
+    <p style="margin:0 0 16px;">
+        Your access request has been approved. A training email has been sent to {{ $recipientName }} — access will be set up once they've watched the video and confirmed they're competent.
+    </p>
+    @elseif($rawStatus === 'trained')
+    <p style="margin:0 0 16px;">
+        {{ $recipientName }} has confirmed they've completed the training. The team is now setting up their access and will confirm once it's ready.
+    </p>
     @elseif($rawStatus === 'approved')
     <p style="margin:0 0 16px;">
-        Your request has been approved and is now in the queue to be actioned by the marketing team. Please note that approved requests are scheduled based on priority and team capacity — we'll update you when work is complete.
+        @if($isAccessRequest)
+            Your access request has been approved. {{ $recipientName }} will receive a training email shortly — access will be set up once they've completed the training.
+        @else
+            Your request has been approved and is now in the queue to be actioned by the marketing team. Please note that approved requests are scheduled based on priority and team capacity — we'll update you when work is complete.
+        @endif
     </p>
     @elseif($rawStatus === 'scheduled')
     <p style="margin:0 0 16px;">
@@ -86,10 +112,21 @@
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;width:140px;color:#3C3C3B;">Site</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $siteName }}</td>
         </tr>
+        @if($isAccessRequest)
+        <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access to</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $cptName }}</td>
+        </tr>
+        <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access for</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $recipientName }}</td>
+        </tr>
+        @else
         <tr>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Page</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $isNewPage ? 'New page: ' : '' }}{{ $pageTitle }}</td>
         </tr>
+        @endif
         <tr>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Status</td>
             <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $oldStatus }} &rarr; <strong>{{ $newStatus }}</strong></td>
@@ -97,7 +134,7 @@
     </table>
 
     {{-- What was requested --}}
-    @if($items->isNotEmpty())
+    @if($items->isNotEmpty() && !$isAccessRequest)
     <div style="margin:0 0 24px;padding:12px 16px;background-color:#F0F0EF;border-radius:8px;">
         <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#3C3C3B;">Changes requested ({{ $itemCount }}):</p>
         @foreach($items as $item)
@@ -120,8 +157,13 @@
 
     {{-- Progress indicator --}}
     @php
-        $steps = ['requested', 'referred', 'approved', 'scheduled', 'done'];
-        $stepLabels = ['Submitted', 'Referred', 'Approved', 'Scheduled', 'Complete'];
+        if ($isAccessRequest) {
+            $steps = ['requested', 'referred', 'approved', 'training', 'trained', 'done'];
+            $stepLabels = ['Submitted', 'Referred', 'Approved', 'Training', 'Confirmed', 'Complete'];
+        } else {
+            $steps = ['requested', 'referred', 'approved', 'scheduled', 'done'];
+            $stepLabels = ['Submitted', 'Referred', 'Approved', 'Scheduled', 'Complete'];
+        }
         $isTerminal = in_array($rawStatus, ['declined', 'cancelled']);
         $currentIndex = array_search($rawStatus, $steps);
         if ($currentIndex === false && !$isTerminal) {

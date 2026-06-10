@@ -79,6 +79,10 @@ class BulkActionController extends Controller
                 ApprovalWorkflowService::startTraining($cr, auth()->id());
             }
 
+            if ($newStatus === 'done') {
+                ApprovalWorkflowService::notifyAccessGranted($cr);
+            }
+
             $updated++;
         }
 

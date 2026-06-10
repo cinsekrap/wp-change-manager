@@ -96,4 +96,12 @@ return [
         'body' => '{recipient_name} has confirmed they\'ve watched the training video and feel competent. The request is ready for access to be granted.',
         'placeholders' => ['reference', 'site_name', 'cpt_name', 'recipient_name', 'recipient_email', 'confirmed_at'],
     ],
+
+    'access_granted' => [
+        'name' => 'Access Granted',
+        'description' => 'Sent to the access recipient when their access request is completed.',
+        'subject' => 'Your access is ready: {reference}',
+        'body' => 'Good news — your access has been set up. You can now log in to {site_name} and manage {cpt_name} yourself. Thank you for completing the training.',
+        'placeholders' => ['reference', 'site_name', 'cpt_name', 'recipient_name'],
+    ],
 ];

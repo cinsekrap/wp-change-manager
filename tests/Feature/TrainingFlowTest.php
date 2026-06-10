@@ -314,6 +314,57 @@ class TrainingFlowTest extends TestCase
         $response->assertDontSee('Page:');
     }
 
+    public function test_marking_done_notifies_the_access_recipient(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->accessRequest([
+            'status' => 'trained',
+            'training_token' => 'valid-training-token',
+            'training_sent_at' => now(),
+            'training_confirmed_at' => now(),
+        ]);
+
+        $this->patch("/admin/requests/{$cr->id}/status", ['status' => 'done']);
+
+        $this->assertEquals('done', $cr->fresh()->status);
+        $this->assertDatabaseHas('email_logs', [
+            'mailable_class' => 'AccessGranted',
+            'recipient_email' => 'alex@example.com',
+            'change_request_id' => $cr->id,
+        ]);
+    }
+
+    public function test_access_granted_email_skipped_when_recipient_is_requester(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->accessRequest([
+            'status' => 'trained',
+            'access_recipient_email' => 'Requester@Example.com',
+            'training_confirmed_at' => now(),
+        ]);
+
+        $this->patch("/admin/requests/{$cr->id}/status", ['status' => 'done']);
+
+        $this->assertEquals('done', $cr->fresh()->status);
+        // Requester gets the normal status email; no duplicate AccessGranted
+        $this->assertDatabaseMissing('email_logs', ['mailable_class' => 'AccessGranted']);
+        $this->assertDatabaseHas('email_logs', ['mailable_class' => 'RequestStatusChanged']);
+    }
+
+    public function test_status_email_shows_access_details_not_fake_page(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->accessRequest(['status' => 'trained']);
+
+        $this->patch("/admin/requests/{$cr->id}/status", ['status' => 'done']);
+
+        $log = $cr->emailLogs()->where('mailable_class', 'RequestStatusChanged')->first();
+        $this->assertNotNull($log);
+        $this->assertStringNotContainsString('self-service-access-request', $log->body_html);
+        $this->assertStringContainsString('Access has been set up', $log->body_html);
+        $this->assertStringContainsString('Alex Recipient', $log->body_html);
+    }
+
     public function test_bulk_status_update_skips_inapplicable_statuses(): void
     {
         $this->loginAsAdmin();

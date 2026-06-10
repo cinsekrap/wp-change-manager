@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\AccessGranted;
 use App\Mail\ApprovalDeclined;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestStatusChanged;
@@ -105,6 +106,28 @@ class ApprovalWorkflowService
         }
 
         return true;
+    }
+
+    /**
+     * Tell the access recipient their access has been set up. Sent when an
+     * access request is completed; skipped when the recipient is also the
+     * requester, who already gets the standard status-changed email.
+     */
+    public static function notifyAccessGranted(ChangeRequest $changeRequest): void
+    {
+        if (!$changeRequest->isAccessRequest() || !$changeRequest->access_recipient_email) {
+            return;
+        }
+
+        if (strcasecmp($changeRequest->access_recipient_email, $changeRequest->requester_email) === 0) {
+            return;
+        }
+
+        EmailLog::dispatch(
+            $changeRequest->access_recipient_email,
+            new AccessGranted($changeRequest),
+            $changeRequest,
+        );
     }
 
     /**

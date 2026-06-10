@@ -240,6 +240,11 @@ class ChangeRequestController extends Controller
             if ($newStatus === 'approved' && $changeRequest->isAccessRequest()) {
                 ApprovalWorkflowService::startTraining($changeRequest, auth()->id());
             }
+
+            // Completing an access request tells the recipient their access is ready
+            if ($newStatus === 'done') {
+                ApprovalWorkflowService::notifyAccessGranted($changeRequest);
+            }
         }
 
         return back()->with('success', 'Status updated.');
@@ -358,6 +363,8 @@ class ChangeRequestController extends Controller
             );
 
             EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, 'done'), $changeRequest);
+
+            ApprovalWorkflowService::notifyAccessGranted($changeRequest);
 
             return back()->with('success', 'Item status updated. All items complete — request marked as done.');
         }
