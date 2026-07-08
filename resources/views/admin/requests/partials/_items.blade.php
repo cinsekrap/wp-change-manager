@@ -124,6 +124,15 @@
                 <div class="space-y-1">
                     @foreach($item->files as $file)
                     <div class="mb-2">
+                        @if($file->purged_at)
+                        <span class="flex items-center text-sm text-gray-400">
+                            <svg class="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span class="line-through">{{ $file->original_filename }}</span>
+                            <span class="ml-1 text-xs">(removed {{ $file->purged_at->format('j M Y') }} after the request was closed)</span>
+                        </span>
+                        @else
                         <a href="{{ route('admin.requests.download', [$changeRequest, $file]) }}"
                            class="flex items-center text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">
                             <svg class="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,6 +141,7 @@
                             {{ $file->original_filename }}
                             <span class="ml-1 text-gray-400 text-xs">({{ number_format($file->file_size / 1024, 0) }}KB)</span>
                         </a>
+                        @endif
                         @if($file->title)
                             <p class="text-sm font-medium text-gray-700 ml-5">{{ $file->title }}</p>
                         @endif
