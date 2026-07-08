@@ -143,9 +143,9 @@ abstract readonly class Metadata
      * @param class-string     $className
      * @param non-empty-string $methodName
      */
-    public static function dataProvider(string $className, string $methodName, bool $validateArgumentCount): DataProvider
+    public static function dataProvider(string $className, string $methodName, bool $validateArgumentCount, bool $skipWhenEmpty): DataProvider
     {
-        return new DataProvider(Level::METHOD_LEVEL, $className, $methodName, $validateArgumentCount);
+        return new DataProvider(Level::METHOD_LEVEL, $className, $methodName, $validateArgumentCount, $skipWhenEmpty);
     }
 
     public static function dataProviderClosure(Closure $callable, bool $validateArgumentCount): DataProviderClosure
@@ -405,21 +405,33 @@ abstract readonly class Metadata
         return new RequiresPhpunitExtension(Level::METHOD_LEVEL, $extensionClass);
     }
 
+    /**
+     * @param non-empty-string $environmentVariableName
+     */
     public static function requiresEnvironmentVariableOnClass(string $environmentVariableName, null|string $value): RequiresEnvironmentVariable
     {
         return new RequiresEnvironmentVariable(Level::CLASS_LEVEL, $environmentVariableName, $value);
     }
 
+    /**
+     * @param non-empty-string $environmentVariableName
+     */
     public static function requiresEnvironmentVariableOnMethod(string $environmentVariableName, null|string $value): RequiresEnvironmentVariable
     {
         return new RequiresEnvironmentVariable(Level::METHOD_LEVEL, $environmentVariableName, $value);
     }
 
+    /**
+     * @param non-empty-string $environmentVariableName
+     */
     public static function withEnvironmentVariableOnClass(string $environmentVariableName, null|string $value): WithEnvironmentVariable
     {
         return new WithEnvironmentVariable(Level::CLASS_LEVEL, $environmentVariableName, $value);
     }
 
+    /**
+     * @param non-empty-string $environmentVariableName
+     */
     public static function withEnvironmentVariableOnMethod(string $environmentVariableName, null|string $value): WithEnvironmentVariable
     {
         return new WithEnvironmentVariable(Level::METHOD_LEVEL, $environmentVariableName, $value);
