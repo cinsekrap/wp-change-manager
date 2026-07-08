@@ -31,7 +31,7 @@ class UploadController extends Controller
             'file' => [
                 'required',
                 'file',
-                'max:10240',
+                'max:131072',
                 'mimetypes:' . implode(',', $this->allowedMimes),
             ],
         ]);

@@ -775,8 +775,8 @@
                 break;
             }
 
-            if (file.size > 10 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 10MB limit.`);
+            if (file.size > 128 * 1024 * 1024) {
+                alert(`${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 
@@ -1576,8 +1576,8 @@
                 break;
             }
 
-            if (file.size > 10 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 10MB limit.`);
+            if (file.size > 128 * 1024 * 1024) {
+                alert(`${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 
