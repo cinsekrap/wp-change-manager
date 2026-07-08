@@ -19,6 +19,10 @@ class UploadController extends Controller
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'video/mp4',
+        'video/quicktime',
+        'video/webm',
+        'video/x-msvideo',
     ];
 
     public function store(Request $request)
@@ -27,7 +31,7 @@ class UploadController extends Controller
             'file' => [
                 'required',
                 'file',
-                'max:10240',
+                'max:131072',
                 'mimetypes:' . implode(',', $this->allowedMimes),
             ],
         ]);

@@ -744,7 +744,7 @@
                 html += `<input type="date" class="sf-input ${inputClass}${bgClass}">`;
                 break;
             case 'file':
-                html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx">`;
+                html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">`;
                 html += `<div class="sf-file-list mt-3 space-y-3"></div>`;
                 break;
         }
@@ -775,8 +775,8 @@
                 break;
             }
 
-            if (file.size > 10 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 10MB limit.`);
+            if (file.size > 128 * 1024 * 1024) {
+                alert(`${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 
@@ -1576,8 +1576,8 @@
                 break;
             }
 
-            if (file.size > 10 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 10MB limit.`);
+            if (file.size > 128 * 1024 * 1024) {
+                alert(`${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 

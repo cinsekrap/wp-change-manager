@@ -46,8 +46,8 @@
                 <div class="diff-preview text-sm text-gray-800 whitespace-pre-wrap leading-relaxed p-3 bg-gray-50 border border-gray-200 rounded-lg min-h-[2.5rem]"></div>
             </div>
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="text-gray-400">(max 5 files, 10MB each)</span></label>
-                <input type="file" class="file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="text-gray-400">(max 5 files, 128MB each)</span></label>
+                <input type="file" class="file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">
                 <div class="file-list mt-2 space-y-1"></div>
             </div>
         </div>
