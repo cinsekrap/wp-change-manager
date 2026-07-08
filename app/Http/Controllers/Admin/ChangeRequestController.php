@@ -305,6 +305,10 @@ class ChangeRequestController extends Controller
             abort(404);
         }
 
+        if ($file->purged_at) {
+            abort(410, 'File removed after the request was closed.');
+        }
+
         if (!Storage::disk('local')->exists($file->stored_path)) {
             abort(404, 'File not found.');
         }
