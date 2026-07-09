@@ -5,7 +5,7 @@
 
     <div id="cptTabs" class="flex flex-wrap gap-2 mb-4"></div>
 
-    <div class="mb-4">
+    <div id="pageSearchWrap" class="mb-4">
         <input type="text" id="pageSearch" placeholder="Search pages..."
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
     </div>
@@ -80,7 +80,7 @@
         </div>
     </div>
 
-    <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+    <div id="newPageSection" class="mt-4 p-3 bg-gray-50 rounded-lg">
         <label class="flex items-center space-x-2 cursor-pointer">
             <input type="checkbox" id="isNewPage" class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
             <span class="text-sm text-gray-700">This is a <strong>new page</strong> that doesn't exist yet</span>
