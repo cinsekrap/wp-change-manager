@@ -177,6 +177,16 @@
             selfServiceEl.classList.remove('hidden');
             initSelfServiceForm();
         }
+
+        // Self-service requests don't involve a page, so the page browser is
+        // noise — hide it and surface the access form directly. Keep the
+        // new-page section if that's how the user reached self-service mode.
+        const selfService = mode === 'self_service';
+        const isNew = document.getElementById('isNewPage').checked;
+        document.getElementById('pageSearchWrap').classList.toggle('hidden', selfService);
+        document.getElementById('pageList').classList.toggle('hidden', selfService);
+        document.getElementById('newPageSection').classList.toggle('hidden', selfService && !isNew);
+
         checkStepValid();
     }
 
@@ -1732,6 +1742,12 @@
 
     function selectCpt(cpt) {
         selectedCpt = cpt;
+        // A page picked under another tab would otherwise keep deciding the
+        // request mode via getCurrentCptSlug — drop it when it no longer fits.
+        if (selectedPage && cpt && selectedPage.cpt_slug !== cpt) {
+            selectedPage = null;
+            refreshAllContentAreaFields();
+        }
         document.querySelectorAll('.cpt-tab').forEach(tab => {
             const isActive = tab.dataset.cpt === (cpt || '');
             tab.className = `cpt-tab px-3 py-1.5 rounded-full text-sm font-medium ${isActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
