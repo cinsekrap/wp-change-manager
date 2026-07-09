@@ -813,16 +813,16 @@
         },
         {
             "name": "guzzlehttp/guzzle",
-            "version": "7.13.3",
+            "version": "7.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/guzzle/guzzle.git",
-                "reference": "caa5491e1030fd120247f42fb3331ecf38da3b26"
+                "reference": "aef242412e13128b5049864867bb49fc37dd39de"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/caa5491e1030fd120247f42fb3331ecf38da3b26",
-                "reference": "caa5491e1030fd120247f42fb3331ecf38da3b26",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/aef242412e13128b5049864867bb49fc37dd39de",
+                "reference": "aef242412e13128b5049864867bb49fc37dd39de",
                 "shasum": ""
             },
             "require": {
@@ -921,7 +921,7 @@
             ],
             "support": {
                 "issues": "https://github.com/guzzle/guzzle/issues",
-                "source": "https://github.com/guzzle/guzzle/tree/7.13.3"
+                "source": "https://github.com/guzzle/guzzle/tree/7.14.0"
             },
             "funding": [
                 {
@@ -937,7 +937,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-08T16:10:19+00:00"
+            "time": "2026-07-08T22:54:09+00:00"
         },
         {
             "name": "guzzlehttp/promises",
@@ -8719,24 +8719,24 @@
         },
         {
             "name": "sebastian/lines-of-code",
-            "version": "5.0.1",
+            "version": "5.0.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/lines-of-code.git",
-                "reference": "d2cff273a90c79b0eb590baa682d4b5c318bdbb7"
+                "reference": "d1b6f8fce682505dbd048977f1abedf1b8ad3ff8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/lines-of-code/zipball/d2cff273a90c79b0eb590baa682d4b5c318bdbb7",
-                "reference": "d2cff273a90c79b0eb590baa682d4b5c318bdbb7",
+                "url": "https://api.github.com/repos/sebastianbergmann/lines-of-code/zipball/d1b6f8fce682505dbd048977f1abedf1b8ad3ff8",
+                "reference": "d1b6f8fce682505dbd048977f1abedf1b8ad3ff8",
                 "shasum": ""
             },
             "require": {
-                "nikic/php-parser": "^5.7.0",
+                "nikic/php-parser": "^5.8.0",
                 "php": ">=8.4"
             },
             "require-dev": {
-                "phpunit/phpunit": "^13.1.10"
+                "phpunit/phpunit": "^13.2.4"
             },
             "type": "library",
             "extra": {
@@ -8765,7 +8765,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/lines-of-code/issues",
                 "security": "https://github.com/sebastianbergmann/lines-of-code/security/policy",
-                "source": "https://github.com/sebastianbergmann/lines-of-code/tree/5.0.1"
+                "source": "https://github.com/sebastianbergmann/lines-of-code/tree/5.0.2"
             },
             "funding": [
                 {
@@ -8785,7 +8785,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-19T16:23:37+00:00"
+            "time": "2026-07-09T08:42:34+00:00"
         },
         {
             "name": "sebastian/object-enumerator",
