@@ -9,7 +9,28 @@
     <a href="{{ route('admin.settings.updates') }}" class="text-sm font-medium text-hcrg-burgundy hover:underline">View update</a>
 </div>
 @endif
-<h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+@unless($schedulerOk)
+<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+    <span class="text-sm text-red-800">
+        <strong>Scheduled tasks are not running.</strong>
+        {{ $schedulerLastRun ? 'Last heartbeat ' . $schedulerLastRun->diffForHumans() . '.' : 'No heartbeat has ever been recorded.' }}
+        Daily reminders and upload cleanup will not happen — check the hosting panel's scheduled task is enabled and running <code class="text-xs">artisan schedule:run</code> every minute.
+    </span>
+</div>
+@endunless
+
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+    @if($schedulerOk)
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200" title="Last heartbeat {{ $schedulerLastRun->diffForHumans() }}">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>Scheduler running
+    </span>
+    @else
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+        <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span>Scheduler not running
+    </span>
+    @endif
+</div>
 
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
     <div class="bg-white rounded-lg shadow p-6">
