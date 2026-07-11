@@ -62,8 +62,15 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Scheduler heartbeat, written every minute by routes/console.php
-        $schedulerLastRun = Cache::get('scheduler_last_run');
+        // Scheduler heartbeat, written every minute by routes/console.php.
+        // Defensive on purpose: whatever is in the cache (missing, legacy
+        // object, corrupt), a bad heartbeat must show the warning, never 500.
+        try {
+            $heartbeat = Cache::get('scheduler_last_run');
+        } catch (\Throwable) {
+            $heartbeat = null;
+        }
+        $schedulerLastRun = is_numeric($heartbeat) ? Carbon::createFromTimestamp((int) $heartbeat) : null;
         $schedulerOk = $schedulerLastRun !== null && $schedulerLastRun->gt(now()->subMinutes(5));
 
         return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts', 'topRequesters', 'schedulerLastRun', 'schedulerOk'));
