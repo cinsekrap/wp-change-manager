@@ -7102,6 +7102,7 @@ return array(
     'Tests\\Feature\\PublicWizardTest' => $baseDir . '/tests/Feature/PublicWizardTest.php',
     'Tests\\Feature\\PurgeCompletedUploadsTest' => $baseDir . '/tests/Feature/PurgeCompletedUploadsTest.php',
     'Tests\\Feature\\ScheduledTodayReminderTest' => $baseDir . '/tests/Feature/ScheduledTodayReminderTest.php',
+    'Tests\\Feature\\SchedulerHeartbeatTest' => $baseDir . '/tests/Feature/SchedulerHeartbeatTest.php',
     'Tests\\Feature\\SitemapServiceTest' => $baseDir . '/tests/Feature/SitemapServiceTest.php',
     'Tests\\Feature\\SubmissionTest' => $baseDir . '/tests/Feature/SubmissionTest.php',
     'Tests\\Feature\\TrackingTest' => $baseDir . '/tests/Feature/TrackingTest.php',
