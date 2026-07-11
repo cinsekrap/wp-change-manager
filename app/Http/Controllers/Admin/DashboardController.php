@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -31,11 +32,9 @@ class DashboardController extends Controller
 
         // Chart 2: Requests by month (last 6 months)
         $sixMonthsAgo = Carbon::now()->subMonths(5)->startOfMonth();
-        $monthlyRaw = ChangeRequest::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, count(*) as total")
-            ->where('created_at', '>=', $sixMonthsAgo)
-            ->groupBy('month')
-            ->orderBy('month')
-            ->pluck('total', 'month');
+        $monthlyRaw = ChangeRequest::where('created_at', '>=', $sixMonthsAgo)
+            ->pluck('created_at')
+            ->countBy(fn ($date) => $date->format('Y-m'));
 
         // Fill in missing months with zero
         $monthlyCounts = collect();
@@ -63,7 +62,11 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts', 'topRequesters'));
+        // Scheduler heartbeat, written every minute by routes/console.php
+        $schedulerLastRun = Cache::get('scheduler_last_run');
+        $schedulerOk = $schedulerLastRun !== null && $schedulerLastRun->gt(now()->subMinutes(5));
+
+        return view('admin.dashboard', compact('stats', 'recent', 'statusCounts', 'monthlyCounts', 'topRequesters', 'schedulerLastRun', 'schedulerOk'));
     }
 
     public function dismissWhatsNew(Request $request)
