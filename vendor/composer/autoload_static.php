@@ -7691,6 +7691,7 @@ class ComposerStaticInitc57754c93ae34ac3b9b716a0fd2f2149
         'Tests\\Feature\\PublicWizardTest' => __DIR__ . '/../..' . '/tests/Feature/PublicWizardTest.php',
         'Tests\\Feature\\PurgeCompletedUploadsTest' => __DIR__ . '/../..' . '/tests/Feature/PurgeCompletedUploadsTest.php',
         'Tests\\Feature\\ScheduledTodayReminderTest' => __DIR__ . '/../..' . '/tests/Feature/ScheduledTodayReminderTest.php',
+        'Tests\\Feature\\SchedulerHeartbeatTest' => __DIR__ . '/../..' . '/tests/Feature/SchedulerHeartbeatTest.php',
         'Tests\\Feature\\SitemapServiceTest' => __DIR__ . '/../..' . '/tests/Feature/SitemapServiceTest.php',
         'Tests\\Feature\\SubmissionTest' => __DIR__ . '/../..' . '/tests/Feature/SubmissionTest.php',
         'Tests\\Feature\\TrackingTest' => __DIR__ . '/../..' . '/tests/Feature/TrackingTest.php',
