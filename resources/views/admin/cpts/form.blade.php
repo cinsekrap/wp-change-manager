@@ -393,7 +393,10 @@ function addContentArea() {
 function removeArea(btn) {
     const card = btn.closest('.content-area-card');
     const name = card.querySelector('.area-name-input')?.value;
-    if (name && !confirm('Remove content area "' + name + '"?')) return;
+    if (name) {
+        armConfirm(btn, 'Remove?', function() { card.remove(); });
+        return;
+    }
     card.remove();
 }
 

@@ -37,7 +37,7 @@
                 @endif
 
                 <div class="mt-4 pt-4 border-t border-amber-200 flex items-center space-x-3">
-                    <form method="POST" action="{{ route('admin.settings.updates.install') }}" onsubmit="return confirm('This will pull the latest code and run migrations. Continue?')">
+                    <form method="POST" action="{{ route('admin.settings.updates.install') }}" data-confirm="This will pull the latest code and run migrations. Continue?">
                         @csrf
                         <button type="submit" class="bg-hcrg-burgundy text-white px-5 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
                             Install Update
@@ -154,14 +154,14 @@
                     <p class="text-xs text-gray-500">{{ $backup['date'] }} &middot; {{ $backup['size'] }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <form method="POST" action="{{ route('admin.settings.updates.rollback') }}" onsubmit="return confirm('This will restore the app to this backup. The current version will be overwritten. Continue?')">
+                    <form method="POST" action="{{ route('admin.settings.updates.rollback') }}" data-confirm="This will restore the app to this backup. The current version will be overwritten. Continue?">
                         @csrf
                         <input type="hidden" name="backup" value="{{ $backup['filename'] }}">
                         <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 rounded-full border border-red-300 hover:bg-red-50 transition-colors">
                             Restore
                         </button>
                     </form>
-                    <form method="POST" action="{{ route('admin.settings.updates.delete-backup') }}" onsubmit="return confirm('Delete this backup permanently?')">
+                    <form method="POST" action="{{ route('admin.settings.updates.delete-backup') }}" data-confirm="Delete this backup permanently?">
                         @csrf
                         @method('DELETE')
                         <input type="hidden" name="backup" value="{{ $backup['filename'] }}">

@@ -31,7 +31,7 @@
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
                     <a href="{{ route('admin.questions.edit', $question) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
-                    <form method="POST" action="{{ route('admin.questions.destroy', $question) }}" class="inline" onsubmit="return confirm('Delete this question?')">
+                    <form method="POST" action="{{ route('admin.questions.destroy', $question) }}" class="inline" data-confirm="Delete this question?">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete</button>
                     </form>

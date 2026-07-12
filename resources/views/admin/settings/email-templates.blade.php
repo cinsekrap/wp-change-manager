@@ -81,7 +81,7 @@
                 <div class="flex items-center justify-between pt-2 border-t border-gray-100">
                     <div class="flex items-center space-x-3">
                         @if($tpl['subject'] || $tpl['body'])
-                        <button type="button" onclick="resetTemplate('{{ $key }}')" class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors">
+                        <button type="button" onclick="resetTemplate('{{ $key }}', this)" class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors">
                             Reset to default
                         </button>
                         @else
@@ -142,11 +142,11 @@ function insertPlaceholder(templateKey, placeholder) {
     field.focus();
 }
 
-function resetTemplate(key) {
-    if (confirm('Reset this template to the default subject and body? Your customisations will be removed.')) {
+function resetTemplate(key, btn) {
+    armConfirm(btn, 'Remove your customisations?', function() {
         document.getElementById('resetTemplateKey').value = key;
         document.getElementById('resetForm').submit();
-    }
+    });
 }
 </script>
 @endsection

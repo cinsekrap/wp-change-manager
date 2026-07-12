@@ -108,7 +108,7 @@
                                     </label>
                                     <button type="submit" class="w-full bg-hcrg-burgundy text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-[#9A1B4B]">Record</button>
                                 </form>
-                                <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" onsubmit="return confirm('Remove this approver?')">
+                                <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" data-confirm="Remove this approver?">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="text-red-500 hover:text-red-700 text-xs">Remove</button>
                                 </form>
@@ -174,7 +174,7 @@
                             </label>
                             <button type="submit" class="w-full bg-hcrg-burgundy text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-[#9A1B4B]">Record</button>
                         </form>
-                        <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" onsubmit="return confirm('Remove this approver?')">
+                        <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" data-confirm="Remove this approver?">
                             @csrf @method('DELETE')
                             <button type="submit" class="text-red-500 hover:text-red-700 text-xs">Remove</button>
                         </form>
@@ -197,7 +197,7 @@
         @if(auth()->user()->isSuperAdmin() && !$changeRequest->approval_overridden && $pendingCount > 0)
         <div class="border-t border-gray-100 pt-3 mb-3">
             <form method="POST" action="{{ route('admin.requests.override-approvals', $changeRequest) }}"
-                  onsubmit="return confirm('This will override the approval gate and notify {{ $pendingCount }} pending approver(s). Continue?')">
+                  data-confirm="This will override the approval gate and notify {{ $pendingCount }} pending approver(s). Continue?">
                 @csrf
                 <button type="submit" class="override-btn w-full relative overflow-hidden text-white px-4 py-2 rounded-full text-sm font-medium bg-amber-500 transition-all duration-300">
                     <span class="relative">Override Approvals</span>

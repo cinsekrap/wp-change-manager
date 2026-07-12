@@ -71,7 +71,7 @@
         <div class="bg-white rounded-lg shadow p-6 mt-6">
             <h2 class="text-lg font-bold text-gray-900 mb-2">Two-factor authentication</h2>
             <p class="text-sm text-gray-600 mb-4">This user has MFA enabled (set up {{ $user->mfa_confirmed_at->diffForHumans() }}). Resetting will require them to set up a new authenticator app on their next login.</p>
-            <form method="POST" action="{{ route('admin.users.reset-mfa', $user) }}" onsubmit="return confirm('Are you sure? This user will need to set up MFA again on their next login.')">
+            <form method="POST" action="{{ route('admin.users.reset-mfa', $user) }}" data-confirm="Are you sure? This user will need to set up MFA again on their next login.">
                 @csrf
                 <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-full hover:bg-red-700 text-sm font-medium">
                     Reset two-factor authentication

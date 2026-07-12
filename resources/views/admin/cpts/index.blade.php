@@ -39,7 +39,7 @@
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
                     <a href="{{ route('admin.cpts.edit', $cpt) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
-                    <form method="POST" action="{{ route('admin.cpts.destroy', $cpt) }}" class="inline" onsubmit="return confirm('Delete this CPT type?')">
+                    <form method="POST" action="{{ route('admin.cpts.destroy', $cpt) }}" class="inline" data-confirm="Delete this CPT type?">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete</button>
                     </form>

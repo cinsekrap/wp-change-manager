@@ -40,7 +40,7 @@
         <div class="bg-white rounded-lg shadow p-6 mt-6">
             <h2 class="text-lg font-bold text-gray-900 mb-2">Two-factor authentication</h2>
             <p class="text-sm text-gray-600 mb-4">MFA is currently enabled on your account (set up {{ auth()->user()->mfa_confirmed_at->diffForHumans() }}). You can disable it below, but you will be required to set it up again on your next login.</p>
-            <form method="POST" action="{{ route('mfa.disable') }}" onsubmit="return confirm('Are you sure? You will need to set up MFA again on your next login.')">
+            <form method="POST" action="{{ route('mfa.disable') }}" data-confirm="Are you sure? You will need to set up MFA again on your next login.">
                 @csrf
                 <div class="mb-4">
                     <label for="disable_current_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm your current password</label>
