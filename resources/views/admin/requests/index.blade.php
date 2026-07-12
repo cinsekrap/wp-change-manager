@@ -275,7 +275,7 @@
                 </button>
                 <div id="bulkStatusMenu" class="hidden absolute bottom-full mb-2 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
-                    <button type="button" onclick="bulkChangeStatus('{{ $status }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button type="button" onclick="bulkChangeStatus('{{ $status }}', this)" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                         {{ ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed'][$status] ?? ucfirst($status) }}
                     </button>
                     @endforeach
@@ -439,10 +439,13 @@ function deselectAll() {
     updateBulkBar();
 }
 
-function bulkChangeStatus(status) {
+function bulkChangeStatus(status, btn) {
     var ids = getSelectedIds();
     if (!ids.length) return;
-    if (!confirm('Change status of ' + ids.length + ' request(s) to "' + status + '"?')) return;
+    armConfirm(btn, 'Set ' + ids.length + ' request(s) to "' + status + '"?', function() { doBulkChangeStatus(status, ids); });
+}
+
+function doBulkChangeStatus(status, ids) {
     document.getElementById('bulkStatusMenu').classList.add('hidden');
 
     fetch('{{ route("admin.requests.bulk.status") }}', {
@@ -451,12 +454,12 @@ function bulkChangeStatus(status) {
         body: JSON.stringify({ ids: ids, status: status })
     }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
-            alert(data.message);
+            sessionStorage.setItem('flashToast', data.message);
             window.location.reload();
         } else {
-            alert('Error: ' + (data.message || 'Something went wrong.'));
+            showToast('Error: ' + (data.message || 'Something went wrong.'), 'error');
         }
-    }).catch(function() { alert('An error occurred.'); });
+    }).catch(function() { showToast('An error occurred.', 'error'); });
 }
 
 function bulkAssign(userId) {
@@ -470,12 +473,12 @@ function bulkAssign(userId) {
         body: JSON.stringify({ ids: ids, assigned_to: userId || null })
     }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
-            alert(data.message);
+            sessionStorage.setItem('flashToast', data.message);
             window.location.reload();
         } else {
-            alert('Error: ' + (data.message || 'Something went wrong.'));
+            showToast('Error: ' + (data.message || 'Something went wrong.'), 'error');
         }
-    }).catch(function() { alert('An error occurred.'); });
+    }).catch(function() { showToast('An error occurred.', 'error'); });
 }
 
 function exportSelected() {

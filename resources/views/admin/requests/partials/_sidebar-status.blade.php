@@ -57,7 +57,7 @@
         @endphp
         @if($siteHasApprovers || $hasManualApprovers)
             <div class="mt-3 pt-3 border-t border-gray-100">
-                <form method="POST" action="{{ route('admin.requests.send-approval', $changeRequest) }}" onsubmit="return confirm('This will{{ $siteHasApprovers && !$hasManualApprovers ? ' add the site\'s default approvers and' : '' }} send approval emails. Continue?')">
+                <form method="POST" action="{{ route('admin.requests.send-approval', $changeRequest) }}" data-confirm="This will{{ $siteHasApprovers && !$hasManualApprovers ? ' add the site\'s default approvers and' : '' }} send approval emails. Continue?">
                     @csrf
                     <button type="submit" class="w-full bg-amber-500 text-white px-4 py-2 rounded-full hover:bg-amber-600 text-sm font-medium transition-colors">
                         Send for Approval

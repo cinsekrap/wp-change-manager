@@ -775,18 +775,52 @@
         return html;
     }
 
+    // Inline replacements for alert()/confirm(), which browsers suppress on
+    // inactive tabs (silently cancelling the action).
+    function showFileError(input, message) {
+        let el = input.parentElement.querySelector('.file-error');
+        if (!el) {
+            el = document.createElement('p');
+            el.className = 'file-error text-xs text-red-600 mt-1';
+            input.insertAdjacentElement('afterend', el);
+        }
+        el.textContent = message;
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.remove(), 6000);
+    }
+
+    function armConfirm(btn, message, onConfirm) {
+        if (btn.dataset.armed === '1') {
+            clearTimeout(btn._armTimer);
+            btn.dataset.armed = '';
+            btn.textContent = btn.dataset.originalLabel;
+            btn.classList.remove('bg-red-600', 'text-white');
+            onConfirm();
+            return;
+        }
+        btn.dataset.armed = '1';
+        btn.dataset.originalLabel = btn.textContent;
+        btn.textContent = message;
+        btn.classList.add('bg-red-600', 'text-white');
+        btn._armTimer = setTimeout(() => {
+            btn.dataset.armed = '';
+            btn.textContent = btn.dataset.originalLabel;
+            btn.classList.remove('bg-red-600', 'text-white');
+        }, 5000);
+    }
+
     async function handleStructuredFileUpload(input, areaIndex) {
         if (!structuredUploadedFiles[areaIndex]) structuredUploadedFiles[areaIndex] = [];
         const fileList = input.closest('.structured-field').querySelector('.sf-file-list');
 
         for (const file of input.files) {
             if (structuredUploadedFiles[areaIndex].length >= 5) {
-                alert('Maximum 5 files per field.');
+                showFileError(input, 'Maximum 5 files per field.');
                 break;
             }
 
             if (file.size > 128 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 128MB limit.`);
+                showFileError(input, `${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 
@@ -840,9 +874,11 @@
 
                     fileList.appendChild(fileEl);
                     checkStepValid();
+                } else {
+                    showFileError(input, data.message || 'This file could not be uploaded.');
                 }
             } catch (err) {
-                alert('Upload failed: ' + err.message);
+                showFileError(input, 'Upload failed: ' + err.message);
             }
         }
 
@@ -1506,10 +1542,12 @@
         // Remove button
         item.querySelector('.remove-item').addEventListener('click', function() {
             if (container.children.length <= 1) return;
-            if (item.querySelector('.item-description').value.trim() && !confirm('Remove this change?')) return;
-            item.remove();
-            renumberItems();
-            checkStepValid();
+            const doRemove = () => { item.remove(); renumberItems(); checkStepValid(); };
+            if (item.querySelector('.item-description').value.trim()) {
+                armConfirm(this, 'Remove this change?', doRemove);
+                return;
+            }
+            doRemove();
         });
 
         // File upload
@@ -1582,12 +1620,12 @@
 
         for (const file of input.files) {
             if (uploadedFiles[itemIndex].length >= 5) {
-                alert('Maximum 5 files per change item.');
+                showFileError(input, 'Maximum 5 files per change item.');
                 break;
             }
 
             if (file.size > 128 * 1024 * 1024) {
-                alert(`${file.name} exceeds the 128MB limit.`);
+                showFileError(input, `${file.name} exceeds the 128MB limit.`);
                 continue;
             }
 
@@ -1621,9 +1659,11 @@
                     });
 
                     fileList.appendChild(fileEl);
+                } else {
+                    showFileError(input, data.message || 'This file could not be uploaded.');
                 }
             } catch (err) {
-                alert('Upload failed: ' + err.message);
+                showFileError(input, 'Upload failed: ' + err.message);
             }
         }
 

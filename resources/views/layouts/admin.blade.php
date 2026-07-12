@@ -161,6 +161,97 @@ document.addEventListener('click', function(e) {
     });
 });
 
+// Inline replacement for confirm() dialogs, which browsers suppress on
+// inactive tabs (silently cancelling the action). Forms opt in with
+// data-confirm="message": the submit button is swapped for an inline
+// message with Confirm/Cancel until answered.
+document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form.dataset || !form.dataset.confirm || form.dataset.confirmed === '1') return;
+    e.preventDefault();
+    if (form.querySelector('.inline-confirm')) return;
+
+    var submitBtn = form.querySelector('[type="submit"], button:not([type])');
+    var box = document.createElement('span');
+    box.className = 'inline-confirm inline-flex flex-wrap items-center gap-2';
+
+    var msg = document.createElement('span');
+    msg.className = 'text-sm text-gray-700';
+    msg.textContent = form.dataset.confirm;
+
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'px-3 py-1 rounded-full text-xs font-medium bg-hcrg-burgundy text-white hover:bg-[#9A1B4B]';
+    yes.textContent = 'Confirm';
+    yes.addEventListener('click', function() {
+        form.dataset.confirmed = '1';
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+    });
+
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300';
+    no.textContent = 'Cancel';
+    no.addEventListener('click', function() {
+        box.remove();
+        if (submitBtn) submitBtn.classList.remove('hidden');
+    });
+
+    box.appendChild(msg);
+    box.appendChild(yes);
+    box.appendChild(no);
+    if (submitBtn) submitBtn.classList.add('hidden');
+    form.appendChild(box);
+});
+
+// Toast notifications — inline replacement for alert() (same suppression issue).
+window.showToast = function(message, type) {
+    var holder = document.getElementById('toastHolder');
+    if (!holder) {
+        holder = document.createElement('div');
+        holder.id = 'toastHolder';
+        holder.className = 'fixed bottom-4 right-4 z-50 space-y-2 max-w-sm';
+        document.body.appendChild(holder);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'px-4 py-3 rounded-lg shadow-lg text-sm text-white ' + (type === 'error' ? 'bg-red-600' : 'bg-emerald-600');
+    toast.textContent = message;
+    holder.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 6000);
+};
+
+// Show a toast stashed before a reload (e.g. bulk actions)
+document.addEventListener('DOMContentLoaded', function() {
+    var flash = sessionStorage.getItem('flashToast');
+    if (flash) {
+        sessionStorage.removeItem('flashToast');
+        showToast(flash);
+    }
+});
+
+// Two-step arming for buttons whose action runs in JS rather than a form
+// submit: first click swaps the label to the confirm message, second click
+// (within 5s) runs the action.
+window.armConfirm = function(btn, message, onConfirm) {
+    if (btn.dataset.armed === '1') {
+        clearTimeout(btn._armTimer);
+        btn.dataset.armed = '';
+        btn.textContent = btn.dataset.originalLabel;
+        btn.classList.remove('bg-red-600', 'text-white');
+        onConfirm();
+        return;
+    }
+    btn.dataset.armed = '1';
+    btn.dataset.originalLabel = btn.textContent;
+    btn.textContent = message;
+    btn.classList.add('bg-red-600', 'text-white');
+    btn._armTimer = setTimeout(function() {
+        btn.dataset.armed = '';
+        btn.textContent = btn.dataset.originalLabel;
+        btn.classList.remove('bg-red-600', 'text-white');
+    }, 5000);
+};
+
 @if($whatsNewNotes ?? false)
 function dismissWhatsNew() {
     document.getElementById('whatsNewModal').remove();
