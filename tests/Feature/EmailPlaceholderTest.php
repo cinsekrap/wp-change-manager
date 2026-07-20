@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\ApprovalOverridden;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestChase;
+use App\Mail\RequestOnHold;
 use App\Mail\TrainingConfirmed;
 use App\Mail\TrainingRequested;
 use App\Models\ChangeRequest;
@@ -84,6 +85,23 @@ class EmailPlaceholderTest extends TestCase
         $this->assertStringNotContainsString('{stale_hours}', $html);
         // Substituted to a whole number of hours (no Carbon float leaking through).
         $this->assertStringContainsString('has been inactive for 50 hours', $html);
+    }
+
+    /** request_on_hold shows the hold reason and the fixed SLA-pause note. */
+    public function test_request_on_hold_renders_reason_and_sla_note(): void
+    {
+        $cr = $this->changeRequest([
+            'status' => 'on_hold',
+            'hold_reason' => 'Waiting for sign-off from the service lead.',
+        ]);
+
+        $html = (new RequestOnHold($cr))->render();
+
+        $this->assertStringNotContainsString('{reference}', $html);
+        $this->assertStringNotContainsString('{hold_reason}', $html);
+        $this->assertStringContainsString('Waiting for sign-off from the service lead.', $html);
+        $this->assertStringContainsString('are paused', $html);
+        $this->assertStringContainsString('WCR-20260608-011', $html);
     }
 
     private function accessRequest(): ChangeRequest

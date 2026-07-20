@@ -10,7 +10,8 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
-        'is_new_page', 'status', 'priority', 'rejection_reason', 'requester_name', 'requester_email',
+        'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
+        'sla_paused_at', 'sla_paused_hours', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
         'access_recipient_name', 'access_recipient_email',
         'training_token', 'training_sent_at', 'training_confirmed_at',
@@ -27,12 +28,13 @@ class ChangeRequest extends Model
             'scheduled_date' => 'date',
             'training_sent_at' => 'datetime',
             'training_confirmed_at' => 'datetime',
+            'sla_paused_at' => 'datetime',
             'approval_overridden' => 'boolean',
             'approval_overridden_at' => 'datetime',
         ];
     }
 
-    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'done', 'declined', 'cancelled'];
+    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'on_hold', 'done', 'declined', 'cancelled'];
 
     public const POST_REFERRED_STATUSES = ['approved', 'training', 'trained', 'scheduled', 'done'];
 
@@ -42,7 +44,44 @@ class ChangeRequest extends Model
 
     public const CHANGE_ONLY_STATUSES = ['scheduled'];
 
+    /**
+     * Statuses where the ball is out of the team's court entirely, so the SLA
+     * clock pauses and the deadline is pushed back by the time spent in them.
+     */
+    public const SLA_PAUSED_STATUSES = ['on_hold'];
+
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+    protected static function booted(): void
+    {
+        // Keep SLA pause bookkeeping in one place so every transition path
+        // (status form, bulk actions, public responses) behaves the same.
+        static::updating(function (self $changeRequest) {
+            if (!$changeRequest->isDirty('status')) {
+                return;
+            }
+
+            $old = $changeRequest->getOriginal('status');
+            $new = $changeRequest->status;
+            $wasPaused = in_array($old, self::SLA_PAUSED_STATUSES);
+            $isPaused = in_array($new, self::SLA_PAUSED_STATUSES);
+
+            if (!$wasPaused && $isPaused) {
+                $changeRequest->sla_paused_at = now();
+                $changeRequest->previous_status = $old;
+            } elseif ($wasPaused && !$isPaused) {
+                if ($changeRequest->sla_paused_at) {
+                    $changeRequest->sla_paused_hours += $changeRequest->businessHoursBetween($changeRequest->sla_paused_at, now());
+                }
+                $changeRequest->sla_paused_at = null;
+                $changeRequest->previous_status = null;
+            }
+
+            if ($old === 'on_hold' && $new !== 'on_hold') {
+                $changeRequest->hold_reason = null;
+            }
+        });
+    }
 
     public static function generateReference(): string
     {
@@ -225,10 +264,12 @@ class ChangeRequest extends Model
 
     /**
      * Calculate the SLA deadline by adding business hours (Mon-Fri, 8h/day) to created_at.
+     * Time spent in an SLA-paused status (accumulated in sla_paused_hours)
+     * extends the deadline by the same amount.
      */
     public function slaDeadline(): Carbon
     {
-        $hours = $this->slaHours();
+        $hours = $this->slaHours() + (int) $this->sla_paused_hours;
         $fullDays = intdiv($hours, 8);
         $remainingHours = $hours % 8;
 
@@ -263,11 +304,11 @@ class ChangeRequest extends Model
      * Whether the SLA clock has been stopped. Scheduling a request to an
      * agreed date counts as meeting the SLA, so it no longer accrues time.
      * Likewise while awaiting training confirmation — the ball is with the
-     * access recipient, not the team.
+     * access recipient, not the team — and while in an SLA-paused status.
      */
     public function slaStopped(): bool
     {
-        return in_array($this->status, ['scheduled', 'training']);
+        return in_array($this->status, array_merge(['scheduled', 'training'], self::SLA_PAUSED_STATUSES));
     }
 
     /**
@@ -341,6 +382,26 @@ class ChangeRequest extends Model
         }
 
         return max($days * 8, 1);
+    }
+
+    /**
+     * Business hours between two dates without the display floor of 1 —
+     * a pause that starts and ends the same day adds nothing to the SLA.
+     */
+    public function businessHoursBetween(Carbon $from, Carbon $to): int
+    {
+        $days = 0;
+        $current = $from->copy()->startOfDay();
+        $end = $to->copy()->startOfDay();
+
+        while ($current->lt($end)) {
+            $current->addDay();
+            if ($current->isWeekday()) {
+                $days++;
+            }
+        }
+
+        return $days * 8;
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
 use App\Mail\NewRequestAlert;
 use App\Mail\RequestChase;
+use App\Mail\RequestOnHold;
 use App\Mail\RequestStatusChanged;
 use App\Mail\RequestSubmitted;
 use App\Mail\ScheduledForActionToday;
@@ -146,9 +147,16 @@ class EmailTemplateController extends Controller
             ]));
         }
 
+        // Force on-hold attributes in memory so the preview always has a reason
+        if ($template === 'request-on-hold') {
+            $sample->status = 'on_hold';
+            $sample->hold_reason = $sample->hold_reason ?: 'We are waiting for content sign-off from the service lead before we can make these changes.';
+        }
+
         $mailable = match ($template) {
             'request-submitted' => new RequestSubmitted($sample),
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),
+            'request-on-hold' => new RequestOnHold($sample),
             'new-request-alert' => new NewRequestAlert($sample),
             'approval-requested' => new ApprovalRequested($sample, $sampleApprover),
             'approval-overridden' => new ApprovalOverridden($sample, $sampleApprover),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\RequestAssigned;
+use App\Mail\RequestOnHold;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestItem;
@@ -184,6 +185,10 @@ class ChangeRequestController extends Controller
             $rules['rejection_reason'] = 'required|string|max:2000';
         }
 
+        if ($request->status === 'on_hold') {
+            $rules['hold_reason'] = 'required|string|max:2000';
+        }
+
         if ($request->status === 'scheduled') {
             $rules['scheduled_date'] = 'required|date|after_or_equal:today';
         }
@@ -205,6 +210,10 @@ class ChangeRequestController extends Controller
                 $updateData['rejection_reason'] = $request->rejection_reason;
             } else {
                 $updateData['rejection_reason'] = null;
+            }
+
+            if ($newStatus === 'on_hold') {
+                $updateData['hold_reason'] = $request->hold_reason;
             }
 
             // Record the scheduled date when scheduling; clear it otherwise so
@@ -235,8 +244,13 @@ class ChangeRequestController extends Controller
                 newValues: ['status' => $newStatus],
             );
 
-            // Notify the requester of the status change
-            EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
+            // Notify the requester of the status change. Going on hold gets a
+            // dedicated email explaining the reason and the paused SLA.
+            if ($newStatus === 'on_hold') {
+                EmailLog::dispatch($changeRequest->requester_email, new RequestOnHold($changeRequest), $changeRequest);
+            } else {
+                EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
+            }
 
             // Manually approving an access request kicks off training
             if ($newStatus === 'approved' && $changeRequest->isAccessRequest()) {

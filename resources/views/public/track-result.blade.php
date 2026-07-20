@@ -15,6 +15,7 @@
                 'training' => 'bg-sky-100 text-sky-800',
                 'trained' => 'bg-teal-100 text-teal-800',
                 'scheduled' => 'bg-purple-100 text-purple-800',
+                'on_hold' => 'bg-yellow-100 text-yellow-700',
                 'done' => 'bg-emerald-100 text-emerald-800',
                 'declined' => 'bg-red-100 text-red-800',
                 'cancelled' => 'bg-gray-200 text-gray-600',
@@ -23,6 +24,7 @@
                 'requires_referral' => 'Requires Referral',
                 'training' => 'Awaiting Training',
                 'trained' => 'Training Confirmed',
+                'on_hold' => 'On Hold',
             ];
             $badgeColor = $statusColors[$changeRequest->status] ?? 'bg-gray-100 text-gray-800';
             $badgeLabel = $statusLabels[$changeRequest->status] ?? ucfirst($changeRequest->status);
@@ -83,6 +85,13 @@
                 'iconColor' => 'text-purple-500',
                 'title' => 'Scheduled',
                 'text' => 'Your request has been scheduled for implementation. We\'ll update you once the changes have been made.',
+            ],
+            'on_hold' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'bg' => 'bg-amber-50 border-amber-200',
+                'iconColor' => 'text-amber-500',
+                'title' => 'On hold',
+                'text' => 'Your request is temporarily on hold — please see the reason below. While on hold, our usual turnaround targets and any requested deadline are paused. We\'ll email you as soon as work resumes.',
             ],
             'done' => [
                 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>',
@@ -196,6 +205,14 @@
                     </div>
                 @endforeach
             </div>
+        </div>
+    @endif
+
+    {{-- Hold reason --}}
+    @if ($changeRequest->status === 'on_hold' && $changeRequest->hold_reason)
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <p class="text-sm font-medium text-amber-800 mb-1">Reason</p>
+            <p class="text-sm text-amber-700">{{ $changeRequest->hold_reason }}</p>
         </div>
     @endif
 

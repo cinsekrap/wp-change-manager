@@ -17,6 +17,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'page_title', 'old_status', 'new_status', 'rejection_reason'],
     ],
 
+    'request_on_hold' => [
+        'name' => 'Request On Hold',
+        'description' => 'Sent to the requester when their request is put on hold, including the reason.',
+        'subject' => 'Change Request {reference} — On Hold',
+        'body' => 'Your change request has been put on hold. We\'ll be in touch if we need anything from you, and you\'ll receive another update as soon as work resumes.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'hold_reason'],
+    ],
+
     'new_request_alert' => [
         'name' => 'New Request Alert',
         'description' => 'Sent to admins when a new change request is submitted.',
