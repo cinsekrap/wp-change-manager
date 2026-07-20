@@ -19,7 +19,8 @@ class BulkActionController extends Controller
         $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'integer|exists:change_requests,id',
-            'status' => 'required|in:' . implode(',', ChangeRequest::STATUSES),
+            // Paused statuses need a per-request reason/message, so they can't be bulk-applied
+            'status' => 'required|in:' . implode(',', array_diff(ChangeRequest::STATUSES, ChangeRequest::SLA_PAUSED_STATUSES)),
         ]);
 
         $newStatus = $request->status;

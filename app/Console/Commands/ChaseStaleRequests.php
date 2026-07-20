@@ -27,7 +27,7 @@ class ChaseStaleRequests extends Command
         $cutoff = now()->subHours($chaseHours);
 
         $staleRequests = ChangeRequest::with(['assignee', 'site'])
-            ->whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
+            ->whereNotIn('status', array_merge(ChangeRequest::TERMINAL_STATUSES, ChangeRequest::SLA_PAUSED_STATUSES))
             ->where('updated_at', '<', $cutoff)
             ->get();
 

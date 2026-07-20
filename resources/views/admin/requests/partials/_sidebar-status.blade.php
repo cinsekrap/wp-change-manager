@@ -5,7 +5,7 @@
     <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}" id="statusForm">
         @csrf @method('PATCH')
         <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-            @php $statusLabels = ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed']; @endphp
+            @php $statusLabels = ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed', 'on_hold' => 'On Hold']; @endphp
             @foreach($changeRequest->statusOptions() as $status)
                 @php $blocked = !$canMovePast && in_array($status, \App\Models\ChangeRequest::POST_REFERRED_STATUSES); @endphp
                 <option value="{{ $status }}" {{ $changeRequest->status === $status ? 'selected' : '' }} {{ $blocked ? 'disabled' : '' }}>
@@ -17,6 +17,11 @@
             <textarea name="rejection_reason" rows="2" placeholder="Reason (required)..."
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('rejection_reason') }}</textarea>
             @error('rejection_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+        </div>
+        <div id="holdReasonField" class="hidden mb-2">
+            <textarea name="hold_reason" rows="2" placeholder="Reason for hold (required) — this is emailed to the requester..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('hold_reason') }}</textarea>
+            @error('hold_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
         <div id="scheduledField" class="hidden mb-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">Scheduled for (required)</label>
@@ -33,6 +38,9 @@
         var showReason = val === 'declined' || val === 'cancelled';
         document.getElementById('reasonField').classList.toggle('hidden', !showReason);
 
+        var showHoldReason = val === 'on_hold';
+        document.getElementById('holdReasonField').classList.toggle('hidden', !showHoldReason);
+
         var showScheduled = val === 'scheduled';
         var scheduledField = document.getElementById('scheduledField');
         scheduledField.classList.toggle('hidden', !showScheduled);
@@ -45,6 +53,13 @@
     <div class="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
         <p class="text-xs font-medium text-red-700 mb-0.5">Reason</p>
         <p class="text-sm text-red-800">{{ $changeRequest->rejection_reason }}</p>
+    </div>
+    @endif
+
+    @if($changeRequest->hold_reason && $changeRequest->status === 'on_hold')
+    <div class="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+        <p class="text-xs font-medium text-amber-700 mb-0.5">On hold{{ $changeRequest->previous_status ? ' (was ' . ucfirst(str_replace('_', ' ', $changeRequest->previous_status)) . ')' : '' }}</p>
+        <p class="text-sm text-amber-800">{{ $changeRequest->hold_reason }}</p>
     </div>
     @endif
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\RequestOnHold;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
 use App\Models\ChangeRequestNote;
@@ -152,6 +153,93 @@ class AdminRequestsTest extends TestCase
             'id' => $cr->id,
             'status' => 'referred',
         ]);
+    }
+
+    public function test_putting_on_hold_requires_a_reason(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest();
+
+        $response = $this->patch("/admin/requests/{$cr->id}/status", [
+            'status' => 'on_hold',
+        ]);
+
+        $response->assertSessionHasErrors('hold_reason');
+        $this->assertDatabaseHas('change_requests', [
+            'id' => $cr->id,
+            'status' => 'requested',
+        ]);
+    }
+
+    public function test_on_hold_stores_reason_pauses_sla_and_emails_requester(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest();
+
+        $response = $this->patch("/admin/requests/{$cr->id}/status", [
+            'status' => 'on_hold',
+            'hold_reason' => 'Waiting for content sign-off.',
+        ]);
+
+        $response->assertRedirect();
+        $cr->refresh();
+        $this->assertEquals('on_hold', $cr->status);
+        $this->assertEquals('Waiting for content sign-off.', $cr->hold_reason);
+        $this->assertEquals('requested', $cr->previous_status);
+        $this->assertNotNull($cr->sla_paused_at);
+        $this->assertTrue($cr->slaStopped());
+        $this->assertFalse($cr->isOverSla());
+
+        Mail::assertSent(RequestOnHold::class, function ($mail) use ($cr) {
+            return $mail->hasTo($cr->requester_email);
+        });
+
+        $this->assertDatabaseHas('change_request_status_log', [
+            'change_request_id' => $cr->id,
+            'old_status' => 'requested',
+            'new_status' => 'on_hold',
+        ]);
+    }
+
+    public function test_resuming_from_hold_accumulates_pause_and_extends_deadline(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest([], [
+            'status' => 'on_hold',
+            'hold_reason' => 'Waiting for content sign-off.',
+            'previous_status' => 'approved',
+            'sla_paused_at' => now()->subWeek(),
+        ]);
+
+        $response = $this->patch("/admin/requests/{$cr->id}/status", [
+            'status' => 'approved',
+        ]);
+
+        $response->assertRedirect();
+        $cr->refresh();
+        $this->assertEquals('approved', $cr->status);
+        $this->assertNull($cr->hold_reason);
+        $this->assertNull($cr->previous_status);
+        $this->assertNull($cr->sla_paused_at);
+        // A week on hold spans 5 weekdays = 40 business hours
+        $this->assertEquals(40, $cr->sla_paused_hours);
+
+        $pausedDeadline = $cr->slaDeadline();
+        $cr->sla_paused_hours = 0;
+        $this->assertTrue($pausedDeadline->gt($cr->slaDeadline()));
+    }
+
+    public function test_on_hold_is_not_available_in_bulk_status_update(): void
+    {
+        $this->loginAsAdmin();
+        $cr = $this->createChangeRequest();
+
+        $response = $this->post('/admin/requests/bulk/status', [
+            'ids' => [$cr->id],
+            'status' => 'on_hold',
+        ]);
+
+        $response->assertSessionHasErrors('status');
     }
 
     public function test_can_add_note(): void
