@@ -39,6 +39,11 @@
         <h2 style="margin:0 0 4px;color:#5B21B6;font-size:20px;font-weight:700;">Your request has been scheduled</h2>
         <p style="margin:0;color:#6D28D9;font-size:14px;">Reference {{ $reference }} — work is underway.</p>
     </div>
+    @elseif($rawStatus === 'awaiting_user')
+    <div style="margin:0 0 24px;padding:16px 20px;background-color:#EFF6FF;border-left:4px solid #2563EB;border-radius:4px;">
+        <h2 style="margin:0 0 4px;color:#1E40AF;font-size:20px;font-weight:700;">We need a response from you</h2>
+        <p style="margin:0;color:#1D4ED8;font-size:14px;">Reference {{ $reference }} — awaiting your response.</p>
+    </div>
     @else
     <div style="margin:0 0 24px;padding:16px 20px;background-color:#F0F0EF;border-left:4px solid #B52159;border-radius:4px;">
         <h2 style="margin:0 0 4px;color:#3C3C3B;font-size:20px;font-weight:700;">Your request has been updated</h2>
@@ -100,6 +105,21 @@
     <p style="margin:0 0 16px;">
         Your request is being referred for approval. This is a standard part of our process for some types of changes. You'll receive an update once a decision has been made.
     </p>
+    @elseif($rawStatus === 'awaiting_user')
+    <p style="margin:0 0 16px;">
+        Our team needs to hear from you before this request can continue. While we wait, our usual turnaround targets and any requested deadline are paused. Please respond using the button below — you can reply with a comment or update your original request.
+    </p>
+    @if($respondUrl)
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr>
+            <td style="border-radius:50px;background-color:#2563EB;">
+                <a href="{{ $respondUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+                    Respond to This Request
+                </a>
+            </td>
+        </tr>
+    </table>
+    @endif
     @else
     <p style="margin:0 0 16px;">
         {!! nl2br(e($customBody ?? $defaultBody)) !!}

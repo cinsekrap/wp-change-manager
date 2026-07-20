@@ -26,6 +26,7 @@ use App\Http\Controllers\Auth\MfaController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\InstallerController;
 use App\Http\Controllers\PublicSite\ApprovalController;
+use App\Http\Controllers\PublicSite\ClarificationController;
 use App\Http\Controllers\PublicSite\TrackingController;
 use App\Http\Controllers\PublicSite\TrainingController;
 use App\Http\Controllers\PublicSite\WizardController;
@@ -60,6 +61,10 @@ Route::post('/track', [TrackingController::class, 'show'])->name('tracking.show'
 Route::get('/approve/queue/{approver}', [ApprovalController::class, 'showFromQueue'])->name('approval.queue')->middleware(['signed', 'throttle:5,1']);
 Route::get('/approve/{token}', [ApprovalController::class, 'show'])->name('approval.show');
 Route::post('/approve/{token}', [ApprovalController::class, 'respond'])->name('approval.respond')->middleware('throttle:5,1');
+
+// Public clarification response links
+Route::get('/respond/{reference}', [ClarificationController::class, 'show'])->name('respond.show');
+Route::post('/respond/{reference}', [ClarificationController::class, 'store'])->name('respond.store')->middleware('throttle:5,1');
 
 // Public training confirmation links (access requests)
 Route::get('/training/{token}', [TrainingController::class, 'show'])->name('training.show');
@@ -111,6 +116,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
     Route::post('/requests/{changeRequest}/notes', [ChangeRequestController::class, 'addNote'])->name('admin.requests.notes');
+    Route::post('/requests/{changeRequest}/request-clarification', [ChangeRequestController::class, 'requestClarification'])->name('admin.requests.request-clarification');
     Route::get('/requests/{changeRequest}/files/{file}', [ChangeRequestController::class, 'downloadFile'])->name('admin.requests.download');
     Route::post('/requests/{changeRequest}/approvers', [ApproverController::class, 'addApprover'])->name('admin.requests.approvers.add');
     Route::patch('/requests/{changeRequest}/approvers/{approver}', [ApproverController::class, 'updateApprover'])->name('admin.requests.approvers.update');

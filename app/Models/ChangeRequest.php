@@ -11,6 +11,7 @@ class ChangeRequest extends Model
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
+        'clarification_message', 'clarification_requested_at',
         'sla_paused_at', 'sla_paused_hours', 'requester_name', 'requester_email',
         'requester_phone', 'requester_role', 'check_answers',
         'access_recipient_name', 'access_recipient_email',
@@ -29,12 +30,13 @@ class ChangeRequest extends Model
             'training_sent_at' => 'datetime',
             'training_confirmed_at' => 'datetime',
             'sla_paused_at' => 'datetime',
+            'clarification_requested_at' => 'datetime',
             'approval_overridden' => 'boolean',
             'approval_overridden_at' => 'datetime',
         ];
     }
 
-    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'on_hold', 'done', 'declined', 'cancelled'];
+    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'on_hold', 'awaiting_user', 'done', 'declined', 'cancelled'];
 
     public const POST_REFERRED_STATUSES = ['approved', 'training', 'trained', 'scheduled', 'done'];
 
@@ -48,7 +50,7 @@ class ChangeRequest extends Model
      * Statuses where the ball is out of the team's court entirely, so the SLA
      * clock pauses and the deadline is pushed back by the time spent in them.
      */
-    public const SLA_PAUSED_STATUSES = ['on_hold'];
+    public const SLA_PAUSED_STATUSES = ['on_hold', 'awaiting_user'];
 
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 
@@ -79,6 +81,11 @@ class ChangeRequest extends Model
 
             if ($old === 'on_hold' && $new !== 'on_hold') {
                 $changeRequest->hold_reason = null;
+            }
+
+            if ($old === 'awaiting_user' && $new !== 'awaiting_user') {
+                $changeRequest->clarification_message = null;
+                $changeRequest->clarification_requested_at = null;
             }
         });
     }
