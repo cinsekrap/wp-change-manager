@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\ApprovalOverridden;
+use App\Mail\ClarificationRequested;
+use App\Mail\ClarificationResponded;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestChase;
 use App\Mail\RequestOnHold;
@@ -102,6 +104,36 @@ class EmailPlaceholderTest extends TestCase
         $this->assertStringContainsString('Waiting for sign-off from the service lead.', $html);
         $this->assertStringContainsString('are paused', $html);
         $this->assertStringContainsString('WCR-20260608-011', $html);
+    }
+
+    /** clarification_requested shows the question and links the respond page. */
+    public function test_clarification_requested_renders_question_and_respond_link(): void
+    {
+        $cr = $this->changeRequest([
+            'status' => 'awaiting_user',
+            'clarification_message' => 'Which phone number is correct?',
+            'clarification_requested_at' => now(),
+        ]);
+
+        $html = (new ClarificationRequested($cr))->render();
+
+        $this->assertStringNotContainsString('{reference}', $html);
+        $this->assertStringNotContainsString('{clarification_message}', $html);
+        $this->assertStringContainsString('Which phone number is correct?', $html);
+        $this->assertStringContainsString('/respond/' . $cr->reference, $html);
+        $this->assertStringContainsString('are on hold', $html);
+    }
+
+    /** clarification_response default body uses {requester_name}. */
+    public function test_clarification_response_default_body_substitutes_requester(): void
+    {
+        $cr = $this->changeRequest();
+
+        $html = (new ClarificationResponded($cr, 'The second number is correct.', 1))->render();
+
+        $this->assertStringNotContainsString('{requester_name}', $html);
+        $this->assertStringContainsString('Req Uester has responded', $html);
+        $this->assertStringContainsString('The second number is correct.', $html);
     }
 
     private function accessRequest(): ChangeRequest

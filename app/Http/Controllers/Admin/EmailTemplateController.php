@@ -7,6 +7,8 @@ use App\Mail\AccessGranted;
 use App\Mail\ApprovalDeclined;
 use App\Mail\ApprovalOverridden;
 use App\Mail\ApprovalRequested;
+use App\Mail\ClarificationRequested;
+use App\Mail\ClarificationResponded;
 use App\Mail\NewRequestAlert;
 use App\Mail\RequestChase;
 use App\Mail\RequestOnHold;
@@ -153,10 +155,19 @@ class EmailTemplateController extends Controller
             $sample->hold_reason = $sample->hold_reason ?: 'We are waiting for content sign-off from the service lead before we can make these changes.';
         }
 
+        // Force clarification attributes in memory so the previews always have content
+        if (in_array($template, ['clarification-requested', 'clarification-response'])) {
+            $sample->status = $template === 'clarification-requested' ? 'awaiting_user' : 'approved';
+            $sample->clarification_message = $sample->clarification_message
+                ?: 'Could you confirm which of the two phone numbers on this page is correct?';
+        }
+
         $mailable = match ($template) {
             'request-submitted' => new RequestSubmitted($sample),
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),
             'request-on-hold' => new RequestOnHold($sample),
+            'clarification-requested' => new ClarificationRequested($sample),
+            'clarification-response' => new ClarificationResponded($sample, 'The second number is the right one — I have updated the wording too.', 1),
             'new-request-alert' => new NewRequestAlert($sample),
             'approval-requested' => new ApprovalRequested($sample, $sampleApprover),
             'approval-overridden' => new ApprovalOverridden($sample, $sampleApprover),

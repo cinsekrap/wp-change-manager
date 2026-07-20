@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ClarificationRequested;
 use App\Mail\RequestAssigned;
 use App\Mail\RequestOnHold;
 use App\Mail\RequestStatusChanged;
@@ -264,6 +265,51 @@ class ChangeRequestController extends Controller
         }
 
         return back()->with('success', 'Status updated.');
+    }
+
+    public function requestClarification(Request $request, ChangeRequest $changeRequest)
+    {
+        $request->validate([
+            'clarification_message' => 'required|string|max:2000',
+        ]);
+
+        if (!$changeRequest->isActive()) {
+            return back()->with('error', 'Clarification cannot be requested on a closed request.');
+        }
+
+        $oldStatus = $changeRequest->status;
+
+        $changeRequest->update([
+            'status' => 'awaiting_user',
+            'clarification_message' => $request->clarification_message,
+            'clarification_requested_at' => now(),
+        ]);
+
+        if ($oldStatus !== 'awaiting_user') {
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => $oldStatus,
+                'new_status' => 'awaiting_user',
+            ]);
+
+            AuditService::log(
+                action: 'status_changed',
+                model: $changeRequest,
+                description: "Clarification requested on {$changeRequest->reference}: {$oldStatus} → awaiting_user",
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => 'awaiting_user'],
+            );
+        }
+
+        $changeRequest->notes()->create([
+            'user_id' => auth()->id(),
+            'note' => 'Clarification requested: ' . $request->clarification_message,
+        ]);
+
+        EmailLog::dispatch($changeRequest->requester_email, new ClarificationRequested($changeRequest), $changeRequest);
+
+        return back()->with('success', 'Clarification requested — the requester has been emailed.');
     }
 
     public function sendTrainingEmail(ChangeRequest $changeRequest)

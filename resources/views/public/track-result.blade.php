@@ -16,6 +16,7 @@
                 'trained' => 'bg-teal-100 text-teal-800',
                 'scheduled' => 'bg-purple-100 text-purple-800',
                 'on_hold' => 'bg-yellow-100 text-yellow-700',
+                'awaiting_user' => 'bg-cyan-100 text-cyan-700',
                 'done' => 'bg-emerald-100 text-emerald-800',
                 'declined' => 'bg-red-100 text-red-800',
                 'cancelled' => 'bg-gray-200 text-gray-600',
@@ -25,6 +26,7 @@
                 'training' => 'Awaiting Training',
                 'trained' => 'Training Confirmed',
                 'on_hold' => 'On Hold',
+                'awaiting_user' => 'Awaiting Your Response',
             ];
             $badgeColor = $statusColors[$changeRequest->status] ?? 'bg-gray-100 text-gray-800';
             $badgeLabel = $statusLabels[$changeRequest->status] ?? ucfirst($changeRequest->status);
@@ -92,6 +94,13 @@
                 'iconColor' => 'text-amber-500',
                 'title' => 'On hold',
                 'text' => 'Your request is temporarily on hold — please see the reason below. While on hold, our usual turnaround targets and any requested deadline are paused. We\'ll email you as soon as work resumes.',
+            ],
+            'awaiting_user' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>',
+                'bg' => 'bg-blue-50 border-blue-200',
+                'iconColor' => 'text-blue-500',
+                'title' => 'We need a response from you',
+                'text' => 'Our team has asked you a question and the request is paused until you reply. Turnaround targets and any requested deadline are on hold while we wait — please respond using the button below to get things moving again.',
             ],
             'done' => [
                 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>',
@@ -205,6 +214,20 @@
                     </div>
                 @endforeach
             </div>
+        </div>
+    @endif
+
+    {{-- Clarification question + respond button --}}
+    @if ($changeRequest->status === 'awaiting_user')
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            @if ($changeRequest->clarification_message)
+                <p class="text-sm font-medium text-blue-800 mb-1">Our question</p>
+                <p class="text-sm text-gray-700 mb-3">{!! nl2br(e($changeRequest->clarification_message)) !!}</p>
+            @endif
+            <a href="{{ \App\Http\Controllers\PublicSite\ClarificationController::respondUrl($changeRequest) }}"
+                class="inline-flex items-center justify-center w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium transition-colors">
+                Respond to This Request
+            </a>
         </div>
     @endif
 

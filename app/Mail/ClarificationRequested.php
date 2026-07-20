@@ -2,26 +2,25 @@
 
 namespace App\Mail;
 
+use App\Http\Controllers\PublicSite\ClarificationController;
 use App\Models\ChangeRequest;
 use App\Models\Setting;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class RequestStatusChanged extends Mailable
+class ClarificationRequested extends Mailable
 {
 
     public function __construct(
         public ChangeRequest $changeRequest,
-        public string $oldStatus,
-        public string $newStatus,
     ) {
         $this->changeRequest->loadMissing(['site', 'items', 'cptType']);
     }
 
     public function envelope(): Envelope
     {
-        $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
+        $emailContent = Setting::getEmailContent('clarification_requested', $this->placeholderValues());
 
         return new Envelope(
             subject: $emailContent['subject'],
@@ -30,29 +29,21 @@ class RequestStatusChanged extends Mailable
 
     public function content(): Content
     {
-        $emailContent = Setting::getEmailContent('status_changed', $this->placeholderValues());
-        $defaults = config('email-templates.status_changed');
+        $emailContent = Setting::getEmailContent('clarification_requested', $this->placeholderValues());
 
         return new Content(
-            view: 'emails.request-status-changed',
+            view: 'emails.clarification-requested',
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
-                'pageUrl' => ($this->changeRequest->is_new_page || $this->changeRequest->isAccessRequest()) ? null : $this->changeRequest->page_url,
                 'isNewPage' => $this->changeRequest->is_new_page,
                 'isAccessRequest' => $this->changeRequest->isAccessRequest(),
                 'cptName' => $this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug,
                 'recipientName' => $this->changeRequest->access_recipient_name,
-                'itemCount' => $this->changeRequest->items->count(),
-                'items' => $this->changeRequest->items->take(5),
-                'oldStatus' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
-                'newStatus' => ucfirst(str_replace('_', ' ', $this->newStatus)),
-                'rawStatus' => $this->newStatus,
-                'rejectionReason' => $this->changeRequest->rejection_reason,
-                'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
-                'respondUrl' => $this->newStatus === 'awaiting_user' ? \App\Http\Controllers\PublicSite\ClarificationController::respondUrl($this->changeRequest) : null,
-                'customBody' => Setting::get('email_status_changed_body') ? $emailContent['body'] : null,
+                'clarificationMessage' => $this->changeRequest->clarification_message,
+                'respondUrl' => ClarificationController::respondUrl($this->changeRequest),
+                'customBody' => Setting::get('email_clarification_requested_body') ? $emailContent['body'] : null,
                 'defaultBody' => $emailContent['body'],
             ],
         );
@@ -60,8 +51,6 @@ class RequestStatusChanged extends Mailable
 
     protected function placeholderValues(): array
     {
-        // For access requests the stored page_url is a synthetic placeholder,
-        // so substitute something meaningful for the {page_title} token.
         $pageTitle = $this->changeRequest->isAccessRequest()
             ? ($this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug) . ' access request'
             : ($this->changeRequest->page_title ?? $this->changeRequest->page_url);
@@ -70,9 +59,7 @@ class RequestStatusChanged extends Mailable
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
             'page_title' => $pageTitle,
-            'old_status' => ucfirst(str_replace('_', ' ', $this->oldStatus)),
-            'new_status' => ucfirst(str_replace('_', ' ', $this->newStatus)),
-            'rejection_reason' => $this->changeRequest->rejection_reason ?? '',
+            'clarification_message' => $this->changeRequest->clarification_message ?? '',
         ];
     }
 }

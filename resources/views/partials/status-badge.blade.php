@@ -8,6 +8,7 @@ $colors = [
     'trained' => 'bg-teal-100 text-teal-800',
     'scheduled' => 'bg-purple-100 text-purple-800',
     'on_hold' => 'bg-yellow-100 text-yellow-700',
+    'awaiting_user' => 'bg-cyan-100 text-cyan-700',
     'done' => 'bg-emerald-100 text-emerald-800',
     'declined' => 'bg-red-100 text-red-800',
     'cancelled' => 'bg-gray-200 text-gray-600',
@@ -17,6 +18,7 @@ $labels = [
     'training' => 'Awaiting Training',
     'trained' => 'Training Confirmed',
     'on_hold' => 'On Hold',
+    'awaiting_user' => 'Awaiting User',
 ];
 $color = $colors[$status] ?? 'bg-gray-100 text-gray-800';
 $label = $labels[$status] ?? ucfirst($status);

@@ -25,6 +25,22 @@ return [
         'placeholders' => ['reference', 'site_name', 'page_title', 'hold_reason'],
     ],
 
+    'clarification_requested' => [
+        'name' => 'Clarification Requested',
+        'description' => 'Sent to the requester when the team needs more information, with a link to respond or update the request.',
+        'subject' => 'Change Request {reference} — We need some more information',
+        'body' => 'We need a little more information before we can progress your change request. Please see our question below, then use the button to reply — you can also update your original request if anything needs correcting.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'clarification_message'],
+    ],
+
+    'clarification_response' => [
+        'name' => 'Clarification Response (to admins)',
+        'description' => 'Sent to the assignee (or admin alert address) when a requester responds to a clarification request.',
+        'subject' => 'Response received: {reference}',
+        'body' => '{requester_name} has responded to your clarification request. The request has been returned to its previous status — please review the response below.',
+        'placeholders' => ['reference', 'site_name', 'page_title', 'requester_name', 'response_comment'],
+    ],
+
     'new_request_alert' => [
         'name' => 'New Request Alert',
         'description' => 'Sent to admins when a new change request is submitted.',
