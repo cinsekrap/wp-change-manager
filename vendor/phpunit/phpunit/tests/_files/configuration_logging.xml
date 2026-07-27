@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<phpunit>
+    <logging>
+        <junit outputFile="junit.xml"/>
+        <otr outputFile="otr.xml" includeGitInformation="true"/>
+        <teamcity outputFile="teamcity.txt"/>
+        <testdoxHtml outputFile="testdox.html"/>
+        <testdoxText outputFile="testdox.txt"/>
+    </logging>
+</phpunit>

@@ -1,0 +1,107 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\Constraint;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\EmptyStringException;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(StringStartsWith::class)]
+#[CoversClass(Constraint::class)]
+#[Small]
+#[Group('framework')]
+#[Group('framework/constraints')]
+final class StringStartsWithTest extends TestCase
+{
+    /**
+     * @return non-empty-list<array{bool, string, string, string}>
+     */
+    public static function provider(): array
+    {
+        return [
+            [
+                true,
+                '',
+                'prefix',
+                'prefix substring suffix',
+            ],
+
+            [
+                false,
+                'Failed asserting that \'substring suffix\' starts with "prefix".',
+                'prefix',
+                'substring suffix',
+            ],
+        ];
+    }
+
+    #[DataProvider('provider')]
+    public function testCanBeEvaluated(bool $result, string $failureDescription, string $expected, string $actual): void
+    {
+        $constraint = new StringStartsWith($expected);
+
+        $this->assertSame($result, $constraint->evaluate($actual, returnResult: true));
+
+        if ($result) {
+            return;
+        }
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs($failureDescription);
+
+        $constraint->evaluate($actual);
+    }
+
+    public function testCanBeRepresentedAsString(): void
+    {
+        $this->assertSame('starts with "prefix"', new StringStartsWith('prefix')->toString());
+    }
+
+    public function testCanBeNegated(): void
+    {
+        $constraint = new LogicalNot(new StringStartsWith('prefix'));
+
+        $this->assertSame('does not start with "prefix"', $constraint->toString());
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that \'prefix suffix\' does not start with "prefix".');
+
+        $constraint->evaluate('prefix suffix');
+    }
+
+    public function testIsCountable(): void
+    {
+        $this->assertCount(1, (new StringStartsWith('prefix')));
+    }
+
+    public function testRejectsEmptyPrefix(): void
+    {
+        $this->expectException(EmptyStringException::class);
+
+        new StringStartsWith('');
+    }
+
+    public function testMatchesReturnsFalseForNonString(): void
+    {
+        $this->assertFalse(new StringStartsWith('prefix')->evaluate(123, returnResult: true));
+    }
+
+    public function testReturnsAffirmativeStringInNonLogicalNotContext(): void
+    {
+        $this->assertSame(
+            'starts with "prefix"',
+            LogicalAnd::fromConstraints(new StringStartsWith('prefix'))->toString(),
+        );
+    }
+}

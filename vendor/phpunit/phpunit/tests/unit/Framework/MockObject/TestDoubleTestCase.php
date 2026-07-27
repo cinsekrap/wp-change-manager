@@ -1,0 +1,458 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\MockObject;
+
+use Exception;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\MockObject\Generator\MethodNamedMethodException;
+use PHPUnit\Framework\MockObject\Runtime\PropertyHook;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\TestFixture\MockObject\ExtendableClassCallingMethodInDestructor;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithCloneMethod;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithPropertyWithGetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithPropertyWithSetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithVirtualPropertyWithGetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableReadonlyClassWithCloneMethod;
+use PHPUnit\TestFixture\MockObject\InterfaceWithMethodNamedMethod;
+use PHPUnit\TestFixture\MockObject\InterfaceWithMethodThatHasDefaultParameterValues;
+use PHPUnit\TestFixture\MockObject\InterfaceWithNeverReturningMethod;
+use PHPUnit\TestFixture\MockObject\InterfaceWithPropertyWithGetHook;
+use PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration;
+use PHPUnit\TestFixture\MockObject\Issue6174;
+
+abstract class TestDoubleTestCase extends TestCase
+{
+    final public function testMethodReturnsNullWhenReturnValueIsNullableAndNoReturnValueIsConfigured(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $this->assertNull($double->returnsNullOrString());
+    }
+
+    final public function testMethodReturnsGeneratedValueWhenReturnValueGenerationIsEnabledAndNoReturnValueIsConfigured(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $this->assertFalse($double->doSomething());
+    }
+
+    final public function testMethodReturnsConfiguredValueWhenReturnValueIsConfigured(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willReturn(true);
+
+        $this->assertTrue($double->doSomething());
+    }
+
+    final public function testConfiguredReturnValueMustBeCompatibleWithReturnTypeDeclaration(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $this->expectException(IncompatibleReturnValueException::class);
+
+        $double->method('doSomething')->willReturn(null);
+    }
+
+    final public function testMethodCanBeConfiguredToReturnOneOfItsArguments(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomethingElse')->willReturnArgument(0);
+
+        $this->assertSame(123, $double->doSomethingElse(123));
+    }
+
+    final public function testMethodCanBeConfiguredToReturnSelfReference(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('selfReference')->willReturnSelf();
+
+        $this->assertSame($double, $double->selfReference());
+    }
+
+    final public function testMethodCanBeConfiguredToReturnReference(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willReturnReference($value);
+
+        $value = true;
+
+        $this->assertSame($value, $double->doSomething());
+    }
+
+    final public function testMethodCanBeConfiguredToReturnValuesBasedOnArgumentMapping(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomethingElse')->willReturnMap([[1, 2], [3, 4]]);
+
+        $this->assertSame(2, $double->doSomethingElse(1));
+        $this->assertSame(4, $double->doSomethingElse(3));
+    }
+
+    final public function testMethodWithDefaultParameterValuesCanBeConfiguredToReturnValuesBasedOnArgumentMapping(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithMethodThatHasDefaultParameterValues::class);
+
+        $double->method('doSomething')->willReturnMap([[1, 2, 3], [4, 5, 6]]);
+
+        $this->assertSame(3, $double->doSomething(1, 2));
+        $this->assertSame(6, $double->doSomething(4, 5));
+    }
+
+    final public function testMethodWithDefaultParameterValuesCanBeConfiguredToReturnValuesBasedOnArgumentMappingThatOmitsDefaultValues(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithMethodThatHasDefaultParameterValues::class);
+
+        $double->method('doSomething')->willReturnMap([[1, 2], [3, 4]]);
+
+        $this->assertSame(2, $double->doSomething(1));
+        $this->assertSame(4, $double->doSomething(3));
+    }
+
+    #[Group('regression')]
+    #[Group('regression/6174')]
+    final public function testIssue6174(): void
+    {
+        $double = $this->createTestDouble(Issue6174::class);
+
+        $double->method('methodNullDefault')->willReturnMap(
+            [
+                ['A', null, 'result'],
+            ],
+        );
+
+        $this->assertSame('result', $double->methodNullDefault('A'));
+
+        $double = $this->createTestDouble(Issue6174::class);
+
+        $double->method('methodNullDefault')->willReturnMap(
+            [
+                ['A', 'result'],
+            ],
+        );
+
+        $this->assertSame('result', $double->methodNullDefault('A'));
+
+        $double = $this->createTestDouble(Issue6174::class);
+
+        $double->method('methodStringDefault')->willReturnMap(
+            [
+                ['A', 'result'],
+            ],
+        );
+
+        $this->assertSame('result', $double->methodStringDefault('A'));
+
+        $double = $this->createTestDouble(Issue6174::class);
+
+        $double->method('methodStringDefault')->willReturnMap(
+            [
+                [null, 'result'],
+            ],
+        );
+
+        $this->assertSame('result', $double->methodStringDefault(null));
+    }
+
+    final public function testMethodCanBeConfiguredToReturnValuesBasedOnArgumentMappingUsingConstraints(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->method('doSomethingElse')
+            ->willReturnMap(
+                [
+                    [$this->greaterThan(5), 100],
+                    [$this->lessThanOrEqual(5), 200],
+                ],
+            );
+
+        $this->assertSame(100, $double->doSomethingElse(10));
+        $this->assertSame(200, $double->doSomethingElse(3));
+    }
+
+    final public function testMethodCanBeConfiguredToReturnValuesBasedOnStrictArgumentMapping(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->method('doSomethingElse')
+            ->willReturnStrictMap(
+                [
+                    [1, 2],
+                    [3, 4],
+                ],
+            );
+
+        $this->assertSame(2, $double->doSomethingElse(1));
+        $this->assertSame(4, $double->doSomethingElse(3));
+    }
+
+    final public function testStrictArgumentMappingThrowsWhenNoEntryMatches(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->method('doSomethingElse')
+            ->willReturnStrictMap(
+                [
+                    [1, 2],
+                ],
+            );
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIsOrContains('No entry in the value map matched the invocation of');
+
+        $double->doSomethingElse(99);
+    }
+
+    final public function testStrictArgumentMappingSupportsConstraints(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->method('doSomethingElse')
+            ->willReturnStrictMap(
+                [
+                    [$this->greaterThan(5), 100],
+                ],
+            );
+
+        $this->assertSame(100, $double->doSomethingElse(10));
+
+        $this->expectException(ExpectationFailedException::class);
+
+        $double->doSomethingElse(3);
+    }
+
+    final public function testMethodCanBeConfiguredToReturnValuesUsingCallback(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomethingElse')->willReturnCallback(
+            static function (int $x)
+            {
+                return match ($x) {
+                    1 => 2,
+                    3 => 4,
+                };
+            },
+        );
+
+        $this->assertSame(2, $double->doSomethingElse(1));
+        $this->assertSame(4, $double->doSomethingElse(3));
+    }
+
+    final public function testMethodCanBeConfiguredToReturnDifferentValuesOnConsecutiveCalls(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willReturn(false, true, false, true);
+
+        $this->assertFalse($double->doSomething());
+        $this->assertTrue($double->doSomething());
+        $this->assertFalse($double->doSomething());
+        $this->assertTrue($double->doSomething());
+    }
+
+    final public function testMethodConfiguredToReturnDifferentValuesOnConsecutiveCallsCannotBeCalledMoreOftenThanReturnValuesHaveBeenConfigured(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willReturn(false, true);
+
+        $this->assertFalse($double->doSomething());
+        $this->assertTrue($double->doSomething());
+
+        $this->expectException(NoMoreReturnValuesConfiguredException::class);
+        $this->expectExceptionMessageIs('Only 2 return values have been configured for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomething()');
+
+        $double->doSomething();
+    }
+
+    final public function testMethodCanBeConfiguredToReturnDifferentValuesAndThrowExceptionsOnConsecutiveCalls(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willReturnOnConsecutiveCalls(
+            false,
+            true,
+            $this->throwException(new Exception),
+        );
+
+        $this->assertFalse($double->doSomething());
+        $this->assertTrue($double->doSomething());
+
+        $this->expectException(Exception::class);
+
+        $double->doSomething();
+    }
+
+    final public function testMethodCanBeConfiguredToThrowAnException(): void
+    {
+        $expectedException = new Exception('exception configured using throwException()');
+
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomething')->willThrowException($expectedException);
+
+        try {
+            $double->doSomething();
+        } catch (Exception $actualException) {
+            $this->assertSame($expectedException, $actualException);
+
+            return;
+        }
+
+        $this->fail();
+    }
+
+    final public function testMethodWithNeverReturnTypeDeclarationThrowsException(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithNeverReturningMethod::class);
+
+        $this->expectException(NeverReturningMethodException::class);
+        $this->expectExceptionMessageIs('Method PHPUnit\TestFixture\MockObject\InterfaceWithNeverReturningMethod::m() is declared to never return');
+
+        $double->m();
+    }
+
+    #[TestDox('Original __clone() method is not called by default when test double object is cloned')]
+    final public function testOriginalCloneMethodIsNotCalledByDefaultWhenTestDoubleObjectIsCloned(): void
+    {
+        $double = clone $this->createTestDouble(ExtendableClassWithCloneMethod::class);
+
+        $this->assertFalse($double->doSomething());
+    }
+
+    #[TestDox('Original __clone() method is not called by default when test double object is cloned (readonly class)')]
+    final public function testOriginalCloneMethodIsNotCalledByDefaultWhenTestDoubleObjectOfReadonlyClassIsCloned(): void
+    {
+        $double = clone $this->createTestDouble(ExtendableReadonlyClassWithCloneMethod::class);
+
+        $this->assertFalse($double->doSomething());
+    }
+
+    public function testMethodNameCanOnlyBeConfiguredOnce(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $this->expectException(MethodNameAlreadyConfiguredException::class);
+
+        $double
+            ->method('doSomething')
+            ->method('doSomething')
+            ->willReturn(true);
+    }
+
+    #[Group('regression')]
+    #[Group('regression/5874')]
+    public function testDoubledMethodsCanBeCalledFromDestructorOnTestDoubleCreatedByTheReturnValueGenerator(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassCallingMethodInDestructor::class);
+
+        $this->assertInstanceOf(
+            ExtendableClassCallingMethodInDestructor::class,
+            $double->doSomething(),
+        );
+    }
+
+    public function testGetHookForPropertyOfInterfaceCanBeConfigured(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithPropertyWithGetHook::class);
+
+        $double->method(PropertyHook::get('property'))->willReturn('value');
+
+        $this->assertSame('value', $double->property);
+    }
+
+    public function testGetHookForPropertyOfExtendableClassCanBeConfigured(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithPropertyWithGetHook::class);
+
+        $double->method(PropertyHook::get('property'))->willReturn('value');
+
+        $this->assertSame('value', $double->property);
+    }
+
+    #[TestDox('Sealed test double throws exception when method() is called')]
+    public function testSealedTestDoubleThrowsExceptionWhenMethodIsCalled(): void
+    {
+        $stub = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $stub
+            ->method('doSomething')
+            ->willReturn(true)
+            ->seal();
+
+        $this->expectException(TestDoubleSealedException::class);
+
+        $stub->method('doSomethingElse');
+    }
+
+    #[TestDox('Cloned sealed test double remains sealed')]
+    public function testClonedSealedTestDoubleRemainsSealed(): void
+    {
+        $stub = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $stub
+            ->method('doSomething')
+            ->willReturn(true)
+            ->seal();
+
+        $clone = clone $stub;
+
+        $this->expectException(TestDoubleSealedException::class);
+
+        $clone->method('doSomethingElse');
+    }
+
+    #[TestDox('Cannot create test double for an interface that has a method named "method"')]
+    public function testCannotCreateTestDoubleForInterfaceWithMethodNamedMethod(): void
+    {
+        $this->expectException(MethodNamedMethodException::class);
+        $this->expectExceptionMessageIs('Doubling interfaces (or classes) that have a method named "method" is not supported.');
+
+        $this->createTestDouble(InterfaceWithMethodNamedMethod::class);
+    }
+
+    public function testGetHookForVirtualPropertyOfExtendableClassCanBeConfigured(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithVirtualPropertyWithGetHook::class);
+
+        $double->method(PropertyHook::get('property'))->willReturn('value');
+
+        $this->assertSame('value', $double->property);
+    }
+
+    public function testGetHookForNonVirtualPropertyWithSetHookOfExtendableClassClassCanBeConfigured(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithPropertyWithSetHook::class);
+
+        $double->method(PropertyHook::get('property'))->willReturn('value');
+
+        $this->assertSame('value', $double->property);
+    }
+
+    /**
+     * @template RealInstanceType of object
+     *
+     * @param class-string<RealInstanceType> $type
+     *
+     * @return (MockObject|Stub)&RealInstanceType
+     */
+    abstract protected function createTestDouble(string $type): object;
+}

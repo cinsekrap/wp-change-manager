@@ -12,6 +12,7 @@ use Illuminate\Events\CallQueuedListener;
 use Illuminate\Queue\CallQueuedClosure;
 use Illuminate\Queue\Jobs\InspectedJob;
 use Illuminate\Queue\QueueManager;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\ReflectsClosures;
@@ -88,6 +89,20 @@ class QueueFake extends QueueManager implements Fake, Queue
      * @var bool
      */
     protected bool $serializeAndRestore = false;
+
+    /**
+     * The callbacks that should be invoked before pushing a job.
+     *
+     * @var array<int, callable>
+     */
+    protected $beforePushingCallbacks = [];
+
+    /**
+     * The callbacks that should be invoked after pushing a job.
+     *
+     * @var array<int, callable>
+     */
+    protected $afterPushingCallbacks = [];
 
     /**
      * Create a new fake queue instance.
@@ -253,7 +268,7 @@ class QueueFake extends QueueManager implements Fake, Queue
         $chain = (new Collection($expectedChain))->map(fn ($job) => serialize($job))->all();
 
         PHPUnit::assertTrue(
-            $this->pushed($job, $callback)->filter(fn ($job) => $job->chained == $chain)->isNotEmpty(),
+            $this->pushed($job, $callback)->contains(fn ($job) => $job->chained == $chain),
             'The expected chain was not pushed.'
         );
     }
@@ -311,7 +326,7 @@ class QueueFake extends QueueManager implements Fake, Queue
      */
     protected function isChainOfObjects($chain)
     {
-        return ! (new Collection($chain))->contains(fn ($job) => ! is_object($job));
+        return (new Collection($chain))->doesntContain(fn ($job) => ! is_object($job));
     }
 
     /**
@@ -559,7 +574,7 @@ class QueueFake extends QueueManager implements Fake, Queue
                     : $data['job'],
                 attempts: 0,
                 payload: [],
-                createdAt: null,
+                createdAt: isset($data['createdAt']) ? Carbon::createFromTimestamp($data['createdAt']) : null,
             ));
     }
 
@@ -581,7 +596,10 @@ class QueueFake extends QueueManager implements Fake, Queue
      */
     public function creationTimeOfOldestPendingJob($queue = null)
     {
-        return null;
+        return (new Collection($this->jobs))
+            ->flatten(1)
+            ->whereStrict('queue', enum_value($queue))
+            ->min('createdAt');
     }
 
     /**
@@ -596,6 +614,10 @@ class QueueFake extends QueueManager implements Fake, Queue
     {
         $queue = enum_value($queue);
 
+        foreach ($this->beforePushingCallbacks as $callback) {
+            call_user_func($callback, $job, $data, $queue);
+        }
+
         if ($this->shouldFakeJob($job)) {
             if ($job instanceof Closure) {
                 $job = CallQueuedClosure::create($job);
@@ -605,6 +627,7 @@ class QueueFake extends QueueManager implements Fake, Queue
                 'job' => $this->serializeAndRestore ? $this->serializeAndRestoreJob($job) : $job,
                 'queue' => $queue,
                 'data' => $data,
+                'createdAt' => Carbon::now()->getTimestamp(),
             ];
 
             if ($job instanceof ShouldBeUnique) {
@@ -614,6 +637,10 @@ class QueueFake extends QueueManager implements Fake, Queue
             is_object($job) && isset($job->connection)
                 ? $this->queue->connection($job->connection)->push($job, $data, $queue)
                 : $this->queue->push($job, $data, $queue);
+        }
+
+        foreach ($this->afterPushingCallbacks as $callback) {
+            call_user_func($callback, $job, $data, $queue);
         }
     }
 
@@ -689,6 +716,7 @@ class QueueFake extends QueueManager implements Fake, Queue
             $this->delayed[is_object($job) ? get_class($job) : $job][] = [
                 'job' => $job,
                 'queue' => enum_value($queue),
+                'createdAt' => Carbon::now()->getTimestamp(),
             ];
         }
 
@@ -740,6 +768,7 @@ class QueueFake extends QueueManager implements Fake, Queue
         $this->reserved[is_object($job) ? get_class($job) : $job][] = [
             'job' => $this->serializeAndRestore ? $this->serializeAndRestoreJob($job) : $job,
             'queue' => $queue,
+            'createdAt' => Carbon::now()->getTimestamp(),
         ];
     }
 
@@ -837,6 +866,32 @@ class QueueFake extends QueueManager implements Fake, Queue
     public function clearReserved()
     {
         $this->reserved = [];
+    }
+
+    /**
+     * Register a callback to be invoked before pushing a job.
+     *
+     * @param  callable  $callback
+     * @return $this
+     */
+    public function beforePushing(callable $callback)
+    {
+        $this->beforePushingCallbacks[] = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Register a callback to be invoked after pushing a job.
+     *
+     * @param  callable  $callback
+     * @return $this
+     */
+    public function afterPushing(callable $callback)
+    {
+        $this->afterPushingCallbacks[] = $callback;
+
+        return $this;
     }
 
     /**

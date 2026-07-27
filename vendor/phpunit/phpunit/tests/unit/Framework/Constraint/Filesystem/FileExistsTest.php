@@ -1,0 +1,100 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\Constraint;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(FileExists::class)]
+#[CoversClass(Constraint::class)]
+#[Small]
+#[Group('framework')]
+#[Group('framework/constraints')]
+final class FileExistsTest extends TestCase
+{
+    /**
+     * @return non-empty-list<array{bool, string, string}>
+     */
+    public static function provider(): array
+    {
+        return [
+            [
+                true,
+                '',
+                __FILE__,
+            ],
+
+            [
+                false,
+                'Failed asserting that file "/does/not/exist" exists.',
+                '/does/not/exist',
+            ],
+        ];
+    }
+
+    #[DataProvider('provider')]
+    public function testCanBeEvaluated(bool $result, string $failureDescription, string $actual): void
+    {
+        $constraint = new FileExists;
+
+        $this->assertSame($result, $constraint->evaluate($actual, returnResult: true));
+
+        if ($result) {
+            return;
+        }
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs($failureDescription);
+
+        $constraint->evaluate($actual);
+    }
+
+    public function testCanBeRepresentedAsString(): void
+    {
+        $this->assertSame('file exists', (new FileExists)->toString());
+    }
+
+    public function testCanBeNegated(): void
+    {
+        $constraint = new LogicalNot(new FileExists);
+
+        $this->assertSame('file does not exist', $constraint->toString());
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that file "' . __FILE__ . '" does not exist.');
+
+        $constraint->evaluate(__FILE__);
+    }
+
+    public function testIsCountable(): void
+    {
+        $this->assertCount(1, (new FileExists));
+    }
+
+    public function testMatchesReturnsFalseForNonString(): void
+    {
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that file "" exists.');
+
+        (new FileExists)->evaluate(123);
+    }
+
+    public function testReturnsAffirmativeStringInNonLogicalNotContext(): void
+    {
+        $this->assertSame(
+            'file exists',
+            LogicalAnd::fromConstraints(new FileExists)->toString(),
+        );
+    }
+}

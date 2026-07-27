@@ -1,0 +1,35 @@
+name: static analysis
+
+on:
+  push:
+    branches:
+      - master
+      - '*.x'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  types:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    strategy:
+      fail-fast: true
+      matrix:
+        directory: [src, types]
+
+    name: ${{ matrix.directory == 'src' && 'Source Code' || 'Types' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP project
+        uses: ./.github/actions/setup-php-project
+
+      - name: Execute type checking
+        run: vendor/bin/phpstan --configuration="phpstan.${{ matrix.directory }}.neon.dist" --no-progress
