@@ -1,0 +1,1113 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\TextUI\Output\Default;
+
+use const PHP_OS;
+use function hrtime;
+use function stripos;
+use Exception;
+use PHPUnit\Event\Code\ClassMethod;
+use PHPUnit\Event\Code\IssueTrigger\IssueTrigger;
+use PHPUnit\Event\Code\Phpt;
+use PHPUnit\Event\Code\TestCollection;
+use PHPUnit\Event\Code\TestDoxBuilder;
+use PHPUnit\Event\Code\TestMethod;
+use PHPUnit\Event\Code\Throwable;
+use PHPUnit\Event\Code\ThrowableBuilder;
+use PHPUnit\Event\Telemetry\CpuTime;
+use PHPUnit\Event\Telemetry\Duration;
+use PHPUnit\Event\Telemetry\GarbageCollectorStatus;
+use PHPUnit\Event\Telemetry\HRTime;
+use PHPUnit\Event\Telemetry\Info;
+use PHPUnit\Event\Telemetry\MemoryUsage;
+use PHPUnit\Event\Telemetry\Snapshot;
+use PHPUnit\Event\Test\BeforeFirstTestMethodErrored;
+use PHPUnit\Event\Test\BeforeFirstTestMethodFailed;
+use PHPUnit\Event\Test\ConsideredRisky;
+use PHPUnit\Event\Test\Errored;
+use PHPUnit\Event\Test\Failed;
+use PHPUnit\Event\Test\MarkedIncomplete;
+use PHPUnit\Event\Test\PhpunitDeprecationTriggered;
+use PHPUnit\Event\Test\PhpunitErrorTriggered;
+use PHPUnit\Event\Test\PhpunitNoticeTriggered;
+use PHPUnit\Event\Test\PhpunitWarningTriggered;
+use PHPUnit\Event\Test\Skipped as TestSkipped;
+use PHPUnit\Event\TestData\DataFromDataProvider;
+use PHPUnit\Event\TestData\TestDataCollection;
+use PHPUnit\Event\TestRunner\DeprecationTriggered as TestRunnerDeprecationTriggered;
+use PHPUnit\Event\TestRunner\ErrorTriggered as TestRunnerIssueErrorTriggered;
+use PHPUnit\Event\TestRunner\Issue\DeprecationTriggered as TestRunnerIssueDeprecationTriggered;
+use PHPUnit\Event\TestRunner\Issue\NoticeTriggered as TestRunnerIssueNoticeTriggered;
+use PHPUnit\Event\TestRunner\Issue\WarningTriggered as TestRunnerIssueWarningTriggered;
+use PHPUnit\Event\TestRunner\NoticeTriggered as TestRunnerNoticeTriggered;
+use PHPUnit\Event\TestRunner\PhpDeprecationTriggered as TestRunnerIssuePhpDeprecationTriggered;
+use PHPUnit\Event\TestRunner\PhpNoticeTriggered as TestRunnerIssuePhpNoticeTriggered;
+use PHPUnit\Event\TestRunner\PhpWarningTriggered as TestRunnerIssuePhpWarningTriggered;
+use PHPUnit\Event\TestRunner\WarningTriggered as TestRunnerWarningTriggered;
+use PHPUnit\Event\TestSuite\Skipped as TestSuiteSkipped;
+use PHPUnit\Event\TestSuite\TestSuiteWithName;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Medium;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\IncompleteTestError;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Metadata\MetadataCollection;
+use PHPUnit\TestRunner\TestResult\Issues\Issue;
+use PHPUnit\TestRunner\TestResult\TestResult;
+use PHPUnit\TextUI\Output\Printer;
+
+#[CoversClass(ResultPrinter::class)]
+#[Medium]
+final class ResultPrinterTest extends TestCase
+{
+    /**
+     * @return array<string,array{0: string, 1: TestResult}>
+     */
+    public static function provider(): array
+    {
+        return [
+            'no tests' => [
+                'no_tests.txt',
+                self::createTestResult(
+                    numberOfTestsRun: 0,
+                ),
+            ],
+
+            'successful test without issues' => [
+                'successful_test_without_issues.txt',
+                self::createTestResult(),
+            ],
+
+            'errored test' => [
+                'errored_test.txt',
+                self::createTestResult(
+                    testErroredEvents: [
+                        self::erroredTest(),
+                    ],
+                ),
+            ],
+
+            'failed test' => [
+                'failed_test.txt',
+                self::createTestResult(
+                    testFailedEvents: [
+                        self::failedTest(),
+                    ],
+                ),
+            ],
+
+            'incomplete test' => [
+                'incomplete_test.txt',
+                self::createTestResult(
+                    testMarkedIncompleteEvents: [
+                        new MarkedIncomplete(
+                            self::telemetryInfo(),
+                            self::testMethod(),
+                            ThrowableBuilder::from(new IncompleteTestError('message')),
+                        ),
+                    ],
+                ),
+            ],
+
+            'skipped test' => [
+                'skipped_test.txt',
+                self::createTestResult(
+                    testSkippedEvents: [
+                        new TestSkipped(
+                            self::telemetryInfo(),
+                            self::testMethod(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'risky test with single-line message' => [
+                'risky_test_single_line_message.txt',
+                self::createTestResult(
+                    testConsideredRiskyEvents: [
+                        'Foo::testBar' => [
+                            self::riskyTest('message'),
+                        ],
+                    ],
+                ),
+            ],
+
+            'risky test with multiple reasons with single-line messages' => [
+                'risky_test_with_multiple_reasons_with_single_line_messages.txt',
+                self::createTestResult(
+                    testConsideredRiskyEvents: [
+                        'Foo::testBar' => [
+                            self::riskyTest('message'),
+                            self::riskyTest('message'),
+                        ],
+                    ],
+                ),
+            ],
+
+            'risky test with multiple reasons with multi-line messages' => [
+                (stripos(PHP_OS, 'WIN') === 0) ?
+                    'risky_test_with_multiple_reasons_with_multi_line_messages_windows.txt' :
+                    'risky_test_with_multiple_reasons_with_multi_line_messages.txt',
+                self::createTestResult(
+                    testConsideredRiskyEvents: [
+                        'Foo::testBar' => [
+                            self::riskyTest("message\nmessage\nmessage"),
+                            self::riskyTest("message\nmessage\nmessage"),
+                        ],
+                    ],
+                ),
+            ],
+
+            'errored test that is risky' => [
+                'errored_test_that_is_risky.txt',
+                self::createTestResult(
+                    testErroredEvents: [
+                        self::erroredTest(),
+                    ],
+                    testConsideredRiskyEvents: [
+                        'Foo::testBar' => [
+                            self::riskyTest('message'),
+                        ],
+                    ],
+                ),
+            ],
+
+            'failed test that is risky' => [
+                'failed_test_that_is_risky.txt',
+                self::createTestResult(
+                    testFailedEvents: [
+                        self::failedTest(),
+                    ],
+                    testConsideredRiskyEvents: [
+                        'Foo::testBar' => [
+                            self::riskyTest('message'),
+                        ],
+                    ],
+                ),
+            ],
+
+            'successful test that triggers deprecation (do not display stack trace)' => [
+                'successful_test_with_deprecation.txt',
+                self::createTestResult(
+                    deprecations: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers deprecation (display stack trace)' => [
+                'successful_test_with_deprecation_with_stack_trace.txt',
+                self::createTestResult(
+                    deprecations: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                            '/path/to/file.php:1234',
+                        ),
+                    ],
+                ),
+                true,
+            ],
+
+            'successful test that triggers PHP deprecation' => [
+                'successful_test_with_php_deprecation.txt',
+                self::createTestResult(
+                    phpDeprecations: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                        Issue::from(
+                            'Foo.php',
+                            2,
+                            'another message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers the same PHP deprecation multiple times' => [
+                'successful_test_with_php_deprecation_multiple.txt',
+                self::createTestResult(
+                    phpDeprecations: self::samePhpDeprecationsTriggeredTwice(),
+                ),
+            ],
+
+            'successful test that triggers PHPUnit deprecation' => [
+                'successful_test_with_phpunit_deprecation.txt',
+                self::createTestResult(
+                    testTriggeredPhpunitDeprecationEvents: [
+                        'Foo::testBar' => [
+                            new PhpunitDeprecationTriggered(
+                                self::telemetryInfo(),
+                                self::testMethod(),
+                                'message',
+                            ),
+                        ],
+                    ],
+                    testRunnerTriggeredDeprecationEvents: [
+                        new TestRunnerDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers error' => [
+                'successful_test_with_error.txt',
+                self::createTestResult(
+                    errors: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers notice' => [
+                'successful_test_with_notice.txt',
+                self::createTestResult(
+                    notices: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers PHP notice' => [
+                'successful_test_with_php_notice.txt',
+                self::createTestResult(
+                    phpNotices: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers warning' => [
+                'successful_test_with_warning.txt',
+                self::createTestResult(
+                    warnings: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers PHP warning' => [
+                'successful_test_with_php_warning.txt',
+                self::createTestResult(
+                    phpWarnings: [
+                        Issue::from(
+                            'Foo.php',
+                            1,
+                            'message',
+                            self::testMethod(),
+                        ),
+                    ],
+                ),
+            ],
+
+            'test that triggers PHPUnit error' => [
+                'test_with_phpunit_error.txt',
+                self::createTestResult(
+                    numberOfTests: 0,
+                    numberOfTestsRun: 0,
+                    numberOfAssertions: 0,
+                    testTriggeredPhpunitErrorEvents: [
+                        'Foo::testBar' => [
+                            new PhpunitErrorTriggered(
+                                self::telemetryInfo(),
+                                self::testMethod(),
+                                'message',
+                            ),
+                        ],
+                    ],
+                ),
+            ],
+
+            'successful test and PHPUnit test runner notice' => [
+                'successful_test_and_phpunit_test_runner_notice.txt',
+                self::createTestResult(
+                    testRunnerTriggeredNoticeEvents: [
+                        new TestRunnerNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'successful test that triggers PHPUnit notice' => [
+                'successful_test_with_phpunit_notice.txt',
+                self::createTestResult(
+                    testTriggeredPhpunitNoticeEvents: [
+                        'Foo::testBar' => [
+                            new PhpunitNoticeTriggered(
+                                self::telemetryInfo(),
+                                self::testMethod(),
+                                'message',
+                            ),
+                        ],
+                    ],
+                ),
+            ],
+
+            'successful test that triggers PHPUnit warning' => [
+                'successful_test_with_phpunit_warning.txt',
+                self::createTestResult(
+                    testTriggeredPhpunitWarningEvents: [
+                        'Foo::testBar' => [
+                            new PhpunitWarningTriggered(
+                                self::telemetryInfo(),
+                                self::testMethod(),
+                                'message',
+                                false,
+                            ),
+                        ],
+                    ],
+                ),
+            ],
+
+            'successful test that triggers baseline-ignored issue' => [
+                'successful_test_with_baseline_ignored_issue.txt',
+                self::createTestResult(
+                    numberOfIssuesIgnoredByBaseline: 1,
+                ),
+            ],
+
+            'successful test that triggers baseline-ignored issues' => [
+                'successful_test_with_baseline_ignored_issues.txt',
+                self::createTestResult(
+                    numberOfIssuesIgnoredByBaseline: 2,
+                ),
+            ],
+
+            'error triggered outside of tests' => [
+                'error_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssueErrorEvents: [
+                        new TestRunnerIssueErrorTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                        ),
+                    ],
+                ),
+            ],
+
+            'warning triggered outside of tests' => [
+                'warning_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssueWarningEvents: [
+                        new TestRunnerIssueWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                ),
+            ],
+
+            'PHP warning triggered outside of tests' => [
+                'php_warning_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssuePhpWarningEvents: [
+                        new TestRunnerIssuePhpWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                ),
+            ],
+
+            'notice triggered outside of tests' => [
+                'notice_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssueNoticeEvents: [
+                        new TestRunnerIssueNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                ),
+            ],
+
+            'PHP notice triggered outside of tests' => [
+                'php_notice_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssuePhpNoticeEvents: [
+                        new TestRunnerIssuePhpNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                ),
+            ],
+
+            'deprecation triggered outside of tests' => [
+                'deprecation_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssueDeprecationEvents: [
+                        new TestRunnerIssueDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                            'stack trace',
+                        ),
+                    ],
+                ),
+            ],
+
+            'PHP deprecation triggered outside of tests' => [
+                'php_deprecation_triggered_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssuePhpDeprecationEvents: [
+                        new TestRunnerIssuePhpDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                        ),
+                    ],
+                ),
+            ],
+
+            'duplicate issues triggered outside of tests are deduplicated' => [
+                'deduplicated_outside_of_tests.txt',
+                self::createTestResult(
+                    testRunnerTriggeredIssueErrorEvents: [
+                        new TestRunnerIssueErrorTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                        ),
+                        new TestRunnerIssueErrorTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                        ),
+                    ],
+                    testRunnerTriggeredIssueWarningEvents: [
+                        new TestRunnerIssueWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                        new TestRunnerIssueWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                    testRunnerTriggeredIssuePhpWarningEvents: [
+                        new TestRunnerIssuePhpWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                        new TestRunnerIssuePhpWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                    testRunnerTriggeredIssueNoticeEvents: [
+                        new TestRunnerIssueNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                        new TestRunnerIssueNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                    testRunnerTriggeredIssuePhpNoticeEvents: [
+                        new TestRunnerIssuePhpNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                        new TestRunnerIssuePhpNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                        ),
+                    ],
+                    testRunnerTriggeredIssueDeprecationEvents: [
+                        new TestRunnerIssueDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                            'stack trace',
+                        ),
+                        new TestRunnerIssueDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                            'stack trace',
+                        ),
+                    ],
+                    testRunnerTriggeredIssuePhpDeprecationEvents: [
+                        new TestRunnerIssuePhpDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                        ),
+                        new TestRunnerIssuePhpDeprecationTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                            'Foo.php',
+                            1,
+                            false,
+                            false,
+                            IssueTrigger::from(null, null),
+                        ),
+                    ],
+                ),
+            ],
+
+            'duplicate test runner notices are deduplicated' => [
+                'duplicate_test_runner_notices.txt',
+                self::createTestResult(
+                    testRunnerTriggeredNoticeEvents: [
+                        new TestRunnerNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                        new TestRunnerNoticeTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'test runner warning' => [
+                'test_runner_warning.txt',
+                self::createTestResult(
+                    testRunnerTriggeredWarningEvents: [
+                        new TestRunnerWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'duplicate test runner warnings are deduplicated' => [
+                'duplicate_test_runner_warnings.txt',
+                self::createTestResult(
+                    testRunnerTriggeredWarningEvents: [
+                        new TestRunnerWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                        new TestRunnerWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'error in before-first-test-method hook' => [
+                'before_first_test_method_errored.txt',
+                self::createTestResult(
+                    testErroredEvents: [
+                        new BeforeFirstTestMethodErrored(
+                            self::telemetryInfo(),
+                            'FooTest',
+                            new ClassMethod('FooTest', 'setUpBeforeClass'),
+                            ThrowableBuilder::from(new Exception('message')),
+                        ),
+                    ],
+                ),
+            ],
+
+            'failure in before-first-test-method hook' => [
+                'before_first_test_method_failed.txt',
+                self::createTestResult(
+                    testFailedEvents: [
+                        new BeforeFirstTestMethodFailed(
+                            self::telemetryInfo(),
+                            'FooTest',
+                            new ClassMethod('FooTest', 'setUpBeforeClass'),
+                            ThrowableBuilder::from(
+                                new ExpectationFailedException(
+                                    'Failed asserting that false is true.',
+                                ),
+                            ),
+                        ),
+                    ],
+                ),
+            ],
+
+            'failure with AssertionError prefix' => [
+                'failed_test_with_assertion_error_prefix.txt',
+                self::createTestResult(
+                    testFailedEvents: [
+                        new Failed(
+                            self::telemetryInfo(),
+                            self::testMethod(),
+                            new Throwable(
+                                'AssertionError',
+                                'Failed asserting that false is true.',
+                                "AssertionError: Failed asserting that false is true.\n",
+                                '',
+                                null,
+                            ),
+                            null,
+                        ),
+                    ],
+                ),
+            ],
+
+            'skipped test suite' => [
+                'skipped_test_suite.txt',
+                self::createTestResult(
+                    testSuiteSkippedEvents: [
+                        new TestSuiteSkipped(
+                            self::telemetryInfo(),
+                            new TestSuiteWithName(
+                                'FooTestSuite',
+                                1,
+                                TestCollection::fromArray([]),
+                            ),
+                            'message',
+                        ),
+                    ],
+                ),
+            ],
+
+            'failed test with data provider' => [
+                'failed_test_with_data_provider.txt',
+                self::createTestResult(
+                    testFailedEvents: [
+                        new Failed(
+                            self::telemetryInfo(),
+                            self::testMethodWithDataProvider(),
+                            ThrowableBuilder::from(
+                                new ExpectationFailedException(
+                                    'Failed asserting that 1 matches expected 2.',
+                                ),
+                            ),
+                            null,
+                        ),
+                    ],
+                ),
+            ],
+
+            'risky phpt test' => [
+                'risky_phpt_test.txt',
+                self::createTestResult(
+                    testConsideredRiskyEvents: [
+                        'phpt-test' => [
+                            new ConsideredRisky(
+                                self::telemetryInfo(),
+                                new Phpt('/path/to/test.phpt'),
+                                'message',
+                            ),
+                        ],
+                    ],
+                ),
+            ],
+        ];
+    }
+
+    #[DataProvider('provider')]
+    public function testPrintsExpectedOutputForTestResultObject(string $expectationFile, TestResult $result, bool $stackTraceForDeprecations = false): void
+    {
+        $printer = $this->printer();
+
+        $resultPrinter = new ResultPrinter(
+            $printer,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false,
+        );
+
+        $resultPrinter->print($result, $stackTraceForDeprecations);
+
+        /* @noinspection PhpPossiblePolymorphicInvocationInspection */
+        $this->assertStringMatchesFormatFile(
+            __DIR__ . '/expectations/result/' . $expectationFile,
+            $printer->buffer(),
+        );
+    }
+
+    public function testPrintsFailedTestsInReverseOrder(): void
+    {
+        $printer = $this->printer();
+
+        $resultPrinter = new ResultPrinter(
+            $printer,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        );
+
+        $resultPrinter->print(
+            self::createTestResult(
+                testFailedEvents: [
+                    new Failed(
+                        self::telemetryInfo(),
+                        self::testMethod(),
+                        ThrowableBuilder::from(
+                            new ExpectationFailedException(
+                                'Failed asserting that false is true.',
+                            ),
+                        ),
+                        null,
+                    ),
+                    new Failed(
+                        self::telemetryInfo(),
+                        self::testMethodBaz(),
+                        ThrowableBuilder::from(
+                            new ExpectationFailedException(
+                                'Failed asserting that 1 matches expected 2.',
+                            ),
+                        ),
+                        null,
+                    ),
+                ],
+            ),
+        );
+
+        /* @noinspection PhpPossiblePolymorphicInvocationInspection */
+        $this->assertStringMatchesFormatFile(
+            __DIR__ . '/expectations/result/failed_tests_reverse_order.txt',
+            $printer->buffer(),
+        );
+    }
+
+    private function printer(): Printer
+    {
+        return new class implements Printer
+        {
+            private string $buffer = '';
+
+            public function print(string $buffer): void
+            {
+                $this->buffer .= $buffer;
+            }
+
+            public function flush(): void
+            {
+            }
+
+            public function buffer(): string
+            {
+                return $this->buffer;
+            }
+        };
+    }
+
+    /**
+     * @param list<BeforeFirstTestMethodErrored|Errored>      $testErroredEvents
+     * @param list<Failed>                                    $testFailedEvents
+     * @param array<string,list<ConsideredRisky>>             $testConsideredRiskyEvents
+     * @param list<TestSuiteSkipped>                          $testSuiteSkippedEvents
+     * @param list<TestSkipped>                               $testSkippedEvents
+     * @param list<MarkedIncomplete>                          $testMarkedIncompleteEvents
+     * @param list<Issue>                                     $deprecations
+     * @param list<Issue>                                     $phpDeprecations
+     * @param array<string,list<PhpunitDeprecationTriggered>> $testTriggeredPhpunitDeprecationEvents
+     * @param list<Issue>                                     $errors
+     * @param list<Issue>                                     $notices
+     * @param list<Issue>                                     $phpNotices
+     * @param list<Issue>                                     $warnings
+     * @param list<Issue>                                     $phpWarnings
+     * @param array<string,list<PhpunitErrorTriggered>>       $testTriggeredPhpunitErrorEvents
+     * @param array<string,list<PhpunitNoticeTriggered>>      $testTriggeredPhpunitNoticeEvents
+     * @param array<string,list<PhpunitWarningTriggered>>     $testTriggeredPhpunitWarningEvents
+     * @param list<TestRunnerDeprecationTriggered>            $testRunnerTriggeredDeprecationEvents
+     * @param list<TestRunnerNoticeTriggered>                 $testRunnerTriggeredNoticeEvents
+     * @param list<TestRunnerWarningTriggered>                $testRunnerTriggeredWarningEvents
+     * @param list<TestRunnerIssueDeprecationTriggered>       $testRunnerTriggeredIssueDeprecationEvents
+     * @param list<TestRunnerIssueErrorTriggered>             $testRunnerTriggeredIssueErrorEvents
+     * @param list<TestRunnerIssueNoticeTriggered>            $testRunnerTriggeredIssueNoticeEvents
+     * @param list<TestRunnerIssuePhpDeprecationTriggered>    $testRunnerTriggeredIssuePhpDeprecationEvents
+     * @param list<TestRunnerIssuePhpNoticeTriggered>         $testRunnerTriggeredIssuePhpNoticeEvents
+     * @param list<TestRunnerIssuePhpWarningTriggered>        $testRunnerTriggeredIssuePhpWarningEvents
+     * @param list<TestRunnerIssueWarningTriggered>           $testRunnerTriggeredIssueWarningEvents
+     */
+    private static function createTestResult(int $numberOfTests = 1, int $numberOfTestsRun = 1, int $numberOfAssertions = 1, array $testErroredEvents = [], array $testFailedEvents = [], array $testConsideredRiskyEvents = [], array $testSuiteSkippedEvents = [], array $testSkippedEvents = [], array $testMarkedIncompleteEvents = [], array $deprecations = [], array $phpDeprecations = [], array $testTriggeredPhpunitDeprecationEvents = [], array $errors = [], array $notices = [], array $phpNotices = [], array $warnings = [], array $phpWarnings = [], array $testTriggeredPhpunitErrorEvents = [], array $testTriggeredPhpunitNoticeEvents = [], array $testTriggeredPhpunitWarningEvents = [], array $testRunnerTriggeredDeprecationEvents = [], array $testRunnerTriggeredNoticeEvents = [], array $testRunnerTriggeredWarningEvents = [], array $testRunnerTriggeredIssueDeprecationEvents = [], array $testRunnerTriggeredIssueErrorEvents = [], array $testRunnerTriggeredIssueNoticeEvents = [], array $testRunnerTriggeredIssuePhpDeprecationEvents = [], array $testRunnerTriggeredIssuePhpNoticeEvents = [], array $testRunnerTriggeredIssuePhpWarningEvents = [], array $testRunnerTriggeredIssueWarningEvents = [], int $numberOfIssuesIgnoredByBaseline = 0): TestResult
+    {
+        return new TestResult(
+            $numberOfTests,
+            $numberOfTestsRun,
+            $numberOfAssertions,
+            $testErroredEvents,
+            $testFailedEvents,
+            $testConsideredRiskyEvents,
+            $testSuiteSkippedEvents,
+            $testSkippedEvents,
+            $testMarkedIncompleteEvents,
+            $testTriggeredPhpunitDeprecationEvents,
+            $testTriggeredPhpunitErrorEvents,
+            $testTriggeredPhpunitNoticeEvents,
+            $testTriggeredPhpunitWarningEvents,
+            $testRunnerTriggeredDeprecationEvents,
+            $testRunnerTriggeredNoticeEvents,
+            $testRunnerTriggeredWarningEvents,
+            $testRunnerTriggeredIssueDeprecationEvents,
+            $testRunnerTriggeredIssueErrorEvents,
+            $testRunnerTriggeredIssueNoticeEvents,
+            $testRunnerTriggeredIssuePhpDeprecationEvents,
+            $testRunnerTriggeredIssuePhpNoticeEvents,
+            $testRunnerTriggeredIssuePhpWarningEvents,
+            $testRunnerTriggeredIssueWarningEvents,
+            $errors,
+            $deprecations,
+            $notices,
+            $warnings,
+            $phpDeprecations,
+            $phpNotices,
+            $phpWarnings,
+            $numberOfIssuesIgnoredByBaseline,
+        );
+    }
+
+    private static function erroredTest(): Errored
+    {
+        return new Errored(
+            self::telemetryInfo(),
+            self::testMethod(),
+            ThrowableBuilder::from(new Exception('message')),
+        );
+    }
+
+    private static function failedTest(): Failed
+    {
+        return new Failed(
+            self::telemetryInfo(),
+            self::testMethod(),
+            ThrowableBuilder::from(
+                new ExpectationFailedException(
+                    'Failed asserting that false is true.',
+                ),
+            ),
+            null,
+        );
+    }
+
+    private static function riskyTest(string $message): ConsideredRisky
+    {
+        return new ConsideredRisky(
+            self::telemetryInfo(),
+            self::testMethod(),
+            $message,
+        );
+    }
+
+    private static function testMethod(): TestMethod
+    {
+        return new TestMethod(
+            'FooTest',
+            'testBar',
+            'FooTest.php',
+            1,
+            TestDoxBuilder::fromClassNameAndMethodName('Foo', 'bar'),
+            MetadataCollection::fromArray([]),
+            TestDataCollection::fromArray([]),
+        );
+    }
+
+    private static function testMethodBaz(): TestMethod
+    {
+        return new TestMethod(
+            'FooTest',
+            'testBaz',
+            'FooTest.php',
+            10,
+            TestDoxBuilder::fromClassNameAndMethodName('Foo', 'baz'),
+            MetadataCollection::fromArray([]),
+            TestDataCollection::fromArray([]),
+        );
+    }
+
+    private static function testMethodWithDataProvider(): TestMethod
+    {
+        return new TestMethod(
+            'FooTest',
+            'testBar',
+            'FooTest.php',
+            1,
+            TestDoxBuilder::fromClassNameAndMethodName('Foo', 'bar'),
+            MetadataCollection::fromArray([]),
+            TestDataCollection::fromArray([
+                DataFromDataProvider::from(
+                    'negative numbers',
+                    'a',
+                    '#2 (negative numbers)',
+                ),
+            ]),
+        );
+    }
+
+    private static function telemetryInfo(): Info
+    {
+        return new Info(
+            new Snapshot(
+                HRTime::fromSecondsAndNanoseconds(...hrtime(false)),
+                MemoryUsage::fromBytes(1000),
+                MemoryUsage::fromBytes(2000),
+                new GarbageCollectorStatus(0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, false, false, false, 0),
+                CpuTime::fromSecondsAndNanoseconds(0, 0),
+                CpuTime::fromSecondsAndNanoseconds(0, 0),
+                CpuTime::fromSecondsAndNanoseconds(0, 0),
+            ),
+            Duration::fromSecondsAndNanoseconds(123, 456),
+            MemoryUsage::fromBytes(2000),
+            Duration::fromSecondsAndNanoseconds(234, 567),
+            MemoryUsage::fromBytes(3000),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+            CpuTime::fromSecondsAndNanoseconds(0, 0),
+        );
+    }
+
+    /**
+     * @return list<Issue>
+     */
+    private static function samePhpDeprecationsTriggeredTwice(): array
+    {
+        $issue = Issue::from(
+            'Foo.php',
+            1,
+            'message',
+            self::testMethod(),
+        );
+
+        $issue->triggeredBy(self::testMethod());
+
+        return [$issue];
+    }
+}

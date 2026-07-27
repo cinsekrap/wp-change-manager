@@ -1,0 +1,1111 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\MockObject;
+
+use function call_user_func_array;
+use Exception;
+use PHPUnit\Framework\Attributes\DoesNotPerformAssertions;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\IgnorePhpunitDeprecations;
+use PHPUnit\Framework\Attributes\Medium;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\MockObject\Runtime\PropertyHook;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\TestFixture\MockObject\AnInterface;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithCloneMethod;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithPropertyWithCovariantSetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithPropertyWithGetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithPropertyWithSetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableClassWithVirtualPropertyWithSetHook;
+use PHPUnit\TestFixture\MockObject\ExtendableReadonlyClassWithCloneMethod;
+use PHPUnit\TestFixture\MockObject\InterfaceWithImplicitProtocol;
+use PHPUnit\TestFixture\MockObject\InterfaceWithPropertyWithSetHook;
+use PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration;
+use PHPUnit\TestFixture\MockObject\MethodWIthVariadicVariables;
+use ReflectionProperty;
+
+#[Group('test-doubles')]
+#[Group('test-doubles/mock-object')]
+#[TestDox('Mock Object')]
+#[Medium]
+final class MockObjectTest extends TestDoubleTestCase
+{
+    public function testExpectationThatMethodIsNeverCalledSucceedsWhenMethodIsNotCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->never())->method('doSomething');
+    }
+
+    public function testExpectationThatMethodIsNeverCalledFailsWhenMethodIsCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->never())->method('doSomething');
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething(): bool was not expected to be called, actually called 1 time.',
+            $double,
+            'doSomething',
+        );
+    }
+
+    #[DoesNotPerformAssertions]
+    #[IgnorePhpunitDeprecations]
+    public function testExpectationThatMethodIsCalledZeroOrMoreTimesSucceedsWhenMethodIsNotCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->any())->method('doSomething');
+    }
+
+    #[DoesNotPerformAssertions]
+    #[IgnorePhpunitDeprecations]
+    public function testExpectationThatMethodIsCalledZeroOrMoreTimesSucceedsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->any())->method('doSomething');
+
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledOnceSucceedsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->once())->method('doSomething');
+
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledOnceFailsWhenMethodIsNeverCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->once())->method('doSomething');
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked once but was never invoked.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledOnceFailsWhenMethodIsCalledMoreThanOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->once())->method('doSomething');
+
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething(): bool was not expected to be called more than once, actually called 2 times.',
+            $double,
+            'doSomething',
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastOnceSucceedsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeastOnce())->method('doSomething');
+
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastOnceSucceedsWhenMethodIsCalledTwice(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeastOnce())->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastTwiceSucceedsWhenMethodIsCalledTwice(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeast(2))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastTwiceSucceedsWhenMethodIsCalledThreeTimes(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeast(2))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastOnceFailsWhenMethodIsNotCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeastOnce())->method('doSomething');
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked at least once but was never invoked.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledAtLeastTwiceFailsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atLeast(2))->method('doSomething');
+
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked at least 2 times but was invoked once.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledTwiceSucceedsWhenMethodIsCalledTwice(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->exactly(2))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledTwiceFailsWhenMethodIsNeverCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->exactly(2))->method('doSomething');
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked 2 times but was never invoked.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledTwiceFailsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->exactly(2))->method('doSomething');
+
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked 2 times but was invoked once.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledTwiceFailsWhenMethodIsCalledThreeTimes(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->exactly(2))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething(): bool was not expected to be called more than 2 times, actually called 3 times.',
+            $double,
+            'doSomething',
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledAtMostOnceSucceedsWhenMethodIsNeverCalled(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atMost(1))->method('doSomething');
+    }
+
+    public function testExpectationThatMethodIsCalledAtMostOnceSucceedsWhenMethodIsCalledOnce(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atMost(1))->method('doSomething');
+
+        $double->doSomething();
+    }
+
+    public function testExpectationThatMethodIsCalledAtMostOnceFailsWhenMethodIsCalledTwice(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atMost(1))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked at most once but was invoked 2 times.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledAtMostTwoTimesFailsWhenMethodIsCalledThreeTimes(): void
+    {
+        $double = $this->createMock(AnInterface::class);
+
+        $double->expects($this->atMost(2))->method('doSomething');
+
+        $double->doSomething();
+        $double->doSomething();
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            AnInterface::class . '::doSomething() was expected to be invoked at most 2 times but was invoked 3 times.',
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithAnyParameterSucceedsWhenMethodIsCalledWithParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())->method('doSomethingElse')->withAnyParameters();
+
+        $double->doSomethingElse(1);
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSucceedsWhenMethodIsCalledWithExpectedParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())->method('doSomethingElse')->with(1);
+
+        $double->doSomethingElse(1);
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterFailsWhenMethodIsCalledButWithUnexpectedParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())->method('doSomethingElse')->with(1);
+
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+Parameter $x for invocation PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse(0): int does not match expected value.
+Failed asserting that 0 matches expected 1.
+EOT,
+            $double,
+            'doSomethingElse',
+            [0],
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithConsecutiveParameterSetsSucceedsWhenMethodIsCalledConsecutivelyWithExpectedParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInOrder(1, 2);
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+    }
+
+    public function testExpectationThatMethodIsCalledWithConsecutiveParameterSetsFailsWhenMethodIsCalledConsecutivelyWithOneWrongParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInOrder([1], [2]);
+
+        $double->doSomethingElse(1);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+Parameter $x for invocation PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse(3): int does not match expected value.
+Failed asserting that 3 matches expected 2.
+EOT,
+            $double,
+            'doSomethingElse',
+            [3],
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithConsecutiveParameterSetsFailsWhenMethodIsCalledConsecutivelyWithNotEnoughParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(3))->method('doSomethingElse')->withParameterSetsInOrder(1, 2);
+
+        $this->expectException(NoMoreParameterSetsConfiguredException::class);
+        $this->expectExceptionMessageIs('Not enough parameter sets configured, only 2 parameter sets given for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse()');
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(3);
+    }
+
+    public function testExpectationThatMethodIsCalledWithConsecutiveParameterSetsFailsWhenTooManyParameterSetsAreGiven(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInOrder(1, 2, 3);
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+Too many parameter sets given, 2 out of 3 expected parameter sets have been called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInAnyOrderSucceedsWhenMethodIsCalledWithExpectedParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInAnyOrder([1], [2]);
+
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(1);
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInAnyOrderFailsWhenMethodIsCalledWithOneWrongParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInAnyOrder(1, 2);
+
+        $double->doSomethingElse(3);
+        $double->doSomethingElse(1);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+1 out of 2 expected unordered parameter sets was called, index [1] was not called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInAnyOrderFailsWhenTooManyParameterSetsAreGiven(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInAnyOrder(1, 2, 3);
+
+        $double->doSomethingElse(3);
+        $double->doSomethingElse(2);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+2 out of 3 expected unordered parameter sets were called, index [0] was not called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInAnyOrderFailsWhenMethodIsCalledConsecutivelyWithNotEnoughParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(3))->method('doSomethingElse')->withParameterSetsInAnyOrder(1, 2);
+
+        $this->expectException(NoMoreParameterSetsConfiguredException::class);
+        $this->expectExceptionMessageIs('Not enough parameter sets configured, only 2 parameter sets given for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse()');
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(3);
+    }
+
+    public function testExpectationThatMethodIsCalledWithPartialOrderedParameterSetsSucceedsWhenMethodIsCalledWithExpectedParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(3))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(
+                1,
+                2,
+                ['pinned' => 3],
+            );
+
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(3);
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenMethodIsCalledWithOneWrongParameter(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')->withParameterSetsInPartialOrder(1, 2);
+
+        $double->doSomethingElse(3);
+        $double->doSomethingElse(1);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+1 out of 2 expected unordered parameter sets was called, index [1] was not called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenMethodIsCalledFixedParameterAtWrongPosition(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(
+                ['pinned' => 1],
+                2,
+            );
+
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+Parameter $x for invocation PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse(2): int does not match expected value.
+Failed asserting that 2 matches expected 1.
+EOT,
+            $double,
+            'doSomethingElse',
+            [2],
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenMethodIsCalledWithNotEnoughParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(3))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(1, ['pinned' => 2]);
+
+        $this->expectException(NoMoreParameterSetsConfiguredException::class);
+        $this->expectExceptionMessageIs('Not enough parameter sets configured, only 2 parameter sets given for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse()');
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(3);
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenTooManyParameterSetsAreGiven(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(['pinned' => 1], 2, 3);
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(3);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+1 out of 2 expected unordered parameter sets was called, index [1] was not called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenTooManyParameterSetsAreGivenWithoutPinnedParameterSets(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(1, 2, 3);
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(3);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+2 out of 3 expected unordered parameter sets were called, index [1] was not called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenTooManyParameterSetsAreGivenWithPinnedParameterSetsOnly(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(
+                ['pinned' => 1],
+                ['pinned' => 2],
+                ['pinned' => 3],
+            );
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $this->assertThatMockObjectExpectationFails(
+            <<<'EOT'
+Expectation for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse() failed.
+Too many parameter sets given, 2 out of 3 expected parameter sets have been called.
+
+EOT,
+            $double,
+        );
+    }
+
+    public function testExpectationThatMethodIsCalledWithParameterSetsInPartialOrderFailsWhenMethodIsCalledWithNotEnoughParametersWithoutPinnedParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(3))->method('doSomethingElse')
+            ->withParameterSetsInPartialOrder(1, 2);
+
+        $this->expectException(NoMoreParameterSetsConfiguredException::class);
+        $this->expectExceptionMessageIs('Not enough parameter sets configured, only 2 parameter sets given for PHPUnit\TestFixture\MockObject\InterfaceWithReturnTypeDeclaration::doSomethingElse()');
+
+        $double->doSomethingElse(1);
+        $double->doSomethingElse(2);
+        $double->doSomethingElse(3);
+    }
+
+    /**
+     * With <code>$double->expects($this->once())->method('one')->id($id);</code>,
+     * we configure an expectation that one() is called once. This expectation is given the ID $id.
+     *
+     * With <code>$double->expects($this->once())->method('two')->after($id);</code>,
+     * we configure an expectation that two() is called once. However, this expectation will only be verified
+     * if/after one() has been called.
+     */
+    public function testMethodCallCanBeExpectedContingentOnWhetherAnotherMethodWasPreviouslyCalled(): void
+    {
+        $id     = 'the-id';
+        $double = $this->createMock(InterfaceWithImplicitProtocol::class);
+
+        $double->expects($this->once())
+            ->method('one')
+            ->id($id);
+
+        $double->expects($this->once())
+            ->method('two')
+            ->after($id);
+
+        $double->one();
+        $double->two();
+    }
+
+    public function testContingentExpectationsAreNotEvaluatedUntilTheirConditionIsMet(): void
+    {
+        $id     = 'the-id';
+        $double = $this->createMock(InterfaceWithImplicitProtocol::class);
+
+        $double->expects($this->once())
+            ->method('one')
+            ->id($id);
+
+        $double->expects($this->once())
+            ->method('two')
+            ->after($id);
+
+        $double->two();
+        $double->one();
+        $double->two();
+    }
+
+    public function testContingentExpectationsAreEvaluatedWhenTheirConditionIsMet(): void
+    {
+        $id     = 'the-id';
+        $double = $this->createMock(InterfaceWithImplicitProtocol::class);
+
+        $double->expects($this->once())
+            ->method('one')
+            ->id($id);
+
+        $double->expects($this->once())
+            ->method('two')
+            ->after($id);
+
+        $double->two();
+        $double->one();
+
+        $this->assertThatMockObjectExpectationFails(
+            InterfaceWithImplicitProtocol::class . '::two() was expected to be invoked once but was never invoked.',
+            $double,
+        );
+    }
+
+    public function testExpectationCannotBeContingentOnExpectationThatHasNotBeenConfigured(): void
+    {
+        $double = $this->createMock(InterfaceWithImplicitProtocol::class);
+
+        $double->expects($this->once())
+            ->method('two')
+            ->after('the-id');
+
+        $this->assertThatMockObjectExpectationFails(
+            'No builder found for match builder identification <the-id>',
+            $double,
+            'two',
+        );
+    }
+
+    public function testExpectationsCannotHaveDuplicateIds(): void
+    {
+        $id     = 'the-id';
+        $double = $this->createMock(InterfaceWithImplicitProtocol::class);
+
+        $double->expects($this->once())
+            ->method('one')
+            ->id($id);
+
+        try {
+            $double->expects($this->once())
+                ->method('one')
+                ->id($id);
+        } catch (MatcherAlreadyRegisteredException $e) {
+            $this->assertSame('Matcher with id <the-id> is already registered', $e->getMessage());
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    public function testWillReturnCallbackWithVariadicVariables(): void
+    {
+        $double = $this->createMock(MethodWIthVariadicVariables::class);
+        $double->expects($this->once())->method('testVariadic')
+            ->withAnyParameters()
+            ->willReturnCallback(static fn (string $string, string ...$arguments) => [$string, ...$arguments]);
+
+        $testData = ['foo', 'bar', 'biz' => 'kuz'];
+        $actual   = $double->testVariadic(...$testData);
+
+        $this->assertSame($testData, $actual);
+    }
+
+    public function testAssertionFailureInCallbackIsReportedDuringVerification(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())
+            ->method('doSomethingElse')
+            ->willReturnCallback(function (int $x): int
+            {
+                $this->assertSame(1, $x);
+
+                return $x;
+            });
+
+        try {
+            $double->doSomethingElse(2);
+        } catch (Exception) {
+        }
+
+        $this->assertThatMockObjectExpectationFails(
+            'Failed asserting that 2 is identical to 1.',
+            $double,
+        );
+    }
+
+    public function testExpectationsAreClonedWhenTestDoubleIsCloned(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->exactly(2))->method('doSomething');
+
+        $clone = clone $double;
+
+        $double->expects($this->once())->method('doSomethingElse')->willReturn(1);
+        $clone->expects($this->once())->method('doSomethingElse')->willReturn(2);
+
+        $this->assertFalse($double->doSomething());
+        $this->assertFalse($clone->doSomething());
+        $this->assertSame(1, $double->doSomethingElse(0));
+        $this->assertSame(2, $clone->doSomethingElse(0));
+    }
+
+    public function testExpectationCanBeConfiguredForSetHookForPropertyOfInterface(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithPropertyWithSetHook::class);
+
+        $double->expects($this->once())->method(PropertyHook::set('property'))->with('value');
+
+        $double->property = 'value';
+    }
+
+    public function testExpectationCanBeConfiguredForSetHookForPropertyOfExtendableClass(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithPropertyWithSetHook::class);
+
+        $double->expects($this->once())->method(PropertyHook::set('property'))->with('value');
+
+        $double->property = 'value';
+    }
+
+    public function testExpectationCanBeConfiguredForSetHookForVirtualPropertyOfExtendableClass(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithVirtualPropertyWithSetHook::class);
+
+        $double->expects($this->once())->method(PropertyHook::set('property'))->with('value');
+
+        $double->property = 'value';
+    }
+
+    public function testExpectationCanBeConfiguredForSetHookForNonVirtualPropertyWithGetHookOfExtendableClass(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithPropertyWithGetHook::class);
+
+        $double->expects($this->once())->method(PropertyHook::set('property'))->with('value');
+
+        $double->property = 'value';
+    }
+
+    public function testExpectationCanBeConfiguredForCovariantSetHookForPropertyOfExtendableClass(): void
+    {
+        $double = $this->createTestDouble(ExtendableClassWithPropertyWithCovariantSetHook::class);
+
+        $double->expects($this->once())->method(PropertyHook::set('property'))->with('0');
+
+        $double->property = '0';
+    }
+
+    #[TestDox('__toString() method returns empty string when return value generation is disabled and no return value is configured')]
+    public function testToStringMethodReturnsEmptyStringWhenReturnValueGenerationIsDisabledAndNoReturnValueIsConfigured(): void
+    {
+        $double = $this->getMockBuilder(InterfaceWithReturnTypeDeclaration::class)
+            ->disableAutoReturnValueGeneration()
+            ->getMock();
+
+        $this->assertSame('', $double->__toString());
+    }
+
+    public function testMethodDoesNotReturnValueWhenReturnValueGenerationIsDisabledAndNoReturnValueIsConfigured(): void
+    {
+        $double = $this->getMockBuilder(InterfaceWithReturnTypeDeclaration::class)
+            ->disableAutoReturnValueGeneration()
+            ->getMock();
+
+        $this->expectException(ReturnValueNotConfiguredException::class);
+        $this->expectExceptionMessageIs('No return value is configured for ' . InterfaceWithReturnTypeDeclaration::class . '::doSomething() and return value generation is disabled');
+
+        $double->doSomething();
+    }
+
+    #[TestDox('Original __clone() method can optionally be called when test double object is cloned')]
+    public function testOriginalCloneMethodCanOptionallyBeCalledWhenTestDoubleObjectIsCloned(): void
+    {
+        $double = $this->getMockBuilder(ExtendableClassWithCloneMethod::class)->enableOriginalClone()->getMock();
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessageIs(ExtendableClassWithCloneMethod::class . '::__clone');
+
+        clone $double;
+    }
+
+    #[TestDox('Original __clone() method can optionally be called when test double object is cloned (readonly class)')]
+    public function testOriginalCloneMethodCanOptionallyBeCalledWhenTestDoubleObjectOfReadonlyClassIsCloned(): void
+    {
+        $double = $this->getMockBuilder(ExtendableReadonlyClassWithCloneMethod::class)->enableOriginalClone()->getMock();
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessageIs(ExtendableReadonlyClassWithCloneMethod::class . '::__clone');
+
+        clone $double;
+    }
+
+    #[TestDox('Sealed mock object throws exception when expects() is called')]
+    public function testSealedMockObjectThrowsExceptionWhenExpectsIsCalled(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->seal();
+
+        $this->assertTestDoubleSealedExceptionIsThrown(
+            function () use ($double): void
+            {
+                $double
+                    ->expects($this->once())
+                    ->method('doSomethingElse');
+            },
+        );
+    }
+
+    #[TestDox('Sealed mock object throws exception when method() is called')]
+    public function testSealedMockObjectThrowsExceptionWhenMethodIsCalled(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->seal();
+
+        $this->assertTestDoubleSealedExceptionIsThrown(
+            static function () use ($double): void
+            {
+                $double
+                    ->method('doSomethingElse')
+                    ->willReturn(1);
+            },
+        );
+    }
+
+    #[TestDox('Sealed mock object fails when unconfigured method is called')]
+    public function testSealedMockObjectFailsWhenUnconfiguredMethodIsCalled(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->seal();
+
+        $double->doSomething();
+
+        $this->assertThatMockObjectExpectationFails(
+            InterfaceWithReturnTypeDeclaration::class . '::doSomethingElse(0): int was not expected to be called, actually called 1 time.',
+            $double,
+            'doSomethingElse',
+            [0],
+        );
+    }
+
+    #[TestDox('Sealed mock object allows configured methods to be called')]
+    public function testSealedMockObjectAllowsConfiguredMethodsToBeCalled(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->willReturn(true)
+            ->seal();
+
+        $this->assertTrue($double->doSomething());
+    }
+
+    #[TestDox('Sealed mock object does not add never() expectation for methods that were configured')]
+    public function testSealedMockObjectDoesNotAddNeverExpectationForConfiguredMethods(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->willReturn(true)
+            ->seal();
+
+        $this->assertTrue($double->doSomething());
+    }
+
+    #[TestDox('Cloned sealed mock object remains sealed')]
+    public function testClonedSealedMockObjectRemainsSealed(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->seal();
+
+        $clone = clone $double;
+
+        $this->assertTestDoubleSealedExceptionIsThrown(
+            function () use ($clone): void
+            {
+                $clone
+                    ->expects($this->once())
+                    ->method('doSomethingElse');
+            },
+        );
+    }
+
+    #[TestDox('Sealed partial mock object only affects mocked methods')]
+    public function testSealedPartialMockObjectOnlyAffectsMockedMethods(): void
+    {
+        $double = $this
+            ->getMockBuilder(ExtendableClassWithCloneMethod::class)
+            ->onlyMethods(['doSomething'])
+            ->getMock();
+
+        $double
+            ->expects($this->once())
+            ->method('doSomething')
+            ->willReturn(false)
+            ->seal();
+
+        $this->assertFalse($double->doSomething());
+    }
+
+    public function testMethodNameMustBeConfiguredBeforeMethodParametersCanBeConfigured(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        try {
+            $double->expects($this->once())->with(1);
+        } catch (MethodNameNotConfiguredException $e) {
+            $this->assertSame('Method name is not configured', $e->getMessage());
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    public function testMethodParametersCanOnlyBeConfiguredOnce(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        try {
+            $double->expects($this->once())->method('doSomethingElse')->with(1)->with(2);
+        } catch (MethodParametersAlreadyConfiguredException $e) {
+            $this->assertSame('Method parameters already configured', $e->getMessage());
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    public function testMethodParametersCanOnlyBeConfiguredByOneMatcherForWith(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())->method('doSomethingElse')->with(1)->willReturn(1);
+
+        try {
+            $double->expects($this->once())->method('doSomethingElse')->with(2)->willReturn(2);
+        } catch (MethodParametersAlreadyConfiguredForAnotherMatcherException $e) {
+            $this->assertSame(
+                'Parameters for method "doSomethingElse" are already configured for another matcher. ' .
+                'with() configures an expectation (the method must be called with the specified arguments), ' .
+                'it does not select a return value based on arguments. ' .
+                'Use willReturnMap() to return different values based on arguments.',
+                $e->getMessage(),
+            );
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    public function testMethodParametersCanOnlyBeConfiguredByOneMatcherForWithAnyParameters(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->expects($this->once())->method('doSomethingElse')->with(1)->willReturn(1);
+
+        try {
+            $double->expects($this->once())->method('doSomethingElse')->withAnyParameters()->willReturn(2);
+        } catch (MethodParametersAlreadyConfiguredForAnotherMatcherException $e) {
+            $this->assertStringContainsString('doSomethingElse', $e->getMessage());
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    #[DoesNotPerformAssertions]
+    #[IgnorePhpunitDeprecations]
+    #[TestDox('with() can be used without expects() and is not verified when the method is not called')]
+    public function testWithCanBeUsedWithoutExpectsAndIsNotVerifiedWhenTheMethodIsNotCalled(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomethingElse')->with(1)->willReturn(2);
+    }
+
+    #[IgnorePhpunitDeprecations]
+    #[TestDox('with() can be used without expects() and is verified when the method is called')]
+    public function testWithCanBeUsedWithoutExpectsAndIsVerifiedWhenTheMethodIsCalled(): void
+    {
+        $double = $this->createTestDouble(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method('doSomethingElse')->with(1)->willReturn(2);
+
+        $this->expectException(ExpectationFailedException::class);
+
+        $double->doSomethingElse(0);
+    }
+
+    #[DoesNotPerformAssertions]
+    public function testWillReturnSkipsTypeCheckWhenMethodNameIsConstraintMatchingMultipleMethods(): void
+    {
+        $double = $this->createMock(InterfaceWithReturnTypeDeclaration::class);
+
+        $double->method($this->stringContains('do'))->willReturn(null);
+    }
+
+    /**
+     * @param class-string $type
+     */
+    protected function createTestDouble(string $type): object
+    {
+        return $this->createMock($type);
+    }
+
+    private function assertThatMockObjectExpectationFails(string $expectationFailureMessage, MockObject $double, string $methodName = '__phpunit_verify', array $arguments = []): void
+    {
+        try {
+            call_user_func_array([$double, $methodName], $arguments);
+        } catch (ExpectationFailedException|MatchBuilderNotFoundException $e) {
+            $this->assertSame($expectationFailureMessage, $e->getMessage());
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail();
+    }
+
+    private function assertTestDoubleSealedExceptionIsThrown(callable $action): void
+    {
+        try {
+            $action();
+        } catch (TestDoubleSealedException) {
+            $this->addToAssertionCount(1);
+
+            return;
+        } finally {
+            $this->resetMockObjects();
+        }
+
+        $this->fail('Expected TestDoubleSealedException was not thrown');
+    }
+
+    private function resetMockObjects(): void
+    {
+        new ReflectionProperty(TestCase::class, 'mockObjects')->setValue($this, []);
+    }
+}

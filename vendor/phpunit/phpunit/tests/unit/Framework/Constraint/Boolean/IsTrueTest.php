@@ -1,0 +1,85 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\Constraint;
+
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
+use stdClass;
+
+#[CoversClass(IsTrue::class)]
+#[CoversClass(Constraint::class)]
+#[Small]
+#[Group('framework')]
+#[Group('framework/constraints')]
+final class IsTrueTest extends TestCase
+{
+    public function testCanBeEvaluated(): void
+    {
+        $this->assertTrue((new IsTrue)->evaluate(true, returnResult: true));
+        $this->assertFalse((new IsTrue)->evaluate(false, returnResult: true));
+    }
+
+    public function testCanBeRepresentedAsString(): void
+    {
+        $this->assertSame('is true', (new IsTrue)->toString());
+    }
+
+    public function testCanBeNegated(): void
+    {
+        $constraint = new LogicalNot(new IsTrue);
+
+        $this->assertSame('is not true', $constraint->toString());
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that true is not true.');
+
+        $constraint->evaluate(true);
+    }
+
+    public function testIsCountable(): void
+    {
+        $this->assertCount(1, (new IsTrue));
+    }
+
+    public function testFailureDescriptionForScalar(): void
+    {
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that false is true.');
+
+        (new IsTrue)->evaluate(false);
+    }
+
+    public function testFailureDescriptionForArray(): void
+    {
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that an array is true.');
+
+        (new IsTrue)->evaluate([1, 2, 3]);
+    }
+
+    public function testFailureDescriptionForObject(): void
+    {
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that an instance of class stdClass is true.');
+
+        (new IsTrue)->evaluate(new stdClass);
+    }
+
+    public function testReturnsAffirmativeStringInNonLogicalNotContext(): void
+    {
+        $this->assertSame(
+            'is true',
+            LogicalAnd::fromConstraints(new IsTrue)->toString(),
+        );
+    }
+}

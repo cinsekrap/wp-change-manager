@@ -2,6 +2,21 @@
 
 All notable changes of the PHPUnit 13.2 release series are documented in this file using the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## [13.2.5] - 2026-07-25
+
+### Changed
+
+* Messages for tests that are skipped because of an unsatisfied `RequiresPhp`, `RequiresPhpunit`, or `RequiresPhpExtension` version requirement now include the version that is actually being used
+* Warning messages about incomplete version requirements as well as version requirements without a version comparison operator, and the error message for invalid version requirements, now include the full version requirement and explain what is expected
+
+### Fixed
+
+* [#6825](https://github.com/sebastianbergmann/phpunit/pull/6825): Forwarding to previous error handler can result in infinite recursion
+* [#6831](https://github.com/sebastianbergmann/issues/pull/6831): PHPUnit's error handler does not respect `@` error suppression and forwards suppressed warnings to previous error handler
+* [#6833](https://github.com/sebastianbergmann/phpunit/issues/6833): `assertArrayHasKey()` does not accept `ArrayAccess` implementations with a specific value type when test code is analysed with PHPStan at level 9
+* [#6854](https://github.com/sebastianbergmann/phpunit/issues/6854): Deprecation triggered in first-party code is wrongly classified as indirect when the first-party code is called from third-party code
+* Test classes were not sorted relative to each other when tests were ordered by duration
+
 ## [13.2.4] - 2026-07-08
 
 ### Fixed
@@ -91,6 +106,7 @@ All notable changes of the PHPUnit 13.2 release series are documented in this fi
 * [#5851](https://github.com/sebastianbergmann/phpunit/issues/5851): Output buffer manipulation in tests causes incorrect capture, hangs, and silent failures
 * [#6582](https://github.com/sebastianbergmann/phpunit/issues/6582): `TestSuiteSorter::cmpSize()` does not handle `TestSuite` objects for `TestCase` classes
 
+[13.2.5]: https://github.com/sebastianbergmann/phpunit/compare/13.2.4...13.2.5
 [13.2.4]: https://github.com/sebastianbergmann/phpunit/compare/13.2.3...13.2.4
 [13.2.3]: https://github.com/sebastianbergmann/phpunit/compare/13.2.2...13.2.3
 [13.2.2]: https://github.com/sebastianbergmann/phpunit/compare/13.2.1...13.2.2

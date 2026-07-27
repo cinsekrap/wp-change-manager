@@ -1,0 +1,163 @@
+# https://docs.github.com/en/actions
+
+on:
+  schedule:
+    - cron: "15 0 * * *"
+  workflow_dispatch: ~
+
+name: Nightly
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: Tests
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    env:
+      PHP_EXTENSIONS: none, ctype, curl, dom, json, libxml, mbstring, openssl, pdo, phar, tokenizer, xmlwriter
+      PHP_INI_VALUES: memory_limit=-1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+        phpunit-branch:
+          - main
+          - 13.1
+          - 12.5
+          - 11.5
+          - 10.5
+          - 9.6
+          - 8.5
+
+        php-version:
+          - 7.2
+          - 7.3
+          - 7.4
+          - 8.0
+          - 8.1
+          - 8.2
+          - 8.3
+          - 8.4
+          - 8.5
+          - 8.6
+
+        exclude:
+          - phpunit-branch: 8.5
+            php-version: 7.2
+          - phpunit-branch: 8.5
+            php-version: 7.3
+          - phpunit-branch: 9.6
+            php-version: 7.2
+          - phpunit-branch: 9.6
+            php-version: 7.3
+          - phpunit-branch: 10.5
+            php-version: 7.2
+          - phpunit-branch: 10.5
+            php-version: 7.3
+          - phpunit-branch: 10.5
+            php-version: 7.4
+          - phpunit-branch: 10.5
+            php-version: 8.0
+          - phpunit-branch: 11.5
+            php-version: 7.2
+          - phpunit-branch: 11.5
+            php-version: 7.3
+          - phpunit-branch: 11.5
+            php-version: 7.4
+          - phpunit-branch: 11.5
+            php-version: 8.0
+          - phpunit-branch: 11.5
+            php-version: 8.1
+          - phpunit-branch: 12.5
+            php-version: 7.2
+          - phpunit-branch: 12.5
+            php-version: 7.3
+          - phpunit-branch: 12.5
+            php-version: 7.4
+          - phpunit-branch: 12.5
+            php-version: 8.0
+          - phpunit-branch: 12.5
+            php-version: 8.1
+          - phpunit-branch: 12.5
+            php-version: 8.2
+          - phpunit-branch: 13.1
+            php-version: 7.2
+          - phpunit-branch: 13.1
+            php-version: 7.3
+          - phpunit-branch: 13.1
+            php-version: 7.4
+          - phpunit-branch: 13.1
+            php-version: 8.0
+          - phpunit-branch: 13.1
+            php-version: 8.1
+          - phpunit-branch: 13.1
+            php-version: 8.2
+          - phpunit-branch: 13.1
+            php-version: 8.3
+          - phpunit-branch: main
+            php-version: 7.2
+          - phpunit-branch: main
+            php-version: 7.3
+          - phpunit-branch: main
+            php-version: 7.4
+          - phpunit-branch: main
+            php-version: 8.0
+          - phpunit-branch: main
+            php-version: 8.1
+          - phpunit-branch: main
+            php-version: 8.2
+          - phpunit-branch: main
+            php-version: 8.3
+
+    steps:
+      - name: Configure Git to avoid issues with line endings
+        if: matrix.os == 'windows-latest'
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.phpunit-branch }}
+          persist-credentials: false
+
+      - name: Install PHP with extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_VALUES }}
+          tools: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        shell: bash
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer cache directory
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies with Composer
+        run: php ./tools/composer install --no-ansi --no-interaction --no-progress
+
+      - name: Run unit tests with PHPUnit
+        run: php ./phpunit --testsuite unit --order-by depends,random
+
+      - name: Run end-to-end tests with PHPUnit
+        run: php ./phpunit --testsuite end-to-end --order-by depends,random

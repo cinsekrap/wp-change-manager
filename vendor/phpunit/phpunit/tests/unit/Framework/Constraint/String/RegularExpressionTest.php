@@ -1,0 +1,111 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\Constraint;
+
+use function str_repeat;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Exception as FrameworkException;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(RegularExpression::class)]
+#[CoversClass(Constraint::class)]
+#[Small]
+#[Group('framework')]
+#[Group('framework/constraints')]
+final class RegularExpressionTest extends TestCase
+{
+    /**
+     * @return non-empty-list<array{bool, string, string, string}>
+     */
+    public static function provider(): array
+    {
+        return [
+            [
+                true,
+                '',
+                '/.*/',
+                'string',
+            ],
+
+            [
+                false,
+                'Failed asserting that \'string\' matches PCRE pattern "/[0-9]/".',
+                '/[0-9]/',
+                'string',
+            ],
+        ];
+    }
+
+    #[DataProvider('provider')]
+    public function testCanBeEvaluated(bool $result, string $failureDescription, string $expected, string $actual): void
+    {
+        $constraint = new RegularExpression($expected);
+
+        $this->assertSame($result, $constraint->evaluate($actual, returnResult: true));
+
+        if ($result) {
+            return;
+        }
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs($failureDescription);
+
+        $constraint->evaluate($actual);
+    }
+
+    public function testCanBeRepresentedAsString(): void
+    {
+        $this->assertSame('matches PCRE pattern "/.*/"', new RegularExpression('/.*/')->toString());
+    }
+
+    public function testCanBeNegated(): void
+    {
+        $constraint = new LogicalNot(new RegularExpression('/foo/'));
+
+        $this->assertSame('does not match PCRE pattern "/foo/"', $constraint->toString());
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that \'foo\' does not match PCRE pattern "/foo/".');
+
+        $constraint->evaluate('foo');
+    }
+
+    public function testIsCountable(): void
+    {
+        $this->assertCount(1, (new RegularExpression('/.*/')));
+    }
+
+    public function testThrowsExceptionWhenRegularExpressionMatchingFails(): void
+    {
+        $constraint = new RegularExpression('/(?:\D+|<\d+>)*[!?]/');
+
+        $this->expectException(FrameworkException::class);
+        $this->expectExceptionMessageIs('Regular expression cannot be matched: Backtrack limit exhausted');
+
+        $constraint->evaluate(str_repeat('foobar', 1024));
+    }
+
+    public function testMatchesReturnsFalseForNonString(): void
+    {
+        $this->assertFalse(new RegularExpression('/.*/')->evaluate(123, returnResult: true));
+    }
+
+    public function testReturnsAffirmativeStringInNonLogicalNotContext(): void
+    {
+        $this->assertSame(
+            'matches PCRE pattern "/.*/"',
+            LogicalAnd::fromConstraints(new RegularExpression('/.*/'))->toString(),
+        );
+    }
+}

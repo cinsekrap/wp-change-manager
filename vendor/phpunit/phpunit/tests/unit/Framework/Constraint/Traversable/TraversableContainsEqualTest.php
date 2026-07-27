@@ -1,0 +1,176 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of PHPUnit.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace PHPUnit\Framework\Constraint;
+
+use DateInterval;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\ExpectationFailedException;
+use PHPUnit\Framework\TestCase;
+use SplObjectStorage;
+use stdClass;
+
+#[CoversClass(TraversableContainsEqual::class)]
+#[CoversClass(TraversableContains::class)]
+#[CoversClass(Constraint::class)]
+#[Small]
+#[Group('framework')]
+#[Group('framework/constraints')]
+final class TraversableContainsEqualTest extends TestCase
+{
+    /**
+     * @return non-empty-list<array{bool, string, mixed, mixed}>
+     */
+    public static function provider(): array
+    {
+        $o = new stdClass;
+
+        $s = new SplObjectStorage;
+        $s->offsetSet($o);
+
+        return [
+            [
+                true,
+                '',
+                0,
+                [0],
+            ],
+
+            [
+                true,
+                '',
+                'value',
+                ['value'],
+            ],
+
+            [
+                true,
+                '',
+                $o,
+                [$o],
+            ],
+
+            [
+                true,
+                '',
+                $o,
+                $s,
+            ],
+
+            [
+                true,
+                '',
+                '0',
+                [0],
+            ],
+
+            [
+                true,
+                '',
+                0,
+                ['0'],
+            ],
+
+            [
+                true,
+                '',
+                DateInterval::createFromDateString('1 day'),
+                [DateInterval::createFromDateString('1 day')],
+            ],
+
+            [
+                true,
+                '',
+                DateInterval::createFromDateString('1 day'),
+                [DateInterval::createFromDateString('2 days'), DateInterval::createFromDateString('1 day')],
+            ],
+
+            [
+                false,
+                'Failed asserting that an array contains DateInterval Object',
+                DateInterval::createFromDateString('1 day'),
+                [DateInterval::createFromDateString('2 days')],
+            ],
+
+            [
+                false,
+                'Failed asserting that an array contains stdClass Object',
+                $o,
+                [],
+            ],
+
+            [
+                false,
+                'Failed asserting that a traversable contains stdClass Object',
+                $o,
+                new SplObjectStorage,
+            ],
+        ];
+    }
+
+    #[DataProvider('provider')]
+    public function testCanBeEvaluated(bool $result, string $failureDescription, mixed $expected, mixed $actual): void
+    {
+        $constraint = new TraversableContainsEqual($expected);
+
+        $this->assertSame($result, $constraint->evaluate($actual, returnResult: true));
+
+        if ($result) {
+            return;
+        }
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIsOrContains($failureDescription);
+
+        $constraint->evaluate($actual);
+    }
+
+    public function testCanBeRepresentedAsString(): void
+    {
+        $this->assertSame('contains \'value\'', new TraversableContainsEqual('value')->toString());
+    }
+
+    public function testCanBeNegated(): void
+    {
+        $constraint = new LogicalNot(new TraversableContainsEqual('value'));
+
+        $this->assertSame('does not contain \'value\'', $constraint->toString());
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessageIs('Failed asserting that an array does not contain \'value\'.');
+
+        $constraint->evaluate(['value']);
+    }
+
+    public function testIsCountable(): void
+    {
+        $this->assertCount(1, (new TraversableContainsEqual('value')));
+    }
+
+    public function testReturnsFalseForNonIterableActual(): void
+    {
+        $this->assertFalse(new TraversableContainsEqual('value')->evaluate('not iterable', returnResult: true));
+    }
+
+    public function testReturnsFalseForSplObjectStorageWithNonObjectValue(): void
+    {
+        $this->assertFalse(new TraversableContainsEqual('not-object')->evaluate(new SplObjectStorage, returnResult: true));
+    }
+
+    public function testReturnsAffirmativeStringInNonLogicalNotContext(): void
+    {
+        $this->assertSame(
+            "contains 'value'",
+            LogicalAnd::fromConstraints(new TraversableContainsEqual('value'))->toString(),
+        );
+    }
+}
