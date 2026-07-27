@@ -1,0 +1,155 @@
+name: Release
+
+# Tags and publishes a release whenever config/version.php is bumped on main.
+# The release body comes from the matching CHANGELOG.md section, with the SHA-256 of the
+# API zipball appended — UpdateService reads that hash to verify the download it installs.
+
+on:
+  push:
+    branches: [main]
+    paths: ['config/version.php']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from config/version.php
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(sed -nE "s/^[[:space:]]*'current'[[:space:]]*=>[[:space:]]*'([^']+)'.*/\1/p" config/version.php | head -1)
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a valid version from config/version.php (got '$version')"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+      - name: Skip if this release already exists
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already published — nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v ver="$VERSION" '
+            { heading = $0; sub(/[[:space:]]+$/, "", heading) }
+            heading == "## " ver { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.raw
+          # Trim leading and trailing blank lines (blank lines are buffered and only
+          # flushed once another non-blank line follows).
+          awk '
+            NF { started = 1 }
+            started { pending = pending $0 "\n"; if (NF) { out = out pending; pending = "" } }
+            END { printf "%s", out }
+          ' notes.raw > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no '## $VERSION' section. Add one in the same PR as the version bump."
+            exit 1
+          fi
+          echo "Release notes:"; cat notes.md
+
+      - name: Create and push tag
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists (release was not published) — reusing it."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"
+
+      - name: Hash the API zipball
+        id: hash
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Must be the API zipball — this is the exact URL UpdateService downloads.
+          # The github.com/archive/refs/tags URL produces a different zip and a different hash.
+          url="https://api.github.com/repos/${GITHUB_REPOSITORY}/zipball/${TAG}"
+          fetch() {
+            curl -sSL --retry 3 --retry-delay 5 \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -o "$1" "$url"
+          }
+          # The archive can take a moment to become available after the tag is pushed.
+          for attempt in 1 2 3 4 5 6; do
+            fetch first.zip || true
+            if unzip -tq first.zip >/dev/null 2>&1; then break; fi
+            echo "Zipball not ready (attempt $attempt) — retrying in 10s."
+            sleep 10
+          done
+          if ! unzip -tq first.zip >/dev/null 2>&1; then
+            echo "::error::Could not download a valid zipball for $TAG"
+            exit 1
+          fi
+
+          # Confirm the archive the released code ships actually reports the released version.
+          zipped=$(unzip -p first.zip '*/config/version.php' | sed -nE "s/^[[:space:]]*'current'[[:space:]]*=>[[:space:]]*'([^']+)'.*/\1/p" | head -1)
+          if [ "$zipped" != "$VERSION" ]; then
+            echo "::error::Zipball reports version '$zipped' but the release is '$VERSION'"
+            exit 1
+          fi
+
+          # Fetch a second time and confirm the hash is stable before publishing it.
+          fetch second.zip
+          h1=$(sha256sum first.zip | cut -d' ' -f1)
+          h2=$(sha256sum second.zip | cut -d' ' -f1)
+          if [ "$h1" != "$h2" ]; then
+            echo "::error::Zipball hash was not stable across two fetches ($h1 vs $h2)"
+            exit 1
+          fi
+          echo "sha256=$h1" >> "$GITHUB_OUTPUT"
+          echo "SHA256: $h1"
+
+      - name: Publish release
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          SHA256: ${{ steps.hash.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          printf '\n\nSHA256: %s\n' "$SHA256" >> notes.md
+          gh release create "$TAG" --title "$TAG" --notes-file notes.md
+          gh release view "$TAG" --json body -q .body | grep -qE 'SHA-?256:[[:space:]]*[a-f0-9]{64}' \
+            || { echo "::error::Published release body is missing the SHA-256 line"; exit 1; }
+          echo "Published $TAG"
