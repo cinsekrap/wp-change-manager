@@ -7,6 +7,12 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 1.11.0
+
+### Improvements
+- More reliable in-app updates — new releases are now packaged, checksummed and published automatically, so each update is verified end to end before it goes live.
+- Various dependency and maintenance updates.
+
 ## 1.10.0
 
 ### Bug Fixes
