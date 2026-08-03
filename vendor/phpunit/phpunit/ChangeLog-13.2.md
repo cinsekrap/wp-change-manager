@@ -2,6 +2,13 @@
 
 All notable changes of the PHPUnit 13.2 release series are documented in this file using the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## [13.2.6] - 2026-07-28
+
+### Fixed
+
+* [#6861](https://github.com/sebastianbergmann/phpunit/issues/6861): Hook methods run twice when a template method is marked with its corresponding attribute
+* Regression that stopped test methods from being sorted by source code location
+
 ## [13.2.5] - 2026-07-25
 
 ### Changed
@@ -106,6 +113,7 @@ All notable changes of the PHPUnit 13.2 release series are documented in this fi
 * [#5851](https://github.com/sebastianbergmann/phpunit/issues/5851): Output buffer manipulation in tests causes incorrect capture, hangs, and silent failures
 * [#6582](https://github.com/sebastianbergmann/phpunit/issues/6582): `TestSuiteSorter::cmpSize()` does not handle `TestSuite` objects for `TestCase` classes
 
+[13.2.6]: https://github.com/sebastianbergmann/phpunit/compare/13.2.5...13.2.6
 [13.2.5]: https://github.com/sebastianbergmann/phpunit/compare/13.2.4...13.2.5
 [13.2.4]: https://github.com/sebastianbergmann/phpunit/compare/13.2.3...13.2.4
 [13.2.3]: https://github.com/sebastianbergmann/phpunit/compare/13.2.2...13.2.3
