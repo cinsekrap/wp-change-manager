@@ -5976,6 +5976,7 @@ return array(
     'SebastianBergmann\\ObjectEnumerator\\Enumerator' => $vendorDir . '/sebastian/object-enumerator/src/Enumerator.php',
     'SebastianBergmann\\ObjectReflector\\ObjectReflector' => $vendorDir . '/sebastian/object-reflector/src/ObjectReflector.php',
     'SebastianBergmann\\RecursionContext\\Context' => $vendorDir . '/sebastian/recursion-context/src/Context.php',
+    'SebastianBergmann\\RecursionContext\\Marker' => $vendorDir . '/sebastian/recursion-context/src/Marker.php',
     'SebastianBergmann\\Template\\Exception' => $vendorDir . '/phpunit/php-text-template/src/exceptions/Exception.php',
     'SebastianBergmann\\Template\\InvalidArgumentException' => $vendorDir . '/phpunit/php-text-template/src/exceptions/InvalidArgumentException.php',
     'SebastianBergmann\\Template\\RuntimeException' => $vendorDir . '/phpunit/php-text-template/src/exceptions/RuntimeException.php',
