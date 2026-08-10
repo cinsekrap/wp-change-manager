@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a test that uses a data provider that provides data with invalid argument names
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/_files/InvalidParameterNameDataProviderTest.php';
@@ -22,7 +22,7 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (2 tests)
 Test Suite Started (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest, 2 tests)
-Test Suite Started (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess, 2 tests)
+Test Suite for Test Method with Data Provider Started (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess, 2 data sets)
 Test Preparation Started (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess#0)
 Test Prepared (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess#0)
 Test Passed (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess#0)
@@ -32,7 +32,7 @@ Test Prepared (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::t
 Test Errored (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess#1)
 Unknown named parameter $value3
 Test Finished (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess#1)
-Test Suite Finished (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess, 2 tests)
+Test Suite for Test Method with Data Provider Finished (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest::testSuccess, 2 data sets)
 Test Suite Finished (PHPUnit\TestFixture\Event\InvalidParameterNameDataProviderTest, 2 tests)
 Test Runner Execution Finished
 Test Runner Finished

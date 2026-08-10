@@ -2,11 +2,14 @@
 Stopping test execution on SIGINT while process isolation test is running does not report the test as failed
 --SKIPIF--
 <?php declare(strict_types=1);
-if (!extension_loaded('pcntl')) echo 'skip: Extension pcntl is required';
-if (!extension_loaded('posix')) echo 'skip: Extension posix is required';
+if (!extension_loaded('pcntl')) {
+    echo 'skip: Extension pcntl is required';
+} elseif (!extension_loaded('posix')) {
+    echo 'skip: Extension posix is required';
+}
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../../_files/stop-on-fail-on/InterruptProcessIsolationTest.php';
@@ -23,9 +26,9 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (2 tests)
 Test Suite Started (PHPUnit\TestFixture\TestRunnerStopping\InterruptProcessIsolationTest, 2 tests)
-Child Process Started
+Child Process Started (test requiring process isolation)
 Test Finished (PHPUnit\TestFixture\TestRunnerStopping\InterruptProcessIsolationTest::testOne)
-Child Process Finished
+Child Process Finished (test requiring process isolation)
 Test Runner Execution Aborted
 Test Suite Finished (PHPUnit\TestFixture\TestRunnerStopping\InterruptProcessIsolationTest, 2 tests)
 Test Runner Execution Finished

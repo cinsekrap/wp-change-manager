@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a test run in a separate process that ends unexpectedly
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/_files/SeparateProcessesTest.php';
@@ -19,12 +19,12 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (1 test)
 Test Suite Started (PHPUnit\TestFixture\Event\SeparateProcessesTest, 1 test)
-Child Process Started
-Child Process Errored
+Child Process Started (test requiring process isolation)
+Child Process Errored (test requiring process isolation)
 Test Errored (PHPUnit\TestFixture\Event\SeparateProcessesTest::testOne)
 Test was run in child process and ended unexpectedly
 Test Finished (PHPUnit\TestFixture\Event\SeparateProcessesTest::testOne)
-Child Process Finished
+Child Process Finished (test requiring process isolation)
 Test Suite Finished (PHPUnit\TestFixture\Event\SeparateProcessesTest, 1 test)
 Test Runner Execution Finished
 Test Runner Finished

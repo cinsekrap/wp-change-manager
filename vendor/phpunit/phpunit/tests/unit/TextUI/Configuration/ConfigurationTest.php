@@ -84,6 +84,25 @@ final class ConfigurationTest extends TestCase
         $configuration->coverageCacheDirectory();
     }
 
+    public function testCoverageDriverThrowsWhenNotConfigured(): void
+    {
+        $configuration = $this->defaultConfiguration();
+
+        $this->assertFalse($configuration->hasCoverageDriver());
+
+        $this->expectException(CodeCoverageDriverNotConfiguredException::class);
+
+        $configuration->coverageDriver();
+    }
+
+    public function testReturnsConfiguredCoverageDriver(): void
+    {
+        $configuration = $this->configurationFromXml('configuration_codecoverage_driver.xml');
+
+        $this->assertTrue($configuration->hasCoverageDriver());
+        $this->assertSame('My\Custom\Driver', $configuration->coverageDriver());
+    }
+
     public function testCoverageCloverThrowsWhenNotConfigured(): void
     {
         $configuration = $this->defaultConfiguration();
@@ -410,6 +429,14 @@ final class ConfigurationTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $configuration->coverageHtmlLowUpperBound());
         $this->assertGreaterThanOrEqual(0, $configuration->coverageHtmlHighLowerBound());
         $this->assertSame(30, $configuration->coverageCrap4jThreshold());
+    }
+
+    public function testReturnsDefaultValuesForCoverageHtmlReportViews(): void
+    {
+        $configuration = $this->defaultConfiguration();
+
+        $this->assertTrue($configuration->coverageHtmlClassView());
+        $this->assertTrue($configuration->coverageHtmlFileView());
     }
 
     public function testReturnsDefaultValuesForCoverageHtmlReportColors(): void

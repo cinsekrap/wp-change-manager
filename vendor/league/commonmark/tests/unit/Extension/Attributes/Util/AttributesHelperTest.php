@@ -263,5 +263,42 @@ final class AttributesHelperTest extends TestCase
             false,
             [],
         ];
+
+        // Can't use control characters within the scheme to bypass the unsafe link check
+        foreach (["java\tscript:alert(1)", "java\nscript:alert(1)", "java\rscript:alert(1)", "\x01javascript:alert(1)"] as $url) {
+            yield [
+                ['id' => 'foo', 'href' => $url],
+                [],
+                false,
+                ['id' => 'foo'],
+            ];
+
+            yield [
+                ['id' => 'foo', 'src' => $url],
+                ['id', 'src'],
+                false,
+                ['id' => 'foo'],
+            ];
+        }
+
+        // Can't pad the name with bytes browsers treat as whitespace to bypass either check.
+        // A browser reads "\x0Conclick" as a genuine onclick and "\x0Chref" as a genuine href.
+        foreach (["\x0Conclick", "onclick\x0C", "\x0Bonclick", ' onclick'] as $name) {
+            yield [
+                ['id' => 'foo', $name => 'alert(1)'],
+                [],
+                false,
+                ['id' => 'foo'],
+            ];
+        }
+
+        foreach (["\x0Chref", "href\x0C"] as $name) {
+            yield [
+                ['id' => 'foo', $name => 'javascript:alert(1)'],
+                [],
+                false,
+                ['id' => 'foo'],
+            ];
+        }
     }
 }

@@ -22,6 +22,7 @@ In order to be fully compliant with the CommonMark spec, certain security settin
 - `allow_unsafe_links`: Whether unsafe links are permitted
 - `max_nesting_level`: Protect against long render times or segfaults
 - `max_delimiters_per_line`: Protect against long parse times or rendering segfaults
+- `xml/max_indentation_level`: Protect against oversized XML output (only relevant if you render XML)
 
 Further information about each option can be found below.
 
@@ -72,7 +73,7 @@ To prevent these from being parsed and rendered, you should set the `allow_unsaf
 
 **No maximum nesting level is enforced by default.**  Markdown content which is too deeply-nested (like 10,000 nested blockquotes: '> > > > > ...') [could result in long render times or segfaults](https://github.com/thephpleague/commonmark/issues/243#issuecomment-217580285).
 
-If you need to parse untrusted input, consider setting a reasonable `max_nesting_level` (perhaps 10-50) depending on your needs.  Once this nesting level is hit, any subsequent Markdown will be rendered as plain text.
+When parsing untrusted input, set `max_nesting_level` to `100`.  Once this nesting level is hit, any subsequent Markdown will be rendered as plain text.  The limit can be lowered for stricter protection or raised explicitly for trusted documents which legitimately require deeper nesting.
 
 ### Example - Prevent deep nesting
 
@@ -102,7 +103,7 @@ See the [configuration](/2.x/configuration/) section for more information.
 
 Similarly to the maximum nesting level, **no maximum number of delimiters per line is enforced by default.**  Delimiters can be nested (like `*a **b** c*`) or un-nested (like `*a* *b* *c*`) - in either case, having too many in a single line can result in long parse times. We therefore have a separate option to limit the number of delimiters per line.
 
-If you need to parse untrusted input, consider setting a reasonable `max_delimiters_per_line` (perhaps 100-1000) depending on your needs.  Once this level is hit, any subsequent delimiters on that line will be rendered as plain text.
+If you need to parse untrusted input, consider setting a reasonable `max_delimiters_per_line` (perhaps 100-1000) depending on your needs.  Once this level is hit, any subsequent delimiters on that line will be rendered as plain text.  Note that this option only applies to emphasis-style delimiters; link and image brackets (`[` and `![`) are not limited by it, so consider also enforcing input size or line length limits upstream.
 
 ### Example - Prevent too many delimiters
 
@@ -116,6 +117,16 @@ echo $converter->convert($markdown);
 
 // <p><em>a</em> **b *c <strong>d</strong> c* b**</p>
 ```
+
+## XML Indentation Level
+
+This only applies if you're [rendering XML](/2.x/xml/) instead of (or in addition to) HTML.
+
+Pretty-printed XML indents each element by one level per step of nesting depth, so a document which is *n* levels deep emits roughly *n<sup>2</sup>* characters of whitespace.  A few kilobytes of deeply-nested Markdown could therefore be amplified into many megabytes of XML.
+
+The `xml/max_indentation_level` option (default: `16`) caps how far elements are indented, which keeps the output size proportional to the size of the document.  Elements nested beyond that limit are still rendered in full - indentation is cosmetic, so the resulting XML remains well-formed and semantically identical.  Set the option to `0` for compact, unindented output.
+
+Note that `max_nesting_level` is *not* sufficient on its own here, as it only constrains how deeply **blocks** may nest - deeply-nested inlines (like `_______...`) can still produce a deep tree.
 
 ## Additional Filtering
 

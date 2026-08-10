@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a successful test that uses a data provider
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/_files/DataProviderTest.php';
@@ -22,7 +22,7 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (2 tests)
 Test Suite Started (PHPUnit\TestFixture\Event\DataProviderTest, 2 tests)
-Test Suite Started (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess, 2 tests)
+Test Suite for Test Method with Data Provider Started (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess, 2 data sets)
 Test Preparation Started (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#0)
 Test Prepared (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#0)
 Test Passed (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#0)
@@ -31,7 +31,7 @@ Test Preparation Started (PHPUnit\TestFixture\Event\DataProviderTest::testSucces
 Test Prepared (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#1)
 Test Passed (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#1)
 Test Finished (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess#1)
-Test Suite Finished (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess, 2 tests)
+Test Suite for Test Method with Data Provider Finished (PHPUnit\TestFixture\Event\DataProviderTest::testSuccess, 2 data sets)
 Test Suite Finished (PHPUnit\TestFixture\Event\DataProviderTest, 2 tests)
 Test Runner Execution Finished
 Test Runner Finished

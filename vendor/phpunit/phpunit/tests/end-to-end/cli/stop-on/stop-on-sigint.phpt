@@ -2,11 +2,14 @@
 Stopping test execution on SIGINT and displaying results works
 --SKIPIF--
 <?php declare(strict_types=1);
-if (!extension_loaded('pcntl')) echo 'skip: Extension pcntl is required';
-if (!extension_loaded('posix')) echo 'skip: Extension posix is required';
+if (!extension_loaded('pcntl')) {
+    echo 'skip: Extension pcntl is required';
+} elseif (!extension_loaded('posix')) {
+    echo 'skip: Extension posix is required';
+}
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../../_files/stop-on-fail-on/InterruptTest.php';

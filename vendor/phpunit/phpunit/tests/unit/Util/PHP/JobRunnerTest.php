@@ -12,9 +12,11 @@ namespace PHPUnit\Util\PHP;
 use Generator;
 use PHPUnit\Event\Emitter;
 use PHPUnit\Event\Facade;
+use PHPUnit\Event\TestRunner\ChildProcessReason;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\TestRunner\ChildProcessResultProcessor;
@@ -24,6 +26,7 @@ use PHPUnit\TestRunner\TestResult\PassedTests;
 #[CoversClass(JobRunner::class)]
 #[UsesClass(Job::class)]
 #[UsesClass(Result::class)]
+#[UsesClass(RunningJob::class)]
 #[Small]
 final class JobRunnerTest extends TestCase
 {
@@ -36,7 +39,8 @@ final class JobRunnerTest extends TestCase
 <?php declare(strict_types=1);
 fwrite(STDOUT, 'test');
 
-EOT
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
             ),
         ];
 
@@ -47,7 +51,8 @@ EOT
 <?php declare(strict_types=1);
 fwrite(STDERR, 'test');
 
-EOT
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
             ),
         ];
 
@@ -59,7 +64,8 @@ EOT
 fwrite(STDOUT, 'test-stdout');
 fwrite(STDERR, 'test-stderr');
 
-EOT
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
             ),
         ];
 
@@ -71,6 +77,7 @@ EOT
 fwrite(STDERR, 'test');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 redirectErrors: true,
             ),
         ];
@@ -83,6 +90,7 @@ EOT,
 print getenv('test');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 environmentVariables: ['test' => 'test'],
             ),
         ];
@@ -95,6 +103,7 @@ EOT,
 print $argv[1];
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 arguments: ['test'],
             ),
         ];
@@ -107,6 +116,7 @@ EOT,
 print file_get_contents('php://stdin');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 input: 'test',
             ),
         ];
@@ -121,6 +131,7 @@ EOT,
 print ini_get('highlight.string');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 phpSettings: ['highlight.string=' . $obfuscationRegex],
             ),
         ];
@@ -133,6 +144,7 @@ EOT,
 print ini_get('highlight.string');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 phpSettings: ['highlight.string'],
             ),
         ];
@@ -148,7 +160,66 @@ EOT,
 print ini_get('highlight.string');
 
 EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
                 phpSettings: ['highlight.string=' . $valueContainingEquals],
+            ),
+        ];
+
+        $valueContainingTilde = 'C:\Users\RUNNER~1\AppData\Local\Temp';
+
+        yield 'PHP setting value containing tilde' => [
+            new Result($valueContainingTilde, ''),
+            new Job(
+                <<<'EOT'
+<?php declare(strict_types=1);
+print ini_get('highlight.string');
+
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
+                phpSettings: ['highlight.string=' . $valueContainingTilde],
+            ),
+        ];
+
+        $valueContainingParentheses = 'C:\Program Files (x86)\PHP';
+
+        yield 'PHP setting value containing parentheses' => [
+            new Result($valueContainingParentheses, ''),
+            new Job(
+                <<<'EOT'
+<?php declare(strict_types=1);
+print ini_get('highlight.string');
+
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
+                phpSettings: ['highlight.string=' . $valueContainingParentheses],
+            ),
+        ];
+
+        yield 'PHP setting that configures xdebug.mode' => [
+            new Result('test', ''),
+            new Job(
+                <<<'EOT'
+<?php declare(strict_types=1);
+print 'test';
+
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
+                phpSettings: ['xdebug.mode=off'],
+            ),
+        ];
+
+        $valueContainingConsecutiveBackslashes = '\\\\server\\share (x86)';
+
+        yield 'PHP setting value containing consecutive backslashes' => [
+            new Result($valueContainingConsecutiveBackslashes, ''),
+            new Job(
+                <<<'EOT'
+<?php declare(strict_types=1);
+print ini_get('highlight.string');
+
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
+                phpSettings: ['highlight.string=' . $valueContainingConsecutiveBackslashes],
             ),
         ];
     }
@@ -171,6 +242,71 @@ EOT,
         $this->assertSame($expected->stderr(), $result->stderr());
     }
 
+    public function testStartsJobAsProcessWhoseStandardInputRemainsOpen(): void
+    {
+        $jobRunner = new JobRunner(
+            new ChildProcessResultProcessor(
+                new Facade,
+                $this->createStub(Emitter::class),
+                new PassedTests,
+                new CodeCoverage,
+            ),
+        );
+
+        $running = $jobRunner->start(
+            new Job(
+                <<<'EOT'
+<?php declare(strict_types=1);
+fwrite(STDOUT, fgets(STDIN));
+
+EOT,
+                ChildProcessReason::TestRequiringProcessIsolation,
+            ),
+        );
+
+        $running->write("echoed\n");
+        $running->closeStdin();
+
+        $this->assertSame("echoed\n", $running->wait()->stdout());
+    }
+
+    #[TestDox('Server variables that cannot be represented as environment variables are not forwarded')]
+    public function testDoesNotForwardServerVariablesThatAreNotEnvironmentVariables(): void
+    {
+        $server = $_SERVER;
+
+        $_SERVER[0]                     = 'value for non-string key';
+        $_SERVER['__test_array_value']  = ['value'];
+        $_SERVER['__test_string_value'] = 'value';
+
+        try {
+            $jobRunner = new JobRunner(
+                new ChildProcessResultProcessor(
+                    new Facade,
+                    $this->createStub(Emitter::class),
+                    new PassedTests,
+                    new CodeCoverage,
+                ),
+            );
+
+            $result = $jobRunner->run(
+                new Job(
+                    <<<'EOT'
+<?php declare(strict_types=1);
+var_dump(getenv('__test_array_value'), getenv('__test_string_value'));
+
+EOT,
+                    ChildProcessReason::TestRequiringProcessIsolation,
+                    environmentVariables: ['test' => 'test'],
+                ),
+            );
+
+            $this->assertSame("bool(false)\nstring(5) \"value\"\n", $result->stdout());
+        } finally {
+            $_SERVER = $server;
+        }
+    }
+
     public function testRejectsPhpSettingValueContainingLineBreak(): void
     {
         $jobRunner = new JobRunner(
@@ -187,6 +323,7 @@ EOT,
 <?php declare(strict_types=1);
 
 EOT,
+            ChildProcessReason::TestRequiringProcessIsolation,
             phpSettings: ["highlight.string=foo\nauto_prepend_file=/tmp/evil.php"],
         );
 

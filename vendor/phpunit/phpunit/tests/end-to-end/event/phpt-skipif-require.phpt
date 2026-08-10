@@ -2,7 +2,7 @@
 The right events are emitted in the right order for PHPT test using require() in skipif
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../_files/phpt-skipif-require.phpt';
@@ -21,10 +21,10 @@ Test Runner Execution Started (1 test)
 Test Suite Started (%s%ephpt-skipif-require.phpt, 1 test)
 Test Preparation Started (%s%ephpt-skipif-require.phpt)
 Test Prepared (%s%ephpt-skipif-require.phpt)
-Child Process Started
-Child Process Finished
-Child Process Started
-Child Process Finished
+Child Process Started (SKIPIF section of a PHPT test)
+Child Process Finished (SKIPIF section of a PHPT test)
+Child Process Started (FILE section of a PHPT test)
+Child Process Finished (FILE section of a PHPT test)
 Test Passed (%s%ephpt-skipif-require.phpt)
 Test Finished (%s%ephpt-skipif-require.phpt)
 Test Suite Finished (%s%ephpt-skipif-require.phpt, 1 test)

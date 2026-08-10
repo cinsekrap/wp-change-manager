@@ -29,6 +29,24 @@ $cases = [
         'input' => static fn($n) => "- a\n- b\r- c\r\n- d",
         'expected' => static fn($n) => "<ul>\n<li>a</li>\n<li>b</li>\n<li>c</li>\n<li>d</li>\n</ul>\n",
     ],
+    'Multibyte leading whitespace' => [
+        'extension' => 'commonmark',
+        'sizes' => [300_000],
+        'input' => static fn($n) => \str_repeat(' ', $n) . 'é',
+        'expected' => static fn($n) => '<pre><code>' . \str_repeat(' ', $n - 4) . "é\n</code></pre>\n",
+    ],
+    'Multibyte inline delimiters' => [
+        'extension' => 'commonmark',
+        'sizes' => [100_000],
+        'input' => static fn($n) => 'é' . \str_repeat('a_', $n),
+        'expected' => static fn($n) => '<p>é' . \str_repeat('a_', $n) . "</p>\n",
+    ],
+    'Repeated invalid autolink prefixes' => [
+        'extension' => 'autolink',
+        'sizes' => [160_000],
+        'input' => static fn($n) => 'é ' . \str_repeat('www. ', $n),
+        'expected' => static fn($n) => '<p>é ' . \str_repeat('www. ', $n - 1) . "www.</p>\n",
+    ],
     'Nested strong emphasis' => [
         'sizes' => [50, 500],
         'input' => static fn($n) => \str_repeat('*a **a ', $n) . 'b' . \str_repeat(' a** a*', $n),
@@ -75,6 +93,50 @@ $cases = [
         'input' => static fn($n) => \str_repeat('*a_ ', $n),
         'expected' => static fn($n) => '<p>' . \str_repeat('*a_ ', $n - 1) . '*a_</p>',
     ],
+    'Emphasis closers with varying run lengths' => [
+        // A pile of openers that can never close, followed by closer runs of strictly
+        // increasing length. Each distinct length must not mint a new openersBottom cache
+        // key, otherwise every closer re-scans the entire pile.
+        'extension' => 'commonmark',
+        'sizes' => [25_000, 800_000],
+        'input' => static function ($n) {
+            $closers = '';
+            for ($i = 1, $d = (int) \sqrt($n / 4.5); $i <= $d; $i++) {
+                // Length 3i-1 keeps every closer at 2 (mod 3) so the "multiple of 3" rule
+                // rejects every opener in the pile.
+                $closers .= 'x' . \str_repeat('*', 3 * $i - 1) . 'y';
+            }
+
+            return \str_repeat('*a ', \intdiv($n - \strlen($closers), 3)) . $closers;
+        },
+    ],
+    'Strikethrough closers with varying run lengths' => [
+        // As above, but the pile is made of '*' openers which no '~' closer can ever match.
+        'sizes' => [25_000, 800_000],
+        'input' => static function ($n) {
+            $closers = '';
+            for ($l = 3, $k = (int) \sqrt(2 * $n / 3); $l < 3 + $k; $l++) {
+                $closers .= 'a' . \str_repeat('~', $l) . ' ';
+            }
+
+            return \str_repeat(' *a', \intdiv($n - \strlen($closers), 3)) . $closers;
+        },
+    ],
+    'Highlight closers with varying run lengths' => [
+        // As above, but the pile is made of '*' openers which no '=' closer can ever match.
+        // getDelimiterUse() returns 0 for every opener once the closer exceeds 2 characters,
+        // so the cache key must not distinguish those longer closers from each other.
+        'extension' => 'highlight',
+        'sizes' => [25_000, 800_000],
+        'input' => static function ($n) {
+            $closers = '';
+            for ($l = 3, $k = (int) \sqrt(2 * $n / 3); $l < 3 + $k; $l++) {
+                $closers .= 'a' . \str_repeat('=', $l) . ' ';
+            }
+
+            return \str_repeat(' *a', \intdiv($n - \strlen($closers), 3)) . $closers;
+        },
+    ],
     'Pattern [ (](' => [
         'sizes' => [500, 5_000, 50_000],
         'input' => static fn($n) => \str_repeat('[ (](', $n),
@@ -83,6 +145,14 @@ $cases = [
     'Nested brackets' => [
         'sizes' => [1_000, 10_000, 100_000],
         'input' => static fn($n) => \str_repeat('[', $n) . 'a' . \str_repeat(']', $n),
+        'expected' => static fn($n) => '<p>' . \str_repeat('[', $n) . 'a' . \str_repeat(']', $n) . '</p>',
+    ],
+    'Nested brackets with a reference definition' => [
+        // A single definition disables the empty-reference-map shortcut in ReferenceMap::get(),
+        // so every closing bracket would otherwise normalize the whole span it encloses.
+        'extension' => 'commonmark',
+        'sizes' => [1_000, 10_000, 100_000],
+        'input' => static fn($n) => "[x]: y\n\n" . \str_repeat('[', $n) . 'a' . \str_repeat(']', $n),
         'expected' => static fn($n) => '<p>' . \str_repeat('[', $n) . 'a' . \str_repeat(']', $n) . '</p>',
     ],
     'Backslash in link' => [
@@ -124,6 +194,14 @@ $cases = [
         'ref' => 'https://github.com/commonmark/commonmark.js/issues/129',
         'sizes' => [500, 1_000, 2_000, 4_000],
         'input' => static fn($n) => \implode('', \array_map(static fn($i) => 'e' . \str_repeat('`', $i), \range(1, $n))),
+    ],
+    'Backtick fence with a backtick in the info string' => [
+        'extension' => 'commonmark',
+        'sizes' => [10_000, 40_000, 160_000],
+        // The trailing backtick is essential: it makes the "no backtick in the info string"
+        // check fail, which is what forces the fence-length matching to be retried.
+        'input' => static fn($n) => \str_repeat('`', $n / 2) . \str_repeat('a', $n / 2) . "`\n",
+        'expected' => static fn($n) => '<p>' . \str_repeat('`', $n / 2) . \str_repeat('a', $n / 2) . '`</p>',
     ],
     'Many ref. definitions' => [
         'ref' => 'https://github.com/commonmark/commonmark.js/issues/129',
@@ -237,6 +315,14 @@ $cases = [
             'max_nesting_level' => 500,
         ],
     ],
+    'Nested list markers with trailing blanks (limited nesting)' => [
+        'ref' => 'https://github.com/thephpleague/commonmark/issues/243',
+        'sizes' => [1_000, 10_000, 100_000],
+        'input' => static fn($n) => \str_repeat('- ', $n) . "x\n" . \str_repeat("\n", $n),
+        'configuration' => [
+            'max_nesting_level' => 100,
+        ],
+    ],
     'CVE-2023-26485 test 1' => [
         'ref' => 'https://github.com/github/cmark-gfm/security/advisories/GHSA-r8vr-c48j-fcc5',
         'sizes' => [50, 500, 5_000], // ideally should be 1000, 10_000, 100_000 but recursive rendering makes large sizes fail
@@ -273,6 +359,100 @@ $cases = [
         'extension' => 'footnotes',
         'sizes' => [1_000, 10_000, 100_000],
         'input' => static fn($n) => \str_repeat("[^1]:\n", $n) . \str_repeat("\n", $n),
+        'expected' => static fn($n) => '',
+    ],
+    'Duplicate footnote definitions' => [
+        'extension' => 'footnotes',
+        'sizes' => [200, 2_000, 20_000],
+        'input' => static fn($n) => \str_repeat('[^a] ', $n) . "\n\n" . \str_repeat("[^a]: x\n\n", $n),
+    ],
+    'Footnote labels containing key path delimiters' => [
+        'extension' => 'footnotes',
+        'sizes' => [64, 256, 1_024],
+        // Every label below is a distinct spelling of the same "." / "/" separated path, so any
+        // implementation storing backrefs under a delimited key path collapses them onto a single
+        // shared entry and generates a quadratic number of backrefs.
+        'input' => static function ($n) {
+            $spell = static function (int $bits) {
+                $label = 'a';
+                for ($i = 0; $i < 10; $i++) {
+                    $label .= ($bits >> $i) & 1 ? '.' : '/';
+                    $label .= 'a';
+                }
+
+                return $label;
+            };
+
+            $refs = $definitions = '';
+            for ($i = 0; $i < $n; $i++) {
+                $refs        .= '[^' . $spell($i) . '] ';
+                $definitions .= '[^' . $spell($i) . "]: x\n\n";
+            }
+
+            return $refs . "\n\n" . $definitions;
+        },
+    ],
+    'Duplicate heading permalink slugs' => [
+        'extension' => 'heading-permalink',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat("# a\n\n", $n),
+    ],
+    'Duplicate inline footnote labels' => [
+        'extension' => 'footnotes',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat("^[a]\n\n", $n),
+    ],
+    'Unpaired smart quotes' => [
+        // Every quote is preceded by a letter and followed by a space, making it can-close-only,
+        // so none of them ever pair up and all of them survive to ReplaceUnpairedQuotesListener.
+        // The long runs of text between them matter: the listener merges each replacement into
+        // its left neighbour, so the cost must depend on the bytes added, not on the bytes already
+        // accumulated in that neighbour.
+        'extension' => 'smartpunct',
+        'sizes' => [4_000, 16_000, 64_000],
+        'input' => static fn($n) => \str_repeat(\str_repeat('a', 63) . '" ', $n),
+        'expected' => static fn($n) => '<p>' . \str_repeat(\str_repeat('a', 63) . "\u{201C} ", $n - 1) . \str_repeat('a', 63) . "\u{201C}</p>",
+    ],
+    'Adjacent inline attributes at start of block' => [
+        'extension' => 'attributes',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat('{#a}', $n),
+        'expected' => static fn($n) => '<p id="a"></p>',
+    ],
+    'Adjacent inline attributes separated by text' => [
+        'extension' => 'attributes',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat('x {#a}', $n),
+        'expected' => static fn($n) => '<p id="a">' . \str_repeat('x', $n) . '</p>',
+    ],
+    'Adjacent attribute blocks' => [
+        // The link reference definitions are load-bearing: they keep each attributes block at
+        // its default TARGET_NEXT while erasing themselves from the AST, welding the blocks
+        // into one contiguous sibling chain with nothing in it to stop a forward walk.
+        'extension' => 'attributes',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat("{#a}\n[a]: u\n", $n),
+        'expected' => static fn($n) => '',
+    ],
+    'Adjacent inline attribute classes at start of block' => [
+        // Unlike '#id', which overwrites a scalar, '.class' appends to a list which is then
+        // written to the target and read back by the next node.
+        'extension' => 'attributes',
+        'sizes' => [2_000, 8_000, 32_000],
+        'input' => static fn($n) => \str_repeat('{.c}', $n),
+        'expected' => static fn($n) => '<p class="' . \rtrim(\str_repeat('c ', $n)) . '"></p>',
+    ],
+    'Adjacent attribute blocks with classes' => [
+        'extension' => 'attributes',
+        'sizes' => [2_000, 8_000, 32_000],
+        'input' => static fn($n) => \str_repeat("{.c}\n\n", $n),
+        'expected' => static fn($n) => '',
+    ],
+    'Attribute block classes on consecutive lines' => [
+        // Every line is merged into the same block by AttributesBlockContinueParser.
+        'extension' => 'attributes',
+        'sizes' => [2_000, 8_000, 32_000],
+        'input' => static fn($n) => \str_repeat("{.c}\n", $n),
         'expected' => static fn($n) => '',
     ],
 ];

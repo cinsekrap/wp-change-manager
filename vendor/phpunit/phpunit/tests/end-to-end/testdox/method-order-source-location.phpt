@@ -2,7 +2,7 @@
 TestDox: Test methods are sorted by their location in the source code, not by the order in which they were run
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--no-progress';
 $_SERVER['argv'][] = '--testdox';

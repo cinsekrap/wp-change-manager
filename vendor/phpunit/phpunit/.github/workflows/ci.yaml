@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  COMPOSER_ROOT_VERSION: "13.2.x-dev"
+  COMPOSER_ROOT_VERSION: "13.3.x-dev"
   PHP_VERSION: 8.4
 
 permissions:
@@ -495,7 +495,7 @@ jobs:
           tools: none
 
       - name: Install java
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: zulu
           java-version: 11
@@ -570,7 +570,7 @@ jobs:
           tools: none
 
       - name: Install java
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: zulu
           java-version: 11

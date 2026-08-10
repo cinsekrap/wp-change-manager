@@ -2,7 +2,7 @@
 https://github.com/sebastianbergmann/phpunit/issues/5287
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--bootstrap';
 $_SERVER['argv'][] = __DIR__ . '/5287/C/MyClassTest.php';
@@ -26,12 +26,12 @@ Test Suite Sorted
 Test Runner Execution Started (3 tests)
 Test Suite Started (CLI Arguments, 3 tests)
 Test Suite Started (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest, 1 test)
-Test Suite Started (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test, 1 test)
+Test Suite for Test Method with Data Provider Started (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test, 1 data set)
 Test Preparation Started (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test#0)
 Test Prepared (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test#0)
 Test Passed (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test#0)
 Test Finished (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test#0)
-Test Suite Finished (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test, 1 test)
+Test Suite for Test Method with Data Provider Finished (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest::test, 1 data set)
 Test Suite Finished (PHPUnit\TestFixture\Issue5278\A\AnotherClassTest, 1 test)
 Test Suite Started (PHPUnit\TestFixture\Issue5278\B\MyClassTest, 1 test)
 Test Preparation Started (PHPUnit\TestFixture\Issue5278\B\MyClassTest::test)
