@@ -30,6 +30,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use SebastianBergmann\RecursionContext\Context;
@@ -37,6 +38,8 @@ use SplObjectStorage;
 use stdClass;
 
 #[CoversClass(Exporter::class)]
+#[UsesClass(ExportContext::class)]
+#[UsesClass(ObjectExporterChain::class)]
 #[Small]
 final class ExporterTest extends TestCase
 {
@@ -647,6 +650,428 @@ EOF;
         (new Exporter)->shortenedExport($object, 10);
 
         $this->assertTrue($reflector->isUninitializedLazyObject($object));
+    }
+
+    public function testObjectCanBeExportedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesEveryObject,
+                ],
+            ),
+        );
+
+        $this->assertSame(
+            'stdClass (indentation: 0)',
+            $exporter->export(new stdClass),
+        );
+    }
+
+    public function testObjectCanBeExportedByCustomObjectExporterThatIsNotComposedIntoChain(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatHandlesEveryObject,
+        );
+
+        $this->assertSame(
+            'stdClass (indentation: 0)',
+            $exporter->export(new stdClass),
+        );
+    }
+
+    public function testObjectNestedInArrayCanBeExportedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesEveryObject,
+                ],
+            ),
+        );
+
+        $this->assertSame(
+            <<<'EOT'
+Array &0 [
+    0 => stdClass (indentation: 1),
+]
+EOT,
+            $exporter->export([new stdClass]),
+        );
+    }
+
+    public function testObjectNestedInObjectCanBeExportedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesObjectsOfSpecificType(ExampleClass::class),
+                ],
+            ),
+        );
+
+        $object         = new stdClass;
+        $object->nested = new ExampleClass('bar');
+
+        $this->assertStringMatchesFormat(
+            <<<'EOT'
+stdClass Object #%d (
+    'nested' => SebastianBergmann\Exporter\ExampleClass handled by custom exporter,
+)
+EOT,
+            $exporter->export($object),
+        );
+    }
+
+    public function testEveryOccurrenceOfObjectHandledByCustomObjectExporterIsExportedByThatObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesEveryObject,
+                ],
+            ),
+        );
+
+        $object = new stdClass;
+
+        $this->assertSame(
+            <<<'EOT'
+Array &0 [
+    0 => stdClass (indentation: 1),
+    1 => stdClass (indentation: 1),
+]
+EOT,
+            $exporter->export([$object, $object]),
+        );
+    }
+
+    public function testRepeatedOccurrenceOfObjectNotHandledByCustomObjectExporterIsReplacedWithReferenceToObject(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesNoObject,
+                ],
+            ),
+        );
+
+        $object = new stdClass;
+
+        $this->assertStringMatchesFormat(
+            <<<'EOT'
+Array &0 [
+    0 => stdClass Object #%d (),
+    1 => stdClass Object #%d,
+]
+EOT,
+            $exporter->export([$object, $object]),
+        );
+    }
+
+    public function testDefaultExportIsUsedWhenNoCustomObjectExporterHandlesObject(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesNoObject,
+                ],
+            ),
+        );
+
+        $this->assertStringMatchesFormat(
+            'stdClass Object #%d ()',
+            $exporter->export(new stdClass),
+        );
+    }
+
+    public function testEnumCanBeExportedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesEveryObject,
+                ],
+            ),
+        );
+
+        $this->assertSame(
+            'SebastianBergmann\Exporter\ExampleEnum (indentation: 0)',
+            $exporter->export(ExampleEnum::Value),
+        );
+
+        $this->assertSame(
+            'SebastianBergmann\Exporter\ExampleStringBackedEnum (indentation: 0)',
+            $exporter->export(ExampleStringBackedEnum::Value),
+        );
+    }
+
+    public function testDefaultExportIsUsedForEnumWhenNoCustomObjectExporterHandlesIt(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesNoObject,
+                ],
+            ),
+        );
+
+        $this->assertStringMatchesFormat(
+            'SebastianBergmann\Exporter\ExampleEnum Enum #%d (Value)',
+            $exporter->export(ExampleEnum::Value),
+        );
+
+        $this->assertStringMatchesFormat(
+            'SebastianBergmann\Exporter\ExampleStringBackedEnum Enum #%d (Value, \'value\')',
+            $exporter->export(ExampleStringBackedEnum::Value),
+        );
+    }
+
+    public function testShortenedExportUsesRepresentationProvidedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatHandlesEveryObject,
+        );
+
+        $this->assertSame(
+            'stdClass (indentation: 0)',
+            $exporter->shortenedExport(new stdClass),
+        );
+
+        $this->assertSame(
+            'SebastianBergmann\Exporter\ExampleEnum (indentation: 0)',
+            $exporter->shortenedExport(ExampleEnum::Value, 80),
+        );
+    }
+
+    public function testShortenedExportCollapsesRepresentationProvidedByCustomObjectExporterToSingleLine(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatReturnsGivenRepresentation("first\nsecond"),
+        );
+
+        $this->assertSame(
+            'firstsecond',
+            $exporter->shortenedExport(new stdClass),
+        );
+    }
+
+    public function testShortenedExportShortensRepresentationProvidedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatReturnsGivenRepresentation(str_repeat('a', 41)),
+        );
+
+        $this->assertSame(
+            str_repeat('a', 30) . '...' . str_repeat('a', 7),
+            $exporter->shortenedExport(new stdClass),
+        );
+    }
+
+    public function testShortenedRecursiveExportUsesRepresentationProvidedByCustomObjectExporter(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatHandlesEveryObject,
+        );
+
+        $data = [new stdClass, 'foo'];
+
+        $this->assertSame(
+            "stdClass (indentation: 0), 'foo'",
+            $exporter->shortenedRecursiveExport($data),
+        );
+    }
+
+    public function testShortenedExportDoesNotRecurseInfinitelyForObjectNestedInItself(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatExportsNestedValues,
+        );
+
+        $node           = new Node;
+        $node->children = [$node];
+
+        $this->assertStringMatchesFormat(
+            'Node(Array &0 [    0 => SebastianBergmann\Exporter\Node Object #%d,])',
+            $exporter->shortenedExport($node, 200),
+        );
+    }
+
+    public function testShortenedExportUsesDefaultRepresentationWhenNoCustomObjectExporterHandlesObject(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterThatHandlesNoObject,
+        );
+
+        $this->assertSame(
+            'stdClass Object ()',
+            $exporter->shortenedExport(new stdClass),
+        );
+    }
+
+    public function testKnowsThatCustomObjectExporterProvidesRepresentationForObjectItHandles(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesObjectsOfSpecificType(ExampleClass::class),
+                ],
+            ),
+        );
+
+        $this->assertTrue($exporter->hasCustomRepresentationFor(new ExampleClass('bar')));
+    }
+
+    public function testKnowsThatCustomObjectExporterDoesNotProvideRepresentationForObjectItDoesNotHandle(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatHandlesObjectsOfSpecificType(ExampleClass::class),
+                ],
+            ),
+        );
+
+        $this->assertFalse($exporter->hasCustomRepresentationFor(new stdClass));
+    }
+
+    public function testKnowsThatNoCustomObjectExporterProvidesRepresentationForObjectWhenNoneIsConfigured(): void
+    {
+        $this->assertFalse((new Exporter)->hasCustomRepresentationFor(new stdClass));
+    }
+
+    public function testCustomObjectExporterCanExportValuesNestedInObjectItHandles(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatExportsNestedValues,
+                ],
+            ),
+        );
+
+        $this->assertSame(
+            <<<'EOT'
+Node(Array &0 [
+    'key' => 'value',
+])
+EOT,
+            $exporter->export(new Node(['key' => 'value'])),
+        );
+    }
+
+    public function testArrayExportedByCustomObjectExporterDoesNotReuseReferenceToOtherArray(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatExportsNestedValues,
+                ],
+            ),
+        );
+
+        $this->assertSame(
+            <<<'EOT'
+Array &0 [
+    0 => Node(Array &1 [
+        'key' => 'value',
+    ]),
+]
+EOT,
+            $exporter->export([new Node(['key' => 'value'])]),
+        );
+    }
+
+    public function testObjectNestedInItselfIsNotExportedByCustomObjectExporterAgain(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatExportsNestedValues,
+                ],
+            ),
+        );
+
+        $node           = new Node;
+        $node->children = [$node];
+
+        $this->assertStringMatchesFormat(
+            <<<'EOT'
+Node(Array &0 [
+    0 => SebastianBergmann\Exporter\Node Object #%d,
+])
+EOT,
+            $exporter->export($node),
+        );
+    }
+
+    public function testObjectsNestedInEachOtherAreNotExportedByCustomObjectExporterAgain(): void
+    {
+        $exporter = new Exporter(
+            0,
+            40,
+            new ObjectExporterChain(
+                [
+                    new ObjectExporterThatExportsNestedValues,
+                ],
+            ),
+        );
+
+        $first            = new Node;
+        $second           = new Node;
+        $first->children  = [$second];
+        $second->children = [$first];
+
+        $this->assertStringMatchesFormat(
+            <<<'EOT'
+Node(Array &0 [
+    0 => Node(Array &1 [
+        0 => SebastianBergmann\Exporter\Node Object #%d,
+    ]),
+])
+EOT,
+            $exporter->export($first),
+        );
     }
 
     private function trimNewline(string $string): string

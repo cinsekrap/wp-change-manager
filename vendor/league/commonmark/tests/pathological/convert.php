@@ -13,9 +13,14 @@
 ini_set('memory_limit', '1024M');
 
 use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\Attributes\AttributesExtension;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\Footnote\FootnoteExtension;
 use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
+use League\CommonMark\Extension\HeadingPermalink\HeadingPermalinkExtension;
+use League\CommonMark\Extension\Highlight\HighlightExtension;
+use League\CommonMark\Extension\SmartPunct\SmartPunctExtension;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
 
@@ -42,11 +47,28 @@ $environment->addExtension(new CommonMarkCoreExtension());
 
 // Enable additional extensions if requested
 switch ($argv[2] ?? null) {
+    case 'commonmark':
+        break;
+    case 'autolink':
+        $environment->addExtension(new AutolinkExtension());
+        break;
     case 'table':
         $environment->addExtension(new TableExtension());
         break;
     case 'footnotes':
         $environment->addExtension(new FootnoteExtension());
+        break;
+    case 'heading-permalink':
+        $environment->addExtension(new HeadingPermalinkExtension());
+        break;
+    case 'attributes':
+        $environment->addExtension(new AttributesExtension());
+        break;
+    case 'highlight':
+        $environment->addExtension(new HighlightExtension());
+        break;
+    case 'smartpunct':
+        $environment->addExtension(new SmartPunctExtension());
         break;
     case 'gfm':
     default:

@@ -12,6 +12,7 @@ namespace PHPUnit\TextUI\XmlConfiguration;
 use const DIRECTORY_SEPARATOR;
 use const PHP_EOL;
 use const PHP_VERSION;
+use function define;
 use function file_put_contents;
 use function iterator_to_array;
 use function realpath;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnorePhpunitDeprecations;
 use PHPUnit\Framework\Attributes\Medium;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Runner\TestSuiteSorter;
 use PHPUnit\TextUI\Configuration\Configuration;
@@ -50,8 +52,8 @@ final class LoaderTest extends TestCase
             'executionOrder size-ascending'      => ['executionOrder', 'size-ascending', TestSuiteSorter::ORDER_SIZE_ASCENDING],
             'executionOrder size-descending'     => ['executionOrder', 'size-descending', TestSuiteSorter::ORDER_SIZE_DESCENDING],
             'cacheDirectory absolute path'       => ['cacheDirectory', '/path/to/cache', '/path/to/cache'],
-            'cacheResult=false'                  => ['cacheResult', 'false', false],
-            'cacheResult=true'                   => ['cacheResult', 'true', true],
+            'recordTestRunHistory=false'         => ['recordTestRunHistory', 'false', false],
+            'recordTestRunHistory=true'          => ['recordTestRunHistory', 'true', true],
             'columns'                            => ['columns', 'max', 'max'],
             'stopOnFailure'                      => ['stopOnFailure', 'true', true],
             'stopOnWarning'                      => ['stopOnWarning', 'true', true],
@@ -242,6 +244,18 @@ final class LoaderTest extends TestCase
         );
     }
 
+    public function testDeprecationFiltersAreReadCorrectlyAndEmptyClassNamesAreIgnored(): void
+    {
+        $source = $this->configuration('configuration_deprecation_filters.xml')->source();
+
+        $this->assertSame(
+            [
+                'PHPUnit\TestFixture\DeprecationFilter\FilterA',
+            ],
+            $source->deprecationFilters(),
+        );
+    }
+
     public function testBranchCoverageConfigurationIsReadCorrectly(): void
     {
         $codeCoverage = $this->configuration('configuration_codecoverage_branchcoverage.xml')->codeCoverage();
@@ -249,10 +263,29 @@ final class LoaderTest extends TestCase
         $this->assertTrue($codeCoverage->branchCoverage());
     }
 
+    public function testClassViewForHtmlCodeCoverageReportCanBeDisabled(): void
+    {
+        $codeCoverage = $this->configuration('configuration_codecoverage_html_classview.xml')->codeCoverage();
+
+        $this->assertTrue($codeCoverage->hasHtml());
+        $this->assertFalse($codeCoverage->html()->classView());
+        $this->assertTrue($codeCoverage->html()->fileView());
+    }
+
+    public function testFileViewForHtmlCodeCoverageReportCanBeDisabled(): void
+    {
+        $codeCoverage = $this->configuration('configuration_codecoverage_html_fileview.xml')->codeCoverage();
+
+        $this->assertTrue($codeCoverage->hasHtml());
+        $this->assertTrue($codeCoverage->html()->classView());
+        $this->assertFalse($codeCoverage->html()->fileView());
+    }
+
     public function testCodeCoverageConfigurationIsReadCorrectly(): void
     {
         $codeCoverage = $this->configuration('configuration_codecoverage.xml')->codeCoverage();
 
+        $this->assertFalse($codeCoverage->hasDriver());
         $this->assertTrue($codeCoverage->pathCoverage());
         $this->assertTrue($codeCoverage->includeUncoveredFiles());
         $this->assertTrue($codeCoverage->ignoreDeprecatedCodeUnits());
@@ -275,6 +308,8 @@ final class LoaderTest extends TestCase
 
         $this->assertTrue($codeCoverage->hasHtml());
         $this->assertSame(TEST_FILES_PATH . 'coverage', $codeCoverage->html()->target()->path());
+        $this->assertTrue($codeCoverage->html()->classView());
+        $this->assertTrue($codeCoverage->html()->fileView());
         $this->assertSame($defaultThresholds->lowUpperBound(), $codeCoverage->html()->lowUpperBound());
         $this->assertSame($defaultThresholds->highLowerBound(), $codeCoverage->html()->highLowerBound());
         $this->assertSame($defaultColors->successLow(), $codeCoverage->html()->colorSuccessLow());
@@ -307,6 +342,135 @@ final class LoaderTest extends TestCase
 
         $this->assertTrue($codeCoverage->hasXml());
         $this->assertSame(TEST_FILES_PATH . 'coverage', $codeCoverage->xml()->target()->path());
+    }
+
+    public function testCodeCoverageDriverConfigurationIsReadCorrectly(): void
+    {
+        $codeCoverage = $this->configuration('configuration_codecoverage_driver.xml')->codeCoverage();
+
+        $this->assertTrue($codeCoverage->hasDriver());
+        $this->assertSame('My\Custom\Driver', $codeCoverage->driver());
+    }
+
+    public function testCodeCoverageDriverAccessorThrowsWhenNotConfigured(): void
+    {
+        $codeCoverage = $this->configuration('configuration_codecoverage.xml')->codeCoverage();
+
+        $this->assertFalse($codeCoverage->hasDriver());
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('Code Coverage driver has not been configured');
+
+        $codeCoverage->driver();
+    }
+
+    public function testEmptyElementsAndAttributesAreIgnored(): void
+    {
+        $configuration = $this->configuration('configuration_edge_case_values.xml');
+
+        $source = $configuration->source();
+
+        $this->assertCount(1, $source->includeDirectories());
+        $this->assertSame('Fixture', $source->includeDirectories()->asArray()[0]->prefix());
+
+        $this->assertSame(
+            ['PHPUnit\TestFixture\DeprecationTrigger\trigger_deprecation'],
+            $source->deprecationTriggers()['functions'],
+        );
+
+        $this->assertSame(
+            ['PHPUnit\TestFixture\DeprecationTrigger\DeprecationTrigger::triggerDeprecation'],
+            $source->deprecationTriggers()['methods'],
+        );
+
+        $this->assertSame([], $source->issueTriggerResolvers());
+
+        $this->assertCount(1, $configuration->groups()->include());
+        $this->assertCount(1, $configuration->groups()->exclude());
+
+        $this->assertCount(1, $configuration->php()->iniSettings());
+        $this->assertCount(1, $configuration->php()->constants());
+        $this->assertCount(1, $configuration->php()->globalVariables());
+
+        $testSuite = $configuration->testSuite()->asArray()[0];
+
+        $this->assertCount(1, $testSuite->directories());
+        $this->assertCount(1, $testSuite->files());
+        $this->assertSame(['first', 'second'], $testSuite->directories()->asArray()[0]->groups());
+        $this->assertSame(['first', 'second'], $testSuite->files()->asArray()[0]->groups());
+    }
+
+    public function testInvalidValuesForNumericAttributesAreReplacedWithDefaultValues(): void
+    {
+        $configuration = $this->configuration('configuration_edge_case_values.xml');
+
+        $this->assertSame(50, $configuration->codeCoverage()->html()->lowUpperBound());
+        $this->assertSame(10, $configuration->phpunit()->timeoutForMediumTests());
+        $this->assertSame(0, $configuration->phpunit()->shortenArraysForExportThreshold());
+    }
+
+    public function testEmptyColorAttributeIsReplacedWithDefaultValue(): void
+    {
+        $html = $this->configuration('configuration_edge_case_values.xml')->codeCoverage()->html();
+
+        $this->assertSame('#123456', $html->colorSuccessLow());
+        $this->assertNotSame('', $html->colorSuccessLowDark());
+    }
+
+    public function testEmptyCustomCssFileAttributeIsIgnored(): void
+    {
+        $this->assertFalse(
+            $this->configuration('configuration_edge_case_values.xml')->codeCoverage()->html()->hasCustomCssFile(),
+        );
+    }
+
+    public function testDependencyResolutionCanBeDisabled(): void
+    {
+        $this->assertFalse(
+            $this->configuration('configuration_edge_case_values.xml')->phpunit()->resolveDependencies(),
+        );
+    }
+
+    public function testBackupOfStaticPropertiesCanBeEnabled(): void
+    {
+        $this->assertTrue(
+            $this->configuration('configuration_edge_case_values.xml')->phpunit()->backupStaticProperties(),
+        );
+    }
+
+    public function testNonNumericValuesForNumericAttributesAreReplacedWithDefaultValues(): void
+    {
+        $configuration = $this->configuration('configuration_non_numeric_values.xml');
+
+        $this->assertSame(1, $configuration->phpunit()->defaultTimeLimit());
+        $this->assertSame(1, $configuration->phpunit()->timeoutForSmallTests());
+    }
+
+    #[RunInSeparateProcess]
+    public function testAbsolutePathOnWindowsIsNotResolvedRelativeToConfigurationFile(): void
+    {
+        define('PHP_WINDOWS_VERSION_BUILD', 1);
+
+        $this->assertSame(
+            'C:\\Temp\\clover.xml',
+            $this->configuration('configuration_windows_path.xml')->codeCoverage()->clover()->target()->path(),
+        );
+    }
+
+    public function testConfigurationLoadedFromFileIsNotTheDefaultConfiguration(): void
+    {
+        $configuration = $this->configuration('configuration.xml');
+
+        $this->assertFalse($configuration->isDefault());
+        $this->assertTrue($configuration->wasLoadedFromFile());
+    }
+
+    public function testDefaultConfigurationIsTheDefaultConfiguration(): void
+    {
+        $configuration = DefaultConfiguration::create();
+
+        $this->assertTrue($configuration->isDefault());
+        $this->assertFalse($configuration->wasLoadedFromFile());
     }
 
     public function testGroupConfigurationIsReadCorrectly(): void
@@ -445,6 +609,7 @@ final class LoaderTest extends TestCase
         $this->assertTrue($phpunit->controlGarbageCollector());
         $this->assertSame(1000, $phpunit->numberOfTestsBeforeGarbageCollection());
         $this->assertSame(10, $phpunit->shortenArraysForExportThreshold());
+        $this->assertTrue($phpunit->warnWhenPhpIsNotConfiguredForDevelopment());
     }
 
     public function test_TestDox_configuration_is_parsed_correctly(): void

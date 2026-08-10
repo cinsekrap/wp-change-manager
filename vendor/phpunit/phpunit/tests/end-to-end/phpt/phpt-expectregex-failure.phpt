@@ -2,7 +2,7 @@
 PHPT runner handles EXPECTREGEX failure
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = \realpath(__DIR__ . '/../_files/phpt-expectregex-failure.phpt');
 
@@ -21,7 +21,7 @@ Time: %s, Memory: %s
 There was 1 failure:
 
 1) %sphpt-expectregex-failure.phpt
-Failed asserting that 'this does not match' matches PCRE pattern "/^completely different pattern [0-9]+$/".
+Failed asserting that 'this does not match' matches PCRE pattern "/^completely different pattern [0-9]+$/s".
 
 %sphpt-expectregex-failure.phpt:%d
 

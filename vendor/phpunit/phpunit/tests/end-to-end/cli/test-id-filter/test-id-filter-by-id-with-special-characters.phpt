@@ -2,7 +2,7 @@
 phpunit --run-test-id 'PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters#total ($100)'
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = '--run-test-id';
@@ -25,12 +25,12 @@ Test Suite Sorted
 Test Suite Filtered (1 test)
 Test Runner Execution Started (1 test)
 Test Suite Started (PHPUnit\TestFixture\TestIdFilter\BarTest, 1 test)
-Test Suite Started (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters, 1 test)
+Test Suite for Test Method with Data Provider Started (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters, 1 data set)
 Test Preparation Started (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters#total ($100))
 Test Prepared (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters#total ($100))
 Test Passed (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters#total ($100))
 Test Finished (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters#total ($100))
-Test Suite Finished (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters, 1 test)
+Test Suite for Test Method with Data Provider Finished (PHPUnit\TestFixture\TestIdFilter\BarTest::testWithSpecialCharacters, 1 data set)
 Test Suite Finished (PHPUnit\TestFixture\TestIdFilter\BarTest, 1 test)
 Test Runner Execution Finished
 Test Runner Finished

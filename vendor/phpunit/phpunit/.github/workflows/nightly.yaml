@@ -23,7 +23,7 @@ jobs:
 
     env:
       PHP_EXTENSIONS: none, ctype, curl, dom, json, libxml, mbstring, openssl, pdo, phar, tokenizer, xmlwriter
-      PHP_INI_VALUES: memory_limit=-1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
+      PHP_INI_VALUES: memory_limit=-1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On, display_startup_errors=On
 
     strategy:
       fail-fast: false
@@ -34,7 +34,7 @@ jobs:
 
         phpunit-branch:
           - main
-          - 13.1
+          - 13.2
           - 12.5
           - 11.5
           - 10.5
@@ -92,19 +92,19 @@ jobs:
             php-version: 8.1
           - phpunit-branch: 12.5
             php-version: 8.2
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 7.2
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 7.3
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 7.4
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 8.0
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 8.1
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 8.2
-          - phpunit-branch: 13.1
+          - phpunit-branch: 13.2
             php-version: 8.3
           - phpunit-branch: main
             php-version: 7.2

@@ -2,7 +2,7 @@
 https://github.com/sebastianbergmann/phpunit/issues/5898
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/5898/5898.phpt';
@@ -21,8 +21,8 @@ Test Runner Execution Started (1 test)
 Test Suite Started (%s5898.phpt, 1 test)
 Test Preparation Started (%s5898.phpt)
 Test Prepared (%s5898.phpt)
-Child Process Started
-Child Process Finished
+Child Process Started (FILE section of a PHPT test)
+Child Process Finished (FILE section of a PHPT test)
 Test Passed (%s5898.phpt)
 Test Finished (%s5898.phpt)
 Test Suite Finished (%s5898.phpt, 1 test)

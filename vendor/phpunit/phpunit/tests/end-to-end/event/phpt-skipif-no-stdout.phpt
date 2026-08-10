@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a PHPT test with --SKIPIF-- that has no standard output side-effect
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../_files/phpt-skipif-no-stdout.phpt';
@@ -21,12 +21,12 @@ Test Runner Execution Started (1 test)
 Test Suite Started (%s%ephpt-skipif-no-stdout.phpt, 1 test)
 Test Preparation Started (%s%ephpt-skipif-no-stdout.phpt)
 Test Prepared (%s%ephpt-skipif-no-stdout.phpt)
-Child Process Started
-Child Process Finished
+Child Process Started (SKIPIF section of a PHPT test)
+Child Process Finished (SKIPIF section of a PHPT test)
 Test Considered Risky (%s%ephpt-skipif-no-stdout.phpt)
 SKIPIF section does not produce output that could result in the test being skipped
-Child Process Started
-Child Process Finished
+Child Process Started (FILE section of a PHPT test)
+Child Process Finished (FILE section of a PHPT test)
 Test Passed (%s%ephpt-skipif-no-stdout.phpt)
 Test Finished (%s%ephpt-skipif-no-stdout.phpt)
 Test Suite Finished (%s%ephpt-skipif-no-stdout.phpt, 1 test)

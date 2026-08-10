@@ -2,7 +2,7 @@
 PHPT runner handles parse error when FILE section is missing
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = \realpath(__DIR__ . '/../_files/phpt-invalid-no-file-section.phpt');
 
@@ -21,7 +21,7 @@ Time: %s, Memory: %s
 There was 1 error:
 
 1) %sphpt-invalid-no-file-section.phpt
-PHPUnit\Runner\Phpt\InvalidPhptFileException%s
+PHPUnit\Runner\Phpt\InvalidPhptFileException: PHPT file must contain one of the sections --FILE--, --FILEEOF--, --FILE_EXTERNAL--
 
 ERRORS!
 Tests: 1, Assertions: 0, Errors: 1.

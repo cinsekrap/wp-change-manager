@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Runner\Version;
 use PHPUnit\TestFixture\RequirementsEnvironmentVariableTest;
+use PHPUnit\TestFixture\RequirementsWithInvalidVersionConstraintTest;
 
 #[CoversClass(Requirements::class)]
 #[Small]
@@ -171,6 +172,44 @@ final class RequirementsTest extends TestCase
                 'Environment variable "BAZ" is required.',
             ],
             (new Requirements)->requirementsNotSatisfiedFor(RequirementsEnvironmentVariableTest::class, 'testRequiresEnvironmentVariable'),
+        );
+    }
+
+    public function testReportsInvalidVersionRequirementOnRequiresPhp(): void
+    {
+        $this->assertSame(
+            [
+                'Attribute RequiresPhp for test method PHPUnit\TestFixture\RequirementsWithInvalidVersionConstraintTest::testRequiresPhp has invalid version requirement "invalid-version": expected a version constraint (such as "^8.1", "~8.1.0", or "8.1.*") or a version comparison (such as ">= 8.1.0")',
+            ],
+            (new Requirements)->invalidVersionRequirementsFor(RequirementsWithInvalidVersionConstraintTest::class, 'testRequiresPhp'),
+        );
+    }
+
+    public function testReportsInvalidVersionRequirementOnRequiresPhpunit(): void
+    {
+        $this->assertSame(
+            [
+                'Attribute RequiresPhpunit for test method PHPUnit\TestFixture\RequirementsWithInvalidVersionConstraintTest::testRequiresPhpunit has invalid version requirement "invalid-version": expected a version constraint (such as "^8.1", "~8.1.0", or "8.1.*") or a version comparison (such as ">= 8.1.0")',
+            ],
+            (new Requirements)->invalidVersionRequirementsFor(RequirementsWithInvalidVersionConstraintTest::class, 'testRequiresPhpunit'),
+        );
+    }
+
+    public function testReportsInvalidVersionRequirementOnRequiresPhpExtension(): void
+    {
+        $this->assertSame(
+            [
+                'Attribute RequiresPhpExtension for test method PHPUnit\TestFixture\RequirementsWithInvalidVersionConstraintTest::testRequiresPhpExtension has invalid version requirement "invalid-version": expected a version constraint (such as "^8.1", "~8.1.0", or "8.1.*") or a version comparison (such as ">= 8.1.0")',
+            ],
+            (new Requirements)->invalidVersionRequirementsFor(RequirementsWithInvalidVersionConstraintTest::class, 'testRequiresPhpExtension'),
+        );
+    }
+
+    public function testReportsNoInvalidVersionRequirementWhenConstraintIsValid(): void
+    {
+        $this->assertSame(
+            [],
+            (new Requirements)->invalidVersionRequirementsFor(RequirementsWithInvalidVersionConstraintTest::class, 'testWithoutVersionConstraint'),
         );
     }
 

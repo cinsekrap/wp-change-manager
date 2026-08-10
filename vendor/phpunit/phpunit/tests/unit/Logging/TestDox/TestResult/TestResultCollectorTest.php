@@ -48,6 +48,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Metadata\MetadataCollection;
 use PHPUnit\TestFixture\InheritanceA;
+use PHPUnit\TestFixture\TestDox\InheritingTestDoxTest;
 use PHPUnit\TestFixture\TestDoxTest;
 use PHPUnit\TestRunner\IssueFilter;
 use PHPUnit\TextUI\Configuration\FilterDirectoryCollection;
@@ -196,7 +197,7 @@ final class TestResultCollectorTest extends TestCase
 
         $deprecation = $this->testMethod('testOne');
         $collector->testPrepared(new Prepared($info, $deprecation));
-        $collector->testTriggeredDeprecation(new DeprecationTriggered($info, $deprecation, 'message', 'file.php', 1, false, false, false, $trigger, 'trace'));
+        $collector->testTriggeredDeprecation(new DeprecationTriggered($info, $deprecation, 'message', 'file.php', 1, false, false, false, false, $trigger, 'trace'));
         $collector->testFinished(new Finished($info, $deprecation, 1));
 
         $notice = $this->testMethod('testTwo');
@@ -211,7 +212,7 @@ final class TestResultCollectorTest extends TestCase
 
         $phpDeprecation = $this->testMethod('testFour');
         $collector->testPrepared(new Prepared($info, $phpDeprecation));
-        $collector->testTriggeredPhpDeprecation(new PhpDeprecationTriggered($info, $phpDeprecation, 'message', 'file.php', 1, false, false, false, $trigger));
+        $collector->testTriggeredPhpDeprecation(new PhpDeprecationTriggered($info, $phpDeprecation, 'message', 'file.php', 1, false, false, false, false, $trigger));
         $collector->testFinished(new Finished($info, $phpDeprecation, 1));
 
         $phpNotice = $this->testMethod('testFive');
@@ -263,6 +264,7 @@ final class TestResultCollectorTest extends TestCase
                 false,
                 false,
                 true,
+                false,
                 IssueTrigger::from(null, null),
                 'trace',
             ),
@@ -281,7 +283,7 @@ final class TestResultCollectorTest extends TestCase
 
         $collector->testPrepared(new Prepared($this->telemetryInfo(), $test));
         $collector->testTriggeredDeprecation(
-            new DeprecationTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true, false, IssueTrigger::from(null, null), 'trace'),
+            new DeprecationTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true, false, false, IssueTrigger::from(null, null), 'trace'),
         );
         $collector->testTriggeredNotice(
             new NoticeTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true),
@@ -290,7 +292,7 @@ final class TestResultCollectorTest extends TestCase
             new WarningTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true),
         );
         $collector->testTriggeredPhpDeprecation(
-            new PhpDeprecationTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true, false, IssueTrigger::from(null, null)),
+            new PhpDeprecationTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true, false, false, IssueTrigger::from(null, null)),
         );
         $collector->testTriggeredPhpNotice(
             new PhpNoticeTriggered($this->telemetryInfo(), $test, 'message', 'file.php', 1, false, true),
@@ -326,6 +328,44 @@ final class TestResultCollectorTest extends TestCase
         );
     }
 
+    public function test_Inherited_test_methods_are_listed_before_the_ones_declared_in_the_test_class_itself(): void
+    {
+        $collector = $this->collector();
+
+        $declaredInParent = $this->testMethod('testDeclaredInParent', InheritingTestDoxTest::class);
+        $declaredInChild  = $this->testMethod('testDeclaredInChild', InheritingTestDoxTest::class);
+
+        foreach ([$declaredInParent, $declaredInChild] as $test) {
+            $collector->testPrepared(new Prepared($this->telemetryInfo(), $test));
+            $collector->testPassed(new Passed($this->telemetryInfo(), $test));
+            $collector->testFinished(new Finished($this->telemetryInfo(), $test, 1));
+        }
+
+        $this->assertSame(
+            ['testDeclaredInParent', 'testDeclaredInChild'],
+            $this->methodNames($collector->testMethodsGroupedByClass()[InheritingTestDoxTest::class]),
+        );
+    }
+
+    public function test_Inherited_test_methods_are_listed_before_the_ones_declared_in_the_test_class_itself_regardless_of_the_order_in_which_they_were_run(): void
+    {
+        $collector = $this->collector();
+
+        $declaredInChild  = $this->testMethod('testDeclaredInChild', InheritingTestDoxTest::class);
+        $declaredInParent = $this->testMethod('testDeclaredInParent', InheritingTestDoxTest::class);
+
+        foreach ([$declaredInChild, $declaredInParent] as $test) {
+            $collector->testPrepared(new Prepared($this->telemetryInfo(), $test));
+            $collector->testPassed(new Passed($this->telemetryInfo(), $test));
+            $collector->testFinished(new Finished($this->telemetryInfo(), $test, 1));
+        }
+
+        $this->assertSame(
+            ['testDeclaredInParent', 'testDeclaredInChild'],
+            $this->methodNames($collector->testMethodsGroupedByClass()[InheritingTestDoxTest::class]),
+        );
+    }
+
     public function test_Events_for_a_non_test_method_are_ignored(): void
     {
         $collector = $this->collector();
@@ -353,7 +393,7 @@ final class TestResultCollectorTest extends TestCase
         $phpt      = new Phpt('Foo.phpt');
 
         $collector->testTriggeredDeprecation(
-            new DeprecationTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false, false, IssueTrigger::from(null, null), 'trace'),
+            new DeprecationTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false, false, false, IssueTrigger::from(null, null), 'trace'),
         );
         $collector->testTriggeredNotice(
             new NoticeTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false),
@@ -362,7 +402,7 @@ final class TestResultCollectorTest extends TestCase
             new WarningTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false),
         );
         $collector->testTriggeredPhpDeprecation(
-            new PhpDeprecationTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false, false, IssueTrigger::from(null, null)),
+            new PhpDeprecationTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false, false, false, IssueTrigger::from(null, null)),
         );
         $collector->testTriggeredPhpNotice(
             new PhpNoticeTriggered($this->telemetryInfo(), $phpt, 'message', 'file.php', 1, false, false),
@@ -372,6 +412,20 @@ final class TestResultCollectorTest extends TestCase
         );
 
         $this->assertSame([], $collector->testMethodsGroupedByClass());
+    }
+
+    /**
+     * @return list<non-empty-string>
+     */
+    private function methodNames(TestResultCollection $tests): array
+    {
+        $methodNames = [];
+
+        foreach ($tests as $test) {
+            $methodNames[] = $test->test()->methodName();
+        }
+
+        return $methodNames;
     }
 
     private function collector(): TestResultCollector

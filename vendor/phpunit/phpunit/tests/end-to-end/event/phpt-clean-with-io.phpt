@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a PHPT test with a CLEAN section which pollutes the process
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../_files/phpt-clean-with-io.phpt';
@@ -21,8 +21,8 @@ Test Runner Execution Started (1 test)
 Test Suite Started (%sphpt-clean-with-io.phpt, 1 test)
 Test Preparation Started (%sphpt-clean-with-io.phpt)
 Test Prepared (%sphpt-clean-with-io.phpt)
-Child Process Started
-Child Process Finished
+Child Process Started (FILE section of a PHPT test)
+Child Process Finished (FILE section of a PHPT test)
 Test Passed (%sphpt-clean-with-io.phpt)
 Test Finished (%sphpt-clean-with-io.phpt)
 Test Suite Finished (%sphpt-clean-with-io.phpt, 1 test)

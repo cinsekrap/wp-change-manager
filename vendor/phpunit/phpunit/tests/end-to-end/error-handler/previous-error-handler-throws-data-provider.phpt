@@ -2,7 +2,7 @@
 A previously registered error handler that turns an error triggered in a data provider into an exception errors the test instead of aborting the test runner
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/_files/PreviousErrorHandlerThrowsDataProviderTest.php';
@@ -30,13 +30,13 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (1 test)
 Test Suite Started (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest, 1 test)
-Test Suite Started (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider, 1 test)
+Test Suite for Test Method with Data Provider Started (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider, 1 data set)
 Test Preparation Started (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider#0)
 Test Preparation Errored (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider#0)
 warning from data provider
 Test Errored (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider#0)
 warning from data provider
-Test Suite Finished (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider, 1 test)
+Test Suite for Test Method with Data Provider Finished (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest::testWarningFromDataProvider, 1 data set)
 Test Suite Finished (PHPUnit\TestFixture\ErrorHandler\PreviousErrorHandlerThrowsDataProviderTest, 1 test)
 Test Runner Execution Finished
 Test Runner Finished

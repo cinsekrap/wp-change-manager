@@ -2,7 +2,7 @@
 The right events are emitted in the right order for a test that is run in process isolation and triggers a fatal error
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--process-isolation';
 $_SERVER['argv'][] = '--debug';
@@ -20,13 +20,13 @@ Test Runner Started
 Test Suite Sorted
 Test Runner Execution Started (1 test)
 Test Suite Started (PHPUnit\TestFixture\Event\FatalTest, 1 test)
-Child Process Started
+Child Process Started (test requiring process isolation)
 Test Preparation Started (PHPUnit\TestFixture\Event\FatalTest::testOne)
 Test Prepared (PHPUnit\TestFixture\Event\FatalTest::testOne)
 Test Errored (PHPUnit\TestFixture\Event\FatalTest::testOne)
 Call to undefined function PHPUnit\TestFixture\Event\doesNotExist()
 Test Finished (PHPUnit\TestFixture\Event\FatalTest::testOne)
-Child Process Finished
+Child Process Finished (test requiring process isolation)
 Test Suite Finished (PHPUnit\TestFixture\Event\FatalTest, 1 test)
 Test Runner Execution Finished
 Test Runner Finished

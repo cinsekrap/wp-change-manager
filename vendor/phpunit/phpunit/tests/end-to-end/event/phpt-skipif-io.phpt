@@ -2,7 +2,7 @@
 The right events are emitted in the right order for PHPT test using IO in skipif
 --FILE--
 <?php declare(strict_types=1);
-$_SERVER['argv'][] = '--do-not-cache-result';
+$_SERVER['argv'][] = '--do-not-record-test-run-history';
 $_SERVER['argv'][] = '--no-configuration';
 $_SERVER['argv'][] = '--debug';
 $_SERVER['argv'][] = __DIR__ . '/../_files/phpt-skipif-io.phpt';
@@ -23,8 +23,8 @@ Test Preparation Started (%s%ephpt-skipif-io.phpt)
 Test Prepared (%s%ephpt-skipif-io.phpt)
 Test Considered Risky (%s%ephpt-skipif-io.phpt)
 SKIPIF section does not produce output that could result in the test being skipped
-Child Process Started
-Child Process Finished
+Child Process Started (FILE section of a PHPT test)
+Child Process Finished (FILE section of a PHPT test)
 Test Passed (%s%ephpt-skipif-io.phpt)
 Test Finished (%s%ephpt-skipif-io.phpt)
 Test Suite Finished (%s%ephpt-skipif-io.phpt, 1 test)
