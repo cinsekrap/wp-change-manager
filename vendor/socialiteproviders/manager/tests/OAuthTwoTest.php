@@ -1,0 +1,262 @@
+<?php
+
+namespace SocialiteProviders\Manager\Test;
+
+use Illuminate\Contracts\Session\Session as SessionContract;
+use Illuminate\Http\Request;
+use Laravel\Socialite\Two\InvalidStateException;
+use Laravel\Socialite\Two\User as SocialiteOAuth2User;
+use Mockery as m;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use SocialiteProviders\Manager\OAuth2\User;
+use SocialiteProviders\Manager\Test\Stubs\OAuthTwoTestProviderStub;
+use stdClass;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+
+class OAuthTwoTest extends TestCase
+{
+    use ManagerTestTrait;
+
+    #[Test]
+    public function redirect_generates_the_proper_symfony_redirect_response(): void
+    {
+        $session = m::mock(SessionContract::class);
+        $request = Request::create('foo');
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('put')
+            ->once();
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect');
+        $response = $provider->redirect();
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        $this->assertSame('http://auth.url', $response->getTargetUrl());
+    }
+
+    #[Test]
+    public function it_can_return_the_service_container_key(): void
+    {
+        $result = OAuthTwoTestProviderStub::serviceContainerKey(OAuthTwoTestProviderStub::PROVIDER_NAME);
+
+        $this->assertSame('SocialiteProviders.config.test', $result);
+    }
+
+    #[Test]
+    public function user_returns_a_user_instance_for_the_authenticated_request(): void
+    {
+        $session = m::mock(SessionContract::class);
+        $request = Request::create('foo', 'GET', [
+            'state' => str_repeat('A', 40),
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state')
+            ->andReturn(str_repeat('A', 40));
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect_uri');
+        $provider->http = m::mock(stdClass::class);
+        $provider->http
+            ->shouldReceive('post')
+            ->once()
+            ->with('http://token.url', [
+                'headers' => [
+                    'Accept' => 'application/json',
+                ],
+                'form_params' => [
+                    'grant_type'    => 'authorization_code',
+                    'client_id'     => 'client_id',
+                    'client_secret' => 'client_secret',
+                    'code'          => 'code',
+                    'redirect_uri'  => 'redirect_uri',
+                ],
+            ])
+            ->andReturn($response = m::mock(stdClass::class));
+        $response
+            ->shouldReceive('getBody')
+            ->andReturn('{"access_token": "access_token", "test": "test"}');
+        $user = $provider->user();
+
+        $this->assertInstanceOf(User::class, $user);
+        $this->assertSame('foo', $user->id);
+    }
+
+    #[Test]
+    public function access_token_response_body_is_accessible_from_user(): void
+    {
+        $session = m::mock(SessionContract::class);
+        $accessTokenResponseBody = '{"access_token": "access_token", "test": "test"}';
+        $request = Request::create('foo', 'GET', [
+            'state' => str_repeat('A', 40),
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state')
+            ->andReturn(str_repeat('A', 40));
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect_uri');
+        $provider->http = m::mock(stdClass::class);
+        $provider->http
+            ->shouldReceive('post')
+            ->once()
+            ->with('http://token.url', [
+                'headers' => [
+                    'Accept' => 'application/json',
+                ],
+                'form_params' => [
+                    'grant_type'    => 'authorization_code',
+                    'client_id'     => 'client_id',
+                    'client_secret' => 'client_secret',
+                    'code'          => 'code',
+                    'redirect_uri'  => 'redirect_uri',
+                ],
+            ])
+            ->andReturn($response = m::mock(stdClass::class));
+        $response
+            ->shouldReceive('getBody')
+            ->andReturn($accessTokenResponseBody);
+        $user = $provider->user();
+
+        $this->assertInstanceOf(User::class, $user);
+        $this->assertSame('foo', $user->id);
+        $this->assertSame($user->accessTokenResponseBody, json_decode($accessTokenResponseBody, true));
+    }
+
+    #[Test]
+    public function regular_laravel_socialite_class_works_as_well(): void
+    {
+        $session = m::mock(SessionContract::class);
+        $accessTokenResponseBody = '{"access_token": "access_token", "test": "test"}';
+        $request = Request::create('foo', 'GET', [
+            'state' => str_repeat('A', 40),
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state')
+            ->andReturn(str_repeat('A', 40));
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect_uri');
+
+        $provider->http = m::mock(stdClass::class);
+        $provider->http
+            ->shouldReceive('post')
+            ->once()
+            ->with('http://token.url', [
+                'headers' => [
+                    'Accept' => 'application/json',
+                ],
+                'form_params' => [
+                    'grant_type'    => 'authorization_code',
+                    'client_id'     => 'client_id',
+                    'client_secret' => 'client_secret',
+                    'code'          => 'code',
+                    'redirect_uri'  => 'redirect_uri',
+                ],
+            ])
+            ->andReturn($response = m::mock(stdClass::class));
+        $response
+            ->shouldReceive('getBody')
+            ->andReturn($accessTokenResponseBody);
+        $user = $provider->user();
+
+        $this->assertInstanceOf(SocialiteOAuth2User::class, $user);
+        $this->assertSame('foo', $user->id);
+    }
+
+    #[Test]
+    public function exception_is_thrown_if_state_is_invalid(): void
+    {
+        $this->expectExceptionObject(new InvalidStateException);
+
+        $session = m::mock(SessionContract::class);
+        $request = Request::create('foo', 'GET', [
+            'state' => str_repeat('B', 40),
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state')
+            ->andReturn(str_repeat('A', 40));
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect');
+        $provider->user();
+    }
+
+    #[Test]
+    public function exception_is_thrown_if_state_is_not_set(): void
+    {
+        $this->expectExceptionObject(new InvalidStateException);
+
+        $session = m::mock(SessionContract::class);
+        $request = Request::create('foo', 'GET', [
+            'state' => 'state',
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state');
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect');
+        $provider->user();
+    }
+
+    #[Test]
+    public function user_object_should_be_cached_on_first_call(): void
+    {
+        $session = m::mock(SessionContract::class);
+        $accessTokenResponseBody = '{"access_token": "access_token", "test": "test"}';
+        $request = Request::create('foo', 'GET', [
+            'state' => str_repeat('A', 40),
+            'code'  => 'code',
+        ]);
+        $request->setLaravelSession($session);
+        $session
+            ->shouldReceive('pull')
+            ->once()
+            ->with('state')
+            ->andReturn(str_repeat('A', 40));
+        $provider = new OAuthTwoTestProviderStub($request, 'client_id', 'client_secret', 'redirect_uri');
+
+        $provider->http = m::mock(stdClass::class);
+        $provider->http
+            ->shouldReceive('post')
+            ->once()
+            ->with('http://token.url', [
+                'headers' => [
+                    'Accept' => 'application/json',
+                ],
+                'form_params' => [
+                    'grant_type'    => 'authorization_code',
+                    'client_id'     => 'client_id',
+                    'client_secret' => 'client_secret',
+                    'code'          => 'code',
+                    'redirect_uri'  => 'redirect_uri',
+                ],
+            ])
+            ->andReturn($response = m::mock(stdClass::class));
+        $response
+            ->shouldReceive('getBody')
+            ->andReturn($accessTokenResponseBody);
+
+        $reflection = new \ReflectionClass($provider);
+        $reflectionProperty = $reflection->getProperty('user');
+
+        $this->assertNull($reflectionProperty->getValue($provider));
+
+        $firstCall = $provider->user();
+
+        $this->assertInstanceOf(SocialiteOAuth2User::class, $reflectionProperty->getValue($provider));
+
+        $secondCall = $provider->user();
+
+        $this->assertSame($firstCall, $secondCall);
+    }
+}

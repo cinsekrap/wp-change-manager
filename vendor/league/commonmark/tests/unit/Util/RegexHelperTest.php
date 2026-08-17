@@ -455,6 +455,19 @@ final class RegexHelperTest extends TestCase
         ];
     }
 
+    /**
+     * The deprecated anchored constants remain part of the BC surface until 3.0 and must keep
+     * their exact historical values, so pin them here.
+     */
+    public function testAnchoredConstantsKeepTheirHistoricalValues(): void
+    {
+        $this->assertSame(
+            '^(?:"(\\\\[!"#$%&\'()*+,.\\/:;<=>?@[\\\\\\]^_`{|}~-]|[^"\\x00])*+"|\'(\\\\[!"#$%&\'()*+,.\\/:;<=>?@[\\\\\\]^_`{|}~-]|[^\'\\x00])*+\'|\\((\\\\[!"#$%&\'()*+,.\\/:;<=>?@[\\\\\\]^_`{|}~-]|[^()\\x00])*+\\))',
+            RegexHelper::PARTIAL_LINK_TITLE
+        );
+        $this->assertSame('/^(?:<(?:[^<>\\n\\\\\\x00]|\\\\.)*>)/', RegexHelper::REGEX_LINK_DESTINATION_BRACES);
+    }
+
     private function assertRegexMatches(string $pattern, string $string, string $message = ''): void
     {
         if (\method_exists($this, 'assertMatchesRegularExpression')) {

@@ -1,0 +1,178 @@
+<?php
+
+namespace SocialiteProviders\Manager\Test;
+
+use Illuminate\Contracts\Container\Container as ContainerContract;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request as HttpRequest;
+use Laravel\Socialite\SocialiteManager;
+use Mockery as m;
+use Mockery\MockInterface;
+use SocialiteProviders\Manager\Config;
+use SocialiteProviders\Manager\Contracts\Helpers\ConfigRetrieverInterface;
+
+trait ManagerTestTrait
+{
+    public static $functions;
+
+    protected function setUp(): void
+    {
+        self::$functions = m::mock();
+    }
+
+    protected function tearDown(): void
+    {
+        m::close();
+    }
+
+    /**
+     * @return MockInterface|ConfigRetrieverInterface
+     */
+    protected function configRetrieverMock()
+    {
+        return m::mock(ConfigRetrieverInterface::class);
+    }
+
+    /**
+     * @return MockInterface|ContainerContract
+     */
+    protected function appMock()
+    {
+        return m::mock(ContainerContract::class);
+    }
+
+    /**
+     * @return MockInterface|Application
+     */
+    protected function appMockWithBooted()
+    {
+        $app = m::mock(Application::class);
+        $app->shouldReceive('booted')->with(m::on(function ($callback) {
+            $callback();
+
+            return true;
+        }));
+
+        return $app;
+    }
+
+    /**
+     * @return MockInterface|SocialiteManager
+     */
+    protected function socialiteMock()
+    {
+        return m::mock(SocialiteManager::class);
+    }
+
+    /**
+     * @return MockInterface|HttpRequest
+     */
+    protected function buildRequest()
+    {
+        return m::mock(HttpRequest::class);
+    }
+
+    protected function configObject(): Config
+    {
+        return new Config('test', 'test', 'test');
+    }
+
+    protected function configRetrieverMockWithDefaultExpectations($providerName, $providerClass)
+    {
+        $configRetriever = $this->configRetrieverMock();
+        $configRetriever
+            ->shouldReceive('fromServices')
+            ->with($providerName, $providerClass::additionalConfigKeys())
+            ->andReturn($this->configObject());
+
+        return $configRetriever;
+    }
+
+    /**
+     * @return array
+     */
+    protected function config(): array
+    {
+        return [
+            'client_id'     => 'test',
+            'client_secret' => 'test',
+            'redirect'      => 'test',
+        ];
+    }
+
+    /**
+     * @param  array  $config
+     * @return array
+     */
+    protected function oauth1FormattedConfig(array $config): array
+    {
+        return [
+            'identifier'   => $config['client_id'],
+            'secret'       => $config['client_secret'],
+            'callback_uri' => $config['redirect'],
+        ];
+    }
+
+    protected function oauth2ProviderStub(): MockInterface
+    {
+        static $provider = null;
+
+        if ($provider === null) {
+            $provider = $this->mockStub('OAuth2ProviderStub')->shouldDeferMissing();
+        }
+
+        return $provider;
+    }
+
+    protected function oauth1ProviderStub(): MockInterface
+    {
+        static $provider = null;
+
+        if ($provider === null) {
+            $provider = $this->mockStub('OAuth1ProviderStub');
+        }
+
+        return $provider;
+    }
+
+    protected function oauth1ProviderStubClass(): string
+    {
+        return $this->fullStubClassName('OAuth1ProviderStub');
+    }
+
+    protected function oauth1ServerStubClass(): string
+    {
+        return $this->fullStubClassName('OAuth1ServerStub');
+    }
+
+    protected function oauth2ProviderStubClass(): string
+    {
+        return $this->fullStubClassName('OAuth2ProviderStub');
+    }
+
+    /**
+     * @param  string  $stub
+     * @return MockInterface
+     */
+    protected function mockStub($stub): MockInterface
+    {
+        return m::mock($this->fullStubClassName($stub));
+    }
+
+    /**
+     * @param  string  $stub
+     * @return string
+     */
+    protected function fullStubClassName($stub): string
+    {
+        return __NAMESPACE__.'\Stubs\\'.$stub;
+    }
+
+    /**
+     * @return string
+     */
+    protected function invalidClass(): string
+    {
+        return 'FooBar';
+    }
+}

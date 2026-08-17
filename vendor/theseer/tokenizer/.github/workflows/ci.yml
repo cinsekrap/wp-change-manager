@@ -1,0 +1,50 @@
+name: Test
+
+on:
+  # Run on all pushes and on all pull requests.
+  push:
+  pull_request:
+  # Allow manually triggering the workflow.
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Keys:
+      # - experimental: Whether the build is "allowed to fail".
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4', '8.5']
+        experimental: [false]
+
+        include:
+          # Nightly.
+          - php: '8.6'
+            experimental: true
+
+    name: "PHP: ${{ matrix.php }}"
+
+    continue-on-error: ${{ matrix.experimental }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: phive
+
+      - name: Install tools (phive)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: phive install --trust-gpg-keys 4AA394086372C20A,2A8299CE842DD38C,E82B2FB314E9906E
+
+      - name: Generate Autoloader (phpab)
+        run: ./tools/phpab --output ./src/autoload.php ./src
+
+      - name: Run unit tests (phpunit)
+        run: ./tools/phpunit --no-coverage

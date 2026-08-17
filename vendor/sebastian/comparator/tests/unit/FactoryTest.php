@@ -1,0 +1,320 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of sebastian/comparator.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace SebastianBergmann\Comparator;
+
+use function class_exists;
+use function tmpfile;
+use BcMath\Number;
+use DateInterval;
+use DateTime;
+use DOMDocument;
+use Exception;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\UsesClass;
+use PHPUnit\Framework\Attributes\UsesClassesThatExtendClass;
+use PHPUnit\Framework\TestCase;
+use SebastianBergmann\Exporter\Exporter;
+use SplObjectStorage;
+use stdClass;
+
+#[CoversClass(Factory::class)]
+#[UsesClass(Comparator::class)]
+#[UsesClassesThatExtendClass(Comparator::class)]
+#[UsesClass(ComparisonFailure::class)]
+#[Small]
+final class FactoryTest extends TestCase
+{
+    /**
+     * @return non-empty-list<array{0: mixed, 1: mixed, 2: class-string}>
+     */
+    public static function instanceProvider(): array
+    {
+        $tmpfile = tmpfile();
+
+        $instances = [
+            [null, null, ScalarComparator::class],
+            [null, true, ScalarComparator::class],
+            [true, null, ScalarComparator::class],
+            [true, true, ScalarComparator::class],
+            [false, false, ScalarComparator::class],
+            [true, false, ScalarComparator::class],
+            [false, true, ScalarComparator::class],
+            ['', '', ScalarComparator::class],
+            ['0', '0', ScalarComparator::class],
+            ['0', 0, NumericComparator::class],
+            [0, '0', NumericComparator::class],
+            [0, 0, NumericComparator::class],
+            [1.0, 0, NumericComparator::class],
+            [0, 1.0, NumericComparator::class],
+            [1.0, 1.0, NumericComparator::class],
+            [[1], [1], ArrayComparator::class],
+            [$tmpfile, $tmpfile, ResourceComparator::class],
+            [new stdClass, new stdClass, ObjectComparator::class],
+            [new DateTime, new DateTime, DateTimeComparator::class],
+            [new DateInterval('PT1S'), new DateInterval('PT1S'), DateIntervalComparator::class],
+            [new SplObjectStorage, new SplObjectStorage, SplObjectStorageComparator::class],
+            [new Exception, new Exception, ExceptionComparator::class],
+            [new DOMDocument, new DOMDocument, DOMNodeComparator::class],
+            // mixed types
+            [$tmpfile, [1], TypeComparator::class],
+            [[1], $tmpfile, TypeComparator::class],
+            [$tmpfile, '1', TypeComparator::class],
+            ['1', $tmpfile, TypeComparator::class],
+            [$tmpfile, new stdClass, TypeComparator::class],
+            [new stdClass, $tmpfile, TypeComparator::class],
+            [new stdClass, [1], TypeComparator::class],
+            [[1], new stdClass, TypeComparator::class],
+            [new stdClass, '1', TypeComparator::class],
+            ['1', new stdClass, TypeComparator::class],
+            [new ClassWithToString, '1', ScalarComparator::class],
+            ['1', new ClassWithToString, ScalarComparator::class],
+            [1.0, new stdClass, TypeComparator::class],
+            [new stdClass, 1.0, TypeComparator::class],
+            [1.0, [1], TypeComparator::class],
+            [[1], 1.0, TypeComparator::class],
+            [Example::Foo, Example::Bar, EnumerationComparator::class],
+            [ExampleString::Foo, ExampleString::Bar, EnumerationComparator::class],
+            [ExampleInt::Foo, ExampleInt::Bar, EnumerationComparator::class],
+            [static function (): void
+            {}, static function (): void
+            {}, ClosureComparator::class],
+        ];
+
+        if (class_exists(Number::class)) {
+            $instances[] = [new Number('13.37'), new Number('47.11'), NumberComparator::class];
+            $instances[] = ['13.37', new Number('47.11'), NumberComparator::class];
+            $instances[] = [13, new Number('47.11'), NumberComparator::class];
+            $instances[] = [new Number('13.37'), new Number('47.11'), NumberComparator::class];
+            $instances[] = [new Number('13.37'), '47.11', NumberComparator::class];
+            $instances[] = [new Number('13.37'), 47, NumberComparator::class];
+        }
+
+        return $instances;
+    }
+
+    /**
+     * @param class-string $expected
+     */
+    #[DataProvider('instanceProvider')]
+    public function testGetComparatorFor(mixed $a, mixed $b, string $expected): void
+    {
+        $factory = new Factory;
+        $actual  = $factory->getComparatorFor($a, $b);
+
+        $this->assertInstanceOf($expected, $actual);
+    }
+
+    public function testCustomComparatorCanBeRegistered(): void
+    {
+        $comparator = new TestClassComparator;
+
+        $factory = new Factory;
+        $factory->register($comparator);
+
+        $a        = new TestClass;
+        $b        = new TestClass;
+        $expected = TestClassComparator::class;
+        $actual   = $factory->getComparatorFor($a, $b);
+
+        $factory->unregister($comparator);
+        $this->assertInstanceOf($expected, $actual);
+    }
+
+    public function testCustomComparatorCanBeUnregistered(): void
+    {
+        $comparator = new TestClassComparator;
+
+        $factory = new Factory;
+        $factory->register($comparator);
+        $factory->unregister($comparator);
+
+        $a        = new TestClass;
+        $b        = new TestClass;
+        $expected = ObjectComparator::class;
+        $actual   = $factory->getComparatorFor($a, $b);
+
+        $this->assertInstanceOf($expected, $actual);
+    }
+
+    public function testCustomComparatorsCanBeReset(): void
+    {
+        $comparator = new TestClassComparator;
+
+        $factory = new Factory;
+        $factory->register($comparator);
+        $factory->reset();
+
+        $a        = new TestClass;
+        $b        = new TestClass;
+        $expected = ObjectComparator::class;
+        $actual   = $factory->getComparatorFor($a, $b);
+
+        $this->assertInstanceOf($expected, $actual);
+    }
+
+    public function testIsSingleton(): void
+    {
+        $f = Factory::getInstance();
+        $this->assertSame($f, Factory::getInstance());
+    }
+
+    public function testContextLinesDefaultsToThree(): void
+    {
+        $factory = new Factory;
+
+        $this->assertSame(3, $factory->contextLines());
+    }
+
+    public function testContextLinesCanBeConfigured(): void
+    {
+        $factory = new Factory;
+        $factory->setContextLines(5);
+
+        $this->assertSame(5, $factory->contextLines());
+    }
+
+    public function testHasDefaultExporter(): void
+    {
+        $factory = new Factory;
+
+        $this->assertSame($factory->exporter(), $factory->exporter());
+    }
+
+    public function testExporterCanBeConfigured(): void
+    {
+        $factory  = new Factory;
+        $exporter = new Exporter;
+
+        $factory->setExporter($exporter);
+
+        $this->assertSame($exporter, $factory->exporter());
+    }
+
+    public function testDefaultComparatorUsesExporterConfiguredForFactory(): void
+    {
+        $factory = new Factory;
+        $factory->setExporter(new Exporter(0, 40, new SampleClassExporter));
+
+        $expected = new SampleClass(4, 8, 15);
+        $actual   = new SampleClass(16, 23, 42);
+
+        $comparator = $factory->getComparatorFor($expected, $actual);
+
+        $this->assertInstanceOf(ObjectComparator::class, $comparator);
+
+        try {
+            $comparator->assertEquals($expected, $actual);
+            $this->fail('Expected ComparisonFailure not thrown');
+        } catch (ComparisonFailure $e) {
+            $this->assertSame('SampleClass(4)', $e->getExpectedAsString());
+            $this->assertSame('SampleClass(16)', $e->getActualAsString());
+        }
+    }
+
+    public function testCustomComparatorUsesExporterConfiguredForFactory(): void
+    {
+        $factory = new Factory;
+        $factory->setExporter(new Exporter(0, 40, new SampleClassExporter));
+        $factory->register(new TestClassComparator);
+
+        $expected = new SampleClass(4, 8, 15);
+        $actual   = new SampleClass(16, 23, 42);
+
+        $comparator = $factory->getComparatorFor($expected, $actual);
+
+        $this->assertInstanceOf(TestClassComparator::class, $comparator);
+
+        try {
+            $comparator->assertEquals($expected, $actual);
+            $this->fail('Expected ComparisonFailure not thrown');
+        } catch (ComparisonFailure $e) {
+            $this->assertSame('SampleClass(4)', $e->getExpectedAsString());
+            $this->assertSame('SampleClass(16)', $e->getActualAsString());
+        }
+    }
+
+    public function testClosureComparisonTrackingIsDisabledByDefault(): void
+    {
+        $factory = new Factory;
+
+        $this->assertFalse($factory->closureComparisonOccurred());
+    }
+
+    public function testClosureComparisonIsRecordedWhenTwoClosuresAreCompared(): void
+    {
+        $closure = static function (): void
+        {
+        };
+
+        $factory = new Factory;
+        $factory->getComparatorFor($closure, $closure)->assertEquals($closure, $closure);
+
+        $this->assertTrue($factory->closureComparisonOccurred());
+    }
+
+    public function testClosureComparisonIsRecordedWhenClosuresAreNestedInArrays(): void
+    {
+        $closure = static function (): void
+        {
+        };
+
+        $expected = ['callback' => $closure];
+        $actual   = ['callback' => $closure];
+
+        $factory = new Factory;
+        $factory->getComparatorFor($expected, $actual)->assertEquals($expected, $actual);
+
+        $this->assertTrue($factory->closureComparisonOccurred());
+    }
+
+    public function testClosureComparisonIsRecordedWhenClosuresAreNestedInObjects(): void
+    {
+        $closure = static function (): void
+        {
+        };
+
+        $expected           = new stdClass;
+        $expected->callback = $closure;
+
+        $actual           = new stdClass;
+        $actual->callback = $closure;
+
+        $factory = new Factory;
+        $factory->getComparatorFor($expected, $actual)->assertEquals($expected, $actual);
+
+        $this->assertTrue($factory->closureComparisonOccurred());
+    }
+
+    public function testClosureComparisonIsNotRecordedWhenNoClosuresAreCompared(): void
+    {
+        $expected = [1];
+        $actual   = [1];
+
+        $factory = new Factory;
+        $factory->getComparatorFor($expected, $actual)->assertEquals($expected, $actual);
+
+        $this->assertFalse($factory->closureComparisonOccurred());
+    }
+
+    public function testClosureComparisonTrackingCanBeReset(): void
+    {
+        $closure = static function (): void
+        {
+        };
+
+        $factory = new Factory;
+        $factory->getComparatorFor($closure, $closure)->assertEquals($closure, $closure);
+        $factory->resetClosureComparisonTracking();
+
+        $this->assertFalse($factory->closureComparisonOccurred());
+    }
+}

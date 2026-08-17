@@ -44,11 +44,59 @@ final class HeadingPermalinkExtensionTest extends TestCase
 
     public static function dataProviderForTestHeadingPermalinksWithDefaultOptions(): \Generator
     {
-        yield ['# Hello World!', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
-        yield ['# Hello *World*', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello <em>World</em></h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
-        yield ['# Hello `World`', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello <code>World</code></h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
-        yield ["Test\n----", \sprintf('<h2><a id="content-test" href="#content-test" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Test</h2>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
-        yield ["# Hello World!\n\n# Hello World!", \sprintf("<h1><a id=\"content-hello-world\" href=\"#content-hello-world\" class=\"heading-permalink\" aria-hidden=\"true\" title=\"Permalink\">%s</a>Hello World!</h1>\n<h1><a id=\"content-hello-world-1\" href=\"#content-hello-world-1\" class=\"heading-permalink\" aria-hidden=\"true\" title=\"Permalink\">%s</a>Hello World!</h1>", HeadingPermalinkRenderer::DEFAULT_SYMBOL, HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+        yield ['# Hello World!', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+        yield ['# Hello *World*', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello <em>World</em></h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+        yield ['# Hello `World`', \sprintf('<h1><a id="content-hello-world" href="#content-hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello <code>World</code></h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+        yield ["Test\n----", \sprintf('<h2><a id="content-test" href="#content-test" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Test</h2>', HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+        yield ["# Hello World!\n\n# Hello World!", \sprintf("<h1><a id=\"content-hello-world\" href=\"#content-hello-world\" class=\"heading-permalink\" aria-hidden=\"true\" tabindex=\"-1\" title=\"Permalink\">%s</a>Hello World!</h1>\n<h1><a id=\"content-hello-world-1\" href=\"#content-hello-world-1\" class=\"heading-permalink\" aria-hidden=\"true\" tabindex=\"-1\" title=\"Permalink\">%s</a>Hello World!</h1>", HeadingPermalinkRenderer::DEFAULT_SYMBOL, HeadingPermalinkRenderer::DEFAULT_SYMBOL)];
+    }
+
+    public function testHeadingPermalinksWithReservedSlugs(): void
+    {
+        $environment = new Environment([
+            'heading_permalink' => [
+                'symbol' => '',
+                'id_prefix' => '',
+                'fragment_prefix' => '',
+            ],
+            'slug_normalizer' => [
+                'reserved' => ['comments', 'site-logo'],
+            ],
+        ]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+        $environment->addExtension(new HeadingPermalinkExtension());
+
+        $converter = new MarkdownConverter($environment);
+
+        $input = "## Comments\n\n## Site Logo\n\n## Comments\n\n## Something Else";
+
+        $expected = <<<'HTML'
+<h2><a id="comments-1" href="#comments-1" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink"></a>Comments</h2>
+<h2><a id="site-logo-1" href="#site-logo-1" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink"></a>Site Logo</h2>
+<h2><a id="comments-2" href="#comments-2" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink"></a>Comments</h2>
+<h2><a id="something-else" href="#something-else" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink"></a>Something Else</h2>
+HTML;
+
+        $this->assertEquals($expected, \trim((string) $converter->convert($input)));
+    }
+
+    public function testHeadingPermalinksWithReservedSlugsAndDefaultIdPrefix(): void
+    {
+        $environment = new Environment([
+            'slug_normalizer' => [
+                'reserved' => ['comments'],
+            ],
+        ]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+        $environment->addExtension(new HeadingPermalinkExtension());
+
+        $converter = new MarkdownConverter($environment);
+
+        // Reserved slugs are matched before the 'content' id_prefix is applied, so the
+        // suffix appears even though the prefixed ID never collided with 'comments' itself.
+        $expected = \sprintf('<h2><a id="content-comments-1" href="#content-comments-1" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Comments</h2>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
+
+        $this->assertEquals($expected, \trim((string) $converter->convert('## Comments')));
     }
 
     /**
@@ -98,9 +146,41 @@ final class HeadingPermalinkExtensionTest extends TestCase
         $converter = new MarkdownConverter($environment);
 
         $input    = '# Hello World!';
-        $expected = \sprintf('<h1><a id="hello-world" href="#hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
+        $expected = \sprintf('<h1><a id="hello-world" href="#hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
 
         $this->assertEquals($expected, \trim((string) $converter->convert($input)));
+    }
+
+    /**
+     * @dataProvider dataProviderForTestAriaHiddenPermalinksAreNotFocusable
+     */
+    #[DataProvider('dataProviderForTestAriaHiddenPermalinksAreNotFocusable')]
+    public function testAriaHiddenPermalinksAreNotFocusable(bool $ariaHidden, string $expectedAttributes): void
+    {
+        $environment = new Environment([
+            'heading_permalink' => [
+                'aria_hidden'     => $ariaHidden,
+                'id_prefix'       => '',
+                'fragment_prefix' => '',
+            ],
+        ]);
+        $environment->addExtension(new CommonMarkCoreExtension());
+        $environment->addExtension(new HeadingPermalinkExtension());
+
+        $converter = new MarkdownConverter($environment);
+
+        $expected = \sprintf('<h1><a id="hello-world" href="#hello-world" class="heading-permalink" %stitle="Permalink">%s</a>Hello World!</h1>', $expectedAttributes, HeadingPermalinkRenderer::DEFAULT_SYMBOL);
+
+        $this->assertEquals($expected, \trim((string) $converter->convert('# Hello World!')));
+    }
+
+    /**
+     * @return \Generator<array{bool, string}>
+     */
+    public static function dataProviderForTestAriaHiddenPermalinksAreNotFocusable(): \Generator
+    {
+        yield 'hidden from the accessibility tree, so also removed from the tab order' => [true, 'aria-hidden="true" tabindex="-1" '];
+        yield 'exposed to the accessibility tree, so left focusable' => [false, ''];
     }
 
     public function testHeadingPermalinksWithEmptySymbol(): void
@@ -118,7 +198,7 @@ final class HeadingPermalinkExtensionTest extends TestCase
         $converter = new MarkdownConverter($environment);
 
         $input    = '# Hello World!';
-        $expected = '<h1><a id="hello-world" href="#hello-world" class="heading-permalink" aria-hidden="true" title="Permalink"></a>Hello World!</h1>';
+        $expected = '<h1><a id="hello-world" href="#hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink"></a>Hello World!</h1>';
 
         $this->assertEquals($expected, \trim((string) $converter->convert($input)));
     }
@@ -160,8 +240,8 @@ final class HeadingPermalinkExtensionTest extends TestCase
 EOT;
         $expected = <<<EOT
 <h1>1</h1>
-<h2><a id="content-2" href="#content-2" class="heading-permalink" aria-hidden="true" title="Permalink">¶</a>2</h2>
-<h3><a id="content-3" href="#content-3" class="heading-permalink" aria-hidden="true" title="Permalink">¶</a>3</h3>
+<h2><a id="content-2" href="#content-2" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">¶</a>2</h2>
+<h3><a id="content-3" href="#content-3" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">¶</a>3</h3>
 <h4>4</h4>
 EOT;
 
@@ -181,7 +261,7 @@ EOT;
         $converter = new MarkdownConverter($environment);
 
         $input    = '# Hello World!';
-        $expected = \sprintf('<h1 id="content-hello-world"><a href="#content-hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
+        $expected = \sprintf('<h1 id="content-hello-world"><a href="#content-hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
 
         $this->assertEquals($expected, \trim((string) $converter->convert($input)));
     }
@@ -200,7 +280,7 @@ EOT;
         $converter = new MarkdownConverter($environment);
 
         $input    = '# Hello World!';
-        $expected = \sprintf('<h1 id="content-hello-world" class="heading-anchor"><a href="#content-hello-world" class="heading-permalink" aria-hidden="true" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
+        $expected = \sprintf('<h1 id="content-hello-world" class="heading-anchor"><a href="#content-hello-world" class="heading-permalink" aria-hidden="true" tabindex="-1" title="Permalink">%s</a>Hello World!</h1>', HeadingPermalinkRenderer::DEFAULT_SYMBOL);
 
         $this->assertEquals($expected, \trim((string) $converter->convert($input)));
     }
