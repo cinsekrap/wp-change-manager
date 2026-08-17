@@ -1,0 +1,464 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of sebastian/comparator.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace SebastianBergmann\Comparator;
+
+use const STDIN;
+use const STDOUT;
+use function str_repeat;
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\UsesClass;
+use PHPUnit\Framework\Attributes\UsesClassesThatExtendClass;
+use PHPUnit\Framework\TestCase;
+use SebastianBergmann\Exporter\Exporter;
+use stdClass;
+
+#[CoversClass(ArrayComparator::class)]
+#[UsesClassesThatExtendClass(Comparator::class)]
+#[UsesClass(ComparisonFailure::class)]
+#[UsesClass(Factory::class)]
+#[Small]
+final class ArrayComparatorTest extends TestCase
+{
+    private ArrayComparator $comparator;
+
+    /**
+     * @return non-empty-list<array{0: ?array<null>, 1: ?array<null>}>
+     */
+    public static function acceptsFailsProvider(): array
+    {
+        return [
+            [[], null],
+            [null, []],
+            [null, null],
+        ];
+    }
+
+    /**
+     * @return non-empty-list<array{0: array<mixed>, 1: array<mixed>, 2?: float, 3?: bool}>
+     */
+    public static function assertEqualsSucceedsProvider(): array
+    {
+        return [
+            [
+                ['a' => 1, 'b' => 2],
+                ['b' => 2, 'a' => 1],
+            ],
+            [
+                [1],
+                ['1'],
+            ],
+            [
+                [3, 2, 1],
+                [2, 3, 1],
+                0,
+                true,
+            ],
+            [
+                [123, new stdClass, 'hello'],
+                [new stdClass, 'hello', 123],
+                0,
+                true,
+            ],
+            // https://github.com/sebastianbergmann/comparator/issues/79
+            [
+                [1, new stdClass],
+                [1, new stdClass],
+                0,
+                true,
+            ],
+            [
+                [null, true, 42, 'foo', [1], new stdClass],
+                [new stdClass, [1], 'foo', 42, true, null],
+                0,
+                true,
+            ],
+            [
+                [2.3],
+                [2.5],
+                0.5,
+            ],
+            [
+                [[2.3]],
+                [[2.5]],
+                0.5,
+            ],
+            [
+                [new Struct(2.3)],
+                [new Struct(2.5)],
+                0.5,
+            ],
+            [
+                ['true'],
+                [true],
+            ],
+            [
+                [
+                    new DateTimeImmutable('2026-04-14 08:59:00'),
+                    new DateTimeImmutable('2026-04-14 08:57:00'),
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                ],
+                [
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                    new DateTimeImmutable('2026-04-14 08:57:00'),
+                    new DateTimeImmutable('2026-04-14 08:59:00'),
+                ],
+                0.0,
+                true,
+            ],
+            [
+                [
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                ],
+                [
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                    new DateTimeImmutable('2026-04-14 08:58:00'),
+                ],
+                0.0,
+                true,
+            ],
+            [
+                [new Struct(1.0), new stdClass],
+                [new stdClass, new Struct(1.0)],
+                0.0,
+                true,
+            ],
+            [
+                [[2], [1]],
+                [[1], [2]],
+                0.0,
+                true,
+            ],
+            [
+                [STDIN, STDOUT],
+                [STDOUT, STDIN],
+                0.0,
+                true,
+            ],
+            // https://github.com/sebastianbergmann/comparator/pull/108
+            [
+                ['a', 'b' => [1, 2], 'c' => [1, 2, 'd' => [1, 2]]],
+                ['c' => [1, 'd' => [2, 1], 2], 'b' => [2, 1], 'a'],
+                0.0,
+                true,
+            ],
+        ];
+    }
+
+    /**
+     * @return non-empty-list<array{0: array<mixed>, 1: array<mixed>, 2?: float, 3?: bool}>
+     */
+    public static function assertEqualsFailsProvider(): array
+    {
+        return [
+            [
+                [],
+                [0 => 1],
+            ],
+            [
+                [0 => 1],
+                [],
+            ],
+            [
+                [0 => null],
+                [],
+            ],
+            [
+                [0 => 1, 1 => 2],
+                [0 => 1, 1 => 3],
+            ],
+            [
+                ['a', 'b' => [1, 2]],
+                ['a', 'b' => [2, 1]],
+            ],
+            [
+                [2.3],
+                [4.2],
+                0.5,
+            ],
+            [
+                [[2.3]],
+                [[4.2]],
+                0.5,
+            ],
+            [
+                [new Struct(2.3)],
+                [new Struct(4.2)],
+                0.5,
+            ],
+            [
+                ['false'],
+                [false],
+            ],
+            // https://github.com/sebastianbergmann/comparator/pull/108
+            [
+                ['a', 'b' => [1, 2]],
+                ['b' => [2, 1], 'a', 'c' => 3],
+                0.0,
+                true,
+            ],
+        ];
+    }
+
+    /**
+     * @return non-empty-array<array{0: string, 1: array<mixed>, 2: array<mixed>, 3?: float, 4?: bool}>
+     */
+    public static function assertEqualsFailsWithDiffProvider(): array
+    {
+        return [
+            [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+-    0 => 'Too short to cut XYZ'
++    0 => 'Too short to cut HERE'
+ )
+",
+                ['Too short to cut XYZ'],
+                ['Too short to cut HERE'],
+            ],
+            [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+-    0 => '... contains important clue XYZ and more behind'
++    0 => '... contains important clue HERE and more behind'
+ )
+",
+                ['Some really long string that just keeps going and going and going but contains important clue XYZ and more behind'],
+                ['Some really long string that just keeps going and going and going but contains important clue HERE and more behind'],
+            ],
+            'canonicalized diff omits indices and shows only surplus element' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     'alpha'
++    'beta'
+     'gamma'
+ )
+",
+                ['alpha', 'gamma'],
+                ['alpha', 'beta', 'gamma'],
+                0.0,
+                true,
+            ],
+            'canonicalized diff omits indices and shows only missing element' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     'alpha'
+-    'beta'
+     'gamma'
+ )
+",
+                ['alpha', 'beta', 'gamma'],
+                ['alpha', 'gamma'],
+                0.0,
+                true,
+            ],
+            'canonicalized diff omits indices regardless of input order' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     'alpha'
++    'beta'
+     'gamma'
+ )
+",
+                ['gamma', 'alpha'],
+                ['gamma', 'alpha', 'beta'],
+                0.0,
+                true,
+            ],
+            'canonicalized associative diff keeps keys and shows surplus element' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     0 => 'a'
+     'b' => [...]
++    'c' => 3
+ )
+",
+                ['a', 'b' => [1, 2]],
+                ['b' => [2, 1], 'a', 'c' => 3],
+                0.0,
+                true,
+            ],
+            'canonicalized associative diff keeps keys when value differs' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     'a' => 1
+-    'b' => 2
++    'b' => 3
+ )
+",
+                ['b' => 2, 'a' => 1],
+                ['a' => 1, 'b' => 3],
+                0.0,
+                true,
+            ],
+            'canonicalized associative diff keeps keys and shows missing element' => [
+                "
+--- Expected
++++ Actual
+@@ @@
+ Array (
+     'a' => 1
+-    'b' => 2
+ )
+",
+                ['b' => 2, 'a' => 1],
+                ['a' => 1],
+                0.0,
+                true,
+            ],
+        ];
+    }
+
+    protected function setUp(): void
+    {
+        $this->comparator = new ArrayComparator;
+        $this->comparator->setFactory(new Factory);
+    }
+
+    public function testAcceptsSucceeds(): void
+    {
+        $this->assertTrue(
+            $this->comparator->accepts([], []),
+        );
+    }
+
+    /**
+     * @param ?array<mixed> $expected
+     * @param ?array<mixed> $actual
+     */
+    #[DataProvider('acceptsFailsProvider')]
+    public function testAcceptsFails(?array $expected, ?array $actual): void
+    {
+        $this->assertFalse(
+            $this->comparator->accepts($expected, $actual),
+        );
+    }
+
+    /**
+     * @param array<mixed> $expected
+     * @param array<mixed> $actual
+     */
+    #[DataProvider('assertEqualsSucceedsProvider')]
+    public function testAssertEqualsSucceeds(array $expected, array $actual, float $delta = 0.0, bool $canonicalize = false): void
+    {
+        $exception = null;
+
+        try {
+            $this->comparator->assertEquals($expected, $actual, $delta, $canonicalize);
+        } catch (ComparisonFailure $exception) {
+        }
+
+        $this->assertNull($exception, 'Unexpected ComparisonFailure');
+    }
+
+    /**
+     * @param array<mixed> $expected
+     * @param array<mixed> $actual
+     */
+    #[DataProvider('assertEqualsFailsProvider')]
+    public function testAssertEqualsFails(array $expected, array $actual, float $delta = 0.0, bool $canonicalize = false): void
+    {
+        $this->expectException(ComparisonFailure::class);
+        $this->expectExceptionMessage('Failed asserting that two arrays are equal');
+
+        $this->comparator->assertEquals($expected, $actual, $delta, $canonicalize);
+    }
+
+    /**
+     * @param array<mixed> $expected
+     * @param array<mixed> $actual
+     */
+    #[DataProvider('assertEqualsFailsWithDiffProvider')]
+    public function testAssertEqualsFailsWithDiff(
+        string $expectedDiff,
+        array $expected,
+        array $actual,
+        float $delta = 0.0,
+        bool $canonicalize = false
+    ): void {
+        try {
+            $this->comparator->assertEquals($expected, $actual, $delta, $canonicalize);
+            $this->fail('Expected ComparisonFailure not thrown');
+        } catch (ComparisonFailure $e) {
+            $this->assertEquals('Failed asserting that two arrays are equal.', $e->getMessage());
+            $this->assertEquals($expectedDiff, $e->getDiff());
+        }
+    }
+
+    public function testExporterConfiguredForFactoryIsUsedWhenComparisonFails(): void
+    {
+        $factory = new Factory;
+        $factory->setExporter(new Exporter(0, 20));
+
+        $comparator = new ArrayComparator;
+        $comparator->setFactory($factory);
+
+        try {
+            $comparator->assertEquals(['key' => str_repeat('x', 60)], []);
+            $this->fail('Expected ComparisonFailure not thrown');
+        } catch (ComparisonFailure $e) {
+            $this->assertEquals(
+                "Array (\n    'key' => 'xxxxxxxxx...xxxxxx'\n)",
+                $e->getExpectedAsString(),
+            );
+        }
+    }
+
+    public function testRepresentationProvidedByObjectExporterIsUsedForEqualAsWellAsDifferingElements(): void
+    {
+        $factory = new Factory;
+        $factory->setExporter(new Exporter(0, 40, new SampleClassExporter));
+
+        $comparator = new ArrayComparator;
+        $comparator->setFactory($factory);
+
+        $expected = ['same' => new SampleClass(1, 2, 3), 'differing' => new SampleClass(4, 8, 15)];
+        $actual   = ['same' => new SampleClass(1, 2, 3), 'differing' => new SampleClass(16, 23, 42)];
+
+        try {
+            $comparator->assertEquals($expected, $actual);
+            $this->fail('Expected ComparisonFailure not thrown');
+        } catch (ComparisonFailure $e) {
+            $this->assertSame(
+                "Array (\n    'same' => SampleClass(1)\n    'differing' => SampleClass(4)\n)",
+                $e->getExpectedAsString(),
+            );
+
+            $this->assertSame(
+                "Array (\n    'same' => SampleClass(1)\n    'differing' => SampleClass(16)\n)",
+                $e->getActualAsString(),
+            );
+        }
+    }
+}

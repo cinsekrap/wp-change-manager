@@ -41,6 +41,16 @@ $cases = [
         'input' => static fn($n) => 'é' . \str_repeat('a_', $n),
         'expected' => static fn($n) => '<p>é' . \str_repeat('a_', $n) . "</p>\n",
     ],
+    'Multibyte text before a long link destination' => [
+        'ref' => 'https://github.com/thephpleague/commonmark/issues/1026',
+        // The leading 'é' is load-bearing: it puts the cursor on the multibyte path, so every
+        // character position within the destination must still translate to a byte offset in
+        // constant time.
+        'extension' => 'commonmark',
+        'sizes' => [50_000, 200_000, 800_000],
+        'input' => static fn($n) => 'é.![i](data:image/png;base64,' . \str_repeat('A', $n) . ')',
+        'expected' => static fn($n) => '<p>é.<img src="data:image/png;base64,' . \str_repeat('A', $n) . '" alt="i" /></p>',
+    ],
     'Repeated invalid autolink prefixes' => [
         'extension' => 'autolink',
         'sizes' => [160_000],
@@ -178,6 +188,15 @@ $cases = [
         'input' => static fn($n) => \str_repeat('[a](b', $n),
         'expected' => static fn($n) => '<p>' . \str_repeat('[a](b', $n) . '</p>',
     ],
+    'Unclosed inline links with whitespace after the paren' => [
+        // The space is load-bearing: it routes each "(" through the whitespace skip in
+        // Cursor::advanceToNextNonSpaceOrNewline() as well as the destination scan in
+        // LinkParserHelper. Every other case here puts a non-space directly after the "(", so the
+        // destination scan is the only one they cover.
+        'sizes' => [10_000, 50_000, 200_000],
+        'input' => static fn($n) => \str_repeat('[a]( b', $n),
+        'expected' => static fn($n) => '<p>' . \str_repeat('[a]( b', $n) . '</p>',
+    ],
     'Unclosed inline links (3)' => [
         'ref' => 'https://github.com/commonmark/commonmark.js/issues/129',
         'sizes' => [1_000, 10_000, 100_000],
@@ -194,6 +213,15 @@ $cases = [
         'ref' => 'https://github.com/commonmark/commonmark.js/issues/129',
         'sizes' => [500, 1_000, 2_000, 4_000],
         'input' => static fn($n) => \implode('', \array_map(static fn($i) => 'e' . \str_repeat('`', $i), \range(1, $n))),
+    ],
+    'Unclosable backtick opener followed by many runs' => [
+        // The leading two-backtick run can never be closed by any of the one-backtick runs that
+        // follow, so locating its closer has to walk every one of them. Unlike 'Backticks' above,
+        // whose input size grows much faster than its run count and so cannot be scaled far, this
+        // one stays linear in size, which is what makes the per-run cost visible: it times out if
+        // the closer scan ever copies the remainder per call instead of matching in place.
+        'sizes' => [25_000, 100_000, 400_000],
+        'input' => static fn($n) => '`` ' . \str_repeat('`a ', $n),
     ],
     'Backtick fence with a backtick in the info string' => [
         'extension' => 'commonmark',
@@ -397,6 +425,23 @@ $cases = [
         'sizes' => [1_000, 4_000, 16_000],
         'input' => static fn($n) => \str_repeat("# a\n\n", $n),
     ],
+    'Table of contents placeholders' => [
+        'ref' => 'https://github.com/thephpleague/commonmark/pull/1134',
+        // The entry cap is load-bearing: every placeholder legitimately renders its own copy of
+        // the table of contents, so with headings and placeholders both proportional to n the
+        // uncapped output is quadratic no matter how efficiently each copy is produced. The cap
+        // bounds the copies, so both time and output must stay linear in the input.
+        'extension' => 'table-of-contents',
+        'configuration' => [
+            'table_of_contents' => [
+                'position' => 'placeholder',
+                'placeholder' => '[TOC]',
+                'max_placeholder_entries' => 50_000,
+            ],
+        ],
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \str_repeat("# a\n\n", $n) . \str_repeat("[TOC]\n\n", $n),
+    ],
     'Duplicate inline footnote labels' => [
         'extension' => 'footnotes',
         'sizes' => [1_000, 4_000, 16_000],
@@ -412,6 +457,20 @@ $cases = [
         'sizes' => [4_000, 16_000, 64_000],
         'input' => static fn($n) => \str_repeat(\str_repeat('a', 63) . '" ', $n),
         'expected' => static fn($n) => '<p>' . \str_repeat(\str_repeat('a', 63) . "\u{201C} ", $n - 1) . \str_repeat('a', 63) . "\u{201C}</p>",
+    ],
+    'Many attributes in one list' => [
+        // Sized just below the ~2,400-attribute boundary where the list exhausts pcre.backtrack_limit.
+        'extension' => 'attributes',
+        'sizes' => [500, 1_000, 2_000],
+        'input' => static fn($n) => '{' . \str_repeat('#a ', $n) . "}\nx",
+        'expected' => static fn($n) => '<p id="a">x</p>',
+    ],
+    'Oversized attribute list' => [
+        // Beyond that boundary the list must degrade quickly into a literal paragraph.
+        'extension' => 'attributes',
+        'sizes' => [20_000, 80_000],
+        'input' => static fn($n) => '{' . \str_repeat('#a ', $n) . "}\nx",
+        'expected' => static fn($n) => '<p>{' . \str_repeat('#a ', $n - 1) . "#a }\nx</p>",
     ],
     'Adjacent inline attributes at start of block' => [
         'extension' => 'attributes',
@@ -454,6 +513,32 @@ $cases = [
         'sizes' => [2_000, 8_000, 32_000],
         'input' => static fn($n) => \str_repeat("{.c}\n", $n),
         'expected' => static fn($n) => '',
+    ],
+    // The three cases below give every node a name of its own, so the set of attributes the
+    // target has collected grows by one on each of them. The '{#a}' and '{.c}' cases above
+    // cannot catch a cost that scales with that set: one overwrites a single key and the other
+    // only ever touches the class list.
+    'Adjacent inline attributes with distinct names' => [
+        'extension' => 'attributes',
+        'sizes' => [1_000, 4_000, 16_000],
+        // Quoting the values is load-bearing: an unquoted one swallows the '}{' that follows it,
+        // welding the whole run into a single node.
+        'input' => static fn($n) => \implode('', \array_map(static fn($i) => "{a$i=\"v\"}", \range(0, $n - 1))),
+        'expected' => static fn($n) => '<p ' . \implode(' ', \array_map(static fn($i) => "a$i=\"v\"", \range(0, $n - 1))) . '></p>',
+    ],
+    'Attribute block distinct names on consecutive lines' => [
+        'extension' => 'attributes',
+        'sizes' => [2_000, 8_000, 32_000],
+        'input' => static fn($n) => \implode('', \array_map(static fn($i) => "{a$i=v}\n", \range(0, $n - 1))),
+        'expected' => static fn($n) => '',
+    ],
+    'Adjacent attribute blocks with distinct names' => [
+        // As above, the link reference definitions keep every block at TARGET_NEXT, so all of
+        // them apply to the closing paragraph - which renders them in reverse.
+        'extension' => 'attributes',
+        'sizes' => [1_000, 4_000, 16_000],
+        'input' => static fn($n) => \implode('', \array_map(static fn($i) => "{a$i=v}\n[a]: u\n", \range(0, $n - 1))) . 'para',
+        'expected' => static fn($n) => '<p ' . \implode(' ', \array_map(static fn($i) => "a$i=\"v\"", \range($n - 1, 0))) . '>para</p>',
     ],
 ];
 

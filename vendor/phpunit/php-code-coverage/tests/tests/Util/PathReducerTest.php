@@ -1,0 +1,122 @@
+<?php declare(strict_types=1);
+/*
+ * This file is part of phpunit/php-code-coverage.
+ *
+ * (c) Sebastian Bergmann <sebastian@phpunit.de>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+namespace SebastianBergmann\CodeCoverage\Util;
+
+use const DIRECTORY_SEPARATOR;
+use function sort;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\TestCase;
+use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
+
+#[CoversClass(PathReducer::class)]
+#[Small]
+final class PathReducerTest extends TestCase
+{
+    public function testReduceWithNoFilesReturnsEmptyString(): void
+    {
+        $data = new ProcessedCodeCoverageData;
+
+        $this->assertSame('', (new PathReducer)->reduce($data));
+    }
+
+    public function testReduceWithSingleAbsoluteFileReturnsDirnameAndRenamesFile(): void
+    {
+        $data = $this->dataWithFiles([DIRECTORY_SEPARATOR . 'path' . DIRECTORY_SEPARATOR . 'to' . DIRECTORY_SEPARATOR . 'file.php']);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame(DIRECTORY_SEPARATOR . 'path' . DIRECTORY_SEPARATOR . 'to', $result);
+        $this->assertSame(['file.php'], $data->coveredFiles());
+    }
+
+    public function testReduceWithSinglePharFileStripsSchemeAndReturnsDirname(): void
+    {
+        $data = $this->dataWithFiles(['phar:///path/to/file.php']);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame(DIRECTORY_SEPARATOR . 'path' . DIRECTORY_SEPARATOR . 'to', $result);
+        $this->assertSame(['file.php'], $data->coveredFiles());
+    }
+
+    public function testReduceWithMultipleFilesExtractsLongestCommonPath(): void
+    {
+        $data = $this->dataWithFiles([
+            DIRECTORY_SEPARATOR . 'common' . DIRECTORY_SEPARATOR . 'path' . DIRECTORY_SEPARATOR . 'a.php',
+            DIRECTORY_SEPARATOR . 'common' . DIRECTORY_SEPARATOR . 'path' . DIRECTORY_SEPARATOR . 'b.php',
+        ]);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame(DIRECTORY_SEPARATOR . 'common' . DIRECTORY_SEPARATOR . 'path', $result);
+        $this->assertSame(['a.php', 'b.php'], $data->coveredFiles());
+    }
+
+    public function testReduceWithMultiplePharFilesStripsSchemeAndExtractsCommonPath(): void
+    {
+        $data = $this->dataWithFiles([
+            'phar:///common/a.php',
+            'phar:///common/b.php',
+        ]);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame(DIRECTORY_SEPARATOR . 'common', $result);
+        $this->assertSame(['a.php', 'b.php'], $data->coveredFiles());
+    }
+
+    public function testReduceWithMultipleFilesInDifferentDirectoriesReturnsRootPath(): void
+    {
+        $data = $this->dataWithFiles([
+            DIRECTORY_SEPARATOR . 'alpha' . DIRECTORY_SEPARATOR . 'x.php',
+            DIRECTORY_SEPARATOR . 'beta' . DIRECTORY_SEPARATOR . 'y.php',
+        ]);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame('', $result);
+        $this->assertSame(['alpha' . DIRECTORY_SEPARATOR . 'x.php', 'beta' . DIRECTORY_SEPARATOR . 'y.php'], $data->coveredFiles());
+    }
+
+    public function testReduceDoesNotDestroyCoverageDataWhenFilesShareNoCommonPrefix(): void
+    {
+        $data = $this->dataWithFiles([
+            'src' . DIRECTORY_SEPARATOR . 'a.php',
+            'lib' . DIRECTORY_SEPARATOR . 'b.php',
+        ]);
+
+        $result = (new PathReducer)->reduce($data);
+
+        $this->assertSame('', $result);
+        $coveredFiles = $data->coveredFiles();
+        sort($coveredFiles);
+
+        $this->assertSame(['lib' . DIRECTORY_SEPARATOR . 'b.php', 'src' . DIRECTORY_SEPARATOR . 'a.php'], $coveredFiles);
+    }
+
+    /**
+     * @param list<non-empty-string> $files
+     */
+    private function dataWithFiles(array $files): ProcessedCodeCoverageData
+    {
+        $lineCoverage = [];
+
+        foreach ($files as $file) {
+            $lineCoverage[$file] = [];
+        }
+
+        $data = new ProcessedCodeCoverageData;
+
+        $data->setLineCoverage($lineCoverage);
+
+        return $data;
+    }
+}
