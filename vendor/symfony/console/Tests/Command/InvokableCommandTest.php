@@ -18,6 +18,7 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\ArgumentResolver\ArgumentResolver;
 use Symfony\Component\Console\ArgumentResolver\ValueResolver\ValueResolverInterface;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\Ask;
 use Symfony\Component\Console\Attribute\MapDateTime;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Attribute\Reflection\ReflectionMember;
@@ -235,6 +236,17 @@ class InvokableCommandTest extends TestCase
         self::expectExceptionMessage('The value "incorrect" is not valid for the "enum" option. Supported values are "image", "video".');
 
         $command->run(new ArrayInput(['--enum' => 'incorrect']), new NullOutput());
+    }
+
+    public function testAskDefaultIsRejectedForArrayArgument()
+    {
+        $command = new Command('foo');
+        $command->setCode(static function (#[Argument] #[Ask('Add a value', default: 0)] array $values) {});
+
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The "Symfony\Component\Console\Attribute\Ask::$default" value is not supported for the array "$values"');
+
+        $command->getDefinition();
     }
 
     public function testExecuteHasPriorityOverInvokeMethod()
@@ -479,6 +491,62 @@ class InvokableCommandTest extends TestCase
         });
 
         $command->run(new ArrayInput([]), new NullOutput());
+    }
+
+    public function testNullableHelpersInjection()
+    {
+        $application = new Application();
+
+        $command = new Command('foo');
+        $command->setCode(static function (
+            ?InputInterface $input,
+            ?OutputInterface $output,
+            ?Cursor $cursor,
+            ?SymfonyStyle $io,
+            ?Application $app,
+            ?Command $cmd,
+            #[Argument] ?string $name = null,
+            #[Option] ?string $format = null,
+        ) use ($command, $application): int {
+            Assert::assertInstanceOf(InputInterface::class, $input);
+            Assert::assertInstanceOf(OutputInterface::class, $output);
+            Assert::assertInstanceOf(Cursor::class, $cursor);
+            Assert::assertInstanceOf(SymfonyStyle::class, $io);
+            Assert::assertSame($application, $app);
+            Assert::assertSame($command, $cmd);
+            Assert::assertSame('test', $name);
+            Assert::assertSame('json', $format);
+
+            return 0;
+        });
+
+        $application->addCommand($command);
+
+        $tester = new CommandTester($command);
+        $tester->execute(['name' => 'test', '--format' => 'json']);
+
+        $tester->assertCommandIsSuccessful();
+    }
+
+    public function testNullableApplicationInjectionWithoutApplication()
+    {
+        $command = new Command('foo');
+        $command->setCode(static function (
+            ?Application $app,
+            #[Argument] ?string $name = null,
+            #[Option] ?string $format = null,
+        ): int {
+            Assert::assertNull($app);
+            Assert::assertSame('test', $name);
+            Assert::assertSame('json', $format);
+
+            return 0;
+        });
+
+        $tester = new CommandTester($command);
+        $tester->execute(['name' => 'test', '--format' => 'json']);
+
+        $tester->assertCommandIsSuccessful();
     }
 
     public function testDefaultArgumentResolversWithoutApplication()
