@@ -2,19 +2,21 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2014 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Functional\Net;
+declare(strict_types=1);
 
-use phpseclib3\Net\SSH2;
-use phpseclib3\System\SSH\Agent;
-use phpseclib3\Tests\PhpseclibFunctionalTestCase;
+namespace phpseclib4\Tests\Functional\Net;
+
+use phpseclib4\Net\SSH2;
+use phpseclib4\System\SSH\Agent;
+use phpseclib4\Tests\PhpseclibFunctionalTestCase;
 
 class SSH2AgentTest extends PhpseclibFunctionalTestCase
 {
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         if (!isset($_SERVER['SSH_AUTH_SOCK'])) {
             self::markTestSkipped(
@@ -24,7 +26,7 @@ class SSH2AgentTest extends PhpseclibFunctionalTestCase
         parent::setUpBeforeClass();
     }
 
-    public function testAgentLogin()
+    public function testAgentLogin(): array
     {
         $ssh = new SSH2($this->getEnv('SSH_HOSTNAME'));
         $agent = new Agent();
@@ -37,7 +39,7 @@ class SSH2AgentTest extends PhpseclibFunctionalTestCase
         return ['ssh' => $ssh, 'ssh-agent' => $agent];
     }
 
-    /** @depends testAgentLogin */
+    #[\PHPUnit\Framework\Attributes\Depends('testAgentLogin')]
     public function testAgentForward($args)
     {
         $ssh = $args['ssh'];

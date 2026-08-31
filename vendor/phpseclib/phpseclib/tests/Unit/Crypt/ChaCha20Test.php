@@ -2,19 +2,21 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2014 Jim Wigginton
+ * @copyright 2019-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\ChaCha20;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\ChaCha20;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class ChaCha20Test extends PhpseclibTestCase
 {
     // see https://tools.ietf.org/html/rfc8439#section-2.3.2
-    public function test232()
+    public function test232(): void
     {
         $key = implode('', range("\00", "\x1f"));
 
@@ -45,7 +47,7 @@ class ChaCha20Test extends PhpseclibTestCase
     }
 
     // see https://tools.ietf.org/html/rfc8439#section-2.4.2
-    public function test242()
+    public function test242(): void
     {
         $key = implode('', range("\00", "\x1f"));
 
@@ -83,7 +85,7 @@ class ChaCha20Test extends PhpseclibTestCase
     }
 
     // see https://tools.ietf.org/html/rfc8439#section-2.5.2
-    public function test252()
+    public function test252(): void
     {
         $key = '85:d6:be:78:57:55:6d:33:7f:44:52:fe:42:d5:06:a8:01:0' .
                '3:80:8a:fb:0d:b2:fd:4a:bf:f6:af:41:49:f5:1b';
@@ -98,20 +100,17 @@ class ChaCha20Test extends PhpseclibTestCase
 
         $c = new ChaCha20();
         $c->setPoly1305Key($key);
-        $r = new \ReflectionClass(get_class($c));
+        $r = new \ReflectionClass($c::class);
         // this unit test is testing Poly1305 independent of ChaCha20, which phpseclib doesn't
         // really support, hence this hackish approach
         $m = $r->getMethod('poly1305');
-        if (PHP_VERSION_ID < 80100) {
-            $m->setAccessible(true);
-        }
         $result = $m->invokeArgs($c, [$plaintext]);
 
         $this->assertSame($expected, $result, 'Failed asserting that poly1305 matches expected value');
     }
 
     // see https://tools.ietf.org/html/rfc8439#section-2.6.2
-    public function test262()
+    public function test262(): void
     {
         $key = implode('', range("\x80", "\x9f"));
 
@@ -128,24 +127,20 @@ class ChaCha20Test extends PhpseclibTestCase
         $c->setKey($key);
         $c->setNonce($nonce);
 
-        $r = new \ReflectionClass(get_class($c));
+        $r = new \ReflectionClass($c::class);
         $m = $r->getMethod('createPoly1305Key');
-        if (PHP_VERSION_ID < 80100) {
-            $m->setAccessible(true);
-        }
-        $result = $m->invoke($c);
+
+        $m->invoke($c);
 
         $p = $r->getProperty('poly1305Key');
-        if (PHP_VERSION_ID < 80100) {
-            $p->setAccessible(true);
-        }
+
         $actual = $p->getValue($c);
 
         $this->assertSame($expected, $actual, 'Failed asserting that the poly1305 key is what it ought to be');
     }
 
     // https://tools.ietf.org/html/rfc8439#section-2.8.2
-    public function test282()
+    public function test282(): void
     {
         $key = implode('', range("\x80", "\x9f"));
 
@@ -173,7 +168,7 @@ class ChaCha20Test extends PhpseclibTestCase
         $tag = str_replace(':', '', $tag);
         $tag = pack('H*', $tag);
 
-        $engines = ['PHP', 'OpenSSL', 'libsodium'];
+        $engines = ['PHP', 'OpenSSL', 'OpenSSL (AEAD)', 'libsodium'];
         foreach ($engines as $engine) {
             $c = new ChaCha20();
             $c->enablePoly1305();
@@ -190,7 +185,7 @@ class ChaCha20Test extends PhpseclibTestCase
         }
     }
 
-    public function testContinuousBuffer()
+    public function testContinuousBuffer(): void
     {
         $key = str_repeat("\0", 16);
         $nonce = str_repeat("\0", 8);
@@ -199,7 +194,7 @@ class ChaCha20Test extends PhpseclibTestCase
 
         $plaintext = str_repeat("\0", array_sum($partitions));
 
-        $engines = ['PHP', 'OpenSSL', 'libsodium'];
+        $engines = ['PHP', 'OpenSSL', 'OpenSSL (AEAD)', 'libsodium'];
         foreach ($engines as $engine) {
             $c = new ChaCha20();
             $c->setKey($key);
@@ -223,6 +218,58 @@ class ChaCha20Test extends PhpseclibTestCase
             }
 
             $this->assertSame($p1, $p2, "Failed asserting that ciphertext matches expected value with $engine engine");
+        }
+    }
+
+    public function testDecryptNoPoly1305(): void
+    {
+        $engines = ['PHP', 'OpenSSL', 'OpenSSL (AEAD)', 'libsodium'];
+        $key = str_repeat('x', 32);
+        $plaintext = 'ddddd';
+
+        foreach ([8, 12] as $nonceSize) {
+            $nonce = str_repeat('x', $nonceSize);
+            $var = "ciphertext$nonceSize";
+            foreach ([false, true] as $calculatePoly) {
+                foreach ($engines as $engine) {
+                    $c = new ChaCha20();
+                    $c->setPreferredEngine($engine);
+                    $c->setKey($key);
+                    $c->setNonce($nonce);
+                    $c->setCounter(1);
+                    if ($calculatePoly) {
+                        $c->enablePoly1305();
+                    }
+                    if ($c->getEngine() != $engine) {
+                        continue;
+                    }
+                    $ciphertext = $c->encrypt($plaintext);
+                    if (isset($$var)) {
+                        $message = "Failed asserting that $engine (with a nonce size of $nonceSize) ";
+                        if ($calculatePoly) {
+                            $message .= "an auto-calculated Poly1305 key ";
+                            $tag = $c->getTag();
+                        }
+                        $message .= "yielded the expected result of " . bin2hex($$var);
+                        $this->assertSame(bin2hex($$var), bin2hex($ciphertext), $message);
+                    } else {
+                        $$var = $ciphertext;
+                    }
+
+                    $c = new ChaCha20();
+                    $c->setPreferredEngine($engine);
+                    $c->setKey($key);
+                    $c->setNonce($nonce);
+                    $c->setCounter(1);
+                    if ($calculatePoly) {
+                        $c->enablePoly1305();
+                        $c->setTag($tag);
+                    }
+                    $result = $c->decrypt($ciphertext);
+                    $message = "Failed asserting that $engine (with a nonce size of $nonceSize) decrypted to $plaintext";
+                    $this->assertSame($plaintext, $result, $message);
+                }
+            }
         }
     }
 }

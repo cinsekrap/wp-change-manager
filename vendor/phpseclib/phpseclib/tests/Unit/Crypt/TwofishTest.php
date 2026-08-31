@@ -6,19 +6,20 @@
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\Twofish;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\Twofish;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class TwofishTest extends PhpseclibTestCase
 {
-    public function testVectors()
+    public function testVectors(): void
     {
         $engines = [
             'PHP',
             'Eval',
-            'mcrypt',
             'OpenSSL',
         ];
 

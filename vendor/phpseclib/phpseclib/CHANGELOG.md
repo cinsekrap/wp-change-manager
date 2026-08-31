@@ -1,9 +1,30 @@
 # Changelog
 
+## 4.0.1 - 2026-08-26
+
+- Curve25519/448: improve timing attack resistance
+
+## 4.0.0 - 2026-08-22
+
+- split CSR / CRL / SPKAC out from X509
+- add PFX / CMS support
+- implement lazy loading for ASN1
+- SSH2/SFTP: throw exceptions instead of returning false
+- bump minimum required PHP version to 8.1.0
+- namespace changed from `\phpseclib3` to `\phpseclib4` to facilitate a yet to be written phpseclib 3 shim (phpseclib3_compat)
+
+## 3.0.57 - 2026-08-26
+
+- ASN1: fix tag matching for tagged CHOICE children (#2158)
+- RSA: fix for openssl_verify calls that error out (#2161)
+- RSA/PublicKey: implement salt length discovery for PSS verification (#2164)
+- BigInteger/PHP: don't return the divisor as the common residue (#2165)
+- Curve25519/448: improve timing attack resistance
+
 ## 3.0.56 - 2026-08-02
 
-- RSA: don't use OpenSSL for PSS on OpenSSL < 3.1.0 (#2156)
-- SFTP: throw TimeoutExceptions on timeout vs UnexpectedValueException (#2152)
+- RSA: don't use OpenSSL for PSS on OpenSSL < 3.1.0 (#2152)
+- SFTP: throw TimeoutExceptions on timeout vs UnexpectedValueException (#2156)
 - SFTP/Stream: use default context if one isn't explicitly provided (#2154)
 
 ## 3.0.55 - 2026-06-14

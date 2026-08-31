@@ -24,6 +24,12 @@ final class EntryParserTest extends TestCase
         $this->checkEmptyResult($result, 'FOO');
     }
 
+    public function testNullParseOtherName()
+    {
+        $result = EntryParser::parse('BAR');
+        $this->checkEmptyResult($result, 'BAR');
+    }
+
     public function testUnicodeNameParse()
     {
         $result = EntryParser::parse('FOOƱ=BAZ');
@@ -90,6 +96,13 @@ final class EntryParserTest extends TestCase
         $this->checkPositiveResult($result, 'FOO', 'TEST $BAR $$BAZ', [11, 10, 5]);
     }
 
+    public function testInlineVariableOffsetAtChunkBoundary()
+    {
+        $prefix = \str_repeat('a', 999).'€';
+        $result = EntryParser::parse('FOO="'.$prefix.'$BAR"');
+        $this->checkPositiveResult($result, 'FOO', $prefix.'$BAR', [1000]);
+    }
+
     public function testNonInlineVariable()
     {
         $result = EntryParser::parse('FOO=\'TEST $BAR $$BAZ\'');
@@ -113,6 +126,18 @@ final class EntryParserTest extends TestCase
     {
         $result = EntryParser::parse("export\t\"FOO\"='bar baz'");
         $this->checkPositiveResult($result, 'FOO', 'bar baz');
+    }
+
+    public function testExportParseSingleCharName()
+    {
+        $result = EntryParser::parse('export A=1');
+        $this->checkPositiveResult($result, 'A', '1');
+    }
+
+    public function testExportParseNoWhitespace()
+    {
+        $result = EntryParser::parse('exportFOO=bar');
+        $this->checkPositiveResult($result, 'exportFOO', 'bar');
     }
 
     public function testExportParseFail()
@@ -143,6 +168,42 @@ final class EntryParserTest extends TestCase
     {
         $result = EntryParser::parse('FOO_ASD!=BAZ');
         $this->checkErrorResult($result, 'Encountered an invalid name at [FOO_ASD!].');
+    }
+
+    public function testParseInvalidUtf8Name()
+    {
+        $result = EntryParser::parse("\xC3=1");
+        $this->checkErrorResult($result, "Encountered an invalid name at [\xC3].");
+    }
+
+    public function testParseTruncatedUtf8Name()
+    {
+        $result = EntryParser::parse("A\xE2\x82=1");
+        $this->checkErrorResult($result, "Encountered an invalid name at [A\xE2\x82].");
+    }
+
+    public function testParseUtf16ByteOrderMarkName()
+    {
+        $result = EntryParser::parse("\xFF\xFE=1");
+        $this->checkErrorResult($result, "Encountered an invalid name at [\xFF\xFE].");
+    }
+
+    public function testParseNameWithSubstituteCharacterConfigured()
+    {
+        if (\PHP_VERSION_ID < 80302 || !\extension_loaded('mbstring')) {
+            self::markTestSkipped('Requires the native mbstring substitution behaviour of PHP 8.3.2.');
+        }
+
+        $previous = \mb_substitute_character();
+        \mb_substitute_character(0x41);
+
+        $quoted = EntryParser::parse("\"\xC3\"=evil");
+        $exported = EntryParser::parse("export \xC3=evil");
+
+        \mb_substitute_character($previous);
+
+        $this->checkErrorResult($quoted, "Encountered an invalid name at [\xC3].");
+        $this->checkErrorResult($exported, "Encountered an invalid name at [\xC3].");
     }
 
     public function testParserEscapingDouble()
@@ -181,6 +242,24 @@ final class EntryParserTest extends TestCase
         $this->checkErrorResult($result, 'Encountered a missing closing quote at ["\\].');
     }
 
+    public function testParserErrorMessageIsCapped()
+    {
+        $result = EntryParser::parse('FOO="'.\str_repeat('a', 100).'\q"');
+        $this->checkErrorResult($result, 'Encountered an unexpected escape sequence at ["'.\str_repeat('a', 79).'...].');
+    }
+
+    public function testParserErrorMessageCapDoesNotSplitCharacters()
+    {
+        $result = EntryParser::parse('FOO="'.\str_repeat('a', 77).'🚀'.\str_repeat('b', 20).'\q"');
+        $this->checkErrorResult($result, 'Encountered an unexpected escape sequence at ["'.\str_repeat('a', 77).'...].');
+    }
+
+    public function testParserErrorMessageEscapesControlBytes()
+    {
+        $result = EntryParser::parse("FOO=\"a\x01b\q\"");
+        $this->checkErrorResult($result, 'Encountered an unexpected escape sequence at ["a\001b\q"].');
+    }
+
     /**
      * @param \GrahamCampbell\ResultType\Result<\Dotenv\Parser\Entry,string> $result
      * @param string                                                         $name
@@ -216,7 +295,7 @@ final class EntryParserTest extends TestCase
 
         $entry = $result->success()->get();
         self::assertInstanceOf(Entry::class, $entry);
-        self::assertSame('FOO', $entry->getName());
+        self::assertSame($name, $entry->getName());
         self::assertFalse($entry->getValue()->isDefined());
     }
 

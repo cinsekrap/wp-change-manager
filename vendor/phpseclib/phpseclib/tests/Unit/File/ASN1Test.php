@@ -2,22 +2,31 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2014 Jim Wigginton
+ * @copyright 2014-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\File;
+declare(strict_types=1);
 
-use phpseclib3\File\ASN1;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\File;
+
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\NoKeyLoadedException;
+use phpseclib4\File\ASN1;
+use phpseclib4\File\ASN1\Constructed;
+use phpseclib4\File\ASN1\MalformedData;
+use phpseclib4\File\ASN1\Maps;
+use phpseclib4\Common\Functions\Arrays;
+use phpseclib4\File\X509;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class ASN1Test extends PhpseclibTestCase
 {
     /**
-     * on older versions of \phpseclib3\File\ASN1 this would yield a PHP Warning
-     * @group github275
+     * on older versions of \phpseclib4\File\ASN1 this would yield a PHP Warning
      */
-    public function testAnyString()
+    #[\PHPUnit\Framework\Attributes\Group('github275')]
+    public function testAnyString(): void
     {
         $KDC_REP = [
             'type' => ASN1::TYPE_SEQUENCE,
@@ -26,45 +35,45 @@ class ASN1Test extends PhpseclibTestCase
                     'constant' => 0,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'msg-type' => [
                     'constant' => 1,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'padata' => [
                     'constant' => 2,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'crealm' => [
                     'constant' => 3,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'cname' => [
                     'constant' => 4,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'ticket' => [
                     'constant' => 5,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY],
+                    'type' => ASN1::TYPE_ANY, ],
                 'enc-part' => [
                     'constant' => 6,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY]
-            ]
+                    'type' => ASN1::TYPE_ANY, ],
+            ],
         ];
 
         $AS_REP = [
             'class'    => ASN1::CLASS_APPLICATION,
             'cast'     => 11,
             'optional' => true,
-            'explicit' => true
+            'explicit' => true,
         ] + $KDC_REP;
 
         $str = 'a4IC3jCCAtqgAwIBBaEDAgELoi8wLTAroQMCAROiJAQiMCAwHqADAgEXoRcbFUNSRUFUVUlUWS5ORVR0ZXN0dXNlcqMPGw' .
@@ -80,16 +89,16 @@ class ASN1Test extends PhpseclibTestCase
                '+zoEIxqgXjGgPdrWkzU/H6rnXiqMtiZZqUXwWY0zkCmy';
 
         $decoded = ASN1::decodeBER(base64_decode($str));
-        $result = ASN1::asn1map($decoded[0], $AS_REP);
+        $result = ASN1::map($decoded, $AS_REP)->toArray();
 
         $this->assertIsArray($result);
     }
 
     /**
      * on older versions of \phpseclib3\File\ASN1 this would produce a null instead of an array
-     * @group github275
      */
-    public function testIncorrectString()
+    #[\PHPUnit\Framework\Attributes\Group('github275')]
+    public function testIncorrectString(): void
     {
         $PA_DATA = [
             'type' => ASN1::TYPE_SEQUENCE,
@@ -98,15 +107,15 @@ class ASN1Test extends PhpseclibTestCase
                     'constant' => 1,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_INTEGER
+                    'type' => ASN1::TYPE_INTEGER,
                 ],
                 'padata-value' => [
                     'constant' => 2,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_OCTET_STRING
-                ]
-            ]
+                    'type' => ASN1::TYPE_OCTET_STRING,
+                ],
+            ],
         ];
 
         $PrincipalName = [
@@ -116,7 +125,7 @@ class ASN1Test extends PhpseclibTestCase
                     'constant' => 0,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_INTEGER
+                    'type' => ASN1::TYPE_INTEGER,
                 ],
                 'name-string' => [
                     'constant' => 1,
@@ -125,9 +134,9 @@ class ASN1Test extends PhpseclibTestCase
                     'min' => 0,
                     'max' => -1,
                     'type' => ASN1::TYPE_SEQUENCE,
-                    'children' => ['type' => ASN1::TYPE_IA5_STRING] // should be \phpseclib3\File\ASN1::TYPE_GENERAL_STRING
-                ]
-            ]
+                    'children' => ['type' => ASN1::TYPE_IA5_STRING], // should be \phpseclib4\File\ASN1::TYPE_GENERAL_STRING
+                ],
+            ],
         ];
 
         $Ticket = [
@@ -141,27 +150,27 @@ class ASN1Test extends PhpseclibTestCase
                     'constant' => 0,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_INTEGER
+                    'type' => ASN1::TYPE_INTEGER,
                 ],
                 'realm' => [
                     'constant' => 1,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY
+                    'type' => ASN1::TYPE_ANY,
                 ],
                 'sname' => [
                     'constant' => 2,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY
+                    'type' => ASN1::TYPE_ANY,
                 ],
                 'enc-part' => [
                     'constant' => 3,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY
-                ]
-            ]
+                    'type' => ASN1::TYPE_ANY,
+                ],
+            ],
         ];
 
         $KDC_REP = [
@@ -171,12 +180,12 @@ class ASN1Test extends PhpseclibTestCase
                     'constant' => 0,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_INTEGER],
+                    'type' => ASN1::TYPE_INTEGER, ],
                 'msg-type' => [
                      'constant' => 1,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_INTEGER],
+                    'type' => ASN1::TYPE_INTEGER, ],
                 'padata' => [
                     'constant' => 2,
                     'optional' => true,
@@ -184,16 +193,16 @@ class ASN1Test extends PhpseclibTestCase
                     'min' => 0,
                     'max' => -1,
                     'type' => ASN1::TYPE_SEQUENCE,
-                    'children' => $PA_DATA],
+                    'children' => $PA_DATA, ],
                 'crealm' => [
                     'constant' => 3,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_OCTET_STRING],
+                    'type' => ASN1::TYPE_OCTET_STRING, ],
                 'cname' => [
                     'constant' => 4,
                     'optional' => true,
-                    'explicit' => true] + $PrincipalName,
+                    'explicit' => true, ] + $PrincipalName,
                     //'type' => ASN1::TYPE_ANY),
                 'ticket' => [
                     'constant' => 5,
@@ -202,20 +211,20 @@ class ASN1Test extends PhpseclibTestCase
                     'min' => 0,
                     'max' => 1,
                     'type' => ASN1::TYPE_SEQUENCE,
-                    'children' => $Ticket],
+                    'children' => $Ticket, ],
                 'enc-part' => [
                     'constant' => 6,
                     'optional' => true,
                     'explicit' => true,
-                    'type' => ASN1::TYPE_ANY]
-            ]
+                    'type' => ASN1::TYPE_ANY, ],
+            ],
         ];
 
         $AS_REP = [
             'class'    => ASN1::CLASS_APPLICATION,
             'cast'     => 11,
             'optional' => true,
-            'explicit' => true
+            'explicit' => true,
         ] + $KDC_REP;
 
         $str = 'a4IC3jCCAtqgAwIBBaEDAgELoi8wLTAroQMCAROiJAQiMCAwHqADAgEXoRcbFUNSRUFUVUlUWS5ORVR0ZXN0dXNlcqMPGw' .
@@ -230,89 +239,34 @@ class ASN1Test extends PhpseclibTestCase
                '4P3wep6uNMLnLzXJmUaAMaopjE+MOcai/t6T9Vg4pERF5Waqwg5ibAbVGK19HuS4LiKiaY3JsyYBuNkEDwiqM7i1Ekw3V+' .
                '+zoEIxqgXjGgPdrWkzU/H6rnXiqMtiZZqUXwWY0zkCmy';
 
+        // crealm is supposed to be an OCTET STRING, per the definition, however, in the DER, it's a
+        // GENERAL STRING so phpseclib v4 can't find it. phpseclib v3 doesn't mind it, however, because
+        // v3 (apparently) doesn't do type checks on explicitly optional parameters
+
+        ASN1::enableBlobsOnBadDecodes();
+
         $decoded = ASN1::decodeBER(base64_decode($str));
-        $result = ASN1::asn1map($decoded[0], $AS_REP);
+        $result = ASN1::map($decoded, $AS_REP)->toArray();
 
         $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+
+        ASN1::disableBlobsOnBadDecodes();
     }
 
-    /**
-     * older versions of ASN1 didn't handle indefinite length tags very well
-     */
-    public function testIndefiniteLength()
+    public function testMaps(): void
     {
-        $decoded = ASN1::decodeBER(file_get_contents(dirname(__FILE__) . '/ASN1/FE.pdf.p7m'));
-        $this->assertCount(5, $decoded[0]['content'][1]['content'][0]['content']); // older versions would have returned 3
-    }
-
-    public function testDefiniteLength()
-    {
-        // the following base64-encoded string is the X.509 cert from <http://phpseclib.sourceforge.net/x509/decoder.php>
-        $str = 'MIIDITCCAoqgAwIBAgIQT52W2WawmStUwpV8tBV9TTANBgkqhkiG9w0BAQUFADBM' .
-               'MQswCQYDVQQGEwJaQTElMCMGA1UEChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkg' .
-               'THRkLjEWMBQGA1UEAxMNVGhhd3RlIFNHQyBDQTAeFw0xMTEwMjYwMDAwMDBaFw0x' .
-               'MzA5MzAyMzU5NTlaMGgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlh' .
-               'MRYwFAYDVQQHFA1Nb3VudGFpbiBWaWV3MRMwEQYDVQQKFApHb29nbGUgSW5jMRcw' .
-               'FQYDVQQDFA53d3cuZ29vZ2xlLmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkC' .
-               'gYEA3rcmQ6aZhc04pxUJuc8PycNVjIjujI0oJyRLKl6g2Bb6YRhLz21ggNM1QDJy' .
-               'wI8S2OVOj7my9tkVXlqGMaO6hqpryNlxjMzNJxMenUJdOPanrO/6YvMYgdQkRn8B' .
-               'd3zGKokUmbuYOR2oGfs5AER9G5RqeC1prcB6LPrQ2iASmNMCAwEAAaOB5zCB5DAM' .
-               'BgNVHRMBAf8EAjAAMDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwudGhhd3Rl' .
-               'LmNvbS9UaGF3dGVTR0NDQS5jcmwwKAYDVR0lBCEwHwYIKwYBBQUHAwEGCCsGAQUF' .
-               'BwMCBglghkgBhvhCBAEwcgYIKwYBBQUHAQEEZjBkMCIGCCsGAQUFBzABhhZodHRw' .
-               'Oi8vb2NzcC50aGF3dGUuY29tMD4GCCsGAQUFBzAChjJodHRwOi8vd3d3LnRoYXd0' .
-               'ZS5jb20vcmVwb3NpdG9yeS9UaGF3dGVfU0dDX0NBLmNydDANBgkqhkiG9w0BAQUF' .
-               'AAOBgQAhrNWuyjSJWsKrUtKyNGadeqvu5nzVfsJcKLt0AMkQH0IT/GmKHiSgAgDp' .
-               'ulvKGQSy068Bsn5fFNum21K5mvMSf3yinDtvmX3qUA12IxL/92ZzKbeVCq3Yi7Le' .
-               'IOkKcGQRCMha8X2e7GmlpdWC1ycenlbN0nbVeSv3JUMcafC4+Q==';
-        $decoded = ASN1::decodeBER(base64_decode($str));
-        $this->assertCount(3, $decoded[0]['content']);
-    }
-
-    /**
-     * @group github477
-     */
-    public function testContextSpecificNonConstructed()
-    {
-        $decoded = ASN1::decodeBER(base64_decode('MBaAFJtUo7c00HsI5EPZ4bkICfkOY2Pv'));
-        $this->assertIsString($decoded[0]['content'][0]['content']);
-    }
-
-    /**
-     * @group github602
-     */
-    public function testEmptyContextTag()
-    {
-        $decoded = ASN1::decodeBER("\xa0\x00");
-        $this->assertIsArray($decoded);
-        $this->assertCount(0, $decoded[0]['content']);
-    }
-
-    /**
-     * @group github1027
-     */
-    public function testInfiniteLoop()
-    {
-        $data = base64_decode('MD6gJQYKKwYBBAGCNxQCA6AXDBVvZmZpY2VAY2VydGRpZ2l0YWwucm+BFW9mZmljZUBjZXJ0ZGlnaXRhbC5ybw==');
-        self::assertSame(
-            'a:1:{i:0;a:5:{s:5:"start";i:0;s:12:"headerlength";i:2;s:4:"type";i:16;s:7:"content";a:2:{i:0;a:6:{s:4:"type";i:2;s:8:"constant";i:0;s:7:"content";a:2:{i:0;a:5:{s:5:"start";i:4;s:12:"headerlength";i:2;s:4:"type";i:6;s:7:"content";s:22:"1.3.6.1.4.1.311.20.2.3";s:6:"length";i:12;}i:1;a:6:{s:4:"type";i:2;s:8:"constant";i:0;s:7:"content";a:1:{i:0;a:5:{s:5:"start";i:18;s:12:"headerlength";i:2;s:4:"type";i:12;s:7:"content";s:21:"office@certdigital.ro";s:6:"length";i:23;}}s:6:"length";i:25;s:5:"start";i:16;s:12:"headerlength";i:2;}}s:6:"length";i:39;s:5:"start";i:2;s:12:"headerlength";i:2;}i:1;a:6:{s:4:"type";i:2;s:8:"constant";i:1;s:7:"content";s:21:"office@certdigital.ro";s:6:"length";i:23;s:5:"start";i:41;s:12:"headerlength";i:2;}}s:6:"length";i:64;}}',
-            serialize(ASN1::decodeBER($data))
-        );
-    }
-
-    public function testMaps()
-    {
-        $files = scandir('phpseclib/File/ASN1/Maps');
+        $files = scandir(__DIR__ . '/../../../phpseclib/File/ASN1/Maps');
         self::assertNotEmpty($files);
         foreach ($files as $file) {
             if ($file == '.' || $file == '..') {
                 continue;
             }
-            self::assertTrue(defined('phpseclib3\\File\\ASN1\\Maps\\' . basename($file, '.php') . '::MAP'));
+            self::assertTrue(defined('phpseclib4\\File\\ASN1\\Maps\\' . basename($file, '.php') . '::MAP'));
         }
     }
 
-    public function testApplicationTag()
+    public function testApplicationTag(): void
     {
         $map = [
             'type'     => ASN1::TYPE_SEQUENCE,
@@ -328,9 +282,9 @@ class ASN1Test extends PhpseclibTestCase
                     'explicit' => true,
                     'default'  => 'v1',
                     'type'     => ASN1::TYPE_INTEGER,
-                    'mapping' => ['v1', 'v2', 'v3']
-                ]
-            ]
+                    'mapping' => ['v1', 'v2', 'v3'],
+                ],
+            ],
         ];
 
         $data = ['version' => 'v3'];
@@ -338,22 +292,22 @@ class ASN1Test extends PhpseclibTestCase
         $str = ASN1::encodeDER($data, $map);
 
         $decoded = ASN1::decodeBER($str);
-        $arr = ASN1::asn1map($decoded[0], $map);
+        $arr = ASN1::map($decoded, $map);
 
-        $this->assertSame($data, $arr);
+        $this->assertEquals('v3', $arr['version']);
     }
 
     public function testBigApplicationTag()
     {
         $map = [
-            'type'     => ASN1::TYPE_SEQUENCE,
+            'type' => ASN1::TYPE_SEQUENCE,
             'children' => [
                 'demo' => [
                     'constant' => 0xFFFFFFFF,
                     'optional' => true,
                     'explicit' => true,
-                    'default'  => 'v1',
-                    'type'     => ASN1::TYPE_INTEGER,
+                    'default' => 'v1',
+                    'type' => ASN1::TYPE_INTEGER,
                     'mapping' => ['v1', 'v2', 'v3'],
                 ],
             ],
@@ -364,47 +318,31 @@ class ASN1Test extends PhpseclibTestCase
         $str = ASN1::encodeDER($data, $map);
 
         $decoded = ASN1::decodeBER($str);
-        $arr = ASN1::asn1map($decoded[0], $map);
+        $arr = ASN1::map($decoded, $map);
 
-        $this->assertSame($data, $arr);
+        $this->assertEquals('v3', $arr['demo']);
     }
 
-    /**
-     * @group github1296
-     */
-    public function testInvalidCertificate()
-    {
-        $data = 'a' . base64_decode('MD6gJQYKKwYBBAGCNxQCA6AXDBVvZmZpY2VAY2VydGRpZ2l0YWwucm+BFW9mZmljZUBjZXJ0ZGlnaXRhbC5ybw==');
-        self::assertSame(
-            'a:1:{i:0;a:6:{s:4:"type";i:1;s:8:"constant";i:1;s:7:"content";a:0:{}s:6:"length";i:2;s:5:"start";i:0;s:12:"headerlength";i:2;}}',
-            serialize(ASN1::decodeBER($data))
-        );
-    }
-
-    /**
-     * @group github1367
-     */
-    public function testOIDs()
+    #[\PHPUnit\Framework\Attributes\Group('github1367')]
+    public function testOIDs(): void
     {
         // from the example in 8.19.5 in the following:
         // https://www.itu.int/ITU-T/studygroups/com17/languages/X.690-0207.pdf#page=22
         $orig = pack('H*', '813403');
         $new = ASN1::decodeOID($orig);
-        $this->assertSame('2.100.3', $new);
-        $this->assertSame($orig, ASN1::encodeOID($new));
+        $this->assertEquals('2.100.3', $new);
+        $this->assertSame($orig, ASN1::encodeOID("$new"));
 
         // UUID OID from the following:
         // https://healthcaresecprivacy.blogspot.com/2011/02/creating-and-using-unique-id-uuid-oid.html
         $orig = '2.25.329800735698586629295641978511506172918';
         $new = ASN1::encodeOID($orig);
         $this->assertSame(pack('H*', '6983f09da7ebcfdee0c7a1a7b2c0948cc8f9d776'), $new);
-        $this->assertSame($orig, ASN1::decodeOID($new));
+        $this->assertEquals($orig, ASN1::decodeOID("$new"));
     }
 
-    /**
-     * @group github1388
-     */
-    public function testExplicitImplicitDate()
+    #[\PHPUnit\Framework\Attributes\Group('github1388')]
+    public function testExplicitImplicitDate(): void
     {
         $map = [
             'type'     => ASN1::TYPE_SEQUENCE,
@@ -413,89 +351,283 @@ class ASN1Test extends PhpseclibTestCase
                                              'constant' => 0,
                                              'optional' => true,
                                              'implicit' => true,
-                                             'type' => ASN1::TYPE_GENERALIZED_TIME],
+                                             'type' => ASN1::TYPE_GENERALIZED_TIME, ],
                 'notAfter'  => [
                                              'constant' => 1,
                                              'optional' => true,
                                              'implicit' => true,
-                                             'type' => ASN1::TYPE_GENERALIZED_TIME]
-            ]
+                                             'type' => ASN1::TYPE_GENERALIZED_TIME, ],
+            ],
         ];
 
         $a = pack('H*', '3026a011180f32303137303432313039303535305aa111180f32303138303432313230353935395a');
         $a = ASN1::decodeBER($a);
-        $a = ASN1::asn1map($a[0], $map);
+        $a = ASN1::map($a, $map)->toArray();
 
         $this->assertIsArray($a);
     }
 
-    public function testNullGarbage()
+    public static function badDecodes(): array
     {
-        $em = pack('H*', '3080305c0609608648016503040201054f8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
+        $bad = [];
 
-        $em = pack('H*', '3080307f0609608648016503040201057288888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca90000');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-    }
+        // the following are from CVE-2021-30130
+        // see #1635 and https://dl.acm.org/doi/pdf/10.1145/3460120.3485382
 
-    public function testOIDGarbage()
-    {
-        $em = pack('H*', '3080305c065860864801650304020188888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-
-        $em = pack('H*', '3080307f067d608648016503040201888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-    }
-
-    public function testConstructedMismatch()
-    {
-        $em = pack('H*', '1031300d0609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-
-        $em = pack('H*', '3031100d0609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-
-        $em = pack('H*', '3031300d2609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-
-        $em = pack('H*', '3031300d06096086480165030402012d0004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-    }
-
-    public function testBadTagSecondOctet()
-    {
-        $em = pack('H*', '3033300f1f808080060960864801650304020104207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9');
-        $decoded = ASN1::decodeBER($em);
-        $this->assertNull($decoded);
-    }
-
-    public function testLongOID()
-    {
-        $cert = file_get_contents(dirname(__FILE__) . '/ASN1/mal-cert-02.der');
-
-        $decoded = ASN1::decodeBER($cert);
-        $this->assertNull($decoded);
-
-        //$x509 = new X509();
-        //$x509->loadX509($cert);
+        // in phpseclib 3.0 and earlier the following two were in the testNullGarbage() unit test
+        $bad[] = [
+            '3080305c0609608648016503040201054f8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'parameters',
+        ];
+        $bad[] = [
+            '3080307f0609608648016503040201057288888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca90000',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'parameters',
+        ];
+        // in phpseclib 3.0 and earlier the following two were in the testOIDGarbage() unit test
+        $bad[] = [
+            '3080305c065860864801650304020188888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'algorithm',
+        ];
+        $bad[] = [
+            '3080307f067d608648016503040201888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888804207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'algorithm',
+        ];
+        // in phpseclib 3.0 and earlier the following four were in the testConstructedMismatch() unit test
+        $bad[] = [
+            '1031300d0609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            null,
+            null,
+        ];
+        $bad[] = [
+            '3031100d0609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            null,
+            'digestAlgorithm',
+        ];
+        $bad[] = [
+            '3031300d2609608648016503040201050004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'algorithm',
+        ];
+        $bad[] = [
+            '3031300d06096086480165030402012d0004207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            'digestAlgorithm',
+            'parameters',
+        ];
+        // in phpseclib 3.0 and earlier the following two were in the testBadTagSecondOctet() unit test
+        $bad[] = [
+            '3033300f1f808080060960864801650304020104207509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9',
+            Maps\DigestInfo::MAP,
+            null,
+            'digestAlgorithm',
+        ];
+        return $bad;
     }
 
     /**
-     * @group github2104
+     * Test that an exception is thrown on bad decodes
+     *
+     * @psalm-suppress PossiblyUnusedParam
      */
-    public function testBadBigInteger()
+    #[\PHPUnit\Framework\Attributes\DataProvider('badDecodes')]
+    public function testExceptionsOnBadDecodes(string $data, array $map, ?string $path, ?string $key): void
     {
+        $this->expectException(\Exception::class);
+        $decoded = ASN1::decodeBER(pack('H*', $data));
+        ASN1::map($decoded, $map)->toArray();
+    }
+
+    /**
+     * Test that MalformedData is returned when exceptions are disabled
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('badDecodes')]
+    public function testBlobsOnBadDecodes(string $data, array $map, ?string $path, ?string $key): void
+    {
+        ASN1::enableBlobsOnBadDecodes();
+        $decoded = ASN1::decodeBER(pack('H*', $data));
+        $result = ASN1::map($decoded, $map);
+        if ($result instanceof Constructed) {
+            $result = $result->toArray();
+            if (isset($path)) {
+                $result = Arrays::subArray($result, $path);
+            }
+            $result = $result[$key];
+        }
+        ASN1::disableBlobsOnBadDecodes();
+        $this->assertInstanceOf(MalformedData::class, $result);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Group('github2104')]
+    public function testBadBigInteger(): void
+    {
+        $this->expectException(\Exception::class);
         $key = pack('H*', 'a309486df62e19383a7faecd02423d44fb28773f36403f8a5e3c45f62549c855');
         $decoded = ASN1::decodeBER($key);
-        $key = ASN1::asn1map($decoded[0], \phpseclib3\File\ASN1\Maps\DSAPublicKey::MAP);
-        $this->assertFalse($key);
+        ASN1::map($decoded, \phpseclib4\File\ASN1\Maps\DSAPublicKey::MAP)->toArray();
+    }
+
+    public function testChoiceDecode(): void
+    {
+        $encoded = hex2bin('305d310c300a060355040b13037a7a7a310c300a060355040b0c03787878313f303d060355041030360c0d6a696d2077696767696e746f6e0c1333303031206573706572616e7a612078696e670c1061757374696e2c207478203738373538');
+        $decoded = ASN1::decodeBER($encoded);
+        $this->assertIsArray(ASN1::map($decoded, \phpseclib4\File\ASN1\Maps\Name::MAP)['rdnSequence']->toArray());
+    }
+
+    private function encLen(int $n): string
+    {
+        if ($n <= 0x7f) {
+            return chr($n);
+        }
+        $t = ltrim(pack('N', $n), "\x00");
+        return chr(0x80 | strlen($t)) . $t;
+    }
+
+    public function testIndefiniteLength(): void
+    {
+        $N = 1000; // recursion depth (default is 128)
+        $body = str_repeat("\x30\x80", $N); // N nested indefinite-length SEQUENCE headers
+        $payload = "\x30" . self::encLen(strlen($body)) . $body;
+
+        $this->expectException(NoKeyLoadedException::class);
+        PublicKeyLoader::load($payload);
+    }
+
+    public function testMiscFunctions(): void
+    {
+        $cert = '-----BEGIN CERTIFICATE-----
+MIICADCCAWmgAwIBAgIUJXQulcz5xkTam8UGC/yn6iVaiWwwDQYJKoZIhvcNAQEF
+BQAwHDEaMBgGA1UECgwRcGhwc2VjbGliIGRlbW8gQ0EwHhcNMTgwMTIxMTc0NzM0
+WhcNMTkwMTIxMTc0NzM0WjAcMRowGAYDVQQKDBFwaHBzZWNsaWIgZGVtbyBDQTCB
+nzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAqSrTRQXbUXfHhXKuy+0cb5HnlBXH
+OEA2OqywyVKTxqdai/S+6ZfqytC+ukxkrPsGUzOGsAz9ne+R2Rtv/Szl+V8uKAG+
+2ktj4iw0JlWvNbdbAONm7N1AcWpPcOI3I+tt4HrAxunTdbBaalavf2eCTpzybtT1
+88HLo97eyeUCxUsCAwEAAaM/MD0wCwYDVR0PBAQDAgEGMA8GA1UdEwEB/wQFMAMB
+Af8wHQYDVR0OBBYEFCS1BJ12nN8ObQWE4OgOOSH9DxTRMA0GCSqGSIb3DQEBBQUA
+A4GBAHkSnlJnlkwDEUcENKWFZpfNgZu9HUvEuLDVOnhvsdd2MDr8EbVbgMHYNWnV
++ZOS/dqbuCd9Vd27JsBC2YHklaq9/V5zMbrEBiMLo5P5WL9qrz0qbmK/aruP+VX7
+cKVMm1WnOQd4aQgCvzv2r7/gsdX++496vRpBMTfwa1qLBjG6
+-----END CERTIFICATE-----';
+        $x509 = X509::load($cert);
+        $this->assertSame(ASN1::TYPE_SEQUENCE, $x509['tbsCertificate']->getTag());
+        $this->assertSame($x509['tbsCertificate']->keys()[0], $x509['tbsCertificate']->firstKey());
+    }
+
+    public function testBitstringToArray(): void
+    {
+        $x509 = X509::load('-----BEGIN CERTIFICATE-----
+MIICADCCAWmgAwIBAgIUJXQulcz5xkTam8UGC/yn6iVaiWwwDQYJKoZIhvcNAQEF
+BQAwHDEaMBgGA1UECgwRcGhwc2VjbGliIGRlbW8gQ0EwHhcNMTgwMTIxMTc0NzM0
+WhcNMTkwMTIxMTc0NzM0WjAcMRowGAYDVQQKDBFwaHBzZWNsaWIgZGVtbyBDQTCB
+nzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAqSrTRQXbUXfHhXKuy+0cb5HnlBXH
+OEA2OqywyVKTxqdai/S+6ZfqytC+ukxkrPsGUzOGsAz9ne+R2Rtv/Szl+V8uKAG+
+2ktj4iw0JlWvNbdbAONm7N1AcWpPcOI3I+tt4HrAxunTdbBaalavf2eCTpzybtT1
+88HLo97eyeUCxUsCAwEAAaM/MD0wCwYDVR0PBAQDAgEGMA8GA1UdEwEB/wQFMAMB
+Af8wHQYDVR0OBBYEFCS1BJ12nN8ObQWE4OgOOSH9DxTRMA0GCSqGSIb3DQEBBQUA
+A4GBAHkSnlJnlkwDEUcENKWFZpfNgZu9HUvEuLDVOnhvsdd2MDr8EbVbgMHYNWnV
++ZOS/dqbuCd9Vd27JsBC2YHklaq9/V5zMbrEBiMLo5P5WL9qrz0qbmK/aruP+VX7
+cKVMm1WnOQd4aQgCvzv2r7/gsdX++496vRpBMTfwa1qLBjG6
+-----END CERTIFICATE-----');
+        $arr = $x509->getExtension('id-ce-keyUsage')['extnValue']->toArray();
+        $arr2 = ['cRLSign', 'keyCertSign'];
+        $this->assertSame($arr, $arr2);
+    }
+
+    /**
+     * a CHOICE that is itself tagged is identified by its own context tag - not by
+     * its alternatives. sibling children whose CHOICE definitions are identical
+     * (eg. issuerLogo [1] / subjectLogo [2] in RFC 9399's LogotypeExtn) can only be
+     * told apart that way. previously the tag was ignored and the first child won.
+     */
+    #[\PHPUnit\Framework\Attributes\Group('github2158')]
+    public function testTaggedChoiceUsesItsOwnTag(): void
+    {
+        $inner = [
+            'type' => ASN1::TYPE_CHOICE,
+            'children' => [
+                'alpha' => [
+                    'constant' => 0,
+                    'optional' => true,
+                    'implicit' => true,
+                    'type' => ASN1::TYPE_SEQUENCE,
+                    'children' => ['n' => ['type' => ASN1::TYPE_INTEGER]],
+                ],
+                'beta' => [
+                    'constant' => 1,
+                    'optional' => true,
+                    'implicit' => true,
+                    'type' => ASN1::TYPE_SEQUENCE,
+                    'children' => ['n' => ['type' => ASN1::TYPE_INTEGER]],
+                ],
+            ],
+        ];
+        $map = [
+            'type' => ASN1::TYPE_SEQUENCE,
+            'children' => [
+                'first' => ['constant' => 1, 'optional' => true, 'explicit' => true] + $inner,
+                'second' => ['constant' => 2, 'optional' => true, 'explicit' => true] + $inner,
+            ],
+        ];
+
+        // SEQUENCE { [2] EXPLICIT { [0] IMPLICIT SEQUENCE { INTEGER 5 } } }
+        $result = ASN1::map(ASN1::decodeBER("\x30\x07\xa2\x05\xa0\x03\x02\x01\x05"), $map);
+
+        $this->assertSame(['second'], $result->keys());
+        $this->assertSame('alpha', $result['second']->index);
+        $this->assertSame('5', (string) $result['second']['alpha']['n']);
+
+        // ...and the [1] sibling still resolves to itself
+        $result = ASN1::map(ASN1::decodeBER("\x30\x07\xa1\x05\xa0\x03\x02\x01\x05"), $map);
+
+        $this->assertSame(['first'], $result->keys());
+    }
+
+    /**
+     * this would previously yield a PHP Warning, as the CHOICE alternatives were
+     * compared against a context tag that isn't there
+     */
+    #[\PHPUnit\Framework\Attributes\Group('github2158')]
+    public function testTaggedChoiceWithUntaggedAlternative(): void
+    {
+        $map = [
+            'type' => ASN1::TYPE_SEQUENCE,
+            'children' => [
+                'only' => [
+                    'constant' => 2,
+                    'optional' => true,
+                    'explicit' => true,
+                    'type' => ASN1::TYPE_CHOICE,
+                    'children' => [
+                        // the tagged alternative comes first on purpose
+                        'tagged' => [
+                            'constant' => 1,
+                            'optional' => true,
+                            'implicit' => true,
+                            'type' => ASN1::TYPE_SEQUENCE,
+                            'children' => ['n' => ['type' => ASN1::TYPE_INTEGER]],
+                        ],
+                        'untagged' => [
+                            'type' => ASN1::TYPE_SEQUENCE,
+                            'children' => ['n' => ['type' => ASN1::TYPE_INTEGER]],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        // SEQUENCE { [2] EXPLICIT { SEQUENCE { INTEGER 5 } } }
+        $result = ASN1::map(ASN1::decodeBER("\x30\x07\xa2\x05\x30\x03\x02\x01\x05"), $map);
+
+        $this->assertSame('untagged', $result['only']->index);
     }
 }

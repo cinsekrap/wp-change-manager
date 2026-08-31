@@ -2,30 +2,29 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2018-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\AES;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\AES;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class GCMTest extends PhpseclibTestCase
 {
     /**
      * Produces all combinations of test values.
-     *
-     * @return array
      */
-    public static function engine128Vectors()
+    public static function engine128Vectors(): array
     {
         $engines = [
             'PHP',
             'Eval',
-            'mcrypt',
             'OpenSSL',
-            'OpenSSL (GCM)'
+            'OpenSSL (AEAD)',
         ];
 
         // test vectors come from the following URL:
@@ -86,7 +85,7 @@ class GCMTest extends PhpseclibTestCase
             // Test Case 5
             [$k2, $p3, $n3, $a1, $c4, '3612d2e79e3b0785561be14aaca2fccb'],
             // Test Case 6
-            [$k2, $p3, $n4, $a1, $c5, '619cc5aefffe0bfa462af43c1699d050']
+            [$k2, $p3, $n4, $a1, $c5, '619cc5aefffe0bfa462af43c1699d050'],
         ];
 
         $vectors = [];
@@ -104,8 +103,8 @@ class GCMTest extends PhpseclibTestCase
         return $vectors;
     }
 
-    /** @dataProvider engine128Vectors */
-    public function test128Vectors($engine, $key, $plaintext, $nonce, $aad, $ciphertext, $tag)
+    #[\PHPUnit\Framework\Attributes\DataProvider('engine128Vectors')]
+    public function test128Vectors($engine, $key, $plaintext, $nonce, $aad, $ciphertext, $tag): void
     {
         $aes = new AES('gcm');
         $aes->setKey($key);
@@ -126,18 +125,15 @@ class GCMTest extends PhpseclibTestCase
 
     /**
      * Produces all combinations of test values.
-     *
-     * @return array
      */
-    public static function engine256Vectors()
+    public static function engine256Vectors(): array
     {
         $engines = [
             'PHP',
             'Eval',
-            'mcrypt',
             'OpenSSL',
             'OpenSSL (GCM)',
-            'libsodium'
+            'libsodium',
         ];
 
         $p1 = '00000000000000000000000000000000';
@@ -197,7 +193,7 @@ class GCMTest extends PhpseclibTestCase
             // Test Case 17
             [$k2, $p3, $n3, $a1, $c4, '3a337dbf46a792c45e454913fe2ea8f2'],
             // Test Case 18
-            [$k2, $p3, $n4, $a1, $c5, 'a44a8266ee1c8eb0c8b5d4cf5ae9f19a']
+            [$k2, $p3, $n4, $a1, $c5, 'a44a8266ee1c8eb0c8b5d4cf5ae9f19a'],
         ];
 
         $vectors = [];
@@ -215,8 +211,8 @@ class GCMTest extends PhpseclibTestCase
         return $vectors;
     }
 
-    /** @dataProvider engine256Vectors */
-    public function test256Vectors($engine, $key, $plaintext, $nonce, $aad, $ciphertext, $tag)
+    #[\PHPUnit\Framework\Attributes\DataProvider('engine256Vectors')]
+    public function test256Vectors($engine, $key, $plaintext, $nonce, $aad, $ciphertext, $tag): void
     {
         $aes = new AES('gcm');
         $aes->setKey($key);

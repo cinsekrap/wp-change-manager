@@ -2,23 +2,26 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2015 Andreas Fischer
+ * @copyright 2015-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Functional\Net;
+declare(strict_types=1);
 
-use phpseclib3\Net\SFTP\Stream;
+namespace phpseclib4\Tests\Functional\Net;
+
+use phpseclib4\Net\SFTP\Stream;
+use phpseclib4\Net\SSH2;
 
 class SFTPStreamTest extends SFTPTestCase
 {
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         Stream::register();
         parent::setUpBeforeClass();
     }
 
-    public function testFopenFcloseCreatesFile()
+    public function testFopenFcloseCreatesFile(): void
     {
         $context = stream_context_create([
             'sftp' => ['session' => $this->sftp],
@@ -29,16 +32,14 @@ class SFTPStreamTest extends SFTPTestCase
         $this->assertSame(0, $this->sftp->filesize('fooo.txt'));
     }
 
-    /**
-     * @group github778
-     */
-    public function testFilenameWithHash()
+    #[\PHPUnit\Framework\Attributes\Group('github778')]
+    public function testFilenameWithHash(): void
     {
         $context = stream_context_create([
             'sftp' => ['session' => $this->sftp],
         ]);
         $fp = fopen($this->buildUrl('te#st.txt'), 'wb', false, $context);
-        fputs($fp, 'zzzz');
+        fwrite($fp, 'zzzz');
         fclose($fp);
 
         $this->assertContains('te#st.txt', $this->sftp->nlist());
@@ -48,35 +49,45 @@ class SFTPStreamTest extends SFTPTestCase
      * Tests connection reuse functionality same as ssh2 extension:
      * {@link http://php.net/manual/en/wrappers.ssh2.php#refsect1-wrappers.ssh2-examples}
      */
-    public function testConnectionReuse()
+    public function testConnectionReuse(): void
     {
-        $originalConnectionsCount = count(\phpseclib3\Net\SSH2::getConnections());
+        $originalConnectionsCount = count(SSH2::getConnections());
         $session = $this->sftp;
         $dirs = scandir("sftp://$session/");
-        $this->assertCount($originalConnectionsCount, \phpseclib3\Net\SSH2::getConnections());
+        $this->assertCount($originalConnectionsCount, SSH2::getConnections());
         $this->assertEquals(['.', '..'], array_slice($dirs, 0, 2));
     }
 
-    /**
-     * @group github1552
-     */
-    public function testStreamSelect()
+    #[\PHPUnit\Framework\Attributes\Group('github1552')]
+    public function testStreamSelect(): void
     {
         $context = stream_context_create([
             'sftp' => ['session' => $this->sftp],
         ]);
         $fp = fopen($this->buildUrl('fooo.txt'), 'wb', false, $context);
+        $this->assertIsResource($fp);
         $read = [$fp];
         $write = $except = null;
         stream_select($read, $write, $except, 0);
     }
 
-    protected function buildUrl($suffix)
+    protected function buildUrl($suffix): string
     {
         return sprintf(
             'sftp://via-context/%s/%s',
             $this->sftp->pwd(),
             $suffix
         );
+    }
+
+    public function testTouch(): void
+    {
+        $session = $this->sftp;
+        $pwd = $this->sftp->pwd();
+        $fileName = "sftp://$session/$pwd/touched.txt";
+        $this->assertFalse(file_exists($fileName));
+        touch($fileName);
+        $this->assertTrue(file_exists($fileName));
+        $this->assertEquals(0, filesize($fileName));
     }
 }

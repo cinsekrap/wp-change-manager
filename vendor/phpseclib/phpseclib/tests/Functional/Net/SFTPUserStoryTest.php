@@ -2,23 +2,31 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2014 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Functional\Net;
+declare(strict_types=1);
 
-use phpseclib3\Net\SFTP;
-use phpseclib3\Tests\PhpseclibFunctionalTestCase;
+namespace phpseclib4\Tests\Functional\Net;
+
+use phpseclib4\Exception\FileSystemException;
+use phpseclib4\Net\SFTP;
+use phpseclib4\Net\SFTP\FileType;
+use phpseclib4\Net\SFTP\StatusCode;
+use phpseclib4\Tests\PhpseclibFunctionalTestCase;
 
 class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
 {
+    /**
+     * @var string
+     */
     protected static $scratchDir;
     protected static $exampleData;
     protected static $exampleDataLength;
     protected static $buffer;
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
 
@@ -28,7 +36,7 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         self::$exampleDataLength = 10000;
     }
 
-    public function testConstructor()
+    public function testConstructor(): SFTP
     {
         $sftp = new SFTP($this->getEnv('SSH_HOSTNAME'));
 
@@ -40,8 +48,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testConstructor */
-    public function testPasswordLogin($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testConstructor')]
+    public function testPasswordLogin(SFTP $sftp)
     {
         $username = $this->getEnv('SSH_USERNAME');
         $password = $this->getEnv('SSH_PASSWORD');
@@ -53,8 +61,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testPasswordLogin */
-    public function testPwdHome($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    public function testPwdHome(SFTP $sftp)
     {
         $this->assertEquals(
             $this->getEnv('SSH_HOME'),
@@ -65,37 +73,29 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testPwdHome */
-    public function testMkDirScratch($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testPwdHome')]
+    public function testMkDirScratch(SFTP $sftp)
     {
         $dirname = self::$scratchDir;
 
-        $this->assertTrue(
-            $sftp->mkdir($dirname),
-            "Failed asserting that a new scratch directory $dirname could " .
-            'be created.'
-        );
-
-        $this->assertFalse(
-            $sftp->mkdir($dirname),
-            "Failed asserting that a new scratch directory $dirname could " .
-            'not be created (because it already exists).'
-        );
+        $sftp->mkdir($dirname);
+        try {
+            $sftp->mkdir($dirname);
+            $this->assertTrue(
+                false,
+                "Failed asserting that a new scratch directory $dirname could " .
+                'not be created (because it already exists).'
+            );
+        } catch (\Exception) {
+        }
 
         return $sftp;
     }
 
-    /** @depends testMkDirScratch */
-    public function testChDirScratch($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testMkDirScratch')]
+    public function testChDirScratch(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->chdir(self::$scratchDir),
-            sprintf(
-                'Failed asserting that working directory could be changed ' .
-                'to scratch directory %s.',
-                self::$scratchDir
-            )
-        );
+        $sftp->chdir(self::$scratchDir);
 
         $pwd = $sftp->pwd();
 
@@ -116,8 +116,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testChDirScratch */
-    public function testStatOnDir($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testChDirScratch')]
+    public function testStatOnDir(SFTP $sftp)
     {
         $this->assertNotSame(
             [],
@@ -128,23 +128,10 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    public static function demoCallback($length)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatOnDir')]
+    public function testPutSizeGetFile(SFTP $sftp)
     {
-        $r = substr(self::$buffer, 0, $length);
-        self::$buffer = substr(self::$buffer, $length);
-        if (strlen($r)) {
-            return $r;
-        }
-        return null;
-    }
-
-    /** @depends testStatOnDir */
-    public function testPutSizeGetFile($sftp)
-    {
-        $this->assertTrue(
-            $sftp->put('file1.txt', self::$exampleData),
-            'Failed asserting that example data could be successfully put().'
-        );
+        $sftp->put('file1.txt', self::$exampleData);
 
         $this->assertSame(
             self::$exampleDataLength,
@@ -158,10 +145,7 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
             'Failed asserting that get() returns expected example data.'
         );
 
-        $this->assertTrue(
-            $sftp->put('file1.txt', 'xxx', SFTP::RESUME),
-            'Failed asserting that an upload could be successfully resumed'
-        );
+        $sftp->put('file1.txt', 'xxx', SFTP::RESUME);
 
         $this->assertSame(
             self::$exampleDataLength + 3,
@@ -178,14 +162,19 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testStatOnDir */
-    public function testPutSizeGetFileCallback($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatOnDir')]
+    public function testPutSizeGetFileCallback(SFTP $sftp)
     {
         self::$buffer = self::$exampleData;
-        $this->assertTrue(
-            $sftp->put('file1.txt', [__CLASS__, 'demoCallback'], $sftp::SOURCE_CALLBACK),
-            'Failed asserting that example data could be successfully put().'
-        );
+        $closure = function ($length) {
+            $r = substr(self::$buffer, 0, $length);
+            self::$buffer = substr(self::$buffer, $length);
+            if (strlen($r)) {
+                return $r;
+            }
+            return null;
+        };
+        $sftp->put('file1.txt', $closure, $sftp::SOURCE_CALLBACK);
 
         $this->assertSame(
             self::$exampleDataLength,
@@ -202,13 +191,10 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testPutSizeGetFile */
-    public function testTouch($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testPutSizeGetFile')]
+    public function testTouch(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->touch('file2.txt'),
-            'Failed asserting that touch() successfully ran.'
-        );
+        $sftp->touch('file2.txt');
 
         $this->assertTrue(
             $sftp->file_exists('file2.txt'),
@@ -218,18 +204,12 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testTouch */
-    public function testTruncate($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testTouch')]
+    public function testTruncate(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->touch('file3.txt'),
-            'Failed asserting that touch() successfully ran.'
-        );
+        $sftp->touch('file3.txt');
 
-        $this->assertTrue(
-            $sftp->truncate('file3.txt', 1024 * 1024),
-            'Failed asserting that touch() successfully ran.'
-        );
+        $sftp->truncate('file3.txt', 1024 * 1024);
 
         $this->assertSame(
             1024 * 1024,
@@ -240,33 +220,34 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /**
-     * @group github850
-     */
-    /** @depends testTruncate */
-    public function testChModOnFile($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testTruncate')]
+    #[\PHPUnit\Framework\Attributes\Group('github850')]
+    public function testChModOnFile(SFTP $sftp)
     {
-        $this->assertNotFalse(
-            $sftp->chmod(0755, 'file1.txt'),
-            'Failed asserting that chmod() was successful.'
-        );
+        $sftp->chmod('file1.txt', 0o755);
+        $this->assertTrue(true);
 
         return $sftp;
     }
 
-    /** @depends testChModOnFile */
-    public function testChDirOnFile($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testChModOnFile')]
+    public function testChDirOnFile(SFTP $sftp)
     {
-        $this->assertFalse(
-            $sftp->chdir('file1.txt'),
-            'Failed to assert that the cwd cannot be changed to a file'
-        );
+        try {
+            $sftp->chdir('file1.txt');
+            $this->assertTrue(
+                false,
+                'Failed to assert that the cwd cannot be changed to a file'
+            );
+        } catch (\Exception) {
+            $this->assertTrue(true);
+        }
 
         return $sftp;
     }
 
-    /** @depends testChDirOnFile */
-    public function testFileExistsIsFileIsDirFile($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testChDirOnFile')]
+    public function testFileExistsIsFileIsDirFile(SFTP $sftp)
     {
         $this->assertTrue(
             $sftp->file_exists('file1.txt'),
@@ -286,8 +267,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testFileExistsIsFileIsDirFile */
-    public function testFileExistsIsFileIsDirFileNonexistent($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testFileExistsIsFileIsDirFile')]
+    public function testFileExistsIsFileIsDirFileNonexistent(SFTP $sftp)
     {
         $this->assertFalse(
             $sftp->file_exists('file4.txt'),
@@ -307,14 +288,10 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testFileExistsIsFileIsDirFileNonexistent */
-    public function testSortOrder($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testFileExistsIsFileIsDirFileNonexistent')]
+    public function testSortOrder(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->mkdir('temp'),
-            "Failed asserting that a new scratch directory temp could " .
-            'be created.'
-        );
+        $sftp->mkdir('temp');
 
         $sftp->setListOrder('filename', SORT_DESC);
 
@@ -358,8 +335,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testSortOrder */
-    public function testResourceXfer($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testSortOrder')]
+    public function testResourceXfer(SFTP $sftp)
     {
         $fp = fopen('res.txt', 'w+');
         $sftp->get('file1.txt', $fp);
@@ -376,19 +353,17 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testResourceXfer */
-    public function testSymlink($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testResourceXfer')]
+    public function testSymlink(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->symlink('file3.txt', 'symlink'),
-            'Failed asserting that a symlink could be created'
-        );
+        $sftp->symlink('file3.txt', 'symlink');
+        $this->assertTrue(true);
 
         return $sftp;
     }
 
-    /** @depends testSymlink */
-    public function testStatLstatCache($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testSymlink')]
+    public function testStatLstatCache(SFTP $sftp)
     {
         $stat = $sftp->stat('symlink');
         $lstat = $sftp->lstat('symlink');
@@ -401,8 +376,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testStatLstatCache */
-    public function testLinkFile($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatLstatCache')]
+    public function testLinkFile(SFTP $sftp)
     {
         $this->assertTrue(
             $sftp->is_link('symlink'),
@@ -420,8 +395,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testLinkFile */
-    public function testReadlink($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testLinkFile')]
+    public function testReadlink(SFTP $sftp)
     {
         $this->assertIsString(
             $sftp->readlink('symlink'),
@@ -431,11 +406,9 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /**
-     * @group github716
-     */
-    /** @depends testReadlink */
-    public function testStatOnCWD($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testReadlink')]
+    #[\PHPUnit\Framework\Attributes\Group('github716')]
+    public function testStatOnCWD(SFTP $sftp)
     {
         $stat = $sftp->stat('.');
         $this->assertIsArray(
@@ -453,37 +426,33 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
 
     /**
      * on older versions this would result in a fatal error
-     *
-     * @group github402
      */
-    /** @depends testStatOnCWD */
-    public function testStatcacheFix($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatOnCWD')]
+    #[\PHPUnit\Framework\Attributes\Group('github402')]
+    public function testStatcacheFix(SFTP $sftp)
     {
         // Name used for both directory and file.
         $name = 'stattestdir';
-        $this->assertTrue($sftp->mkdir($name));
+        $sftp->mkdir($name);
         $this->assertTrue($sftp->is_dir($name));
-        $this->assertTrue($sftp->chdir($name));
+        $sftp->chdir($name);
         $this->assertStringEndsWith(self::$scratchDir . '/' . $name, $sftp->pwd());
         $this->assertFalse($sftp->file_exists($name));
-        $this->assertTrue($sftp->touch($name));
+        $sftp->touch($name);
         $this->assertTrue($sftp->is_file($name));
-        $this->assertTrue($sftp->chdir('..'));
+        $sftp->chdir('..');
         $this->assertStringEndsWith(self::$scratchDir, $sftp->pwd());
         $this->assertTrue($sftp->is_dir($name));
         $this->assertTrue($sftp->is_file("$name/$name"));
-        $this->assertTrue($sftp->delete($name, true));
+        $sftp->delete($name, true);
 
         return $sftp;
     }
 
-    /** @depends testStatcacheFix */
-    public function testChDirUpHome($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatcacheFix')]
+    public function testChDirUpHome(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->chdir('../'),
-            'Failed asserting that directory could be changed one level up.'
-        );
+        $sftp->chdir('../');
 
         $this->assertEquals(
             $this->getEnv('SSH_HOME'),
@@ -494,8 +463,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testChDirUpHome */
-    public function testFileExistsIsFileIsDirDir($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testChDirUpHome')]
+    public function testFileExistsIsFileIsDirDir(SFTP $sftp)
     {
         $this->assertTrue(
             $sftp->file_exists(self::$scratchDir),
@@ -515,100 +484,96 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testFileExistsIsFileIsDirDir */
-    public function testTruncateLargeFile($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testFileExistsIsFileIsDirDir')]
+    public function testTruncateLargeFile(SFTP $sftp)
     {
         $filesize = (4 * 1024 + 16) * 1024 * 1024;
         $filename = 'file-large-from-truncate-4112MiB.txt';
-        $this->assertTrue($sftp->touch($filename));
-        $this->assertTrue($sftp->truncate($filename, $filesize));
+        $sftp->touch($filename);
+        $sftp->truncate($filename, $filesize);
         $this->assertSame($filesize, $sftp->filesize($filename));
 
         return $sftp;
     }
 
-    /** @depends testTruncateLargeFile */
-    public function testRmDirScratch($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testTruncateLargeFile')]
+    public function testRmDirScratch(SFTP $sftp)
     {
-        $this->assertFalse(
-            $sftp->rmdir(self::$scratchDir),
-            'Failed asserting that non-empty scratch directory could ' .
-            'not be deleted using rmdir().'
-        );
+        try {
+            $sftp->rmdir(self::$scratchDir);
+        } catch (FileSystemException $e) {
+            // directory isn't empty
+            $this->assertSame(StatusCode::FAILURE, $e->getCode());
+        }
 
         return $sftp;
     }
 
-    /** @depends testRmDirScratch */
-    public function testDeleteRecursiveScratch($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testRmDirScratch')]
+    public function testDeleteRecursiveScratch(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->delete(self::$scratchDir),
-            'Failed asserting that non-empty scratch directory could ' .
-            'be deleted using recursive delete().'
-        );
+        $sftp->delete(self::$scratchDir);
+        $list = $sftp->nlist();
+        $this->assertNotContains(self::$scratchDir, $list);
 
         return $sftp;
     }
 
-    /** @depends testDeleteRecursiveScratch */
-    public function testRmDirScratchNonexistent($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testDeleteRecursiveScratch')]
+    public function testRmDirScratchNonexistent(SFTP $sftp)
     {
-        $this->assertFalse(
-            $sftp->rmdir(self::$scratchDir),
-            'Failed asserting that nonexistent scratch directory could ' .
-            'not be deleted using rmdir().'
-        );
+        try {
+            $sftp->rmdir(self::$scratchDir);
+        } catch (FileSystemException $e) {
+            // directory doesn't exist
+            $this->assertSame(StatusCode::NO_SUCH_FILE, $e->getCode());
+        }
 
         return $sftp;
     }
 
-    /**
-     * @group github706
-     */
-    /** @depends testRmDirScratchNonexistent */
-    public function testDeleteEmptyDir($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testRmDirScratchNonexistent')]
+    #[\PHPUnit\Framework\Attributes\Group('github706')]
+    public function testDeleteEmptyDir(SFTP $sftp)
     {
-        $this->assertTrue(
-            $sftp->mkdir(self::$scratchDir),
-            'Failed asserting that scratch directory could ' .
-            'be created.'
-        );
+        $sftp->mkdir(self::$scratchDir);
         $this->assertIsArray(
             $sftp->stat(self::$scratchDir),
             'Failed asserting that stat on an existent empty directory returns an array'
         );
-        $this->assertTrue(
-            $sftp->delete(self::$scratchDir),
-            'Failed asserting that empty scratch directory could ' .
-            'be deleted using recursive delete().'
-        );
-        $this->assertFalse(
-            $sftp->stat(self::$scratchDir),
-            'Failed asserting that stat on a deleted directory returns false'
-        );
+        $sftp->delete(self::$scratchDir);
+        try {
+            $sftp->stat(self::$scratchDir);
+            $this->assertTrue(
+                false,
+                'Failed asserting that stat on a deleted directory returns false'
+            );
+        } catch (\Exception) {
+        }
 
-        $this->assertFalse(
-            $sftp->delete(self::$scratchDir),
-            'Failed asserting that non-existent directory could not ' .
-            'be deleted using recursive delete().'
-        );
+        try {
+            $sftp->delete(self::$scratchDir);
+            $this->assertTrue(
+                false,
+                'Failed asserting that non-existent directory could not ' .
+                'be deleted using recursive delete().'
+            );
+        } catch (\Exception) {
+        }
 
         return $sftp;
     }
 
-    /**
-     * @group github735
-     */
-    /** @depends testDeleteEmptyDir */
-    public function testStatVsLstat($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testDeleteEmptyDir')]
+    #[\PHPUnit\Framework\Attributes\Group('github735')]
+    public function testStatVsLstat(SFTP $sftp)
     {
-        $this->assertTrue($sftp->mkdir(self::$scratchDir));
-        $this->assertTrue($sftp->chdir(self::$scratchDir));
-        $this->assertTrue($sftp->put('text.txt', 'zzzzz'));
-        $this->assertTrue($sftp->symlink('text.txt', 'link.txt'));
-        $this->assertTrue($sftp->mkdir('subdir'));
-        $this->assertTrue($sftp->symlink('subdir', 'linkdir'));
+        $sftp->mkdir(self::$scratchDir);
+        $sftp->chdir(self::$scratchDir);
+        $sftp->put('text.txt', 'zzzzz');
+        $sftp->symlink('text.txt', 'link.txt');
+        $sftp->mkdir('subdir');
+        $sftp->symlink('subdir', 'linkdir');
 
         $sftp->clearStatCache();
 
@@ -616,39 +581,37 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         $sftp->nlist();
 
         $stat = $sftp->stat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_REGULAR);
+        $this->assertSame($stat['type'], FileType::REGULAR);
         $stat = $sftp->lstat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_SYMLINK);
+        $this->assertSame($stat['type'], FileType::SYMLINK);
 
         $stat = $sftp->stat('linkdir');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_DIRECTORY);
+        $this->assertSame($stat['type'], FileType::DIRECTORY);
         $stat = $sftp->lstat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_SYMLINK);
+        $this->assertSame($stat['type'], FileType::SYMLINK);
 
         $sftp->disableStatCache();
 
         $sftp->nlist();
 
         $stat = $sftp->stat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_REGULAR);
+        $this->assertSame($stat['type'], FileType::REGULAR);
         $stat = $sftp->lstat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_SYMLINK);
+        $this->assertSame($stat['type'], FileType::SYMLINK);
 
         $stat = $sftp->stat('linkdir');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_DIRECTORY);
+        $this->assertSame($stat['type'], FileType::DIRECTORY);
         $stat = $sftp->lstat('link.txt');
-        $this->assertSame($stat['type'], NET_SFTP_TYPE_SYMLINK);
+        $this->assertSame($stat['type'], FileType::SYMLINK);
 
         $sftp->enableStatCache();
 
         return $sftp;
     }
 
-    /**
-     * @group github830
-     */
-    /** @depends testStatVsLstat */
-    public function testUploadOffsets($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testStatVsLstat')]
+    #[\PHPUnit\Framework\Attributes\Group('github830')]
+    public function testUploadOffsets(SFTP $sftp)
     {
         $sftp->put('offset.txt', 'res.txt', SFTP::SOURCE_LOCAL_FILE, 0, 10);
         $this->assertSame(
@@ -667,15 +630,15 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testUploadOffsets */
-    public function testReadableWritable($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testUploadOffsets')]
+    public function testReadableWritable(SFTP $sftp)
     {
-        $sftp->chmod(0000, 'offset.txt');
+        $sftp->chmod('offset.txt', 0);
         $this->assertFalse($sftp->is_writable('offset.txt'));
         $this->assertFalse($sftp->is_writeable('offset.txt'));
         $this->assertFalse($sftp->is_readable('offset.txt'));
 
-        $sftp->chmod(0777, 'offset.txt');
+        $sftp->chmod('offset.txt', 0o777);
         $this->assertTrue($sftp->is_writable('offset.txt'));
         $this->assertTrue($sftp->is_writeable('offset.txt'));
         $this->assertTrue($sftp->is_readable('offset.txt'));
@@ -687,11 +650,9 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /**
-     * @group github999
-     */
-    /** @depends testReadableWritable */
-    public function testExecNlist($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testReadableWritable')]
+    #[\PHPUnit\Framework\Attributes\Group('github999')]
+    public function testExecNlist(SFTP $sftp)
     {
         $sftp->enablePTY();
         $sftp->exec('ping google.com -c 5');
@@ -703,16 +664,16 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testExecNlist */
-    public function testRawlistDisabledStatCache($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testExecNlist')]
+    public function testRawlistDisabledStatCache(SFTP $sftp)
     {
-        $this->assertTrue($sftp->mkdir(self::$scratchDir));
-        $this->assertTrue($sftp->chdir(self::$scratchDir));
-        $this->assertTrue($sftp->put('text.txt', 'zzzzz'));
-        $this->assertTrue($sftp->mkdir('subdir'));
-        $this->assertTrue($sftp->chdir('subdir'));
-        $this->assertTrue($sftp->put('leaf.txt', 'yyyyy'));
-        $this->assertTrue($sftp->chdir('../../'));
+        $sftp->mkdir(self::$scratchDir);
+        $sftp->chdir(self::$scratchDir);
+        $sftp->put('text.txt', 'zzzzz');
+        $sftp->mkdir('subdir');
+        $sftp->chdir('subdir');
+        $sftp->put('leaf.txt', 'yyyyy');
+        $sftp->chdir('../../');
 
         $list_cache_enabled = $sftp->rawlist('.', true);
 
@@ -731,12 +692,30 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /** @depends testRawlistDisabledStatCache */
-    public function testChownChgrp($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testRawlistDisabledStatCache')]
+    public function testRawlistCallback(SFTP $sftp)
+    {
+        $files = [];
+        /** @psalm-suppress UnusedClosureParam */
+        $callback = function ($dir, $filename, $attributes) use (&$files): void {
+            $files[] = $filename;
+        };
+
+        $sftp->rawlist(self::$scratchDir, true, $callback);
+
+        $this->assertContains('text.txt', $files);
+        $this->assertContains('subdir', $files);
+        $this->assertContains('leaf.txt', $files);
+
+        return $sftp;
+    }
+
+    #[\PHPUnit\Framework\Attributes\Depends('testRawlistCallback')]
+    public function testChownChgrp(SFTP $sftp)
     {
         $stat = $sftp->stat(self::$scratchDir);
-        $this->assertTrue($sftp->chown(self::$scratchDir, $stat['uid']));
-        $this->assertTrue($sftp->chgrp(self::$scratchDir, $stat['gid']));
+        $sftp->chown(self::$scratchDir, $stat['uid']);
+        $sftp->chgrp(self::$scratchDir, $stat['gid']);
 
         $sftp->clearStatCache();
         $stat2 = $sftp->stat(self::$scratchDir);
@@ -746,22 +725,20 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         return $sftp;
     }
 
-    /**
-     * @group github1934
-     */
-    /** @depends testChownChgrp */
-    public function testCallableGetWithLength($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testChownChgrp')]
+    #[\PHPUnit\Framework\Attributes\Group('github1934')]
+    public function testCallableGetWithLength(SFTP $sftp): SFTP
     {
         $sftp->put('test.txt', 'zzzzz');
-        $sftp->get('test.txt', function ($data) {
+        $sftp->get('test.txt', function ($data): void {
+            $this->assertSame('z', $data);
         }, 0, 1);
-        $this->assertTrue(true);
-
         return $sftp;
     }
 
-    /** @depends testPasswordLogin */
-    public function testStatVfs($sftp)
+
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    public function testStatVfs(SFTP $sftp): void
     {
         $sftp->put('test.txt', 'aaaaa');
         $stat = $sftp->statvfs('test.txt');
@@ -781,8 +758,8 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         $this->assertSame(255, $stat['namemax']);
     }
 
-    /** @depends testPasswordLogin */
-    public function testPosixRename($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    public function testPosixRename(SFTP $sftp): void
     {
         $sftp->put('test1.txt', 'aaaaa');
         $sftp->put('test2.txt', 'bbbbb');
@@ -791,15 +768,23 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
         $this->assertSame('aaaaa', $sftp->get('test2.txt'));
     }
 
-    /** @depends testSymlink */
-    public function testHardlink($sftp)
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    public function testMkdirChmod(SFTP $sftp): void
+    {
+        $sftp->mkdir('permtest', 0777);
+        $this->assertSame(0777, $sftp->fileperms('permtest') & 0777);
+        $sftp->rmdir('permtest');
+        $sftp->mkdir('permtest', 0755);
+        $this->assertSame(0755, $sftp->fileperms('permtest') & 0777);
+        $sftp->rmdir('permtest');
+    }
+
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    public function testHardlink($sftp): void
     {
         $sftp->put('test3.txt', 'abcdefg');
 
-        $this->assertTrue(
-            $sftp->hardlink('test3.txt', 'hardlink'),
-            'Failed asserting that a hardlink could be created'
-        );
+        $sftp->hardlink('test3.txt', 'hardlink');
         $this->assertSame(
             'abcdefg',
             $sftp->get('hardlink'),

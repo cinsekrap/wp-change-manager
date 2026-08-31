@@ -2,30 +2,26 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2014 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Functional\Net;
+declare(strict_types=1);
 
-use phpseclib3\Exception\NoSupportedAlgorithmsException;
-use phpseclib3\Net\SSH2;
-use phpseclib3\Tests\PhpseclibFunctionalTestCase;
+namespace phpseclib4\Tests\Functional\Net;
+
+use phpseclib4\Exception\NoSupportedAlgorithmsException;
+use phpseclib4\Net\SSH2;
+use phpseclib4\Tests\PhpseclibFunctionalTestCase;
 
 class SSH2Test extends PhpseclibFunctionalTestCase
 {
-    /**
-     * @return SSH2
-     */
-    public function getSSH2()
+    public function getSSH2(): SSH2
     {
         return new SSH2($this->getEnv('SSH_HOSTNAME'), 22);
     }
 
-    /**
-     * @return SSH2
-     */
-    public function getSSH2Login()
+    public function getSSH2Login(): SSH2
     {
         $ssh = $this->getSSH2();
 
@@ -39,7 +35,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    public function testConstructor()
+    public function testConstructor(): SSH2
     {
         $ssh = $this->getSSH2();
 
@@ -51,12 +47,10 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /**
-     * @group github408
-     * @group github412
-     */
-    /** @depends testConstructor */
-    public function testPreLogin(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testConstructor')]
+    #[\PHPUnit\Framework\Attributes\Group('github408')]
+    #[\PHPUnit\Framework\Attributes\Group('github412')]
+    public function testPreLogin(SSH2 $ssh): SSH2
     {
         $this->assertFalse(
             $ssh->isConnected(),
@@ -97,8 +91,8 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /** @depends testPreLogin */
-    public function testBadPassword(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testPreLogin')]
+    public function testBadPassword(SSH2 $ssh): SSH2
     {
         $username = $this->getEnv('SSH_USERNAME');
         $password = $this->getEnv('SSH_PASSWORD');
@@ -125,8 +119,8 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /** @depends testBadPassword */
-    public function testPasswordLogin(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testBadPassword')]
+    public function testPasswordLogin(SSH2 $ssh): SSH2
     {
         $username = $this->getEnv('SSH_USERNAME');
         $password = $this->getEnv('SSH_PASSWORD');
@@ -148,21 +142,20 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /**
-     * @group github280
-     * @requires PHPUnit < 10
-     */
-    /** @depends testPasswordLogin */
-    public function testExecWithMethodCallback(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testPasswordLogin')]
+    #[\PHPUnit\Framework\Attributes\Group('github280')]
+    public function testExecWithMethodCallback(SSH2 $ssh): SSH2
     {
-        $callbackObject = $this->getMockBuilder('stdClass')
-            ->setMethods(['callbackMethod'])
-            ->getMock();
-        $callbackObject
-            ->expects($this->atLeastOnce())
-            ->method('callbackMethod')
-            ->will($this->returnValue(true));
-        $ssh->exec('pwd', [$callbackObject, 'callbackMethod']);
+        $callbackObject = new class {
+            public int $callCount = 0;
+            public function callbackMethod($data): bool
+            {
+                $this->callCount++;
+                return true;
+            }
+        };
+        $ssh->exec('pwd', \Closure::fromCallable([$callbackObject, 'callbackMethod']));
+        $this->assertGreaterThanOrEqual(1, $callbackObject->callCount, 'callbackMethod was not called');
 
         $this->assertFalse(
             $ssh->isPTYOpen(),
@@ -183,14 +176,14 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    public function testGetServerPublicHostKey()
+    public function testGetServerPublicHostKey(): void
     {
         $ssh = $this->getSSH2();
 
         $this->assertIsString($ssh->getServerPublicHostKey());
     }
 
-    public function testOpenSocketConnect()
+    public function testOpenSocketConnect(): void
     {
         $fsock = fsockopen($this->getEnv('SSH_HOSTNAME'), 22);
         $ssh = new SSH2($fsock);
@@ -203,11 +196,9 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         );
     }
 
-    /**
-     * @group github1009
-     */
-    /** @depends testExecWithMethodCallback */
-    public function testDisablePTY(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testExecWithMethodCallback')]
+    #[\PHPUnit\Framework\Attributes\Group('github1009')]
+    public function testDisablePTY(SSH2 $ssh): SSH2
     {
         $ssh->enablePTY();
 
@@ -273,11 +264,9 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /**
-     * @group github1167
-     */
-    /** @depends testDisablePTY */
-    public function testChannelDataAfterOpen(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testDisablePTY')]
+    #[\PHPUnit\Framework\Attributes\Group('github1167')]
+    public function testChannelDataAfterOpen(SSH2 $ssh): void
     {
         // Ubuntu's OpenSSH from 5.8 to 6.9 didn't work with multiple channels. see
         // https://bugs.launchpad.net/ubuntu/+source/openssh/+bug/1334916 for more info.
@@ -313,10 +302,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
 
         $ssh->enablePTY();
 
-        $this->assertTrue(
-            $ssh->exec('bash'),
-            'Failed asserting exec command succeeded.'
-        );
+        $ssh->exec('bash');
 
         $this->assertTrue(
             $ssh->isShellOpen(),
@@ -356,14 +342,11 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         );
     }
 
-    public function testOpenShell()
+    public function testOpenShell(): SSH2
     {
         $ssh = $this->getSSH2Login();
 
-        $this->assertTrue(
-            $ssh->openShell(),
-            'SSH2 shell initialization failed.'
-        );
+        $ssh->openShell();
 
         $this->assertTrue(
             $ssh->isShellOpen(),
@@ -391,8 +374,8 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $ssh;
     }
 
-    /** @depends testOpenShell */
-    public function testResetOpenShell(SSH2 $ssh)
+    #[\PHPUnit\Framework\Attributes\Depends('testOpenShell')]
+    public function testResetOpenShell(SSH2 $ssh): void
     {
         $ssh->reset();
 
@@ -408,7 +391,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         );
     }
 
-    public function testMultipleExecPty()
+    public function testMultipleExecPty(): void
     {
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Please close the channel (1) before trying to open it again');
@@ -422,14 +405,11 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         $ssh->exec('bash');
     }
 
-    public function testMultipleInteractiveChannels()
+    public function testMultipleInteractiveChannels(): void
     {
         $ssh = $this->getSSH2Login();
 
-        $this->assertTrue(
-            $ssh->openShell(),
-            'SSH2 shell initialization failed.'
-        );
+        $ssh->openShell();
 
         $this->assertEquals(
             SSH2::CHANNEL_SHELL,
@@ -466,10 +446,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
 
         $ssh->enablePTY();
 
-        $this->assertTrue(
-            $ssh->exec('bash'),
-            'Failed asserting that pty exec succeeds'
-        );
+        $ssh->exec('bash');
 
         $this->assertTrue(
             $ssh->isShellOpen(),
@@ -538,7 +515,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         );
     }
 
-    public function testReadingOfClosedChannel()
+    public function testReadingOfClosedChannel(): void
     {
         $ssh = $this->getSSH2Login();
         $this->assertSame(0, $ssh->getOpenChannelCount());
@@ -555,7 +532,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         $this->assertSame(0, $ssh->getOpenChannelCount());
     }
 
-    public function testPing()
+    public function testPing(): void
     {
         $ssh = $this->getSSH2();
         // assert on unauthenticated ssh2
@@ -569,7 +546,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         $this->assertSame(0, $ssh->getOpenChannelCount());
     }
 
-    public function testKeepAlive()
+    public function testKeepAlive(): void
     {
         $ssh = $this->getSSH2();
         $username = $this->getEnv('SSH_USERNAME');
@@ -611,9 +588,7 @@ class SSH2Test extends PhpseclibFunctionalTestCase
         return $tests;
     }
 
-    /**
-     * @group github2062
-     */
+    #[\PHPUnit\Framework\Attributes\Group('github2062')]
     public function testSendEOF()
     {
         $ssh = $this->getSSH2Login();
@@ -628,8 +603,8 @@ class SSH2Test extends PhpseclibFunctionalTestCase
      * @param string $type
      * @param string $algorithm
      */
-    /** @dataProvider getCryptoAlgorithms */
-    public function testCryptoAlgorithms($type, $algorithm)
+    #[\PHPUnit\Framework\Attributes\DataProvider('getCryptoAlgorithms')]
+    public function testCryptoAlgorithms($type, $algorithm): void
     {
         $ssh = $this->getSSH2();
         try {

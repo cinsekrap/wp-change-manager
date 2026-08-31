@@ -2,21 +2,17 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2014 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests;
+declare(strict_types=1);
+
+namespace phpseclib4\Tests;
 
 abstract class PhpseclibFunctionalTestCase extends PhpseclibTestCase
 {
-    /**
-     * @param string $variable
-     * @param string|null $message
-     *
-     * @return null
-     */
-    protected function requireEnv($variable, $message = null)
+    protected function requireEnv(string $variable, ?string $message = null): void
     {
         if ($this->_getEnv($variable) === false) {
             $msg = $message ? $message : sprintf(
@@ -28,11 +24,9 @@ abstract class PhpseclibFunctionalTestCase extends PhpseclibTestCase
     }
 
     /**
-     * @param string $variable
      *
-     * @return string
      */
-    protected function getEnv($variable)
+    protected function getEnv(string $variable): string
     {
         $this->requireEnv($variable);
         return $this->_getEnv($variable);
@@ -43,7 +37,7 @@ abstract class PhpseclibFunctionalTestCase extends PhpseclibTestCase
         return getenv($this->_prefixEnvVariable($variable));
     }
 
-    private function _prefixEnvVariable($variable)
+    private function _prefixEnvVariable($variable): string
     {
         return 'PHPSECLIB_' . $variable;
     }

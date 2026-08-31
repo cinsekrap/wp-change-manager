@@ -16,13 +16,27 @@ jobs:
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: ${{ matrix.php-version }}
-                    tools: php-parallel-lint/php-parallel-lint:1
+                env:
+                    update: true
+            -   name: Override PHPUnit and ParaTest versions
+                run: |
+                    composer require --dev --no-update \
+                      "phpunit/phpunit:${{ matrix.phpunit }}" \
+                      "brianium/paratest:${{ matrix.paratest }}"
+            -   name: Composer Install
+                run: composer install --classmap-authoritative --no-interaction --no-cache
             -   name: Lint
-                run: parallel-lint --show-deprecated build phpseclib tests
+                run: vendor/bin/parallel-lint --show-deprecated build phpseclib tests
         strategy:
             fail-fast: false
             matrix:
-                php-version: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5']
+                include:
+                    -   { php-version: '8.1', phpunit: '^10.5', paratest: '^7.0' }
+                    -   { php-version: '8.2', phpunit: '^11.5', paratest: '^7.8.5' }
+                    -   { php-version: '8.3', phpunit: '^11.5', paratest: '^7.8.5' }
+                    -   { php-version: '8.4', phpunit: '^12.5', paratest: '^7.16' }
+                    -   { php-version: '8.5', phpunit: '^13.1', paratest: '^7.22' }
     quality_tools:
         name: Quality Tools
         timeout-minutes: 5
@@ -33,21 +47,22 @@ jobs:
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
-                    php-version: '8.1'
-                    tools: squizlabs/php_codesniffer:3, friendsofphp/php-cs-fixer:3, vimeo/psalm:4
+                    php-version: '8.2'
+                env:
+                    update: true
+            -   name: Override PHPUnit and ParaTest versions
+                run: composer require --dev --no-update "phpunit/phpunit:^11.5" "brianium/paratest:^7.8.5"
             -   name: Composer Install
-                run: composer install --classmap-authoritative --no-interaction --no-cache
+                run: composer update --with-all-dependencies --no-interaction --no-cache
             -   name: PHP_CodeSniffer
-                run: phpcs --standard=build/php_codesniffer.xml
-            -   name: PHP CS Fixer
-                run: php-cs-fixer fix --config=build/php-cs-fixer.php --diff --dry-run --using-cache=no
+                run: vendor/bin/phpcs --standard=build/php_codesniffer.xml
             -   name: Psalm
-                run: psalm --config=build/psalm.xml --no-cache --long-progress --report-show-info=false
+                run: vendor/bin/psalm --config=build/psalm.xml --no-cache --long-progress --report-show-info=false
+        strategy:
+            fail-fast: false
     tests:
         name: Tests
         timeout-minutes: 10
-        # Sometimes there is a segfault on PHP 5.6.
-        continue-on-error: ${{ matrix.php-version == '5.6' }}
         runs-on: ${{ matrix.os }}
         steps:
             -   name: Checkout
@@ -56,26 +71,28 @@ jobs:
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: ${{ matrix.php-version }}
+                env:
+                    update: true
+            -   name: Override PHPUnit and ParaTest versions
+                shell: bash
+                run: |
+                    composer require --dev --no-update \
+                      "phpunit/phpunit:${{ matrix.phpunit }}" \
+                      "brianium/paratest:${{ matrix.paratest }}"
             -   name: Composer Install
-                run: composer install --classmap-authoritative --no-interaction --no-cache
-            -   name: Make Tests Compatiable With PHPUnit 7+
-                if: matrix.php-version != '5.6' && matrix.php-version != '7.0'
-                run: php tests/make_compatible_with_phpunit7.php
-            -   name: Make Tests Compatiable With PHPUnit 9+
-                if: matrix.php-version != '5.6' && matrix.php-version != '7.0' && matrix.php-version != '7.1' && matrix.php-version != '7.2'
-                run: php tests/make_compatible_with_phpunit9.php
-            -   name: Make Tests Compatiable With PHPUnit 12+
-                if: matrix.php-version != '5.6' && matrix.php-version != '7.0' && matrix.php-version != '7.1' && matrix.php-version != '7.2' && matrix.php-version != '7.3' && matrix.php-version != '7.4' && matrix.php-version != '8.0'
-                run: php tests/make_compatible_with_phpunit12.php
+                run: composer update --with-all-dependencies --no-interaction --no-cache
             -   name: Setup Secure Shell Functional Tests
                 if: matrix.os == 'ubuntu-latest'
                 run: |
                     PHPSECLIB_SSH_USERNAME='phpseclib'
                     PHPSECLIB_SSH_PASSWORD='EePoov8po1aethu2kied1ne0'
 
+                    # Create user
                     sudo useradd --create-home --base-dir /home "$PHPSECLIB_SSH_USERNAME"
                     echo "$PHPSECLIB_SSH_USERNAME:$PHPSECLIB_SSH_PASSWORD" | sudo chpasswd
-                    ssh-keygen -t rsa -b 1024 -f "$HOME/.ssh/id_rsa" -q -N ""
+
+                    # Generate keypair, set up agent and authorized_keys
+                    ssh-keygen -t rsa -b 2048 -f "$HOME/.ssh/id_rsa" -q -N ""
                     eval `ssh-agent -s`
                     ssh-add "$HOME/.ssh/id_rsa"
                     sudo mkdir -p "/home/$PHPSECLIB_SSH_USERNAME/.ssh/"
@@ -84,15 +101,56 @@ jobs:
                     sudo cp "/tmp/known_hosts" "/home/$PHPSECLIB_SSH_USERNAME/.ssh/known_hosts"
                     sudo chown "$PHPSECLIB_SSH_USERNAME:$PHPSECLIB_SSH_USERNAME" "/home/$PHPSECLIB_SSH_USERNAME/.ssh/" -R
 
+                    # ---------- Port 23: keyboard-interactive only ----------
+                    sudo tee /etc/ssh/sshd_config_kbdint > /dev/null <<'EOF'
+                    Port 23
+                    PidFile /run/sshd_kbdint.pid
+                    PasswordAuthentication no
+                    PubkeyAuthentication no
+                    KbdInteractiveAuthentication yes
+                    ChallengeResponseAuthentication yes
+                    UsePAM yes
+                    AuthenticationMethods keyboard-interactive
+                    Subsystem sftp /usr/lib/openssh/sftp-server
+                    EOF
+                    sudo /usr/sbin/sshd -f /etc/ssh/sshd_config_kbdint
+
+                    # ---------- Port 24: 2FA (publickey + keyboard-interactive) ----------
+                    sudo tee /etc/ssh/sshd_config_2fa > /dev/null <<'EOF'
+                    Port 24
+                    PidFile /run/sshd_2fa.pid
+                    PasswordAuthentication no
+                    PubkeyAuthentication yes
+                    KbdInteractiveAuthentication yes
+                    ChallengeResponseAuthentication yes
+                    UsePAM yes
+                    AuthenticationMethods publickey,keyboard-interactive
+                    Subsystem sftp /usr/lib/openssh/sftp-server
+                    EOF
+                    sudo /usr/sbin/sshd -f /etc/ssh/sshd_config_2fa
+
+                    # Verify both are listening
+                    sleep 1
+                    sudo ss -tlnp | grep -E ':(22|23|24)\b'
+
+                    # Export env vars
                     echo "PHPSECLIB_SSH_HOSTNAME=localhost" >> $GITHUB_ENV
                     echo "PHPSECLIB_SSH_USERNAME=$PHPSECLIB_SSH_USERNAME" >> $GITHUB_ENV
                     echo "PHPSECLIB_SSH_PASSWORD=$PHPSECLIB_SSH_PASSWORD" >> $GITHUB_ENV
                     echo "PHPSECLIB_SSH_HOME=/home/phpseclib" >> $GITHUB_ENV
+                    echo "PHPSECLIB_SSH_KBDINT_PORT=23" >> $GITHUB_ENV
+                    echo "PHPSECLIB_SSH_2FA_PORT=24" >> $GITHUB_ENV
                     echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
             -   name: PHPUnit
-                run: vendor/bin/phpunit --configuration tests/phpunit.xml
+                run: vendor/bin/paratest --configuration=tests/phpunit.xml --runner=WrapperRunner --no-progress
         strategy:
             fail-fast: false
             matrix:
                 os: [ubuntu-latest, windows-latest, macos-latest]
-                php-version: ['7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5']
+                include:
+                    -   { php-version: '8.1', phpunit: '^10.5', paratest: '^7.0' }
+                    -   { php-version: '8.2', phpunit: '^11.5', paratest: '^7.8.5' }
+                    -   { php-version: '8.3', phpunit: '^11.5', paratest: '^7.8.5' }
+                    -   { php-version: '8.4', phpunit: '^12.5', paratest: '^7.16' }
+                    -   { php-version: '8.5', phpunit: '^13.1', paratest: '^7.22' }

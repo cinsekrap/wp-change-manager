@@ -2,24 +2,24 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2014 Jim Wigginton
+ * @copyright 2014-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\Random;
-use phpseclib3\Crypt\RC4;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\RC4;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class RC4Test extends PhpseclibTestCase
 {
-    public static function engineVectors()
+    public static function engineVectors(): array
     {
         $engines = [
             'PHP',
             'Eval',
-            'mcrypt',
             'OpenSSL',
         ];
         // tests from https://tools.ietf.org/html/rfc6229
@@ -44,8 +44,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => 'f2e30f9bd102ecbf75aaade9bc35c43c'],
                     ['offset' => 3072, 'result' => 'ec0e11c479dc329dc8da7968fe965681'],
                     ['offset' => 4080, 'result' => '068326a2118416d21f9d04b2cd1ca050'],
-                    ['offset' => 4096, 'result' => 'ff25b58995996707e51fbdf08b34d875']
-                ]
+                    ['offset' => 4096, 'result' => 'ff25b58995996707e51fbdf08b34d875'],
+                ],
             ],
             [
                 'key' => pack('H*', '01020304050607'), // 56-bit key
@@ -67,8 +67,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => 'adfd3868b8e51485d5e610017e3dd609'],
                     ['offset' => 3072, 'result' => 'ad26581c0c5be45f4cea01db2f3805d5'],
                     ['offset' => 4080, 'result' => 'f3172ceffc3b3d997c85ccd5af1a950c'],
-                    ['offset' => 4096, 'result' => 'e74b0b9731227fd37c0ec08a47ddd8b8']
-                ]
+                    ['offset' => 4096, 'result' => 'e74b0b9731227fd37c0ec08a47ddd8b8'],
+                ],
             ],
             [
                 'key' => pack('H*', '0102030405060708'), // 64-bit key
@@ -90,8 +90,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => '26b51ea37df8e1d6f76fc3b66a7429b3'],
                     ['offset' => 3072, 'result' => 'bc7683205d4f443dc1f29dda3315c87b'],
                     ['offset' => 4080, 'result' => 'd5fa5a3469d29aaaf83d23589db8c85b'],
-                    ['offset' => 4096, 'result' => '3fb46e2c8f0f068edce8cdcd7dfc5862']
-                ]
+                    ['offset' => 4096, 'result' => '3fb46e2c8f0f068edce8cdcd7dfc5862'],
+                ],
             ],
             [
                 'key' => pack('H*', '0102030405060708090a'), // 80-bit key
@@ -113,8 +113,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => '552225ed1177f44584ac8cfa6c4eb5fc'],
                     ['offset' => 3072, 'result' => '7e82cbabfc95381b080998442129c2f8'],
                     ['offset' => 4080, 'result' => '1f135ed14ce60a91369d2322bef25e3c'],
-                    ['offset' => 4096, 'result' => '08b6be45124a43e2eb77953f84dc8553']
-                ]
+                    ['offset' => 4096, 'result' => '08b6be45124a43e2eb77953f84dc8553'],
+                ],
             ],
             [
                 'key' => pack('H*', '0102030405060708090a0b0c0d0e0f10'), // 128-bit key
@@ -136,8 +136,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => 'fabeb76028ade2d0e48722e46c4615a3'],
                     ['offset' => 3072, 'result' => 'c05d88abd50357f935a63c59ee537623'],
                     ['offset' => 4080, 'result' => 'ff38265c1642c1abe8d3c2fe5e572bf8'],
-                    ['offset' => 4096, 'result' => 'a36a4c301ae8ac13610ccbc12256cacc']
-                ]
+                    ['offset' => 4096, 'result' => 'a36a4c301ae8ac13610ccbc12256cacc'],
+                ],
             ],
             [
                 'key' => pack('H*', '0102030405060708090a0b0c0d0e0f101112131415161718'), // 192-bit key
@@ -159,8 +159,8 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => '6866397e95c140534f94263421006e40'],
                     ['offset' => 3072, 'result' => '32cb0a1e9542c6b3b8b398abc3b0f1d5'],
                     ['offset' => 4080, 'result' => '29a0b8aed54a132324c62e423f54b4c8'],
-                    ['offset' => 4096, 'result' => '3cb0f3b5020a98b82af9fe154484a168']
-                ]
+                    ['offset' => 4096, 'result' => '3cb0f3b5020a98b82af9fe154484a168'],
+                ],
             ],
             [
                 'key' => pack('H*', '0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20'), // 256-bit key
@@ -182,9 +182,9 @@ class RC4Test extends PhpseclibTestCase
                     ['offset' => 3056, 'result' => '8aed95ee5b0dcbfbef4eb21d3a3f52f9'],
                     ['offset' => 3072, 'result' => '625a1ab00ee39a5327346bddb01a9c18'],
                     ['offset' => 4080, 'result' => 'a13a7c79c7e119b5ab0296ab28c300b9'],
-                    ['offset' => 4096, 'result' => 'f3e4c0a2e02d1d01f7f0a74618af2b48']
-                ]
-            ]
+                    ['offset' => 4096, 'result' => 'f3e4c0a2e02d1d01f7f0a74618af2b48'],
+                ],
+            ],
         ];
 
         $result = [];
@@ -200,8 +200,8 @@ class RC4Test extends PhpseclibTestCase
         return $result;
     }
 
-    /** @dataProvider engineVectors */
-    public function testVectors($engine, $key, $offset, $expected)
+    #[\PHPUnit\Framework\Attributes\DataProvider('engineVectors')]
+    public function testVectors($engine, $key, $offset, $expected): void
     {
         $rc4 = new RC4();
         $rc4->setPreferredEngine($engine);
@@ -213,20 +213,14 @@ class RC4Test extends PhpseclibTestCase
         $this->assertEquals(bin2hex(substr($result, -16)), $expected, "Failed asserting that key $key yielded expected output at offset $offset in $engine engine");
     }
 
-    public function testKeySizes()
+    /** @psalm-suppress InvalidArrayOffset */
+    public function testKeySizes(): void
     {
         $objects = $engines = [];
         $temp = new RC4(RC4::MODE_CTR);
         $temp->setPreferredEngine('internal');
         $objects[] = $temp;
         $engines[] = 'internal';
-
-        if ($temp->isValidEngine('mcrypt')) {
-            $temp = new RC4(RC4::MODE_CTR);
-            $temp->setPreferredEngine('mcrypt');
-            $objects[] = $temp;
-            $engines[] = 'mcrypt';
-        }
 
         if ($temp->isValidEngine('openssl')) {
             $temp = new RC4(RC4::MODE_CTR);
@@ -242,7 +236,7 @@ class RC4Test extends PhpseclibTestCase
         $plaintext = str_repeat('.', 100);
 
         for ($keyLen = 5; $keyLen <= 256; $keyLen++) {
-            $key = Random::string($keyLen);
+            $key = random_bytes($keyLen);
             $objects[0]->setKey($key);
             $ref = $objects[0]->encrypt($plaintext);
             for ($i = 1; $i < count($objects); $i++) {

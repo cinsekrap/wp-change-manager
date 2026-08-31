@@ -12,7 +12,7 @@ final class GeneratedConfig
 	public const EXTENSIONS = array (
   'ergebnis/phpstan-rules' => 
   array (
-    'install_path' => '/Users/sb/Work/OpenSource/phpunit/tools/.phpstan/vendor/ergebnis/phpstan-rules',
+    'install_path' => '/usr/local/src/phpunit/tools/.phpstan/vendor/ergebnis/phpstan-rules',
     'relative_install_path' => '../../../ergebnis/phpstan-rules',
     'extra' => 
     array (
@@ -26,7 +26,7 @@ final class GeneratedConfig
   ),
   'phpstan/phpstan-strict-rules' => 
   array (
-    'install_path' => '/Users/sb/Work/OpenSource/phpunit/tools/.phpstan/vendor/phpstan/phpstan-strict-rules',
+    'install_path' => '/usr/local/src/phpunit/tools/.phpstan/vendor/phpstan/phpstan-strict-rules',
     'relative_install_path' => '../../phpstan-strict-rules',
     'extra' => 
     array (
@@ -38,28 +38,13 @@ final class GeneratedConfig
     'version' => '2.0.12',
     'phpstanVersionConstraint' => '>=2.1.52.0-dev, <3.0.0.0-dev',
   ),
-  'tomasvotruba/type-coverage' => 
-  array (
-    'install_path' => '/Users/sb/Work/OpenSource/phpunit/tools/.phpstan/vendor/tomasvotruba/type-coverage',
-    'relative_install_path' => '../../../tomasvotruba/type-coverage',
-    'extra' => 
-    array (
-      'includes' => 
-      array (
-        0 => 'config/extension.neon',
-        1 => 'packages/type-perfect/config/extension.neon',
-      ),
-    ),
-    'version' => '2.3.0',
-    'phpstanVersionConstraint' => '>=2.2.0.0-dev, <3.0.0.0-dev',
-  ),
 );
 
 	public const NOT_INSTALLED = array (
 );
 
 	/** @var string|null */
-	public const PHPSTAN_VERSION_CONSTRAINT = '>=2.2.0.0-dev, <3.0.0.0-dev';
+	public const PHPSTAN_VERSION_CONSTRAINT = '>=2.1.52.0-dev, <3.0.0.0-dev';
 
 	private function __construct()
 	{

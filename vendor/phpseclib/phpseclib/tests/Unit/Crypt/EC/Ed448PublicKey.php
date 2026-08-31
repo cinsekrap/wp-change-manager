@@ -1,23 +1,26 @@
 <?php
 
-namespace phpseclib3\Tests\Unit\Crypt\EC;
+declare(strict_types=1);
 
-use phpseclib3\Common\Functions\Strings;
-use phpseclib3\Crypt\EC\Curves\Ed448;
-use phpseclib3\Crypt\EC\Formats\Keys\Common;
+namespace phpseclib4\Tests\Unit\Crypt\EC;
+
+use phpseclib4\Common\Functions\Strings;
+use phpseclib4\Crypt\EC\Curves\Ed448;
+use phpseclib4\Crypt\EC\Formats\Keys\Common;
+use phpseclib4\Exception\LengthException;
+use phpseclib4\Exception\UnexpectedValueException;
 
 class Ed448PublicKey
 {
     use Common;
 
-    public static function load($key, $password = '')
-    {
-        if (!Strings::is_stringable($key)) {
-            throw new \UnexpectedValueException('Key should be a string - not a ' . gettype($key));
-        }
-
+    /** @psalm-suppress PossiblyUnusedParam */
+    public static function load(
+        #[\SensitiveParameter] string $key,
+        #[\SensitiveParameter] ?string $password = null
+    ): array {
         if (strlen($key) != 57) {
-            throw new \LengthException('Key length should be 57 bytes');
+            throw new LengthException('Key length should be 57 bytes');
         }
 
         $components = ['curve' => new Ed448()];

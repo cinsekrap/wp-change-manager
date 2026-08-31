@@ -2,27 +2,32 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2013 Jim Wigginton
+ * @copyright 2018-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\EC;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\EC;
-use phpseclib3\Crypt\EC\Formats\Keys\OpenSSH;
-use phpseclib3\Crypt\EC\Formats\Keys\PKCS1;
-use phpseclib3\Crypt\EC\Formats\Keys\PKCS8;
-use phpseclib3\Crypt\EC\Formats\Keys\PuTTY;
-use phpseclib3\Crypt\EC\Formats\Keys\XML;
-use phpseclib3\Crypt\EC\PrivateKey;
-use phpseclib3\Crypt\EC\PublicKey;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Exception\BadConfigurationException;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\EC;
+
+use phpseclib4\Crypt\EC;
+use phpseclib4\Crypt\EC\Curves\secp384r1;
+use phpseclib4\Crypt\EC\Formats\Keys\OpenSSH;
+use phpseclib4\Crypt\EC\Formats\Keys\PKCS1;
+use phpseclib4\Crypt\EC\Formats\Keys\PKCS8;
+use phpseclib4\Crypt\EC\Formats\Keys\PuTTY;
+use phpseclib4\Crypt\EC\Formats\Keys\XML;
+use phpseclib4\Crypt\EC\PrivateKey;
+use phpseclib4\Crypt\EC\PublicKey;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\BadConfigurationException;
+use phpseclib4\Exception\ResourceLimitException;
+use phpseclib4\Exception\UnexpectedValueException;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class KeyTest extends PhpseclibTestCase
 {
-    public function testBinaryPKCS1PrivateParameters()
+    public function testBinaryPKCS1PrivateParameters(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN EC PARAMETERS-----
 BgUrgQQAIg==
@@ -37,7 +42,7 @@ Jq9z4moG4whp3JsuiBQG9wnaHVrQPA4=
     }
 
     // openssl ecparam -name secp256k1 -genkey -noout -out secp256k1.pem
-    public function testPKCS1PrivateKey()
+    public function testPKCS1PrivateKey(): void
     {
         $key = PublicKeyLoader::load($expected = '-----BEGIN EC PRIVATE KEY-----
 MHQCAQEEIEzUawcXqUsQhaEQ51JLeOIY0ddzlO2nNgwDk32ETqwkoAcGBSuBBAAK
@@ -50,7 +55,7 @@ oUQDQgAEFuVcVb9iCUhg2cknHPE+BouHGhQ39ORjMaMI3T4RfRxr6dj5HAXdEqVZ
     }
 
     // openssl ecparam -name secp256k1 -genkey -noout -out secp256k1.pem -param_enc explicit
-    public function testPKCS1PrivateKeySpecifiedCurve()
+    public function testPKCS1PrivateKeySpecifiedCurve(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN EC PRIVATE KEY-----
 MIIBEwIBAQQgFr6TF5meGfgCXDqVxoSEltGI+T94G42PPbA6/ibq+ouggaUwgaIC
@@ -82,11 +87,12 @@ E5w=
 -----END EC PRIVATE KEY-----';
         PKCS1::useSpecifiedCurve();
         $this->assertSameNL($expected, $key->toString('PKCS1'));
+        PKCS8::useNamedCurve();
     }
 
     // openssl ecparam -name secp256k1 -genkey -noout -out secp256k1.pem
     // openssl pkcs8 -topk8 -nocrypt -in secp256k1.pem -out secp256k1-2.pem
-    public function testPKCS8PrivateKey()
+    public function testPKCS8PrivateKey(): void
     {
         $key = PublicKeyLoader::load($expected = '-----BEGIN PRIVATE KEY-----
 MIGEAgEAMBAGByqGSM49AgEGBSuBBAAKBG0wawIBAQQgAYCXwnhqMT6fCIKIkQ0w
@@ -99,7 +105,7 @@ cac7QqHrn4TCQMF9a+im74WhRANCAATwCjyGuP8xQbvVjznqazL36oeAnD32I+X2
 
     // openssl ecparam -name secp256k1 -genkey -noout -out secp256k1.pem -param_enc explicit
     // openssl pkcs8 -topk8 -nocrypt -in secp256k1.pem -out secp256k1-2.pem
-    public function testPKCS8PrivateKeySpecifiedCurve()
+    public function testPKCS8PrivateKeySpecifiedCurve(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN PRIVATE KEY-----
 MIIBIwIBADCBrgYHKoZIzj0CATCBogIBATAsBgcqhkjOPQEBAiEA////////////
@@ -126,10 +132,11 @@ AFLpken6rN6lOEIeyNLdD097
 -----END PRIVATE KEY-----';
         PKCS8::useSpecifiedCurve();
         $this->assertSameNL($expected, $key->toString('PKCS8'));
+        PKCS8::useNamedCurve();
     }
 
     // openssl ecparam -name sect113r1 -genkey -noout -out sect113r1.pem
-    public function testBinaryPKCS1PrivateKey()
+    public function testBinaryPKCS1PrivateKey(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN EC PRIVATE KEY-----
 MEECAQEEDwBZdP4eSzKk/uQa6jdtfKAHBgUrgQQABKEiAyAABAHqCoNb++mK5qvE
@@ -150,7 +157,7 @@ isLNAS4jX1zOq9ekQ9wBZJd7
     }
 
     // openssl ecparam -name sect113r1 -genkey -noout -out sect113r1.pem -param_enc explicit
-    public function testBinaryPKCS1PrivateKeySpecifiedCurve()
+    public function testBinaryPKCS1PrivateKeySpecifiedCurve(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN EC PRIVATE KEY-----
 MIHNAgEBBA8AuSc4BeeyYTq9rbSDuL2ggZIwgY8CAQEwHAYHKoZIzj0BAjARAgFx
@@ -176,12 +183,19 @@ IgMgAAQBQu3OdMu7sPorh3jArVsAqSjQVHFXoh5nutPQ7/4=
 -----END EC PRIVATE KEY-----';
         PKCS1::useSpecifiedCurve();
         $this->assertSameNL($expected, $key->toString('PKCS1'));
+        PKCS8::useNamedCurve();
+
+        $this->assertFalse($key->hasPassword());
+        $key = $key->withPassword('password');
+        $this->assertTrue($key->hasPassword());
+        $key = $key->withoutPassword();
+        $this->assertFalse($key->hasPassword());
     }
 
     // openssl ecparam -name sect113r1 -genkey -noout -out sect113r1.pem
     // openssl pkcs8 -topk8 -nocrypt -in sect113r1.pem -out sect113r1-2.pem
     // sect113r1's reduction polynomial is a trinomial
-    public function testBinaryPKCS8PrivateKey()
+    public function testBinaryPKCS8PrivateKey(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN PRIVATE KEY-----
 MFECAQAwEAYHKoZIzj0CAQYFK4EEAAQEOjA4AgEBBA8A5OuqAY8HYoFOaz9mE6mh
@@ -203,7 +217,7 @@ AyAABABIXes5M9e8fRB1EG+yswF0sx/bvJ3wBYAGtlPG8g==
 
     // openssl ecparam -name sect113r1 -genkey -noout -out sect113r1.pem -param_enc explicit
     // openssl pkcs8 -topk8 -nocrypt -in sect113r1.pem -out sect113r1-2.pem
-    public function testBinaryPKCS8PrivateKeySpecifiedCurve()
+    public function testBinaryPKCS8PrivateKeySpecifiedCurve(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN PRIVATE KEY-----
 MIHdAgEAMIGbBgcqhkjOPQIBMIGPAgEBMBwGByqGSM49AQIwEQIBcQYJKoZIzj0B
@@ -213,6 +227,7 @@ Ag8BAAAAAAAAANnM7Io55W8CAQIEOjA4AgEBBA8AXtfDMRsRTx8snPbWHquhIgMg
 AAQA9xdWGJ6vV23+vkdq0C8BLJVg5E3amMyf/5keGa4=
 -----END PRIVATE KEY-----');
         $this->assertSameNL('sect113r1', $key->getCurve());
+        $this->assertSame(120, $key->getLength());
 
         // see testBinaryPKCS1PrivateKeySpecifiedCurve() for an
         // explanation of the differences between the above key
@@ -226,11 +241,12 @@ mR4Zrg==
 -----END PRIVATE KEY-----';
         PKCS8::useSpecifiedCurve();
         $this->assertSameNL($expected, $key->toString('PKCS8'));
+        PKCS8::useNamedCurve();
     }
 
     // openssl ecparam -name sect131r1 -genkey -noout -out sect131r1.pem -param_enc explicit
     // sect131r1's reduction polynomial is a pentanomial
-    public function testBinaryPentanomialPKCS1PrivateKey()
+    public function testBinaryPentanomialPKCS1PrivateKey(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN EC PRIVATE KEY-----
 MIHoAgEBBBECPEK9NCISWf2riBsORoTM+6CBpzCBpAIBATAlBgcqhkjOPQECMBoC
@@ -253,10 +269,11 @@ BjoJZJZQztmlj7Qep/sf1l8=
 -----END EC PRIVATE KEY-----';
         PKCS1::useSpecifiedCurve();
         $this->assertSameNL($expected, $key->toString('PKCS1'));
+        PKCS8::useNamedCurve();
     }
 
     // from https://tools.ietf.org/html/draft-ietf-curdle-pkix-07#section-10.1
-    public function testEd25519PublicKey()
+    public function testEd25519PublicKey(): void
     {
         $expected = '-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=
@@ -267,7 +284,7 @@ MCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=
     }
 
     // from https://tools.ietf.org/html/draft-ietf-curdle-pkix-07#section-10.3
-    public function testEd25519PrivateKey()
+    public function testEd25519PrivateKey(): void
     {
         // without public key (public key should be derived)
         $expected = '-----BEGIN PRIVATE KEY-----
@@ -300,7 +317,7 @@ WEKBIQAZv0QJaYTN/oVBusFn3DuWyFCGqjC2tssMXDitcDFm4Q==
 
     // Generate with:
     // openssl genpkey -algorithm ed448 | openssl ec -pubout
-    public function testEd448PublicKey()
+    public function testEd448PublicKey(): void
     {
         $expected = '-----BEGIN PUBLIC KEY-----
 MEMwBQYDK2VxAzoAsA7zbld48IfDhm7Qd6FYrvnljtjhPRRqZi04NWyj8VXrWe1x
@@ -313,7 +330,7 @@ BMLQFJEE0JDmKayUWpUWsRXwmb6A
 
     // Generate with:
     // openssl genpkey -algorithm ed448
-    public function testEd448PrivateKey()
+    public function testEd448PrivateKey(): void
     {
         $expected = '-----BEGIN PRIVATE KEY-----
 MEcCAQAwBQYDK2VxBDsEOettXaJYob4hJNKJNOD+FfMvdesLKNp0KwochI6AKmAb
@@ -325,7 +342,7 @@ tWhtkn99WOjd1PsGMh9zz2Vhdg3MwasOMQ==
         $this->assertSameNL('Ed448', $key->getPublicKey()->getCurve());
     }
 
-    public function testPuTTYnistp256()
+    public function testPuTTYnistp256(): void
     {
         $key = PublicKeyLoader::load($expected = 'PuTTY-User-Key-File-2: ecdsa-sha2-nistp256
 Encryption: none
@@ -350,7 +367,7 @@ Private-MAC: b85ca0eb7c612df5d18af85128821bd53faaa3ef
         $this->assertSameNL($expected, $key->toString('OpenSSH'));
     }
 
-    public function testPuTTYnistp384()
+    public function testPuTTYnistp384(): void
     {
         $key = PublicKeyLoader::load($expected = 'PuTTY-User-Key-File-2: ecdsa-sha2-nistp384
 Encryption: none
@@ -376,7 +393,7 @@ Private-MAC: 97a990a3d5f6b8f268d4be9c4ab9ebfd8fa79849
         $this->assertSameNL($expected, $key->toString('OpenSSH'));
     }
 
-    public function testPuTTYnistp521()
+    public function testPuTTYnistp521(): void
     {
         $key = PublicKeyLoader::load($expected = 'PuTTY-User-Key-File-2: ecdsa-sha2-nistp521
 Encryption: none
@@ -403,7 +420,7 @@ Private-MAC: 6d49ce289b85549a43d74422dd8bb3ba8798c72c
         $this->assertSameNL($expected, $key->toString('OpenSSH'));
     }
 
-    public function testPuTTYed25519()
+    public function testPuTTYed25519(): void
     {
         $key = PublicKeyLoader::load($expected = 'PuTTY-User-Key-File-2: ssh-ed25519
 Encryption: none
@@ -427,7 +444,7 @@ Private-MAC: 8a06821a1c8b8b40fc40f876e543c4ea3fb81bb9
         $this->assertSameNL($expected, $key->toString('OpenSSH'));
     }
 
-    public function testlibsodium()
+    public function testlibsodium(): void
     {
         if (!function_exists('sodium_crypto_sign_keypair')) {
             self::markTestSkipped('libsodium extension is not available.');
@@ -445,7 +462,7 @@ Private-MAC: 8a06821a1c8b8b40fc40f876e543c4ea3fb81bb9
     }
 
     // ssh-keygen -t ed25519
-    public function testOpenSSHPrivateKey()
+    public function testOpenSSHPrivateKey(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -468,7 +485,7 @@ pomV7r6gmoMYteGVABfgAAAAD3ZhZ3JhbnRAdmFncmFudAECAwQFBg==
     }
 
     // from https://www.w3.org/TR/xmldsig-core/#sec-RFC4050Compat
-    public function testXMLKey()
+    public function testXMLKey(): void
     {
         $key = PublicKeyLoader::load($orig = '<ECDSAKeyValue xmlns="http://www.w3.org/2001/04/xmldsig-more#">
 <DomainParameters>
@@ -496,14 +513,14 @@ pomV7r6gmoMYteGVABfgAAAAD3ZhZ3JhbnRAdmFncmFudAECAwQFBg==
         $this->assertSameNL($expected, $actual);
     }
 
-    public function assertSameNL($expected, $actual, $message = '')
+    public function assertSameNL($expected, $actual, $message = ''): void
     {
         $expected = str_replace("\r\n", "\n", $expected);
         $actual = str_replace("\r\n", "\n", $actual);
         $this->assertSame($expected, $actual, $message);
     }
 
-    public function testOpenSSHPrivateEC()
+    public function testOpenSSHPrivateEC(): void
     {
         $key = '-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS
@@ -528,7 +545,7 @@ AQIDBA==
         $this->assertTrue($key->verify('zzz', $sig));
     }
 
-    public function testOpenSSHPrivateEd25519()
+    public function testOpenSSHPrivateEd25519(): void
     {
         $key = '-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
@@ -549,12 +566,10 @@ lEIq93iMVzIArjGaKrFDAAAADHJvb3RAdmFncmFudAE=
         $this->assertTrue($key->withSignatureFormat('SSH2')->verify('zzz', $sig2));
     }
 
-    /**
-     * @group github1712
-     */
-    public function testKeyTooLarge()
+    #[\PHPUnit\Framework\Attributes\Group('github1712')]
+    public function testKeyTooLarge(): void
     {
-        $this->expectException('RangeException');
+        $this->expectException(UnexpectedValueException::class);
 
         $key = '-----BEGIN PRIVATE KEY-----
 MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
@@ -581,13 +596,11 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
 //////////////////////////////////////////////8=
 -----END PRIVATE KEY-----';
 
-        $private = EC::loadFormat('PKCS8', $key);
+        EC::loadFormat('PKCS8', $key);
     }
 
-    /**
-     * @group github1712
-     */
-    public function testLargeCurve25519Key()
+    #[\PHPUnit\Framework\Attributes\Group('github1712')]
+    public function testLargeCurve25519Key(): void
     {
         $raw = pack('H*', '8426220e7a57dc8d685d3966e3a23600e32563ce6033e07d0c89dbb5bd296577');
         $key = EC::loadFormat('MontgomeryPrivate', $raw);
@@ -595,7 +608,7 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
         $this->assertSameNL($raw, $key->toString('MontgomeryPrivate'));
     }
 
-    public function testOpenSSHEncryptedCreation()
+    public function testOpenSSHEncryptedCreation(): void
     {
         if (PHP_INT_SIZE == 4) {
             self::markTestSkipped('32-bit integers slow OpenSSH encrypted keys down too much');
@@ -608,7 +621,7 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
         $this->assertInstanceOf(PrivateKey::class, $key);
     }
 
-    public function testECasJWK()
+    public function testECasJWK(): void
     {
         // keys are from https://datatracker.ietf.org/doc/html/rfc7517#appendix-A
 
@@ -632,7 +645,7 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
 
         $phpseclibKey = str_replace('=', '', $key->toString('JWK', [
             'use' => 'enc',
-            'kid' => '1'
+            'kid' => '1',
         ]));
 
         $this->assertSame($keyWithoutWS, $phpseclibKey);
@@ -656,7 +669,7 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
 
         $phpseclibKey = str_replace('=', '', $key->toString('JWK', [
             'use' => 'enc',
-            'kid' => '1'
+            'kid' => '1',
         ]));
 
         $this->assertSame($keyWithoutWS, $phpseclibKey);
@@ -664,7 +677,7 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
         $this->assertTrue($key->verify($plaintext, $sig));
     }
 
-    public function testEd25519asJWK()
+    public function testEd25519asJWK(): void
     {
         // keys are from https://www.rfc-editor.org/rfc/rfc8037.html#appendix-A
 
@@ -700,16 +713,16 @@ MIIEDwIBADATBgcqhkjOPQIBBggqhkjOPQMBBwSCA/MwggPvAgEBBIID6P//////
         $this->assertTrue($key->verify($plaintext, $sig));
     }
 
-    public function testNakedPKCS8PubKey()
+    public function testNakedPKCS8PubKey(): void
     {
         $key = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAErPJyxEu2/oKCrJaaTVTrq39DKJ2XcN6W+k8UvGf+Y/lDWNbFitQocabsDUvSN0edHH3UKP5QPTz4cOlyIPMrXQ==';
         $key = PublicKeyLoader::load($key);
         $this->assertInstanceOf(PublicKey::class, $key);
     }
 
-    public function testMislabledPKCS8PubKey()
+    public function testMislabledPKCS8PubKey(): void
     {
-        $this->expectException('\phpseclib3\Exception\NoKeyLoadedException');
+        $this->expectException('\phpseclib4\Exception\NoKeyLoadedException');
 
         $key = '-----BEGIN PRIVATE KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAErPJyxEu2/oKCrJaaTVTrq39DKJ2X
@@ -719,10 +732,8 @@ cN6W+k8UvGf+Y/lDWNbFitQocabsDUvSN0edHH3UKP5QPTz4cOlyIPMrXQ==
         $this->assertInstanceOf(PublicKey::class, $key);
     }
 
-    /**
-     * @group github1956
-     */
-    public function testIEEESignature()
+    #[\PHPUnit\Framework\Attributes\Group('github1956')]
+    public function testIEEESignature(): void
     {
         $key = '{"alg":"ES256","crv":"P-256","ext":true,"key_ops":["verify"],"kty":"EC","x":"FKwqyGd4i2NAl8RUXCCBRCAIbcpeGyfyXwgA_AWHb8Y","y":"njxhw5O6zGVkBlcPDKYj0E-6VO1giHTUkJWBhgKNqd8"}';
         $key = PublicKeyLoader::load($key)->withSignatureFormat('IEEE')->withHash('sha384');
@@ -733,9 +744,9 @@ cN6W+k8UvGf+Y/lDWNbFitQocabsDUvSN0edHH3UKP5QPTz4cOlyIPMrXQ==
         $this->assertTrue($key->verify('hello world!', $signature));
     }
 
-    public function testExcessivelyLargeBinaryField()
+    public function testExcessivelyLargeBinaryField(): void
     {
-        $this->expectException('\OutOfBoundsException');
+        $this->expectException(ResourceLimitException::class);
 
         $key = '-----BEGIN PUBLIC KEY-----
 MIIBDDCB0wYHKoZIzj0CATCBxwIBATAgBgcqhkjOPQECMBUCBH////8GCSqGSM49
@@ -749,7 +760,7 @@ z9DYTLdGkQDqox3AtEs9nn6kE1O/vHE4bqMegjj4gbA=
         $this->assertInstanceOf(PublicKey::class, $key);
     }
 
-    public function testIEEESignatureCreate()
+    public function testIEEESignatureCreate(): void
     {
         $key = PublicKeyLoader::load('-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg7+qVCtyt+tV2hTou
@@ -761,5 +772,29 @@ kbZNIHu+PaE0osExnxdlkiC+VYqhRANCAAS8yEueJvIAnCk++0rsD8X9dk3hAmyb
         $sig = $priv->sign('ddd');
 
         $this->assertTrue($key->getPublicKey()->withSignatureFormat('IEEE')->verify('ddd', $sig));
+    }
+
+    public function testImplicitCurve(): void
+    {
+        PKCS1::setImplicitCurve(new secp384r1());
+
+        /*
+        $temp = ['implicitCurve' => new ExplicitNull()];
+        $output = ASN1::encodeDER($temp, Maps\ECParameters::MAP);
+        echo base64_encode($output);
+        */
+
+        $key = '-----BEGIN EC PARAMETERS-----
+BQA=
+-----END EC PARAMETERS-----
+-----BEGIN EC PRIVATE KEY-----
+MIGkAgEBBDBPoZHEeuf9UjjhevAbGxWwsmmWw34vkxJwtZ0AknmSUAHo0OAowJSQ
+Stf/0U65RhWgBwYFK4EEACKhZANiAASVZJGIs6m/TZhbFoTwBtpvU1JcyixD2YI3
+5YnoIx/6Q1oqJg1vrrmUoXaeEpaO6JH8RgItTl9lYMdmOk5309WJka6tI1QAAK3+
+Jq9z4moG4whp3JsuiBQG9wnaHVrQPA4=
+-----END EC PRIVATE KEY-----';
+
+        $key = EC::loadFormat('PKCS1', $key);
+        $this->assertIsString("$key");
     }
 }

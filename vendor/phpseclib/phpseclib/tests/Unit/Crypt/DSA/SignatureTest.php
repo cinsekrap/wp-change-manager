@@ -2,20 +2,22 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2015 Jim Wigginton
+ * @copyright 2016-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\DSA;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\DSA;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Exception\BadConfigurationException;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\DSA;
+
+use phpseclib4\Crypt\DSA;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\BadConfigurationException;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class SignatureTest extends PhpseclibTestCase
 {
-    public function testPKCSSignature()
+    public function testPKCSSignature(): void
     {
         $message = 'hello, world!';
 
@@ -81,7 +83,7 @@ TzUkQjFI9UY7kZeK
         DSA::forceEngine();
     }
 
-    public function testRandomSignature()
+    public function testRandomSignature(): void
     {
         $message = 'hello, world!';
 
@@ -125,7 +127,7 @@ kBniZHdFBAZBTE14YJUBkw==
         DSA::forceEngine();
     }
 
-    public function testSSHSignature()
+    public function testSSHSignature(): void
     {
         $dsa = PublicKeyLoader::load('AAAAB3NzaC1kc3MAAACBAPyzZzm4oqmY12lxmHwNcfYDNyXr38M1lU6xy9I792U1YSKgX27nUW9eXdJ8Mrn63Le5rrBRfg2Niycx' .
                    'JF2IwDpwCi7YpIv79uwT3RtA0chQDS4vx8qi8BWBzy7PZC9hmqY62+mgfj8ooga1sr+JpMh+8r4j3KjPM+wE37khkgkvAAAAFQDn' .
@@ -136,6 +138,7 @@ kBniZHdFBAZBTE14YJUBkw==
         $dsa = $dsa
             ->withHash('sha1')
             ->withSignatureFormat('SSH2');
+        $this->assertEquals('SSH2', $dsa->getSignatureFormat());
         $message = pack('H*', '8bfc69a222c12ddf6bc6bf33c9cadc106af04feb');
         $signature = pack('H*', '000000077373682d64737300000028a7a2e55dc43e5e6145aa94daa0552ea479d1139d6d6ba50650b489e24e976593e73f76557813d6bc');
 
