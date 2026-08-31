@@ -2,22 +2,25 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2013 Jim Wigginton
+ * @copyright 2020-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\DSA;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\DSA\Parameters;
-use phpseclib3\Crypt\DSA\PrivateKey;
-use phpseclib3\Crypt\DSA\PublicKey;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Exception\NoKeyLoadedException;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\DSA;
+
+use phpseclib4\Crypt\DSA;
+use phpseclib4\Crypt\DSA\Parameters;
+use phpseclib4\Crypt\DSA\PrivateKey;
+use phpseclib4\Crypt\DSA\PublicKey;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\NoKeyLoadedException;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class LoadDSAKeyTest extends PhpseclibTestCase
 {
-    public function testBadKey()
+    public function testBadKey(): void
     {
         $this->expectException(NoKeyLoadedException::class);
 
@@ -25,7 +28,7 @@ class LoadDSAKeyTest extends PhpseclibTestCase
         PublicKeyLoader::load($key);
     }
 
-    public function testPuTTYKey()
+    public function testPuTTYKey(): void
     {
         $key = 'PuTTY-User-Key-File-2: ssh-dss
 Encryption: none
@@ -60,12 +63,26 @@ Private-MAC: 62b92ddd8b341b9414d640c24ba6ae929a78e039
         $this->assertIsString("$dsa");
         $this->assertIsString($dsa->getPublicKey()->toString('PuTTY'));
         $this->assertIsString($dsa->getParameters()->toString('PuTTY'));
+        $length = ['L' => 2048, 'N' => 160];
+        $this->assertSame($length, $dsa->getLength());
 
         $dsa = $dsa->withPassword('password');
         $this->assertGreaterThan(0, strlen("$dsa"));
+
+        $arr = $dsa->toArray();
+        $this->assertIsArray($arr);
+        foreach (['p', 'q', 'g', 'y', 'x'] as $key) {
+            $this->assertArrayHasKey($key, $arr);
+        }
+
+        $arr = $dsa->getPublickey()->toArray();
+        $this->assertIsArray($arr);
+        foreach (['p', 'q', 'g', 'y'] as $key) {
+            $this->assertArrayHasKey($key, $arr);
+        }
     }
 
-    public function testPKCS1Key()
+    public function testPKCS1Key(): void
     {
         $key = '-----BEGIN DSA PRIVATE KEY-----
 MIIDPQIBAAKCAQEAiwfUDxLuCgQSd5boP/MleHXPKllGUqXDu81onvJeL2+pSQqd
@@ -94,9 +111,15 @@ Eb2s9fDOpnMhj+WqwcQgs18=
         $this->assertIsString("$dsa");
         $this->assertIsString($dsa->getPublicKey()->toString('PKCS1'));
         $this->assertIsString((string) $dsa->getParameters());
+
+        $this->assertFalse($dsa->hasPassword());
+        $dsa = $dsa->withPassword('password');
+        $this->assertTrue($dsa->hasPassword());
+        $dsa = $dsa->withoutPassword();
+        $this->assertFalse($dsa->hasPassword());
     }
 
-    public function testParameters()
+    public function testParameters(): void
     {
         $key = '-----BEGIN DSA PARAMETERS-----
 MIIBHgKBgQDandMycPZNOEwDXpIDSdFODWOQVO5tlnt38wK0X33TJh4wQdqOSiVF
@@ -113,9 +136,16 @@ L1cwyXx0KMaaampd34MzOIHbC44SHY+cE3aVVUsnmt6Ur1nQaVYVszl+AO6m8bPm
         $this->assertInstanceOf(Parameters::class, $dsa);
         $this->assertSame($key, str_replace(["\n", "\r"], '', "$dsa"));
         $this->assertSame($key, str_replace(["\n", "\r"], '', (string) $dsa->getParameters()));
+
+        $dsa = DSA::loadParameters($key);
+        $this->assertInstanceOf(Parameters::class, $dsa);
+        $dsa = DSA::loadParametersFormat('PKCS1', $key);
+        $this->assertInstanceOf(Parameters::class, $dsa);
+        $dsa = PublicKeyLoader::loadParameters($key);
+        $this->assertInstanceOf(Parameters::class, $dsa);
     }
 
-    public function testPKCS8Public()
+    public function testPKCS8Public(): void
     {
         $key = '-----BEGIN PUBLIC KEY-----
 MIIBtjCCASsGByqGSM44BAEwggEeAoGBANqd0zJw9k04TANekgNJ0U4NY5BU7m2W
@@ -136,7 +166,7 @@ ZpmyOpXM/0opRMIRdmqVW4ardBFNokmlqngwcbaptfRnk9W2cQtx0lmKy6X/vnis
         $this->assertIsString("$dsa");
     }
 
-    public function testPKCS8Private()
+    public function testPKCS8Private(): void
     {
         $key = '-----BEGIN PRIVATE KEY-----
 MIIBSgIBADCCASsGByqGSM44BAEwggEeAoGBANqd0zJw9k04TANekgNJ0U4NY5BU
@@ -156,7 +186,7 @@ Syea3pSvWdBpVhWzOX4A7qbxs+bhWAQWAhQiF7sFfCtZ7oOgCb2aJ9ySC9sTug==
         $this->assertInstanceOf(Parameters::class, $dsa->getParameters());
     }
 
-    public function testPuTTYBadMAC()
+    public function testPuTTYBadMAC(): void
     {
         $this->expectException(NoKeyLoadedException::class);
 
@@ -190,7 +220,7 @@ Private-MAC: aaaaaadd8b341b9414d640c24ba6ae929a78e039
         PublicKeyLoader::load($key);
     }
 
-    public function testXML()
+    public function testXML(): void
     {
         $key = '-----BEGIN PUBLIC KEY-----
 MIIBtjCCASsGByqGSM44BAEwggEeAoGBANqd0zJw9k04TANekgNJ0U4NY5BU7m2W
@@ -218,7 +248,7 @@ ZpmyOpXM/0opRMIRdmqVW4ardBFNokmlqngwcbaptfRnk9W2cQtx0lmKy6X/vnis
         );
     }
 
-    public function testOpenSSHPrivate()
+    public function testOpenSSHPrivate(): void
     {
         $key = '-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABswAAAAdzc2gtZH
@@ -255,9 +285,7 @@ dlN48qLbSmUgsO7gq/1vodebMSHcduV4JTq8ix5Ey87QAAABQhHEzWiduF4V0DestSnJ3q
         $this->assertTrue($key->verify('zzz', $sig));
     }
 
-    /**
-     * @group github2149
-     */
+    #[\PHPUnit\Framework\Attributes\Group('github2149')]
     public function testInvalidVersion()
     {
         $key = '-----BEGIN DSA PRIVATE KEY-----

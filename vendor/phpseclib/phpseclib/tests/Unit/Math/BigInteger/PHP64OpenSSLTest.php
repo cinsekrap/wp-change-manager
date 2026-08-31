@@ -2,18 +2,20 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2013-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Math\BigInteger;
+declare(strict_types=1);
 
-use phpseclib3\Exception\BadConfigurationException;
-use phpseclib3\Math\BigInteger\Engines\PHP64;
+namespace phpseclib4\Tests\Unit\Math\BigInteger;
+
+use phpseclib4\Exception\BadConfigurationException;
+use phpseclib4\Math\BigInteger\Engines\PHP64;
 
 class PHP64OpenSSLTest extends TestCase
 {
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         if (!PHP64::isValidEngine()) {
             self::markTestSkipped('64-bit integers are not available.');
@@ -26,12 +28,12 @@ class PHP64OpenSSLTest extends TestCase
         }
     }
 
-    public function getInstance($x = 0, $base = 10)
+    public function getInstance($x = 0, $base = 10): PHP64
     {
         return new PHP64($x, $base);
     }
 
-    public function testInternalRepresentation()
+    public function testInternalRepresentation(): void
     {
         $x = new PHP64('FFFFFFFFFFFFFFFFC90FDA', 16);
         $y = new PHP64("$x");
@@ -39,8 +41,8 @@ class PHP64OpenSSLTest extends TestCase
         $this->assertSame(self::getVar($x, 'value'), self::getVar($y, 'value'));
     }
 
-    public static function getStaticClass()
+    public static function getStaticClass(): string
     {
-        return 'phpseclib3\Math\BigInteger\Engines\PHP64';
+        return 'phpseclib4\Math\BigInteger\Engines\PHP64';
     }
 }

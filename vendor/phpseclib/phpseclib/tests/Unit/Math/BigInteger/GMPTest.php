@@ -2,17 +2,19 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2013-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Math\BigInteger;
+declare(strict_types=1);
 
-use phpseclib3\Math\BigInteger\Engines\GMP;
+namespace phpseclib4\Tests\Unit\Math\BigInteger;
+
+use phpseclib4\Math\BigInteger\Engines\GMP;
 
 class GMPTest extends TestCase
 {
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         if (!GMP::isValidEngine()) {
             self::markTestSkipped('GNU Multiple Precision (GMP) extension is not available.');
@@ -20,13 +22,13 @@ class GMPTest extends TestCase
         GMP::setModExpEngine('DefaultEngine');
     }
 
-    public function getInstance($x = 0, $base = 10)
+    public function getInstance($x = 0, $base = 10): GMP
     {
         return new GMP($x, $base);
     }
 
-    public static function getStaticClass()
+    public static function getStaticClass(): string
     {
-        return 'phpseclib3\Math\BigInteger\Engines\GMP';
+        return 'phpseclib4\Math\BigInteger\Engines\GMP';
     }
 }

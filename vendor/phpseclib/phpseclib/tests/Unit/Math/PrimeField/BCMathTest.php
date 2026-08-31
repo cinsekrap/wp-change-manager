@@ -2,20 +2,20 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2013-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Math\PrimeField;
+namespace phpseclib4\Tests\Unit\Math\PrimeField;
 
-use phpseclib3\Math\BigInteger;
-use phpseclib3\Math\BigInteger\Engines\BCMath;
+use phpseclib4\Math\BigInteger;
+use phpseclib4\Math\BigInteger\Engines\BCMath;
 
 class BCMathTest extends TestCase
 {
     private static $defaultEngine;
 
-    public static function setUpBeforeClass()
+    public static function setUpBeforeClass(): void
     {
         if (!BCMath::isValidEngine()) {
             self::markTestSkipped('BCMath extension is not available.');
@@ -24,7 +24,7 @@ class BCMathTest extends TestCase
         BigInteger::setEngine('BCMath');
     }
 
-    public static function tearDownAfterClass()
+    public static function tearDownAfterClass(): void
     {
         BigInteger::setEngine(self::$defaultEngine);
     }

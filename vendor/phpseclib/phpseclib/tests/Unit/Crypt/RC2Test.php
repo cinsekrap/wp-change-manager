@@ -6,21 +6,22 @@
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\RC2;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\RC2;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class RC2Test extends PhpseclibTestCase
 {
     public static $engines = [
         'PHP',
         'Eval',
-        'mcrypt',
         'OpenSSL',
     ];
 
-    public static function engineVectors()
+    public static function engineVectors(): array
     {
         // tests from https://tools.ietf.org/html/rfc2268#page-8
         $tests = [
@@ -32,7 +33,7 @@ class RC2Test extends PhpseclibTestCase
             ['88bca90e90875a', 64, '0000000000000000', '6ccf4308974c267f'],
             ['88bca90e90875a7f0f79c384627bafb2', 64, '0000000000000000', '1a807d272bbe5db1'],
             ['88bca90e90875a7f0f79c384627bafb2', 128, '0000000000000000', '2269552ab0f85ca6'],
-            ['88bca90e90875a7f0f79c384627bafb216f80a6f85920584c42fceb0be255daf1e', 129, '0000000000000000', '5b78d3a43dfff1f1']
+            ['88bca90e90875a7f0f79c384627bafb216f80a6f85920584c42fceb0be255daf1e', 129, '0000000000000000', '5b78d3a43dfff1f1'],
         ];
 
         $result = [];
@@ -47,7 +48,7 @@ class RC2Test extends PhpseclibTestCase
     }
 
     // this test is just confirming RC2's key expansion
-    public function testEncryptPadding()
+    public function testEncryptPadding(): void
     {
         $rc2 = new RC2('ecb');
 
@@ -92,14 +93,6 @@ class RC2Test extends PhpseclibTestCase
         $result = pack('H*', 'e3b36057f4821346');
         $this->assertEquals($result, $internal, 'Failed asserting that the internal engine produced the correct result');
 
-        $rc2->setPreferredEngine('mcrypt');
-        if ($rc2->getEngine() == 'mcrypt') {
-            $mcrypt = $rc2->encrypt('d');
-            $this->assertEquals($result, $mcrypt, 'Failed asserting that the mcrypt engine produced the correct result');
-        } else {
-            self::markTestSkipped('Unable to initialize mcrypt engine');
-        }
-
         $rc2->setPreferredEngine('OpenSSL');
         if ($rc2->getEngine() == 'OpenSSL') {
             $openssl = $rc2->encrypt('d');
@@ -109,8 +102,8 @@ class RC2Test extends PhpseclibTestCase
         }
     }
 
-    /** @dataProvider engineVectors */
-    public function testVectors($engine, $key, $keyLen, $plaintext, $ciphertext)
+    #[\PHPUnit\Framework\Attributes\DataProvider('engineVectors')]
+    public function testVectors($engine, $key, $keyLen, $plaintext, $ciphertext): void
     {
         $rc2 = new RC2('cbc');
         $rc2->disablePadding();

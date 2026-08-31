@@ -2,14 +2,16 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2015 Andreas Fischer
+ * @copyright 2015-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Functional\Net;
+declare(strict_types=1);
 
-use phpseclib3\Net\SFTP;
-use phpseclib3\Tests\PhpseclibFunctionalTestCase;
+namespace phpseclib4\Tests\Functional\Net;
+
+use phpseclib4\Net\SFTP;
+use phpseclib4\Tests\PhpseclibFunctionalTestCase;
 
 /**
  * This class provides each test method with a new and empty $this->scratchDir.
@@ -22,7 +24,7 @@ abstract class SFTPTestCase extends PhpseclibFunctionalTestCase
     protected $sftp;
     protected $scratchDir;
 
-    public function setUp()
+    public function setUp(): void
     {
         parent::setUp();
         $this->scratchDir = uniqid('phpseclib-sftp-scratch-');
@@ -32,11 +34,11 @@ abstract class SFTPTestCase extends PhpseclibFunctionalTestCase
             $this->getEnv('SSH_USERNAME'),
             $this->getEnv('SSH_PASSWORD')
         ));
-        $this->assertTrue($this->sftp->mkdir($this->scratchDir));
-        $this->assertTrue($this->sftp->chdir($this->scratchDir));
+        $this->sftp->mkdir($this->scratchDir);
+        $this->sftp->chdir($this->scratchDir);
     }
 
-    public function tearDown()
+    public function tearDown(): void
     {
         if ($this->sftp) {
             $this->sftp->chdir($this->getEnv('SSH_HOME'));

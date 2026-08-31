@@ -76,6 +76,32 @@ final class StoreTest extends TestCase
         $builder->make()->read();
     }
 
+    public function testBasicReadLowercaseEncoding()
+    {
+        $builder = StoreBuilder::createWithNoNames()
+            ->addPath(self::$folder)
+            ->addName('windows.env')
+            ->fileEncoding('windows-1252');
+
+        self::assertSame(
+            "MBW=\"ñá\"\n",
+            $builder->make()->read()
+        );
+    }
+
+    public function testBasicReadAliasEncoding()
+    {
+        $builder = StoreBuilder::createWithNoNames()
+            ->addPath(self::$folder)
+            ->addName('utf8-with-bom-encoding.env')
+            ->fileEncoding('utf8');
+
+        self::assertSame(
+            "FOO=bar\nBAR=baz\nSPACED=\"with spaces\"\n",
+            $builder->make()->read()
+        );
+    }
+
     public function testFileReadMultipleShortCircuitModeDirect()
     {
         self::assertSame(
@@ -136,6 +162,32 @@ final class StoreTest extends TestCase
             Reader::read(
                 Paths::filePaths([self::$folder], ['utf8-with-bom-encoding.env'])
             )
+        );
+    }
+
+    public function testFileReadWithUtf16LeWithBomEncoding()
+    {
+        $builder = StoreBuilder::createWithNoNames()
+            ->addPath(self::$folder)
+            ->addName('utf16le-with-bom-encoding.env')
+            ->fileEncoding('UTF-16LE');
+
+        self::assertSame(
+            "FOO=bar\nBAR=baz\n",
+            $builder->make()->read()
+        );
+    }
+
+    public function testFileReadWithUtf32LeWithBomEncoding()
+    {
+        $builder = StoreBuilder::createWithNoNames()
+            ->addPath(self::$folder)
+            ->addName('utf32le-with-bom-encoding.env')
+            ->fileEncoding('UTF-32LE');
+
+        self::assertSame(
+            "FOO=bar\nBAR=baz\n",
+            $builder->make()->read()
         );
     }
 }

@@ -2,22 +2,21 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2015 Jim Wigginton
+ * @copyright 2016-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\DSA;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\DSA;
-use phpseclib3\Crypt\DSA\Parameters;
-use phpseclib3\Crypt\DSA\PrivateKey;
-use phpseclib3\Crypt\DSA\PublicKey;
-use phpseclib3\Exception\BadConfigurationException;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\DSA;
 
-/**
- * @requires PHP 7.0
- */
+use phpseclib4\Crypt\DSA;
+use phpseclib4\Crypt\DSA\Parameters;
+use phpseclib4\Crypt\DSA\PrivateKey;
+use phpseclib4\Crypt\DSA\PublicKey;
+use phpseclib4\Exception\BadConfigurationException;
+use phpseclib4\Tests\PhpseclibTestCase;
+
 class CreateKeyTest extends PhpseclibTestCase
 {
     public function testCreateParameters()
@@ -39,8 +38,8 @@ class CreateKeyTest extends PhpseclibTestCase
         return $dsa;
     }
 
-    /** @depends testCreateParameters */
-    public function testCreateKey($params)
+    #[\PHPUnit\Framework\Attributes\Depends('testCreateParameters')]
+    public function testCreateKey($params): void
     {
         // libsodium doesn't support DSA but it still ought not result in any errors outside of the BadConfigurationException being thrown
         $engines = ['libsodium', 'OpenSSL', 'PHP'];

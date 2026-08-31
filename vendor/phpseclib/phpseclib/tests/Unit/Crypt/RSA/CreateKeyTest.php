@@ -2,22 +2,27 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2015 Jim Wigginton
+ * @copyright 2015-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\RSA;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\RSA;
-use phpseclib3\Crypt\RSA\Formats\Keys\PKCS1;
-use phpseclib3\Crypt\RSA\Formats\Keys\PKCS8;
-use phpseclib3\Crypt\RSA\PrivateKey;
-use phpseclib3\Crypt\RSA\PublicKey;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\RSA;
+
+use phpseclib4\Crypt\RSA\Formats\Keys\OpenSSH;
+use phpseclib4\Crypt\RSA;
+use phpseclib4\Crypt\RSA\Formats\Keys\PKCS1;
+use phpseclib4\Crypt\RSA\Formats\Keys\PKCS8;
+use phpseclib4\Crypt\RSA\PrivateKey;
+use phpseclib4\Crypt\RSA\PublicKey;
+use phpseclib4\File\ASN1;
+use phpseclib4\Math\BigInteger;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class CreateKeyTest extends PhpseclibTestCase
 {
-    public function testCreateKey()
+    public function testCreateKey(): array
     {
         $privatekey = RSA::createKey(768);
         $publickey = $privatekey->getPublicKey();
@@ -31,17 +36,17 @@ class CreateKeyTest extends PhpseclibTestCase
         return [$publickey, $privatekey];
     }
 
-    /** @depends testCreateKey */
-    public function testEncryptDecrypt($args)
+    #[\PHPUnit\Framework\Attributes\Depends('testCreateKey')]
+    public function testEncryptDecrypt($args): void
     {
-        list($publickey, $privatekey) = $args;
+        [$publickey, $privatekey] = $args;
         $ciphertext = $publickey->encrypt('zzz');
         $this->assertIsString($ciphertext);
         $plaintext = $privatekey->decrypt($ciphertext);
         $this->assertSame($plaintext, 'zzz');
     }
 
-    public function testMultiPrime()
+    public function testMultiPrime(): void
     {
         RSA::forceEngine('PHP');
         RSA::setSmallestPrime(256);
@@ -57,7 +62,7 @@ class CreateKeyTest extends PhpseclibTestCase
         $this->assertCount(4, $r['primes']);
         // the last prime number could be slightly over. eg. 99 * 99 == 9801 but 10 * 10 = 100. the more numbers you're
         // multiplying the less certain you are to have each of them multiply to an n-bit number
-        foreach (array_slice($r['primes'], 0, 3) as $i => $prime) {
+        foreach (array_slice($r['primes'], 0, 3) as $prime) {
             $this->assertSame($prime->getLength(), 256);
         }
 
@@ -66,15 +71,46 @@ class CreateKeyTest extends PhpseclibTestCase
         $rsa = RSA::load($rsa->getPublicKey()->toString('PKCS1'));
         $this->assertTrue($rsa->verify('zzz', $signature));
 
+        RSA::setSmallestPrime(4096);
+
         RSA::forceEngine();
     }
 
-    public function test3DESPKCS8Encryption()
+    public function test3DESPKCS8Encryption(): void
     {
         $key = RSA::createKey(768)
             ->withPassword('demo')
             ->toString('PKCS8', ['encryptionAlgorithm' => 'pbeWithSHAAnd3-KeyTripleDES-CBC']);
         $actual = PKCS8::extractEncryptionAlgorithm($key)['algorithm'];
-        $this->assertSame($actual, 'pbeWithSHAAnd3-KeyTripleDES-CBC');
+        $this->assertEquals($actual, 'pbeWithSHAAnd3-KeyTripleDES-CBC');
+    }
+
+    public function testBinaryOutput(): void
+    {
+        $rsa = RSA::createKey(1024);
+        OpenSSH::enableBinaryOutput();
+        $bin1 = $rsa->getPublicKey()->toString('OpenSSH');
+        OpenSSH::disableBinaryOutput();
+        $bin2 = $rsa->getPublicKey()->toString('OpenSSH', ['binary' => true]);
+        $this->assertSame($bin1, $bin2);
+
+        PKCS8::enableBinaryOutput();
+        $bin1 = $rsa->getPublicKey()->toString('PKCS8');
+        PKCS8::disableBinaryOutput();
+        $bin2 = $rsa->getPublicKey()->toString('PKCS8', ['binary' => true]);
+        $this->assertSame($bin1, $bin2);
+    }
+
+    public function testSetExponent(): void
+    {
+        RSA::forceEngine('PHP');
+        RSA::setExponent(37); // this is what puttygen uses
+        $key = RSA::createKey(1024)->toString('PKCS1');
+        $key = ASN1::extractBER($key);
+        $key = ASN1::decodeBER($key);
+        $key = ASN1::map($key, ASN1\Maps\RSAPrivateKey::MAP);
+        $this->assertTrue($key['publicExponent']->equals(new BigInteger(37)), "Failed asserting that public exponent ($key[publicExponent]) equals 37");
+        RSA::setExponent(65537); // restore default value
+        RSA::forceEngine();
     }
 }

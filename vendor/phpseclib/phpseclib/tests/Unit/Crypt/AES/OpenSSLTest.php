@@ -2,15 +2,17 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\AES;
+declare(strict_types=1);
+
+namespace phpseclib4\Tests\Unit\Crypt\AES;
 
 class OpenSSLTest extends TestCase
 {
-    protected function setUp()
+    protected function setUp(): void
     {
         $this->engine = 'OpenSSL';
     }

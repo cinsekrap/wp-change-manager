@@ -9,6 +9,7 @@ use Dotenv\Exception\InvalidEncodingException;
 use Dotenv\Exception\InvalidPathException;
 use Dotenv\Loader\Loader;
 use Dotenv\Parser\Parser;
+use Dotenv\Repository\Adapter\PutenvAdapter;
 use Dotenv\Repository\RepositoryBuilder;
 use Dotenv\Store\StoreBuilder;
 use PHPUnit\Framework\TestCase;
@@ -55,7 +56,7 @@ final class DotenvTest extends TestCase
         $dotenv = Dotenv::createMutable([]);
 
         $this->expectException(InvalidPathException::class);
-        $this->expectExceptionMessage('At least one environment file path must be provided.');
+        $this->expectExceptionMessage('At least one environment file path and file name must be provided.');
 
         $dotenv->load();
     }
@@ -211,6 +212,7 @@ final class DotenvTest extends TestCase
         self::assertSame('with spaces', $_SERVER['ESPACED']);
         self::assertSame('123', $_SERVER['EDQUOTED']);
         self::assertSame('456', $_SERVER['ESQUOTED']);
+        self::assertSame('789', $_SERVER['E']);
         self::assertEmpty($_SERVER['ENULL']);
     }
 
@@ -272,11 +274,13 @@ final class DotenvTest extends TestCase
         self::assertSame('no space', $_SERVER['QWHITESPACE']);
     }
 
-    public function testDotenvLoadDoesNotOverwriteEnv()
+    public function testDotenvImmutableLoadIgnoresPutenv()
     {
         \putenv('IMMUTABLE=true');
         $dotenv = Dotenv::createImmutable(self::$folder, 'immutable.env');
-        $dotenv->load();
+        self::assertSame(['IMMUTABLE' => 'false'], $dotenv->load());
+        self::assertSame('false', $_ENV['IMMUTABLE']);
+        self::assertSame('false', $_SERVER['IMMUTABLE']);
         self::assertSame('true', \getenv('IMMUTABLE'));
     }
 
@@ -294,6 +298,23 @@ final class DotenvTest extends TestCase
         $dotenv = Dotenv::createUnsafeImmutable(self::$folder, 'immutable.env');
         $dotenv->load();
         self::assertSame('true', \getenv('IMMUTABLE'));
+    }
+
+    public function testDotenvUnsafeLoadWithNullByteValueDoesNotThrow()
+    {
+        $dotenv = Dotenv::createUnsafeImmutable(self::$folder, 'nul.env');
+
+        self::assertSame([], $dotenv->safeLoad());
+        self::assertFalse(\getenv('NULVAL'));
+    }
+
+    public function testPutenvRepositoryIgnoresNullByteName()
+    {
+        $repository = RepositoryBuilder::createWithNoAdapters()->addAdapter(PutenvAdapter::class)->make();
+
+        self::assertFalse($repository->set("NUL\0NAME", 'value'));
+        self::assertNull($repository->get("NUL\0NAME"));
+        self::assertFalse($repository->clear("NUL\0NAME"));
     }
 
     public function testDotenvOverloadDoesOverwriteEnv()
@@ -376,6 +397,57 @@ final class DotenvTest extends TestCase
         $output = Dotenv::parse("FOO=Bar\nBAZ=\"Hello \${FOO}\"");
 
         self::assertSame($output, ['FOO' => 'Bar', 'BAZ' => 'Hello Bar']);
+    }
+
+    public function testDotenvParseNumericNames()
+    {
+        $output = Dotenv::parse("7=1\nFOO=b\n123=x");
+
+        self::assertSame($output, [7 => '1', 'FOO' => 'b', 123 => 'x']);
+    }
+
+    public function testDotenvParseStripsUtf8ByteOrderMark()
+    {
+        self::assertSame(['KEY' => '1'], Dotenv::parse("\xEF\xBB\xBFKEY=1"));
+        self::assertSame(['A' => '2'], Dotenv::parse("\xEF\xBB\xBF# c\nA=2"));
+        self::assertSame(['B' => '3'], Dotenv::parse("\xEF\xBB\xBF\nB=3"));
+    }
+
+    public function testDotenvParseInterpolationAfterMultibyteText()
+    {
+        self::assertSame(
+            ['X' => 'Y', 'FOO' => 'ĀĀĀY'],
+            Dotenv::parse("X=Y\nFOO=\"ĀĀĀ\${X}\"")
+        );
+    }
+
+    public function testDotenvParseKeepsEscapedNestedVariableLiteral()
+    {
+        self::assertSame(
+            ['B' => 'hi', 'FOO' => '$A ${B}'],
+            Dotenv::parse("B=hi\nFOO=\"\$A \\\${B}\"")
+        );
+    }
+
+    public function testDotenvParseIndentedComment()
+    {
+        self::assertSame(['A' => '1'], Dotenv::parse("   # c\nA=1"));
+    }
+
+    public function testDotenvParseCommentContainingQuoteStart()
+    {
+        self::assertSame(
+            ['A' => '1', 'B' => '2'],
+            Dotenv::parse("A=1 # example=\"unterminated\nB=2")
+        );
+    }
+
+    public function testDotenvParseMultilineContainingHash()
+    {
+        self::assertSame(
+            ['A' => "one # data\ntwo", 'B' => '2'],
+            Dotenv::parse("A=\"one # data\ntwo\"\nB=2")
+        );
     }
 
     public function testDotenvParseEmptyCase()

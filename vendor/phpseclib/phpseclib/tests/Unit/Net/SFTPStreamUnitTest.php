@@ -2,25 +2,27 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2014 Andreas Fischer
+ * @copyright 2014-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Net;
+declare(strict_types=1);
 
-use phpseclib3\Net\SFTP\Stream;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Net;
+
+use phpseclib4\Net\SFTP\Stream;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class SFTPStreamUnitTest extends PhpseclibTestCase
 {
-    public function testRegisterWithoutArgument()
+    public function testRegisterWithoutArgument(): void
     {
         $this->assertTrue(Stream::register());
         $this->assertContains('sftp', stream_get_wrappers());
         $this->assertTrue(stream_wrapper_unregister('sftp'));
     }
 
-    public function testRegisterWithArgument()
+    public function testRegisterWithArgument(): void
     {
         $protocol = 'sftptest';
         $this->assertTrue(Stream::register($protocol));

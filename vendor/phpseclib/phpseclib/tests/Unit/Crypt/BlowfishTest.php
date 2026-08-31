@@ -6,20 +6,20 @@
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\Blowfish;
-use phpseclib3\Crypt\Random;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt;
+
+use phpseclib4\Crypt\Blowfish;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class BlowfishTest extends PhpseclibTestCase
 {
-    public static function engineVectors()
+    public static function engineVectors(): array
     {
         $engines = [
             'PHP',
             'Eval',
-            'mcrypt',
             'OpenSSL',
         ];
 
@@ -59,7 +59,7 @@ class BlowfishTest extends PhpseclibTestCase
             [pack('H*', '0000000000000000'), pack('H*', 'FFFFFFFFFFFFFFFF'), pack('H*', '014933E0CDAFF6E4')],
             [pack('H*', 'FFFFFFFFFFFFFFFF'), pack('H*', '0000000000000000'), pack('H*', 'F21E9A77B71C49BC')],
             [pack('H*', '0123456789ABCDEF'), pack('H*', '0000000000000000'), pack('H*', '245946885754369A')],
-            [pack('H*', 'FEDCBA9876543210'), pack('H*', 'FFFFFFFFFFFFFFFF'), pack('H*', '6B5C5A9C5D9E0A5A')]
+            [pack('H*', 'FEDCBA9876543210'), pack('H*', 'FFFFFFFFFFFFFFFF'), pack('H*', '6B5C5A9C5D9E0A5A')],
         ];
 
         $result = [];
@@ -73,8 +73,8 @@ class BlowfishTest extends PhpseclibTestCase
         return $result;
     }
 
-    /** @dataProvider engineVectors */
-    public function testVectors($engine, $key, $plaintext, $expected)
+    #[\PHPUnit\Framework\Attributes\DataProvider('engineVectors')]
+    public function testVectors($engine, $key, $plaintext, $expected): void
     {
         $bf = new Blowfish('cbc');
         $bf->setKey($key);
@@ -90,20 +90,14 @@ class BlowfishTest extends PhpseclibTestCase
         $this->assertEquals($result, $expected, "Failed asserting that $plaintext yielded expected output in $engine engine");
     }
 
-    public function testKeySizes()
+    /** @psalm-suppress InvalidArrayOffset */
+    public function testKeySizes(): void
     {
         $objects = $engines = [];
         $temp = new Blowfish('ctr');
         $temp->setPreferredEngine('PHP');
         $objects[] = $temp;
         $engines[] = 'internal';
-
-        if ($temp->isValidEngine('mcrypt')) {
-            $temp = new Blowfish('ctr');
-            $temp->setPreferredEngine('mcrypt');
-            $objects[] = $temp;
-            $engines[] = 'mcrypt';
-        }
 
         if ($temp->isValidEngine('OpenSSL')) {
             $temp = new Blowfish('ctr');
@@ -123,7 +117,7 @@ class BlowfishTest extends PhpseclibTestCase
         $plaintext = str_repeat('.', 100);
 
         for ($keyLen = 4; $keyLen <= 56; $keyLen++) {
-            $key = Random::string($keyLen);
+            $key = random_bytes($keyLen);
             $objects[0]->setKey($key);
             $ref = $objects[0]->encrypt($plaintext);
             for ($i = 1; $i < count($objects); $i++) {

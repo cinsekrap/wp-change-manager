@@ -20,15 +20,16 @@ final class ParserTest extends TestCase
 
     public function testFullParse()
     {
-        $result = (new Parser())->parse("FOO=BAR\nFOO\nFOO=\"BAR  \n\"\nFOO=\"\\n\"");
+        $result = (new Parser())->parse("FOO=BAR\nFOO\nFOO=\"BAR  \n\"\nFOO=\"\\n\"\nBAR");
 
         self::assertIsArray($result);
-        self::assertCount(4, $result);
+        self::assertCount(5, $result);
 
         $this->checkPositiveEntry($result[0], 'FOO', 'BAR');
         $this->checkEmptyEntry($result[1], 'FOO');
         $this->checkPositiveEntry($result[2], 'FOO', "BAR  \n");
         $this->checkPositiveEntry($result[3], 'FOO', "\n");
+        $this->checkEmptyEntry($result[4], 'BAR');
     }
 
     public function testBadEscapeParse()
@@ -63,6 +64,14 @@ final class ParserTest extends TestCase
         (new Parser())->parse('FOO_ASD!=BAZ');
     }
 
+    public function testParseInvalidUtf8Name()
+    {
+        $this->expectException(InvalidFileException::class);
+        $this->expectExceptionMessage("Failed to parse dotenv file. Encountered an invalid name at [\xC3].");
+
+        (new Parser())->parse("\xC3=1");
+    }
+
     /**
      * @param \Dotenv\Parser\Entry $entry
      * @param string               $name
@@ -92,7 +101,7 @@ final class ParserTest extends TestCase
     private function checkEmptyEntry(Entry $entry, string $name)
     {
         self::assertInstanceOf(Entry::class, $entry);
-        self::assertSame('FOO', $entry->getName());
+        self::assertSame($name, $entry->getName());
         self::assertFalse($entry->getValue()->isDefined());
     }
 }

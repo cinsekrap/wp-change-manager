@@ -2,23 +2,25 @@
 
 /**
  * @author    Andreas Fischer <bantu@phpbb.com>
- * @copyright 2013 Andreas Fischer
+ * @copyright 2017-2026 Andreas Fischer
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Math\BigInteger;
+declare(strict_types=1);
 
-use phpseclib3\Math\BigInteger;
+namespace phpseclib4\Tests\Unit\Math\BigInteger;
+
+use phpseclib4\Math\BigInteger;
 
 class DefaultTest extends TestCase
 {
-    public function getInstance($x = 0, $base = 10)
+    public function getInstance($x = 0, $base = 10): BigInteger
     {
         return new BigInteger($x, $base);
     }
 
-    public static function getStaticClass()
+    public static function getStaticClass(): string
     {
-        return 'phpseclib3\Math\BigInteger';
+        return 'phpseclib4\Math\BigInteger';
     }
 }

@@ -2,19 +2,21 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2014 Jim Wigginton
+ * @copyright 2014-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\File\X509;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\RSA;
-use phpseclib3\File\X509;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\File\X509;
+
+use phpseclib4\Crypt\RSA;
+use phpseclib4\File\SPKAC;
+use phpseclib4\Tests\PhpseclibTestCase;
 
 class SPKACTest extends PhpseclibTestCase
 {
-    public function testLoadSPKAC()
+    public function testLoadSPKAC(): void
     {
         $test = 'MIICQDCCASgwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQChgo9mWzQm3TSwGgpZnIc54' .
                 'TZ8gYpfAO/AI0etvyWDqnFfdNCUQsqxTdSi6/rtrJdLGBsszRGrRIc/0JqmjM+jCHGYutLeo4xwgr' .
@@ -28,51 +30,45 @@ class SPKACTest extends PhpseclibTestCase
                 'dmeL7aWrpP+3x3L0A9cATksracQX676XogdAEXJ59fcr/S5AGw1TFErbyBbfyeAWvzDZIXeMXpb9h' .
                 'yNtA==';
 
-        $x509 = new X509();
-
-        $spkac = $x509->loadSPKAC($test);
+        $spkac = SPKAC::load($test)->toArray();
 
         $this->assertIsArray($spkac);
 
-        $spkac = $x509->loadSPKAC('SPKAC=' . $test);
+        $spkac = SPKAC::load('SPKAC=' . $test);
 
-        $this->assertIsArray($spkac);
+        $this->assertIsArray($spkac->toArray());
 
         $this->assertTrue(
-            $x509->validateSignature(),
+            $spkac->validateSignature(),
             'Failed asserting that the signature is valid'
         );
 
-        $pubKey = $x509->getPublicKey();
+        $pubKey = $spkac->getPublicKey();
 
+        /** @psalm-suppress InvalidCast */
         $this->assertIsString("$pubKey");
     }
 
-    public function testSaveSPKAC()
+    public function testSaveSPKAC(): void
     {
         $privatekey = RSA::createKey(512)
             ->withPadding(RSA::SIGNATURE_PKCS1)
             ->withHash('sha1');
 
-        $x509 = new X509();
-        $x509->setPrivateKey($privatekey);
-        $x509->setChallenge('...');
+        $spkac = new SPKAC($privatekey->getPublicKey());
+        $spkac->setChallenge('...');
+        $privatekey->sign($spkac);
 
-        $spkac = $x509->signSPKAC();
-        $this->assertIsArray($spkac);
+        $this->assertIsString("$spkac");
 
-        $this->assertIsString($x509->saveSPKAC($spkac));
+        $spkac = new SPKAC();
+        $spkac->setPublicKey($privatekey->getPublicKey());
+        $privatekey->sign($spkac);
 
-        $x509 = new X509();
-        $x509->setPrivateKey($privatekey);
-
-        $spkac = $x509->signSPKAC();
-        $this->assertIsArray($spkac);
-
-        $this->assertIsString($x509->saveSPKAC($spkac));
+        $this->assertIsString("$spkac");
     }
 
-    public function testBadSignatureSPKAC()
+    public function testBadSignatureSPKAC(): void
     {
         $test = 'MIICQDCCASgwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQChgo9mWzQm3TSwGgpZnIc54' .
                 'TZ8gYpfAO/AI0etvyWDqnFfdNCUQsqxTdSi6/rtrJdLGBsszRGrRIc/0JqmjM+jCHGYutLeo4xwgr' .
@@ -86,16 +82,17 @@ class SPKACTest extends PhpseclibTestCase
                 'dmeL7aWrpP+3x3L0A9cATksracQX676XogdAEXJ59fcr/S5AGw1TFErbyBbfyeAWvzDZIXeMXpb9h' .
                 'yNtA==';
 
-        $x509 = new X509();
+        $spkac = SPKAC::load($test);
 
-        $spkac = $x509->loadSPKAC($test);
+        $this->assertTrue(
+            $spkac->validateSignature(),
+            'Failed asserting that the signature is valid'
+        );
 
         $spkac['publicKeyAndChallenge']['challenge'] = 'zzzz';
 
-        $x509->loadSPKAC($x509->saveSPKAC($spkac));
-
         $this->assertFalse(
-            $x509->validateSignature(),
+            $spkac->validateSignature(),
             'Failed asserting that the signature is invalid'
         );
     }

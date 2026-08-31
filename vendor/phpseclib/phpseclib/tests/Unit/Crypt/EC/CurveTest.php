@@ -2,23 +2,26 @@
 
 /**
  * @author    Jim Wigginton <terrafrost@php.net>
- * @copyright 2015 Jim Wigginton
+ * @copyright 2018-2026 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
  */
 
-namespace phpseclib3\Tests\Unit\Crypt\EC;
+declare(strict_types=1);
 
-use phpseclib3\Crypt\DH;
-use phpseclib3\Crypt\EC;
-use phpseclib3\Crypt\EC\Curves\Ed448;
-use phpseclib3\Crypt\PublicKeyLoader;
-use phpseclib3\Exception\BadConfigurationException;
-use phpseclib3\File\ASN1;
-use phpseclib3\Tests\PhpseclibTestCase;
+namespace phpseclib4\Tests\Unit\Crypt\EC;
 
-class CurveTest extends PhpseclibTestCase
+use phpseclib4\Crypt\EC;
+use phpseclib4\Crypt\EC\Curves\Ed448;
+use phpseclib4\Crypt\DH;
+use phpseclib4\Crypt\PublicKeyLoader;
+use phpseclib4\Exception\BadConfigurationException;
+use phpseclib4\File\ASN1;
+use phpseclib4\File\ASN1\OIDs\Curves;
+use phpseclib4\Tests\PhpseclibTestCase;
+
+final class CurveTest extends PhpseclibTestCase
 {
-    public static function curves()
+    public static function curves(): array
     {
         $curves = [];
         foreach (new \DirectoryIterator(__DIR__ . '/../../../../phpseclib/Crypt/EC/Curves/') as $file) {
@@ -29,7 +32,7 @@ class CurveTest extends PhpseclibTestCase
             if ($testName == 'Curve25519' || $testName == 'Curve448') {
                 continue;
             }
-            $class = 'phpseclib3\Crypt\EC\Curves\\' . $testName;
+            $class = 'phpseclib4\Crypt\EC\Curves\\' . $testName;
             $reflect = new \ReflectionClass($class);
             if ($reflect->isFinal()) {
                 continue;
@@ -40,7 +43,7 @@ class CurveTest extends PhpseclibTestCase
         return $curves;
     }
 
-    public static function allCurves()
+    public static function allCurves(): array
     {
         $curves = [];
         foreach (new \DirectoryIterator(__DIR__ . '/../../../../phpseclib/Crypt/EC/Curves/') as $file) {
@@ -57,46 +60,29 @@ class CurveTest extends PhpseclibTestCase
         return $curves;
     }
 
-    public static function curvesWithOIDs()
+    public static function curvesWithOIDs(): array
     {
-        $class = new \ReflectionClass('phpseclib3\Crypt\EC\Formats\Keys\PKCS8');
-
-        $initialize = $class->getMethod('initialize_static_variables');
-        $initialize->setAccessible(true);
-        $initialize->invoke(null);
-
-        $property = $class->getProperty('curveOIDs');
-        $property->setAccessible(true);
-
-        $curves = [];
-
-        foreach ($property->getValue() as $curve => $oid) {
-            $curves[] = [$curve];
-        }
-
-        return $curves;
+        return array_map(fn ($x) => [$x], array_keys(Curves::OIDs));
     }
 
     /**
      * Verify that the base points are correct and verify the finite field math
      */
-    /** @dataProvider curves */
-    public function testBasePoint($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('curves')]
+    public function testBasePoint($name): void
     {
-        $class = 'phpseclib3\Crypt\EC\Curves\\' . $name;
+        $class = 'phpseclib4\Crypt\EC\Curves\\' . $name;
         $curve = new $class();
         $this->assertTrue($curve->verifyPoint($curve->getBasePoint()), "Failed to verify basepoint of curve $name");
     }
 
     /**
      * Verify the correctness of the point addition / doubling / multiplication algorithms
-     *
-     * @requires PHP 7.0
      */
-     /** @dataProvider curves */
-    public function testKeyGeneration($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('curves')]
+    public function testKeyGeneration($name): void
     {
-        $class = 'phpseclib3\Crypt\EC\Curves\\' . $name;
+        $class = 'phpseclib4\Crypt\EC\Curves\\' . $name;
         $curve = new $class();
         $dA = $curve->createRandomMultiplier();
         $QA = $curve->multiplyPoint($curve->getBasePoint(), $dA);
@@ -106,8 +92,8 @@ class CurveTest extends PhpseclibTestCase
     /**
      * Verify that OIDs have corresponding curve class
      */
-    /** @dataProvider curvesWithOIDs */
-    public function testCurveExistance($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('curvesWithOIDs')]
+    public function testCurveExistance($name): void
     {
         $this->assertFileExists(__DIR__ . "/../../../../phpseclib/Crypt/EC/Curves/$name.php");
     }
@@ -115,24 +101,22 @@ class CurveTest extends PhpseclibTestCase
     /**
      * Verify that all named curves have a corresponding OID
      */
-    /** @dataProvider allCurves */
-    public function testOIDExistance($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('allCurves')]
+    public function testOIDExistance($name): void
     {
         switch ($name) {
             case 'Ed25519':
             case 'Ed448':
                 self::markTestSkipped('Ed25519 / Ed448 OIDs are treated a little differently');
         }
-        $this->assertNotSame(ASN1::getOID($name), $name);
+        $this->assertNotSame(ASN1::getOIDFromName($name), $name);
     }
 
     /**
      * Sign with internal engine, verify with best engine
-     *
-     * @requires PHP 7.0
      */
-    /** @dataProvider curves */
-    public function testInternalSign($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('curves')]
+    public function testInternalSign($name): void
     {
         // tests utilizing dataProvider only seem to output when all the dataProvider input
         // has been exhausted. ie. when this test has been ran on every curve. on my local
@@ -167,7 +151,7 @@ class CurveTest extends PhpseclibTestCase
         EC::forceEngine();
     }
 
-    public function testCanSignWithAnEncryptedPrivateKey()
+    public function testCanSignWithAnEncryptedPrivateKey(): void
     {
         $plaintext = 'zzz';
         $engines = ['libsodium', 'OpenSSL', 'PHP'];
@@ -189,11 +173,9 @@ class CurveTest extends PhpseclibTestCase
 
     /**
      * Sign with best engine, verify with internal engine
-     *
-     * @requires PHP 7.0
      */
-    /** @dataProvider curves */
-    public function testInternalVerify($name)
+    #[\PHPUnit\Framework\Attributes\DataProvider('curves')]
+    public function testInternalVerify($name): void
     {
         if (substr($name, 0, 4) == 'sect') {
             self::markTestSkipped('Binary field curves are being skipped');
@@ -222,7 +204,7 @@ class CurveTest extends PhpseclibTestCase
     /**
      * Ed448 test vectors from https://tools.ietf.org/html/rfc8032#section-7.4
      */
-    public function testEd448TestVectors()
+    public function testEd448TestVectors(): void
     {
         EC::addFileFormat(Ed448PublicKey::class);
         EC::addFileFormat(Ed448PrivateKey::class);
@@ -349,7 +331,7 @@ class CurveTest extends PhpseclibTestCase
     /**
      * Ed25519 test vectors from https://tools.ietf.org/html/rfc8032#section-7.1 (and 7.2)
      */
-    public function testEd25519TestVectors()
+    public function testEd25519TestVectors(): void
     {
         $engines = ['libsodium', 'OpenSSL', 'PHP'];
         foreach ($engines as $engine) {
@@ -507,7 +489,7 @@ class CurveTest extends PhpseclibTestCase
         EC::forceEngine();
     }
 
-    public function testRandomSignature()
+    public function testRandomSignature(): void
     {
         EC::forceEngine('PHP');
         $message = 'hello, world!';
@@ -548,7 +530,7 @@ Private-MAC: b85ca0eb7c612df5d18af85128821bd53faaa3ef');
         EC::forceEngine();
     }
 
-    public function testBadRSEd25519()
+    public function testBadRSEd25519(): void
     {
         EC::forceEngine('PHP');
 
@@ -567,7 +549,7 @@ hk6TVQ4mP3lH+96p9keQBMRAY1D5znOyPk9107PceO+3kwoat1zKzw==
         EC::forceEngine();
     }
 
-    public function testShortCurve25519()
+    public function testShortCurve25519(): void
     {
         // strlen((new BigInteger($private, 256))->toBytes()) == 31 vs 32
         $private = hex2bin('006f88c07302c7f28db7fa89e34f92650d2647642e66f828741db9406acaed5d');
@@ -587,5 +569,37 @@ hk6TVQ4mP3lH+96p9keQBMRAY1D5znOyPk9107PceO+3kwoat1zKzw==
         }
 
         EC::forceEngine();
+    }
+
+    public function testMalformedSignature(): void
+    {
+        EC::forceEngine('PHP');
+
+        $key = EC::createKey('nistp256')->getPublicKey();
+        $this->assertFalse($key->verify('zzz', 'zzz'));
+
+        EC::forceEngine();
+    }
+
+    public function testRawSignature(): void
+    {
+        $message = 'hello, world!';
+        $private = PublicKeyLoader::load('PuTTY-User-Key-File-2: ecdsa-sha2-nistp256
+Encryption: none
+Comment: ecdsa-key-20181105
+Public-Lines: 3
+AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJEXCsWA8s18
+m25MJlVE1urbXPYFi4q8oMbb2H0kE2f5WPxizsKXRmb1J68paXQizryL9fC4FTqI
+CJ1+UnaPfk0=
+Private-Lines: 1
+AAAAIQDwaPlajbXY1SxhuwsUqN1CEZ5g4adsbmJsKm+ZbUVm4g==
+Private-MAC: b85ca0eb7c612df5d18af85128821bd53faaa3ef');
+        $private = $private->withSignatureFormat('Raw');
+        $public = $private->getPublicKey();
+
+        $signature = $private->sign($message);
+        $this->assertIsArray($signature);
+        $result = $public->verify($message, $signature);
+        $this->assertTrue($result);
     }
 }
