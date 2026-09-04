@@ -38,6 +38,20 @@ class LoginController extends Controller
         $request->session()->forget('mfa_verified_user_id');
 
         if (Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
+            // An account that signs in with Microsoft has exactly one way in.
+            // Checked after the password so that a wrong password gives the same
+            // answer for every account, and this message only ever reaches the
+            // person who could have signed in anyway.
+            if (Auth::user()->usesSso()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'email' => 'This account signs in with Microsoft. Use the Microsoft button above.',
+                ])->onlyInput('email');
+            }
+
             $request->session()->regenerate();
 
             AuditService::log(

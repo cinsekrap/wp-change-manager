@@ -204,6 +204,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         // Users
         Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
         Route::post('/users/{user}/reset-mfa', [UserController::class, 'resetMfa'])->name('admin.users.reset-mfa');
+        Route::post('/users/{user}/unlink-sso', [UserController::class, 'unlinkSso'])->name('admin.users.unlink-sso');
 
         // Audit Log
         Route::get('/audit-log', [AuditLogController::class, 'index'])->name('admin.audit-log');

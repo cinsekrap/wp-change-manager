@@ -42,6 +42,26 @@ class User extends Authenticatable
         return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
+    /** Signs in with Microsoft, and therefore not with a password. */
+    public function usesSso(): bool
+    {
+        return $this->provider === 'microsoft';
+    }
+
+    /**
+     * Super admins who can still sign in with a password.
+     *
+     * Linking an account to SSO removes its password sign-in, and an identity
+     * provider can be unreachable — an expired secret, a tenant change, an
+     * outage. At least one super admin has to be able to get in and fix it.
+     */
+    public function scopeBreakGlass($query)
+    {
+        return $query->where('is_active', true)
+            ->where('role', self::ROLE_SUPER_ADMIN)
+            ->whereNull('provider');
+    }
+
     public function isEditor(): bool
     {
         return $this->role === self::ROLE_EDITOR;
