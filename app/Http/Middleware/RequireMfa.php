@@ -16,8 +16,10 @@ class RequireMfa
             return $next($request);
         }
 
-        // SSO users bypass MFA — Microsoft handles their MFA
-        if ($user->provider === 'microsoft') {
+        // SSO carries its own second factor, so a session that signed in that way
+        // needs no challenge here. Keyed on how this session authenticated rather
+        // than on the account, so the skip cannot outlive the sign-in that earned it.
+        if ($request->session()->get('auth_via') === 'microsoft') {
             return $next($request);
         }
 

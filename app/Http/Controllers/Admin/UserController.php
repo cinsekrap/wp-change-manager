@@ -120,4 +120,28 @@ class UserController extends Controller
 
         return back()->with('success', 'Two-factor authentication has been reset for ' . $user->name . '. They will be required to set it up again on their next login.');
     }
+
+    /**
+     * Return an account to password sign-in.
+     *
+     * The recovery path for an identity provider nobody can reach: an expired
+     * secret, a tenant change, an outage. Without this, linking is one-way and a
+     * locked-out admin has no way back in on a host with no shell access.
+     */
+    public function unlinkSso(User $user)
+    {
+        if (! $user->usesSso()) {
+            return back()->with('error', 'That account does not use Microsoft sign-in.');
+        }
+
+        $user->update(['provider' => null, 'provider_id' => null]);
+
+        AuditService::log(
+            action: 'sso_unlinked',
+            model: $user,
+            description: "Microsoft sign-in unlinked for: {$user->email}",
+        );
+
+        return back()->with('success', $user->name.' can sign in with a password again. They will need to set one, and to set up two-factor authentication.');
+    }
 }

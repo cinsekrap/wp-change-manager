@@ -67,6 +67,24 @@
     </form>
 
     {{-- Reset MFA section (only for existing users with MFA enabled) --}}
+    @if($user->exists && $user->usesSso())
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-2">Microsoft sign-in</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                This account signs in with Microsoft and has no password sign-in. Unlink it if Microsoft
+                sign-in is unavailable and they need to get in another way &mdash; they will need to set a
+                password and set up two-factor authentication.
+            </p>
+            <form method="POST" action="{{ route('admin.users.unlink-sso', $user) }}"
+                  data-confirm="Return {{ $user->name }} to password sign-in? They will need a new password and to set up two-factor authentication.">
+                @csrf
+                <button type="submit" class="border border-hcrg-burgundy text-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors text-sm font-medium">
+                    Unlink Microsoft sign-in
+                </button>
+            </form>
+        </div>
+    @endif
+
     @if($user->exists && $user->hasMfaEnabled())
         <div class="bg-white rounded-lg shadow p-6 mt-6">
             <h2 class="text-lg font-bold text-gray-900 mb-2">Two-factor authentication</h2>
