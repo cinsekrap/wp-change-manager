@@ -10,7 +10,8 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
-        'content_type', 'content_brief', 'public_title',
+        'content_type', 'content_brief', 'public_title', 'draft_content',
+        'published_url', 'published_title',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
         'clarification_message', 'clarification_requested_at',
         'sla_paused_at', 'sla_paused_hours', 'requester_name', 'requester_email',
@@ -61,10 +62,83 @@ class ChangeRequest extends Model
      */
     public const SLA_PAUSED_STATUSES = ['on_hold', 'awaiting_user'];
 
+    /**
+     * Display names for statuses whose slug doesn't read well on its own.
+     * Anything not listed falls back to a humanised slug.
+     */
+    public const STATUS_LABELS = [
+        'requires_referral' => 'Requires Referral',
+        'training' => 'Awaiting Training',
+        'trained' => 'Training Confirmed',
+        'on_hold' => 'On Hold',
+        'awaiting_user' => 'Awaiting User',
+        'suggested' => 'Suggested',
+        'scoped' => 'Sized Up',
+        'awaiting_funding' => 'Awaiting Funding',
+        'in_progress' => 'Being Written',
+        'awaiting_approval' => 'Awaiting Clinical Approval',
+    ];
+
+    public static function statusLabel(string $status): string
+    {
+        return self::STATUS_LABELS[$status] ?? ucfirst(str_replace('_', ' ', $status));
+    }
+
     public const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+    /**
+     * The fingerprint clinical approval is bound to. An approval that does not
+     * name the text it approved is not a defensible governance trail.
+     */
+    public function draftContentHash(): ?string
+    {
+        return $this->draft_content === null ? null : hash('sha256', $this->draft_content);
+    }
+
+    /**
+     * Approvals that were given against a different version of the copy.
+     */
+    public function staleApprovals()
+    {
+        $hash = $this->draftContentHash();
+
+        return $this->approvers()
+            ->where('status', 'approved')
+            ->whereNotNull('approved_content_hash')
+            ->get()
+            ->filter(fn ($a) => $a->approved_content_hash !== $hash);
+    }
 
     protected static function booted(): void
     {
+        // Clinical approval binds to a version of the copy. Editing an approved
+        // draft voids the sign-off wherever the edit came from, rather than
+        // leaving a record that reads "approved" for text nobody approved.
+        static::updated(function (self $changeRequest) {
+            if (!$changeRequest->wasChanged('draft_content') || !$changeRequest->isContentRequest()) {
+                return;
+            }
+
+            $stale = $changeRequest->staleApprovals();
+            if ($stale->isEmpty()) {
+                return;
+            }
+
+            foreach ($stale as $approver) {
+                $approver->update([
+                    'status' => 'pending',
+                    'responded_at' => null,
+                    'approved_content_hash' => null,
+                    'approved_content_snapshot' => null,
+                    'token' => ChangeRequestApprover::generateToken(),
+                ]);
+            }
+
+            if (in_array($changeRequest->status, self::POST_REFERRED_STATUSES)) {
+                $changeRequest->updateQuietly(['status' => 'awaiting_approval']);
+            }
+        });
+
         // Keep SLA pause bookkeeping in one place so every transition path
         // (status form, bulk actions, public responses) behaves the same.
         static::updating(function (self $changeRequest) {
@@ -145,6 +219,39 @@ class ChangeRequest extends Model
     public function site()
     {
         return $this->belongsTo(Site::class);
+    }
+
+    /**
+     * The main home plus every additional site, in that order.
+     */
+    public function allSites()
+    {
+        $sites = collect();
+        if ($this->site) {
+            $sites->push($this->site);
+        }
+
+        return $sites->concat($this->additionalSites)->unique('id')->values();
+    }
+
+    /**
+     * Where this content went live on a given site, if it has.
+     */
+    public function publishedFor(int $siteId): array
+    {
+        if ($siteId === $this->site_id) {
+            return [
+                'published_url' => $this->published_url,
+                'published_title' => $this->published_title,
+            ];
+        }
+
+        $site = $this->additionalSites->firstWhere('id', $siteId);
+
+        return [
+            'published_url' => $site?->pivot?->published_url,
+            'published_title' => $site?->pivot?->published_title,
+        ];
     }
 
     /**

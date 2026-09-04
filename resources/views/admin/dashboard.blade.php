@@ -76,11 +76,11 @@
                 'done' => 'bg-emerald-500',
                 'declined' => 'bg-red-500',
                 'cancelled' => 'bg-gray-400',
-            ];
-            $statusLabels = [
-                'requires_referral' => 'Requires Referral',
-                'training' => 'Awaiting Training',
-                'trained' => 'Training Confirmed',
+                'suggested' => 'bg-slate-300',
+                'scoped' => 'bg-slate-400',
+                'awaiting_funding' => 'bg-amber-400',
+                'in_progress' => 'bg-sky-400',
+                'awaiting_approval' => 'bg-violet-400',
             ];
             $maxStatus = $statusCounts->max() ?: 1;
         @endphp
@@ -90,7 +90,7 @@
                     $count = $statusCounts[$status] ?? 0;
                     $pct = $maxStatus > 0 ? round(($count / $maxStatus) * 100) : 0;
                     $barColor = $statusColors[$status] ?? 'bg-gray-400';
-                    $label = $statusLabels[$status] ?? ucfirst($status);
+                    $label = \App\Models\ChangeRequest::statusLabel($status);
                 @endphp
                 <div>
                     <div class="flex justify-between items-center mb-1">

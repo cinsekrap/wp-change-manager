@@ -249,6 +249,11 @@ class ChangeRequestController extends Controller
             // dedicated email explaining the reason and the paused SLA.
             if ($newStatus === 'on_hold') {
                 EmailLog::dispatch($changeRequest->requester_email, new RequestOnHold($changeRequest), $changeRequest);
+            } elseif ($newStatus === 'awaiting_funding' && $changeRequest->isContentRequest()) {
+                EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentAwaitingFunding($changeRequest), $changeRequest);
+            } elseif ($newStatus === 'done' && $changeRequest->isContentRequest()) {
+                // The email the suggester has been waiting months for: where it landed.
+                EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentPublished($changeRequest), $changeRequest);
             } else {
                 EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
             }
@@ -563,5 +568,57 @@ class ChangeRequestController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * Save the draft copy. The model voids any clinical approval bound to the
+     * previous version — see ChangeRequest::booted().
+     */
+    public function updateDraft(Request $request, ChangeRequest $changeRequest)
+    {
+        abort_unless($changeRequest->isContentRequest(), 404);
+
+        $validated = $request->validate([
+            'draft_content' => 'nullable|string|max:100000',
+        ]);
+
+        $changeRequest->update(['draft_content' => $validated['draft_content'] ?? null]);
+
+        return back()->with('success', 'Draft saved.');
+    }
+
+    /**
+     * Record where the content went live, one address per site.
+     */
+    public function updatePublished(Request $request, ChangeRequest $changeRequest)
+    {
+        abort_unless($changeRequest->isContentRequest(), 404);
+
+        $validated = $request->validate([
+            'published' => 'nullable|array',
+            'published.*.url' => 'nullable|url|max:2048',
+            'published.*.title' => 'nullable|string|max:512',
+        ]);
+
+        foreach (($validated['published'] ?? []) as $siteId => $row) {
+            $siteId = (int) $siteId;
+
+            if ($siteId === $changeRequest->site_id) {
+                $changeRequest->update([
+                    'published_url' => $row['url'] ?? null,
+                    'published_title' => $row['title'] ?? null,
+                ]);
+                continue;
+            }
+
+            if ($changeRequest->additionalSites()->where('sites.id', $siteId)->exists()) {
+                $changeRequest->additionalSites()->updateExistingPivot($siteId, [
+                    'published_url' => $row['url'] ?? null,
+                    'published_title' => $row['title'] ?? null,
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Addresses saved.');
     }
 }

@@ -14,6 +14,8 @@
         @else
             @include('admin.requests.partials._summary-card')
 
+            @include('admin.requests.partials._content-draft')
+
             @include('admin.requests.partials._items')
 
             @include('admin.requests.partials._check-answers')

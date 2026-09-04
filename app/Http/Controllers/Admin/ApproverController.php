@@ -89,11 +89,20 @@ class ApproverController extends Controller
         ]);
 
         $oldApproverStatus = $approver->status;
+
+        // A recorded-on-their-behalf approval binds to the copy just as a
+        // self-service one does.
+        $boundCopy = ($request->status === 'approved' && $approver->changeRequest->isContentRequest())
+            ? $approver->changeRequest->draft_content
+            : null;
+
         $approver->update([
             'status' => $request->status,
             'notes' => $request->notes,
             'responded_at' => $request->responded_at,
             'recorded_by' => auth()->id(),
+            'approved_content_hash' => $boundCopy === null ? null : hash('sha256', $boundCopy),
+            'approved_content_snapshot' => $boundCopy,
         ]);
 
         AuditService::log(

@@ -149,6 +149,16 @@ class EmailTemplateController extends Controller
             ]));
         }
 
+        // Force content attributes in memory so the content previews render even
+        // when the latest real request is a change request.
+        if (str_starts_with($template, 'content-')) {
+            $sample->request_type = 'content';
+            $sample->content_type = $sample->content_type ?: 'service_explainer';
+            if (!$sample->relationLoaded('additionalSites')) {
+                $sample->setRelation('additionalSites', collect());
+            }
+        }
+
         // Force on-hold attributes in memory so the preview always has a reason
         if ($template === 'request-on-hold') {
             $sample->status = 'on_hold';
@@ -177,6 +187,9 @@ class EmailTemplateController extends Controller
             'training-requested' => new TrainingRequested($sample),
             'training-confirmed' => new TrainingConfirmed($sample),
             'access-granted' => new AccessGranted($sample),
+            'content-suggestion-received' => new \App\Mail\ContentSuggestionReceived($sample),
+            'content-awaiting-funding' => new \App\Mail\ContentAwaitingFunding($sample),
+            'content-published' => new \App\Mail\ContentPublished($sample),
             default => abort(404),
         };
 
