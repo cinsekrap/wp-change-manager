@@ -1427,6 +1427,32 @@
         });
     });
 
+    // The queue's business case: catch a duplicate at the moment someone is
+    // about to ask for one, rather than three weeks later.
+    let duplicateTimer = null;
+    function searchDuplicates() {
+        const term = document.getElementById('briefAchieve').value.trim();
+        const wrap = document.getElementById('briefDuplicateMatches');
+        const list = document.getElementById('briefDuplicateList');
+        if (term.length < 6) { wrap.classList.add('hidden'); return; }
+
+        clearTimeout(duplicateTimer);
+        duplicateTimer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/suggestions/search?q=${encodeURIComponent(term.slice(0, 60))}`);
+                const data = await res.json();
+                if (!data.results || data.results.length === 0) { wrap.classList.add('hidden'); return; }
+                list.innerHTML = data.results.map(r => `
+                    <p class="text-xs text-hcrg-grey-400">
+                        <a href="/suggestions?q=${encodeURIComponent(r.title)}" target="_blank" class="text-hcrg-burgundy underline">${esc(r.title)}</a>
+                        — ${esc(r.status)}${r.sites.length ? ' · ' + esc(r.sites.join(', ')) : ''}
+                    </p>`).join('');
+                wrap.classList.remove('hidden');
+            } catch (e) { wrap.classList.add('hidden'); }
+        }, 400);
+    }
+    document.getElementById('briefAchieve').addEventListener('input', searchDuplicates);
+
     ['briefAchieve', 'briefKnowOrDo', 'briefMeasure', 'briefExistsDetail'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', () => { checkStepValid(); saveState(); });

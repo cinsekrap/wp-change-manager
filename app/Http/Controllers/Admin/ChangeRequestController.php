@@ -251,9 +251,11 @@ class ChangeRequestController extends Controller
                 EmailLog::dispatch($changeRequest->requester_email, new RequestOnHold($changeRequest), $changeRequest);
             } elseif ($newStatus === 'awaiting_funding' && $changeRequest->isContentRequest()) {
                 EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentAwaitingFunding($changeRequest), $changeRequest);
+                $this->notifyWatchers($changeRequest, fn () => new \App\Mail\ContentAwaitingFunding($changeRequest));
             } elseif ($newStatus === 'done' && $changeRequest->isContentRequest()) {
                 // The email the suggester has been waiting months for: where it landed.
                 EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentPublished($changeRequest), $changeRequest);
+                $this->notifyWatchers($changeRequest, fn () => new \App\Mail\ContentPublished($changeRequest));
             } else {
                 EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
             }
@@ -620,5 +622,15 @@ class ChangeRequestController extends Controller
         }
 
         return back()->with('success', 'Addresses saved.');
+    }
+
+    /**
+     * Only confirmed watchers are ever emailed, and never the suggester twice.
+     */
+    private function notifyWatchers(ChangeRequest $changeRequest, callable $mailable): void
+    {
+        $changeRequest->watchers()->confirmed()->get()
+            ->reject(fn ($w) => $w->email === $changeRequest->requester_email)
+            ->each(fn ($w) => EmailLog::dispatch($w->email, $mailable(), $changeRequest));
     }
 }

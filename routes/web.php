@@ -52,6 +52,14 @@ Route::post('/submit', [SubmissionController::class, 'store'])
     ->middleware('throttle:public-submit');
 Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmation'])->name('confirmation')->middleware('signed');
 
+// Public content queue — no sign-in, so ContentQueueController owns the field allowlist
+Route::get('/suggestions', [\App\Http\Controllers\PublicSite\ContentQueueController::class, 'index'])->name('content-queue');
+Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\ContentQueueController::class, 'search'])->name('content-queue.search');
+Route::post('/suggestions/{reference}/watch', [\App\Http\Controllers\PublicSite\ContentQueueController::class, 'watch'])
+    ->name('content-queue.watch')->middleware('throttle:public-tracking');
+Route::get('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\ContentQueueController::class, 'confirm'])->name('content-queue.confirm');
+Route::get('/suggestions/unsubscribe/{token}', [\App\Http\Controllers\PublicSite\ContentQueueController::class, 'unsubscribe'])->name('content-queue.unsubscribe');
+
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');
 Route::get('/track/{reference}', [TrackingController::class, 'direct'])->name('tracking.direct');
