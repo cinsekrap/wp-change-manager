@@ -197,17 +197,26 @@ class ApproverController extends Controller
             }
         }
 
-        // Update status
+        // Update status. Content requests have their own approval state — pushing
+        // one into the change lane's "referred" would misdescribe where it is.
         $oldStatus = $changeRequest->status;
-        $newStatus = $sent > 0 ? 'referred' : 'requires_referral';
+
+        if ($changeRequest->isContentRequest()) {
+            $newStatus = $sent > 0 ? 'awaiting_approval' : $oldStatus;
+        } else {
+            $newStatus = $sent > 0 ? 'referred' : 'requires_referral';
+        }
+
         $changeRequest->update(['status' => $newStatus]);
 
-        ChangeRequestStatusLog::create([
-            'change_request_id' => $changeRequest->id,
-            'user_id' => auth()->id(),
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-        ]);
+        if ($newStatus !== $oldStatus) {
+            ChangeRequestStatusLog::create([
+                'change_request_id' => $changeRequest->id,
+                'user_id' => auth()->id(),
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+            ]);
+        }
 
         AuditService::log(
             action: 'sent_for_approval',

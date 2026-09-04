@@ -8,7 +8,8 @@
 
     @if($changeRequest->staleApprovals()->isNotEmpty())
         <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p class="text-sm text-amber-800">This copy has changed since it was approved, so the sign-off no longer applies.</p>
+            <p class="text-sm text-amber-800 mb-2">This copy has changed since it was approved, so the sign-off no longer applies.</p>
+            <p class="text-sm text-amber-700">Nothing is sent automatically — use <strong class="font-semibold">Send for approval</strong> in the sidebar when the copy is ready to go back to the approver.</p>
         </div>
     @endif
 
