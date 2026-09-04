@@ -57,6 +57,10 @@
                     </label>
                 @endforeach
             </div>
+            <div id="briefDuplicateMatches" class="hidden mb-3 p-3 bg-white border border-hcrg-grey-200 rounded-lg">
+                <p class="text-xs font-semibold text-hcrg-charcoal mb-2">Already suggested — is one of these what you mean?</p>
+                <div id="briefDuplicateList" class="space-y-1"></div>
+            </div>
             <div id="briefExistsDetailWrap" class="hidden">
                 <input type="text" id="briefExistsDetail" placeholder="Where is it? A link or a description is fine."
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">

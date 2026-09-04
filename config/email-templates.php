@@ -152,4 +152,12 @@ return [
         'body' => 'Your content is live. Thank you for suggesting it — here is where you can find it.',
         'placeholders' => ['reference', 'site_name', 'content_type', 'site_titles'],
     ],
+
+    'watch_confirmation' => [
+        'name' => 'Watch Confirmation',
+        'description' => 'Sent when someone asks to follow a content suggestion, to confirm the address is theirs.',
+        'subject' => 'Confirm updates about {reference}',
+        'body' => 'Someone asked for updates about this content suggestion using this email address. Confirm below and we will let you know when it moves forward. Nothing will be sent unless you confirm.',
+        'placeholders' => ['reference', 'public_title'],
+    ],
 ];

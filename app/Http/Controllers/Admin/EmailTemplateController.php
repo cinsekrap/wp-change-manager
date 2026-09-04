@@ -126,6 +126,12 @@ class EmailTemplateController extends Controller
             $sample->setRelation('items', collect());
         }
 
+        // Sample watcher for the watch-confirmation preview
+        $sampleWatcher = new \App\Models\ChangeRequestWatcher([
+            'email' => 'someone@example.com',
+            'token' => 'sample-preview-token',
+        ]);
+
         // Build a sample approver for the approval email preview
         $sampleApprover = new ChangeRequestApprover([
             'name' => 'Dr Helen Johal',
@@ -151,9 +157,10 @@ class EmailTemplateController extends Controller
 
         // Force content attributes in memory so the content previews render even
         // when the latest real request is a change request.
-        if (str_starts_with($template, 'content-')) {
+        if (str_starts_with($template, 'content-') || $template === 'watch-confirmation') {
             $sample->request_type = 'content';
             $sample->content_type = $sample->content_type ?: 'service_explainer';
+            $sample->public_title = $sample->public_title ?: 'What happens at your first appointment';
             if (!$sample->relationLoaded('additionalSites')) {
                 $sample->setRelation('additionalSites', collect());
             }
@@ -190,6 +197,7 @@ class EmailTemplateController extends Controller
             'content-suggestion-received' => new \App\Mail\ContentSuggestionReceived($sample),
             'content-awaiting-funding' => new \App\Mail\ContentAwaitingFunding($sample),
             'content-published' => new \App\Mail\ContentPublished($sample),
+            'watch-confirmation' => new \App\Mail\WatchConfirmation($sample, $sampleWatcher),
             default => abort(404),
         };
 

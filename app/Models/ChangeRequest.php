@@ -294,6 +294,11 @@ class ChangeRequest extends Model
         return $this->hasMany(ChangeRequestApprover::class)->orderBy('created_at');
     }
 
+    public function watchers()
+    {
+        return $this->hasMany(ChangeRequestWatcher::class);
+    }
+
     public function emailLogs()
     {
         return $this->hasMany(EmailLog::class)->orderBy('created_at');
