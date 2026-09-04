@@ -11,6 +11,7 @@
     <nav class="bg-hcrg-burgundy">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
+                @php $isCreate = request()->routeIs('admin.requests.content.*'); @endphp
                 @php $isConfig = request()->routeIs('admin.sites.*', 'admin.cpts.*', 'admin.questions.*', 'admin.settings.*', 'admin.settings.updates*', 'admin.settings.config*', 'admin.settings.notifications*', 'admin.users.*', 'admin.audit-log'); @endphp
                 <div class="flex items-center space-x-6">
                     <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold text-white">{{ config('app.name') }}</a>
@@ -25,10 +26,27 @@
                             Reports
                             <span class="ml-1.5 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/20">v2</span>
                         </a>
-                        <a href="{{ route('admin.requests.index') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs('admin.requests.*') ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/10' }}">
+                        <a href="{{ route('admin.requests.index') }}" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs('admin.requests.*') && !$isCreate ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/10' }}">
                             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                             Requests
                         </a>
+
+                        {{-- Create dropdown. Everything else in this tool arrives from the
+                             public form; this is the way in for work the team starts itself. --}}
+                        <div class="relative" id="createDropdown">
+                            <button type="button" onclick="document.getElementById('createMenu').classList.toggle('hidden')"
+                                class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ $isCreate ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/10' }}">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Create
+                                <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div id="createMenu" class="hidden absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                                <a href="{{ route('admin.requests.content.create') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.requests.content.*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    New Content
+                                </a>
+                            </div>
+                        </div>
 
                         {{-- Configuration dropdown --}}
                         <div class="relative" id="configDropdown">
@@ -163,7 +181,7 @@
 
 <script>
 document.addEventListener('click', function(e) {
-    [['configDropdown','configMenu'], ['userDropdown','userMenu']].forEach(function(pair) {
+    [['createDropdown','createMenu'], ['configDropdown','configMenu'], ['userDropdown','userMenu']].forEach(function(pair) {
         var dd = document.getElementById(pair[0]);
         var menu = document.getElementById(pair[1]);
         if (dd && menu && !dd.contains(e.target)) menu.classList.add('hidden');

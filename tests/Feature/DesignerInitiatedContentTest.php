@@ -38,15 +38,20 @@ class DesignerInitiatedContentTest extends TestCase
         ]);
     }
 
-    public function test_the_form_is_reachable_from_the_request_list(): void
+    public function test_the_form_is_reachable_from_the_create_menu(): void
     {
         Site::create(['name' => 'HCRG', 'domain' => 'hcrg.test', 'is_active' => true]);
 
         $this->loginAsAdmin();
 
-        $this->get(route('admin.requests.index'))
-            ->assertSuccessful()
-            ->assertSee(route('admin.requests.content.create'), false);
+        // The menu lives in the layout, so it has to be on every admin page —
+        // not just the one it was added to.
+        foreach ([route('admin.dashboard'), route('admin.requests.index')] as $url) {
+            $this->get($url)
+                ->assertSuccessful()
+                ->assertSee('New Content')
+                ->assertSee(route('admin.requests.content.create'), false);
+        }
 
         $this->get(route('admin.requests.content.create'))
             ->assertSuccessful()
