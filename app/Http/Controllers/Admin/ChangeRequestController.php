@@ -582,11 +582,32 @@ class ChangeRequestController extends Controller
 
         $validated = $request->validate([
             'draft_content' => 'nullable|string|max:100000',
+            'void_approval' => 'sometimes|accepted',
         ]);
 
-        $changeRequest->update(['draft_content' => $validated['draft_content'] ?? null]);
+        $new = $validated['draft_content'] ?? null;
+        $unchanged = $new === $changeRequest->draft_content;
 
-        return back()->with('success', 'Draft saved.');
+        // Approved copy is locked. Changing it needs an explicit acknowledgement
+        // that the clinical sign-off is being thrown away — enforced here, not
+        // just hidden in the UI, so the guarantee does not depend on the form.
+        if ($changeRequest->hasBoundApproval() && !$unchanged && empty($validated['void_approval'])) {
+            return back()
+                ->withInput()
+                ->withErrors(['draft_content' => 'This copy has been clinically approved. Unlock it first if you need to change it — doing so withdraws the approval.']);
+        }
+
+        $changeRequest->update(['draft_content' => $new]);
+
+        if (!$unchanged && !empty($validated['void_approval'])) {
+            AuditService::log(
+                action: 'draft_unlocked',
+                model: $changeRequest,
+                description: "Approved copy edited on {$changeRequest->reference}; clinical approval withdrawn",
+            );
+        }
+
+        return back()->with('success', $unchanged ? 'No changes to save.' : 'Draft saved.');
     }
 
     /**
