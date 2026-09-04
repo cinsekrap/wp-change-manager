@@ -76,7 +76,7 @@
             <span class="text-orange-600 font-medium ml-1">New page:</span>
             <span class="text-gray-900 ml-1">{{ $changeRequest->page_title }}</span>
         @else
-            <a href="{{ $changeRequest->page_url }}" target="_blank" rel="noopener" class="text-hcrg-burgundy hover:underline ml-1 inline-flex items-center">
+            <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" rel="noopener" class="text-hcrg-burgundy hover:underline ml-1 inline-flex items-center">
                 {{ $changeRequest->page_title ?: $changeRequest->page_url }}
                 <svg class="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
             </a>
