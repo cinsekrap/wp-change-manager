@@ -10,6 +10,7 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
+        'content_type', 'content_brief', 'public_title',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
         'clarification_message', 'clarification_requested_at',
         'sla_paused_at', 'sla_paused_hours', 'requester_name', 'requester_email',
@@ -25,6 +26,7 @@ class ChangeRequest extends Model
         return [
             'is_new_page' => 'boolean',
             'check_answers' => 'array',
+            'content_brief' => 'array',
             'deadline_date' => 'date',
             'scheduled_date' => 'date',
             'training_sent_at' => 'datetime',
@@ -36,7 +38,7 @@ class ChangeRequest extends Model
         ];
     }
 
-    public const STATUSES = ['requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'on_hold', 'awaiting_user', 'done', 'declined', 'cancelled'];
+    public const STATUSES = ['suggested', 'scoped', 'awaiting_funding', 'in_progress', 'awaiting_approval', 'requested', 'requires_referral', 'referred', 'approved', 'training', 'trained', 'scheduled', 'on_hold', 'awaiting_user', 'done', 'declined', 'cancelled'];
 
     public const POST_REFERRED_STATUSES = ['approved', 'training', 'trained', 'scheduled', 'done'];
 
@@ -45,6 +47,13 @@ class ChangeRequest extends Model
     public const ACCESS_ONLY_STATUSES = ['training', 'trained'];
 
     public const CHANGE_ONLY_STATUSES = ['scheduled'];
+
+    /**
+     * The suggestion-and-funding half of the content lifecycle. Deliberately NOT in
+     * SLA_PAUSED_STATUSES: content is slow by design, and the reported turnaround
+     * should say so rather than flatter it.
+     */
+    public const CONTENT_ONLY_STATUSES = ['suggested', 'scoped', 'awaiting_funding', 'in_progress', 'awaiting_approval'];
 
     /**
      * Statuses where the ball is out of the team's court entirely, so the SLA
@@ -112,13 +121,23 @@ class ChangeRequest extends Model
         return $this->request_type === 'access';
     }
 
+    public function isContentRequest(): bool
+    {
+        return $this->request_type === 'content';
+    }
+
     /**
      * Statuses applicable to this request's type: access requests can't be
      * scheduled, change requests don't go through training.
      */
     public function statusOptions(): array
     {
-        $excluded = $this->isAccessRequest() ? self::CHANGE_ONLY_STATUSES : self::ACCESS_ONLY_STATUSES;
+        $excluded = match (true) {
+            $this->isAccessRequest() => array_merge(self::CHANGE_ONLY_STATUSES, self::CONTENT_ONLY_STATUSES),
+            // Content requests do get scheduled — they only skip the access training states.
+            $this->isContentRequest() => self::ACCESS_ONLY_STATUSES,
+            default => array_merge(self::ACCESS_ONLY_STATUSES, self::CONTENT_ONLY_STATUSES),
+        };
 
         return array_values(array_diff(self::STATUSES, $excluded));
     }
@@ -126,6 +145,16 @@ class ChangeRequest extends Model
     public function site()
     {
         return $this->belongsTo(Site::class);
+    }
+
+    /**
+     * Additional sites this content is published to. The main home stays on site_id.
+     */
+    public function additionalSites()
+    {
+        return $this->belongsToMany(Site::class, 'change_request_sites')
+            ->withPivot(['published_url', 'published_title'])
+            ->withTimestamps();
     }
 
     public function cptType()

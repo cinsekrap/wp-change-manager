@@ -8,6 +8,7 @@ class ChangeRequestApprover extends Model
 {
     protected $fillable = [
         'change_request_id', 'name', 'email', 'group', 'status', 'notes', 'responded_at', 'recorded_by', 'token',
+        'approved_content_hash', 'approved_content_snapshot',
     ];
 
     public static function generateToken(): string
