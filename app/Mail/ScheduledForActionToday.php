@@ -35,7 +35,7 @@ class ScheduledForActionToday extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'scheduledDate' => $this->changeRequest->scheduled_date?->format('d M Y') ?? '—',
                 'assigneeName' => $this->changeRequest->assignee->name ?? 'there',
                 'requesterName' => $this->changeRequest->requester_name,
@@ -52,7 +52,7 @@ class ScheduledForActionToday extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'scheduled_date' => $this->changeRequest->scheduled_date?->format('d M Y') ?? '',
             'assignee_name' => $this->changeRequest->assignee->name ?? '',
         ];

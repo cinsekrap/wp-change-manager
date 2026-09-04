@@ -78,7 +78,7 @@
                 <label class="inline-block cursor-pointer border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
                     Choose a file
                     <input type="file" id="briefFileInput" class="sr-only" multiple
-                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.mp4,.mov,.webm,.avi">
+                        accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">
                 </label>
                 <p class="text-xs text-gray-400 mt-2">Images, documents and video up to 128MB each, 5 files max.</p>
             </div>

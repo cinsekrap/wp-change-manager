@@ -62,16 +62,18 @@ class ApproverController extends Controller
         // Pull back to "requires_referral" if currently past it
         if (in_array($changeRequest->status, ChangeRequest::POST_REFERRED_STATUSES)) {
             $oldStatus = $changeRequest->status;
-            $changeRequest->update(['status' => 'requires_referral']);
+            // Content goes back to its own approval state, not the change lane's.
+            $backTo = $changeRequest->isContentRequest() ? 'awaiting_approval' : 'requires_referral';
+            $changeRequest->update(['status' => $backTo]);
 
             ChangeRequestStatusLog::create([
                 'change_request_id' => $changeRequest->id,
                 'user_id' => auth()->id(),
                 'old_status' => $oldStatus,
-                'new_status' => 'requires_referral',
+                'new_status' => $backTo,
             ]);
 
-            return back()->with('success', 'Approver added. Status moved back to Referred pending approval.');
+            return back()->with('success', 'Approver added. Status moved back to '.ChangeRequest::statusLabel($backTo).' pending approval.');
         }
 
         return back()->with('success', 'Approver added.');
@@ -127,7 +129,7 @@ class ApproverController extends Controller
         }
 
         // Auto-decline if an approver rejected and request is at referred
-        if ($request->status === 'rejected' && $changeRequest->status === 'referred') {
+        if ($request->status === 'rejected' && in_array($changeRequest->status, ['referred', 'awaiting_approval'])) {
             ApprovalWorkflowService::handleRejection(
                 $changeRequest,
                 $approver,

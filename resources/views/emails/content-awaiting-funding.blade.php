@@ -21,4 +21,11 @@
     <p style="margin:24px 0 0;font-size:13px;color:#6E6E6D;">
         You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#B52159;">your tracking link</a>.
     </p>
+
+    @if($unsubscribeUrl ?? null)
+    <p style="margin:12px 0 0;font-size:12px;color:#A0A09F;">
+        You are getting this because you asked to follow this suggestion.
+        <a href="{{ $unsubscribeUrl }}" style="color:#6E6E6D;">Stop these updates</a>.
+    </p>
+    @endif
 @endsection

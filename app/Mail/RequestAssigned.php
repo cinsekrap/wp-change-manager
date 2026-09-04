@@ -38,7 +38,7 @@ class RequestAssigned extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'requesterName' => $this->changeRequest->requester_name,
                 'assigneeName' => $this->assignee->name,
                 'adminUrl' => route('admin.requests.show', $this->changeRequest),
@@ -53,7 +53,7 @@ class RequestAssigned extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'requester_name' => $this->changeRequest->requester_name,
             'assignee_name' => $this->assignee->name,
         ];

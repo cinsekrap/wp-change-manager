@@ -44,6 +44,7 @@
     <div class="bg-white rounded-lg shadow p-5">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Met SLA</div>
         <div class="text-3xl font-bold {{ ($kpis['sla_pct'] ?? 100) >= 80 ? 'text-emerald-600' : 'text-amber-600' }} mt-1">{{ $kpis['sla_pct'] !== null ? $kpis['sla_pct'] . '%' : '—' }}</div>
+        <div class="mt-2 text-xs text-hcrg-grey-400">Changes only: <span class="font-semibold text-hcrg-charcoal">{{ $kpis['sla_pct_change'] !== null ? $kpis['sla_pct_change'] . '%' : '—' }}</span></div>
     </div>
     <div class="bg-white rounded-lg shadow p-5">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Declined / Cancelled</div>

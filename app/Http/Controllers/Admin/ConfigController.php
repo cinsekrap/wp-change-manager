@@ -38,7 +38,7 @@ class ConfigController extends Controller
         ];
 
         // Sensitive keys that must never be exported
-        $sensitiveKeys = ['mail_password', 'entra_client_secret', 'github_token'];
+        $sensitiveKeys = \App\Models\Setting::encryptedKeys();
 
         if (in_array('cpt_types', $sections)) {
             $data['cpt_types'] = CptType::ordered()->get()->map(function ($cpt) {
@@ -143,7 +143,7 @@ class ConfigController extends Controller
                 ->with('error', 'Invalid configuration file: missing version field.');
         }
 
-        $sensitiveKeys = ['mail_password', 'entra_client_secret', 'github_token'];
+        $sensitiveKeys = \App\Models\Setting::encryptedKeys();
         $sections = $request->input('import_sections', []);
         $summary = [];
 

@@ -14,9 +14,13 @@
         @else
             @include('admin.requests.partials._summary-card')
 
+            @include('admin.requests.partials._content-brief')
+
             @include('admin.requests.partials._content-draft')
 
-            @include('admin.requests.partials._items')
+            @unless($changeRequest->isContentRequest())
+                @include('admin.requests.partials._items')
+            @endunless
 
             @include('admin.requests.partials._check-answers')
         @endif

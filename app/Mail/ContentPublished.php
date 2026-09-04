@@ -12,6 +12,9 @@ class ContentPublished extends Mailable
 {
     public function __construct(
         public ChangeRequest $changeRequest,
+        // Set when this is going to a watcher rather than the suggester, so the
+        // email can carry their unsubscribe link.
+        public ?\App\Models\ChangeRequestWatcher $watcher = null,
     ) {
         $this->changeRequest->loadMissing(['site', 'additionalSites']);
     }
@@ -34,6 +37,9 @@ class ContentPublished extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'contentTypeLabel' => $this->contentTypeLabel(),
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
+                'unsubscribeUrl' => $this->watcher
+                    ? route('suggestions.unsubscribe', $this->watcher->token)
+                    : null,
                 'customBody' => Setting::get('email_content_published_body') ? $emailContent['body'] : null,
                 'defaultBody' => config('email-templates.content_published.body'),
             ], $this->extraViewData()),
@@ -47,17 +53,25 @@ class ContentPublished extends Mailable
         return config("content-types.{$key}.label", 'New content');
     }
 
+    /**
+     * Where it actually went live. Only sites with a recorded address are listed —
+     * naming a site with no URL asserts a publication that may not have happened.
+     */
     private function publishedSites(): array
     {
-        $sites = [];
-        if ($this->changeRequest->site) {
-            $sites[] = $this->changeRequest->site->name;
-        }
-        foreach ($this->changeRequest->additionalSites as $site) {
-            $sites[] = $site->name;
-        }
+        return $this->changeRequest->allSites()
+            ->map(function ($site) {
+                $published = $this->changeRequest->publishedFor($site->id);
 
-        return $sites;
+                return [
+                    'site' => $site->name,
+                    'title' => $published['published_title'] ?: null,
+                    'url' => $published['published_url'] ?: null,
+                ];
+            })
+            ->filter(fn ($row) => $row['url'] !== null)
+            ->values()
+            ->all();
     }
 
     private function extraViewData(): array
@@ -71,7 +85,7 @@ class ContentPublished extends Mailable
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
             'content_type' => $this->contentTypeLabel(),
-            'site_titles' => implode(', ', $this->publishedSites()),
+            'site_titles' => implode(', ', array_column($this->publishedSites(), 'site')),
         ];
     }
 }

@@ -56,7 +56,7 @@ class ChangeRequestController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
-        $query = $this->applyFilters($request, ChangeRequest::with(['site'])->withCount('items'));
+        $query = $this->applyFilters($request, ChangeRequest::with(['site', 'additionalSites'])->withCount('items'));
 
         // Support exporting specific IDs (for bulk export)
         if ($request->filled('ids')) {
@@ -75,7 +75,8 @@ class ChangeRequestController extends Controller
             $handle = fopen('php://output', 'w');
 
             fputcsv($handle, [
-                'Reference', 'Site', 'Page', 'Content Type', 'Requester Name',
+                'Reference', 'Type', 'Site', 'All Sites', 'Page or Content', 'CPT',
+                'Content Type', 'Public Title', 'Published URL', 'Requester Name',
                 'Requester Email', 'Requester Role', 'Status', 'Priority', 'Items Count',
                 'Deadline', 'Submitted Date',
             ]);
@@ -84,9 +85,15 @@ class ChangeRequestController extends Controller
                 foreach ($rows as $row) {
                     fputcsv($handle, [
                         $row->reference,
+                        $row->request_type ?? 'change',
                         $row->site->name ?? '',
-                        $row->page_title ?: $row->page_url,
+                        // Content can span sites; the main home alone understates it.
+                        $row->allSites()->pluck('name')->join('; '),
+                        $row->subjectDescription(),
                         $row->cpt_slug ?? '',
+                        $row->content_type ? config("content-types.{$row->content_type}.label", $row->content_type) : '',
+                        $row->public_title ?? '',
+                        $row->published_url ?? '',
                         $row->requester_name,
                         $row->requester_email,
                         $row->requester_role ?? '',
@@ -107,12 +114,17 @@ class ChangeRequestController extends Controller
     {
         $changeRequest->load(['site', 'items.files', 'notes.user', 'statusLogs.user', 'approvers.recordedByUser', 'assignee', 'approvalOverriddenByUser', 'emailLogs']);
 
-        $pageHistory = ChangeRequest::where('page_url', $changeRequest->page_url)
-            ->where('site_id', $changeRequest->site_id)
-            ->where('id', '!=', $changeRequest->id)
-            ->latest()
-            ->take(10)
-            ->get();
+        // Page history only means something for a real page. Every content request
+        // shares the placeholder page_url, so this would list all of them as prior
+        // requests for the same page.
+        $pageHistory = $changeRequest->isContentRequest()
+            ? collect()
+            : ChangeRequest::where('page_url', $changeRequest->page_url)
+                ->where('site_id', $changeRequest->site_id)
+                ->where('id', '!=', $changeRequest->id)
+                ->latest()
+                ->take(10)
+                ->get();
 
         $activities = collect();
 
@@ -251,11 +263,11 @@ class ChangeRequestController extends Controller
                 EmailLog::dispatch($changeRequest->requester_email, new RequestOnHold($changeRequest), $changeRequest);
             } elseif ($newStatus === 'awaiting_funding' && $changeRequest->isContentRequest()) {
                 EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentAwaitingFunding($changeRequest), $changeRequest);
-                $this->notifyWatchers($changeRequest, fn () => new \App\Mail\ContentAwaitingFunding($changeRequest));
+                $this->notifyWatchers($changeRequest, fn ($w) => new \App\Mail\ContentAwaitingFunding($changeRequest, $w));
             } elseif ($newStatus === 'done' && $changeRequest->isContentRequest()) {
                 // The email the suggester has been waiting months for: where it landed.
                 EmailLog::dispatch($changeRequest->requester_email, new \App\Mail\ContentPublished($changeRequest), $changeRequest);
-                $this->notifyWatchers($changeRequest, fn () => new \App\Mail\ContentPublished($changeRequest));
+                $this->notifyWatchers($changeRequest, fn ($w) => new \App\Mail\ContentPublished($changeRequest, $w));
             } else {
                 EmailLog::dispatch($changeRequest->requester_email, new RequestStatusChanged($changeRequest, $oldStatus, $newStatus), $changeRequest);
             }
@@ -535,7 +547,11 @@ class ChangeRequestController extends Controller
 
         if ($request->filled('site_id')) {
             $siteIds = (array) $request->site_id;
-            $query->whereIn('site_id', $siteIds);
+            // Content can be published to sites beyond its main home, so filtering
+            // on site_id alone hides it from the very site it appears on.
+            $query->where(fn ($q) => $q
+                ->whereIn('site_id', $siteIds)
+                ->orWhereHas('additionalSites', fn ($sub) => $sub->whereIn('sites.id', $siteIds)));
         }
 
         if ($request->filled('search')) {
@@ -671,6 +687,40 @@ class ChangeRequestController extends Controller
     {
         $changeRequest->watchers()->confirmed()->get()
             ->reject(fn ($w) => $w->email === $changeRequest->requester_email)
-            ->each(fn ($w) => EmailLog::dispatch($w->email, $mailable(), $changeRequest));
+            // Each watcher gets their own copy so it can carry their unsubscribe link.
+            ->each(fn ($w) => EmailLog::dispatch($w->email, $mailable($w), $changeRequest));
+    }
+
+    /**
+     * The public title — the only title safe to show on the suggestions list.
+     * Written by the content designer at scoping, not taken from the requester,
+     * whose words were not composed for publication.
+     */
+    public function updatePublicTitle(Request $request, ChangeRequest $changeRequest)
+    {
+        abort_unless($changeRequest->isContentRequest(), 404);
+
+        $validated = $request->validate([
+            'public_title' => 'nullable|string|max:255',
+        ]);
+
+        $changeRequest->update(['public_title' => $validated['public_title'] ?: null]);
+
+        return back()->with('success', $validated['public_title']
+            ? 'Public title saved — this suggestion now appears on the public list.'
+            : 'Public title cleared — this suggestion no longer appears publicly.');
+    }
+
+    /**
+     * Remove a watcher. Sign-up is public and unconfirmed rows hold an email
+     * address nobody consented to, so an operator has to be able to clear them.
+     */
+    public function removeWatcher(ChangeRequest $changeRequest, \App\Models\ChangeRequestWatcher $watcher)
+    {
+        abort_unless($watcher->change_request_id === $changeRequest->id, 404);
+
+        $watcher->delete();
+
+        return back()->with('success', 'Watcher removed.');
     }
 }

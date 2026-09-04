@@ -42,8 +42,8 @@
         </tr>
         @else
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Page</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $isNewPage ? 'New page: ' : '' }}{{ $pageTitle }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
         </tr>
         @endif
     </table>

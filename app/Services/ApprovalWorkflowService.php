@@ -29,7 +29,10 @@ class ApprovalWorkflowService
         ?int $userId = null,
         bool $notifyRequester = true,
     ): void {
-        if (!in_array($changeRequest->status, ['requires_referral', 'referred'])) {
+        // The content lane waits at awaiting_approval rather than referred, so it
+        // needs naming here too — otherwise an all-approved content request never
+        // leaves approval: no status change, no log, no email.
+        if (!in_array($changeRequest->status, ['requires_referral', 'referred', 'awaiting_approval'])) {
             return;
         }
 
@@ -150,6 +153,10 @@ class ApprovalWorkflowService
             ? "Declined by {$approver->name}: {$notes}"
             : ($notes ?: 'Rejected by approver.');
 
+        // Record where it actually came from — content requests are declined from
+        // awaiting_approval, not referred.
+        $oldStatus = $changeRequest->status;
+
         $changeRequest->update([
             'status' => 'declined',
             'rejection_reason' => $rejectionReason,
@@ -158,14 +165,14 @@ class ApprovalWorkflowService
         ChangeRequestStatusLog::create([
             'change_request_id' => $changeRequest->id,
             'user_id' => $userId,
-            'old_status' => 'referred',
+            'old_status' => $oldStatus,
             'new_status' => 'declined',
         ]);
 
         // Notify the requester
         EmailLog::dispatch(
             $changeRequest->requester_email,
-            new RequestStatusChanged($changeRequest, 'referred', 'declined'),
+            new RequestStatusChanged($changeRequest, $oldStatus, 'declined'),
             $changeRequest,
         );
 

@@ -26,6 +26,11 @@
                 <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->access_recipient_name }}</p>
                 <p class="text-xs text-gray-500">{{ $changeRequest->access_recipient_email }}</p>
             </div>
+            @elseif($changeRequest->isContentRequest())
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Content type</p>
+                <p class="text-sm text-gray-800">{{ config("content-types.{$changeRequest->content_type}.label", 'New content') }}</p>
+            </div>
             @else
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Changes requested</p>
@@ -42,6 +47,11 @@
                 <p class="text-sm text-gray-800 mt-1 whitespace-pre-wrap">{{ $changeRequest->items->first()->description }}</p>
             @endif
             <p class="text-sm text-gray-600 mt-3">If you approve, they'll be asked to complete a short training video and confirm they're competent before access is set up.</p>
+        </div>
+        @elseif($changeRequest->isContentRequest())
+        <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4">
+            <p class="text-sm text-gray-600">This is new content for:</p>
+            <p class="text-sm font-medium text-gray-800 mt-1">{{ $changeRequest->allSites()->pluck('name')->join(', ') }}</p>
         </div>
         @else
         <div class="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-4">
@@ -89,8 +99,24 @@
             </div>
         @endif
 
+        {{-- The copy being signed off. The approval records a hash of exactly this
+             text, so it has to be what the approver actually reads. --}}
+        @if($changeRequest->isContentRequest())
+        <div class="mb-6">
+            <h2 class="text-sm font-semibold text-gray-700 mb-2">The copy you are approving</h2>
+            @if($changeRequest->draft_content)
+                <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $changeRequest->draft_content }}</div>
+                <p class="mt-2 text-xs text-gray-500">Your approval is recorded against this exact wording. If it changes afterwards, the approval is withdrawn and you will be asked again.</p>
+            @else
+                <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    No copy has been written yet. Please do not approve until there is something to review — contact the content designer.
+                </div>
+            @endif
+        </div>
+        @endif
+
         {{-- Items overview --}}
-        @unless($changeRequest->isAccessRequest())
+        @unless($changeRequest->isAccessRequest() || $changeRequest->isContentRequest())
         <div class="space-y-3">
             @foreach($changeRequest->items as $item)
                 @php
@@ -155,11 +181,20 @@
     {{-- Approver info --}}
     @php
         $otherApprovers = $changeRequest->approvers->where('id', '!=', $approver->id);
-        $approvalOutcome = $changeRequest->isAccessRequest() ? 'access will be granted' : 'this change will be scheduled and implemented';
+        $approvalOutcome = match (true) {
+            $changeRequest->isAccessRequest() => 'access will be granted',
+            $changeRequest->isContentRequest() => 'this copy will be published as it stands',
+            default => 'this change will be scheduled and implemented',
+        };
+        $approvalSubject = match (true) {
+            $changeRequest->isAccessRequest() => 'access request',
+            $changeRequest->isContentRequest() => 'content for clinical approval',
+            default => 'change request',
+        };
     @endphp
     <div class="bg-hcrg-grey-100 rounded-lg px-6 py-4 mb-6 space-y-2">
         <p class="text-sm text-gray-700">
-            <strong>{{ $approver->name }}</strong>, you have been asked to review this {{ $changeRequest->isAccessRequest() ? 'access request' : 'change request' }}.
+            <strong>{{ $approver->name }}</strong>, you have been asked to review this {{ $approvalSubject }}.
         </p>
         @if($approver->group)
             @php $groupMembers = $changeRequest->approvers->where('group', $approver->group)->where('id', '!=', $approver->id); @endphp

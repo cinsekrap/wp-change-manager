@@ -9,9 +9,15 @@
         </svg>
     </div>
 
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">Request Submitted</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $changeRequest->isContentRequest() ? 'Suggestion Received' : 'Request Submitted' }}</h1>
     <p class="text-gray-600 mb-6">
-        {{ $changeRequest->isAccessRequest() ? 'Your access request has been received.' : 'Your website change request has been received.' }}
+        @if($changeRequest->isAccessRequest())
+            Your access request has been received.
+        @elseif($changeRequest->isContentRequest())
+            Thanks — your content suggestion has been received.
+        @else
+            Your website change request has been received.
+        @endif
     </p>
 
     <div class="bg-gray-50 rounded-lg p-4 inline-block mb-6">
@@ -24,6 +30,9 @@
         @if($changeRequest->isAccessRequest())
             <p><strong>Access to:</strong> {{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
             <p><strong>Access for:</strong> {{ $changeRequest->access_recipient_name }}</p>
+        @elseif($changeRequest->isContentRequest())
+            <p><strong>Content type:</strong> {{ config("content-types.{$changeRequest->content_type}.label", 'New content') }}</p>
+            <p><strong>Sites:</strong> {{ $changeRequest->allSites()->pluck('name')->join(', ') }}</p>
         @else
             <p><strong>Page:</strong> {{ $changeRequest->page_title ?: $changeRequest->page_url }}</p>
             <p><strong>Changes:</strong> {{ $changeRequest->items->count() }} item(s)</p>
@@ -33,6 +42,8 @@
     <p class="text-sm text-gray-400 mb-6">
         @if($changeRequest->isAccessRequest())
             Please keep your reference number for your records. Once the request is approved, {{ $changeRequest->access_recipient_name }} will receive a training email — access is granted after they confirm they've completed the training.
+        @elseif($changeRequest->isContentRequest())
+            Please keep your reference number. A content designer will read your brief and work out what it needs. New content goes through a funding decision before anyone writes it, so this usually takes a while — we'll email you when it moves forward.
         @else
             Please keep your reference number for your records. The marketing team will review your request shortly.
         @endif

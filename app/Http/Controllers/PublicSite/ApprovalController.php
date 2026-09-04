@@ -16,7 +16,7 @@ class ApprovalController extends Controller
             ->where('status', 'pending')
             ->firstOrFail();
 
-        $changeRequest = $approver->changeRequest()->with(['site', 'items'])->first();
+        $changeRequest = $approver->changeRequest()->with(['site', 'items', 'additionalSites'])->first();
 
         if ($changeRequest->approval_overridden) {
             return view('public.approval-overridden', compact('approver', 'changeRequest'));
@@ -60,7 +60,7 @@ class ApprovalController extends Controller
             ->where('status', 'pending')
             ->firstOrFail();
 
-        $changeRequest = $approver->changeRequest()->with(['site', 'items'])->first();
+        $changeRequest = $approver->changeRequest()->with(['site', 'items', 'additionalSites'])->first();
 
         if ($changeRequest->approval_overridden) {
             $queue = $this->getApproverQueue($approver);
@@ -107,7 +107,7 @@ class ApprovalController extends Controller
         }
 
         // Auto-decline if an approver rejected and request is at referred
-        if ($request->status === 'rejected' && $changeRequest->status === 'referred') {
+        if ($request->status === 'rejected' && in_array($changeRequest->status, ['referred', 'awaiting_approval'])) {
             ApprovalWorkflowService::handleRejection(
                 $changeRequest,
                 $approver,

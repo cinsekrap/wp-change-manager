@@ -143,8 +143,8 @@
         </tr>
         @else
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Page</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $isNewPage ? 'New page: ' : '' }}{{ $pageTitle }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
         </tr>
         @endif
         <tr>
@@ -180,6 +180,11 @@
         if ($isAccessRequest) {
             $steps = ['requested', 'referred', 'approved', 'training', 'trained', 'done'];
             $stepLabels = ['Submitted', 'Referred', 'Approved', 'Training', 'Confirmed', 'Complete'];
+        } elseif ($isContentRequest ?? false) {
+            // The content lane has its own shape; the change-lane steps left every
+            // dot grey, so an email announcing progress showed none.
+            $steps = ['suggested', 'awaiting_funding', 'in_progress', 'awaiting_approval', 'approved', 'done'];
+            $stepLabels = ['Suggested', 'Funding', 'Being written', 'Approval', 'Approved', 'Live'];
         } else {
             $steps = ['requested', 'referred', 'approved', 'scheduled', 'done'];
             $stepLabels = ['Submitted', 'Referred', 'Approved', 'Scheduled', 'Complete'];
@@ -187,7 +192,15 @@
         $isTerminal = in_array($rawStatus, ['declined', 'cancelled']);
         $currentIndex = array_search($rawStatus, $steps);
         if ($currentIndex === false && !$isTerminal) {
-            $currentIndex = in_array($rawStatus, ['requires_referral']) ? 0 : -1;
+            // Statuses that sit between steps rather than on one: show the step
+            // they have already passed rather than resetting the bar to zero.
+            $currentIndex = match ($rawStatus) {
+                'requires_referral' => 0,
+                'scoped' => 0,
+                'on_hold', 'awaiting_user' => max(0, ($currentIndex = array_search($changeRequest->previous_status ?? '', $steps)) === false ? 0 : $currentIndex),
+                'scheduled' => array_search('approved', $steps) ?: 0,
+                default => -1,
+            };
         }
     @endphp
     @if(!$isTerminal)

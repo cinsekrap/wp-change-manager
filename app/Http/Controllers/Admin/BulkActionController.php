@@ -86,6 +86,21 @@ class BulkActionController extends Controller
                 ApprovalWorkflowService::notifyAccessGranted($cr);
             }
 
+            // The content lane's emails were wired into the single-request path
+            // only, so bulk-completing skipped the "where it went live" email the
+            // whole lane exists to deliver.
+            if ($cr->isContentRequest() && in_array($newStatus, ['awaiting_funding', 'done'])) {
+                $mailable = $newStatus === 'done'
+                    ? fn ($watcher = null) => new \App\Mail\ContentPublished($cr, $watcher)
+                    : fn ($watcher = null) => new \App\Mail\ContentAwaitingFunding($cr, $watcher);
+
+                \App\Models\EmailLog::dispatch($cr->requester_email, $mailable(), $cr);
+
+                $cr->watchers()->confirmed()->get()
+                    ->reject(fn ($w) => $w->email === $cr->requester_email)
+                    ->each(fn ($w) => \App\Models\EmailLog::dispatch($w->email, $mailable($w), $cr));
+            }
+
             $updated++;
         }
 

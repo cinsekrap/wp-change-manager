@@ -36,7 +36,7 @@ class RequestChase extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'status' => ucfirst(str_replace('_', ' ', $this->changeRequest->status)),
                 'staleHours' => (int) $this->changeRequest->updated_at->diffInHours(now()),
                 'requesterName' => $this->changeRequest->requester_name,
@@ -53,7 +53,7 @@ class RequestChase extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'status' => ucfirst(str_replace('_', ' ', $this->changeRequest->status)),
             'stale_hours' => (string) (int) $this->changeRequest->updated_at->diffInHours(now()),
             'requester_name' => $this->changeRequest->requester_name,

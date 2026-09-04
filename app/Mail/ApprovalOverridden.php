@@ -39,7 +39,7 @@ class ApprovalOverridden extends Mailable
                 'approverName' => $this->approver->name,
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'customBody' => Setting::get('email_approval_overridden_body') ? $emailContent['body'] : null,
                 'defaultBody' => $emailContent['body'],
                 'overriddenBy' => $this->changeRequest->approvalOverriddenByUser->name ?? 'The marketing team',
@@ -52,7 +52,7 @@ class ApprovalOverridden extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'approver_name' => $this->approver->name,
             'overridden_by' => $this->changeRequest->approvalOverriddenByUser->name ?? 'Unknown',
         ];
