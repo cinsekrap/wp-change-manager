@@ -20,18 +20,12 @@ class RedirectToInstaller
             return $next($request);
         }
 
-        // Check if .env has a real APP_KEY (not the bootstrap install placeholder)
-        $envPath = base_path('.env');
-        if (file_exists($envPath)) {
-            $envContents = file_get_contents($envPath);
-            $hasKey = preg_match('/^APP_KEY=base64:.+$/m', $envContents);
-            $isBootstrap = str_contains($envContents, 'C0jQeZJHEtJ1EA6Qe1cT/pSPqzsEu90PrwAzvYmJZW8=');
-            if ($hasKey && !$isBootstrap) {
-                return $next($request);
-            }
-        }
-
-        // Not installed — redirect to installer
+        // Not installed — redirect to the installer.
+        //
+        // Deliberately no secondary signal. Recognising a shipped key was the old
+        // one, and it meant a site whose lock file had gone missing kept serving
+        // normally while the installer stood open behind it. A missing lock file
+        // is now loud: the installer itself refuses to run once there are users.
         return redirect('/install');
     }
 }

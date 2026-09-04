@@ -33,7 +33,10 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Laravel's default registers GET and PUT routes over this whole
+            // tree, gated only by a signature. Attachments are served by the
+            // admin controller, which checks who is asking.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
