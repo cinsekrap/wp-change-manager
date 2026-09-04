@@ -22,9 +22,16 @@ class PurgeCompletedUploads extends Command
         $purgedFiles = 0;
         $purgedRequests = 0;
 
+        // Content briefs attach files to the request rather than to a line item,
+        // so both places have to be swept or those attachments live forever.
         $candidates = ChangeRequest::whereIn('status', ChangeRequest::TERMINAL_STATUSES)
-            ->whereHas('items.files', fn ($query) => $query->whereNull('purged_at'))
-            ->with(['items.files' => fn ($query) => $query->whereNull('purged_at')])
+            ->where(fn ($query) => $query
+                ->whereHas('items.files', fn ($q) => $q->whereNull('purged_at'))
+                ->orWhereHas('files', fn ($q) => $q->whereNull('purged_at')))
+            ->with([
+                'items.files' => fn ($query) => $query->whereNull('purged_at'),
+                'files' => fn ($query) => $query->whereNull('purged_at'),
+            ])
             ->get();
 
         foreach ($candidates as $request) {
@@ -37,15 +44,15 @@ class PurgeCompletedUploads extends Command
                 continue;
             }
 
-            foreach ($request->items as $item) {
-                foreach ($item->files as $file) {
-                    if ($disk->exists($file->stored_path)) {
-                        $disk->delete($file->stored_path);
-                    }
+            $files = $request->items->flatMap->files->concat($request->files);
 
-                    $file->update(['purged_at' => now()]);
-                    $purgedFiles++;
+            foreach ($files as $file) {
+                if ($disk->exists($file->stored_path)) {
+                    $disk->delete($file->stored_path);
                 }
+
+                $file->update(['purged_at' => now()]);
+                $purgedFiles++;
             }
 
             $directory = "uploads/{$request->reference}";

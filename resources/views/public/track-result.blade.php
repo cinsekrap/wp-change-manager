@@ -7,29 +7,8 @@
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-900 font-mono">{{ $changeRequest->reference }}</h1>
         @php
-            $statusColors = [
-                'requested' => 'bg-amber-100 text-amber-800',
-                'requires_referral' => 'bg-pink-100 text-pink-800',
-                'referred' => 'bg-orange-100 text-orange-800',
-                'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
-                'training' => 'bg-sky-100 text-sky-800',
-                'trained' => 'bg-teal-100 text-teal-800',
-                'scheduled' => 'bg-purple-100 text-purple-800',
-                'on_hold' => 'bg-yellow-100 text-yellow-700',
-                'awaiting_user' => 'bg-cyan-100 text-cyan-700',
-                'done' => 'bg-emerald-100 text-emerald-800',
-                'declined' => 'bg-red-100 text-red-800',
-                'cancelled' => 'bg-gray-200 text-gray-600',
-            ];
-            $statusLabels = [
-                'requires_referral' => 'Requires Referral',
-                'training' => 'Awaiting Training',
-                'trained' => 'Training Confirmed',
-                'on_hold' => 'On Hold',
-                'awaiting_user' => 'Awaiting Your Response',
-            ];
-            $badgeColor = $statusColors[$changeRequest->status] ?? 'bg-gray-100 text-gray-800';
-            $badgeLabel = $statusLabels[$changeRequest->status] ?? ucfirst($changeRequest->status);
+                                    $badgeColor = \App\Models\ChangeRequest::statusColor($changeRequest->status);
+            $badgeLabel = \App\Models\ChangeRequest::statusLabel($changeRequest->status);
         @endphp
         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $badgeColor }}">
             {{ $badgeLabel }}
@@ -154,6 +133,20 @@
                 <dt class="text-gray-500">Access for</dt>
                 <dd class="text-gray-900 font-medium">{{ $changeRequest->access_recipient_name }}</dd>
             </div>
+            @elseif ($changeRequest->isContentRequest())
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Content</dt>
+                <dd class="text-gray-900 font-medium text-right">
+                    {{ $changeRequest->public_title ?: 'New content' }}
+                    @if ($changeRequest->content_type && config("content-types.{$changeRequest->content_type}"))
+                        <span class="block text-xs text-gray-400 font-normal">{{ config("content-types.{$changeRequest->content_type}.label") }}</span>
+                    @endif
+                </dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-gray-500">Sites</dt>
+                <dd class="text-gray-900 font-medium text-right">{{ $changeRequest->allSites()->pluck('name')->join(', ') }}</dd>
+            </div>
             @else
             <div class="flex justify-between">
                 <dt class="text-gray-500">Page</dt>
@@ -176,12 +169,31 @@
                     </dd>
                 </div>
             @endif
+            @unless ($changeRequest->isContentRequest())
             <div class="flex justify-between">
                 <dt class="text-gray-500">Change items</dt>
                 <dd class="text-gray-900 font-medium">{{ $changeRequest->items_count }}</dd>
             </div>
+            @endunless
         </dl>
     </div>
+
+    @if ($changeRequest->isContentRequest() && $changeRequest->published_url)
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">Where it went live</h3>
+        <ul class="space-y-2">
+            @foreach ($changeRequest->allSites() as $site)
+                @php $published = $changeRequest->publishedFor($site->id); @endphp
+                @if ($published['published_url'])
+                    <li class="text-sm">
+                        <a href="{{ $published['published_url'] }}" class="text-hcrg-burgundy underline">{{ $published['published_title'] ?: $published['published_url'] }}</a>
+                        <span class="text-gray-400">— {{ $site->name }}</span>
+                    </li>
+                @endif
+            @endforeach
+        </ul>
+    </div>
+    @endif
 
     {{-- Changes requested --}}
     @if ($changeRequest->items->isNotEmpty())
@@ -254,8 +266,8 @@
             <ol class="relative border-l border-gray-200 ml-2 space-y-4">
                 @foreach ($changeRequest->statusLogs as $log)
                     @php
-                        $logColor = $statusColors[$log->new_status] ?? 'bg-gray-100 text-gray-800';
-                        $logLabel = $statusLabels[$log->new_status] ?? ucfirst($log->new_status);
+                        $logColor = \App\Models\ChangeRequest::statusColor($log->new_status);
+                        $logLabel = \App\Models\ChangeRequest::statusLabel($log->new_status);
                     @endphp
                     <li class="ml-4">
                         <div class="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full border-2 border-white bg-gray-300"></div>

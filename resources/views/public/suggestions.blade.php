@@ -8,7 +8,7 @@
         Everything that has been suggested, and where it has got to. New content goes through a funding decision before anyone writes it, so some of these will sit here a while — that is the process working, not a request being ignored.
     </p>
 
-    <form method="GET" action="{{ route('content-queue') }}">
+    <form method="GET" action="{{ route('suggestions') }}">
         <input type="search" name="q" value="{{ $search }}" placeholder="Search suggestions..."
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
     </form>
@@ -41,7 +41,7 @@
             {{ $entry->allSites()->pluck('name')->join(', ') }}
         </p>
 
-        <form method="POST" action="{{ route('content-queue.watch', $entry->reference) }}" class="mt-4 flex flex-wrap gap-2 items-center">
+        <form method="POST" action="{{ route('suggestions.watch', $entry->reference) }}" class="mt-4 flex flex-wrap gap-2 items-center">
             @csrf
             <label for="watch-{{ $entry->id }}" class="text-sm text-gray-700">Get updates:</label>
             <input type="email" id="watch-{{ $entry->id }}" name="email" required placeholder="your@email"

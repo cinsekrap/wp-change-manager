@@ -139,77 +139,18 @@
             <p class="text-sm text-gray-500 mb-4">Preview emails with sample data.</p>
 
             <div class="space-y-2">
-                <a href="{{ route('admin.settings.mail.preview', 'request-submitted') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Request Submitted</p>
-                        <p class="text-xs text-gray-500">Confirmation to requester</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'status-changed') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Status Changed</p>
-                        <p class="text-xs text-gray-500">Update notification to requester</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'new-request-alert') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">New Request Alert</p>
-                        <p class="text-xs text-gray-500">Notification to admin team</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'approval-requested') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Approval Requested</p>
-                        <p class="text-xs text-gray-500">Sent to approvers with review link</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'approval-overridden') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Approval Overridden</p>
-                        <p class="text-xs text-gray-500">Sent to approvers when approval gate bypassed</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'approval-declined') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Request Declined (to approvers)</p>
-                        <p class="text-xs text-gray-500">Sent to other approvers when request is declined</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'request-chase') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Chase Reminder</p>
-                        <p class="text-xs text-gray-500">Sent for stale inactive requests</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-
-                <a href="{{ route('admin.settings.mail.preview', 'scheduled-today') }}" target="_blank"
-                   class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">Scheduled for Action Today</p>
-                        <p class="text-xs text-gray-500">Sent to the assignee on the scheduled day</p>
-                    </div>
-                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
+                {{-- Generated from config so this cannot drift behind the templates
+                     again — it had fallen 12 behind while it was hand-written. --}}
+                @foreach(config('email-templates') as $key => $tpl)
+                    <a href="{{ route('admin.settings.mail.preview', str_replace('_', '-', $key)) }}" target="_blank"
+                       class="flex items-center justify-between w-full px-3 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ $tpl['name'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $tpl['description'] }}</p>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </a>
+                @endforeach
             </div>
         </div>
     </div>

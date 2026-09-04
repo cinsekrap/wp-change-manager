@@ -67,5 +67,25 @@
             </div>
         </div>
 
+        {{-- One uploader doing both jobs: evidence for "it already exists", and
+             anything else worth reading first. The prompt changes with the answer above. --}}
+        <div>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Anything we should read first? <span class="text-gray-400">(optional)</span></span>
+            <p id="briefUploadHelp" class="text-xs text-gray-500 mb-2">Draft wording, a service spec, or the leaflet you're replacing.</p>
+
+            <div id="briefDropzone" class="border-2 border-dashed border-hcrg-grey-200 rounded-lg p-6 text-center bg-white">
+                <p class="text-sm text-gray-500 mb-2">Drop files here, or</p>
+                <label class="inline-block cursor-pointer border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+                    Choose a file
+                    <input type="file" id="briefFileInput" class="sr-only" multiple
+                        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.mp4,.mov,.webm,.avi">
+                </label>
+                <p class="text-xs text-gray-400 mt-2">Images, documents and video up to 128MB each, 5 files max.</p>
+            </div>
+
+            <div id="briefFileList" class="mt-3 space-y-2"></div>
+            <p id="briefFileError" class="hidden mt-2 text-xs text-red-600"></p>
+        </div>
+
     </div>
 </div>

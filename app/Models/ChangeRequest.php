@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ChangeRequest extends Model
@@ -79,6 +80,36 @@ class ChangeRequest extends Model
         'awaiting_approval' => 'Awaiting Clinical Approval',
     ];
 
+    /**
+     * Badge classes per status. Kept beside the labels so the two cannot drift —
+     * they were previously copied into six views and had already diverged.
+     * Must be literal strings: Tailwind's scanner cannot see a computed class.
+     */
+    public const STATUS_COLORS = [
+        'requested' => 'bg-amber-100 text-amber-800',
+        'requires_referral' => 'bg-pink-100 text-pink-800',
+        'referred' => 'bg-orange-100 text-orange-800',
+        'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
+        'training' => 'bg-sky-100 text-sky-800',
+        'trained' => 'bg-teal-100 text-teal-800',
+        'scheduled' => 'bg-purple-100 text-purple-800',
+        'on_hold' => 'bg-yellow-100 text-yellow-700',
+        'awaiting_user' => 'bg-cyan-100 text-cyan-700',
+        'done' => 'bg-emerald-100 text-emerald-800',
+        'declined' => 'bg-red-100 text-red-800',
+        'cancelled' => 'bg-gray-200 text-gray-600',
+        'suggested' => 'bg-stone-100 text-stone-700',
+        'scoped' => 'bg-stone-200 text-stone-700',
+        'awaiting_funding' => 'bg-amber-100 text-amber-800',
+        'in_progress' => 'bg-sky-100 text-sky-800',
+        'awaiting_approval' => 'bg-fuchsia-100 text-fuchsia-800',
+    ];
+
+    public static function statusColor(string $status): string
+    {
+        return self::STATUS_COLORS[$status] ?? 'bg-gray-100 text-gray-800';
+    }
+
     public static function statusLabel(string $status): string
     {
         return self::STATUS_LABELS[$status] ?? ucfirst(str_replace('_', ' ', $status));
@@ -136,6 +167,15 @@ class ChangeRequest extends Model
 
             if (in_array($changeRequest->status, self::POST_REFERRED_STATUSES)) {
                 $changeRequest->updateQuietly(['status' => 'awaiting_approval']);
+            }
+        });
+
+        // The wizard shows a typical wait built from completed content requests.
+        // Without this it stays stale for up to six hours after each completion —
+        // including the first three, when the figure first becomes publishable.
+        static::updated(function (self $changeRequest) {
+            if ($changeRequest->isContentRequest() && $changeRequest->wasChanged('status')) {
+                Cache::forget('content_wait_days');
             }
         });
 
@@ -292,6 +332,15 @@ class ChangeRequest extends Model
     public function approvers()
     {
         return $this->hasMany(ChangeRequestApprover::class)->orderBy('created_at');
+    }
+
+    /**
+     * Files attached to the request itself rather than to a line item — how a
+     * content brief carries the leaflet or document it is talking about.
+     */
+    public function files()
+    {
+        return $this->hasMany(ChangeRequestItemFile::class)->orderBy('created_at');
     }
 
     public function watchers()

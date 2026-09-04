@@ -46,7 +46,12 @@ return [
     ],
     'announcement' => [
         'label' => 'Tells people about something happening',
-        'help' => 'A campaign, an event, a service opening or closing.',
+        'help' => 'An event, or a service opening, moving or closing.',
+        'tag' => 'Latest',
+    ],
+    'campaign' => [
+        'label' => 'Promotes something topical or seasonal',
+        'help' => 'An awareness week, a seasonal push, a national campaign.',
         'tag' => 'Latest',
     ],
     'governance' => [

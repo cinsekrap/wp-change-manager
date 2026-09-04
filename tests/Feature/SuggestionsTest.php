@@ -9,7 +9,7 @@ use App\Models\Site;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-class ContentQueueTest extends TestCase
+class SuggestionsTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -54,7 +54,7 @@ class ContentQueueTest extends TestCase
             'name' => 'Dr Helen Johal', 'email' => 'h.johal@nhs.net', 'status' => 'approved',
         ]);
 
-        $response = $this->get(route('content-queue'))->assertSuccessful();
+        $response = $this->get(route('suggestions'))->assertSuccessful();
 
         foreach ([
             'Priya Sharma',                 // who suggested it
@@ -76,7 +76,7 @@ class ContentQueueTest extends TestCase
         $other = Site::create(['name' => 'Virgin Care Services', 'domain' => 'virgincare.co.uk', 'is_active' => true]);
         $request->additionalSites()->attach($other->id);
 
-        $this->get(route('content-queue'))
+        $this->get(route('suggestions'))
             ->assertSuccessful()
             ->assertSee('What happens at your first community nursing appointment')
             ->assertSee($request->reference)
@@ -91,21 +91,21 @@ class ContentQueueTest extends TestCase
         // A requester's own words were not written for publication.
         $this->published(['public_title' => null, 'reference' => 'CR-HIDDEN']);
 
-        $this->get(route('content-queue'))->assertSuccessful()->assertDontSee('CR-HIDDEN');
+        $this->get(route('suggestions'))->assertSuccessful()->assertDontSee('CR-HIDDEN');
     }
 
     public function test_change_requests_never_appear_on_the_content_queue(): void
     {
         $this->published(['request_type' => 'change', 'reference' => 'CR-ACHANGE']);
 
-        $this->get(route('content-queue'))->assertSuccessful()->assertDontSee('CR-ACHANGE');
+        $this->get(route('suggestions'))->assertSuccessful()->assertDontSee('CR-ACHANGE');
     }
 
     public function test_the_duplicate_search_returns_matches_for_the_brief(): void
     {
         $this->published();
 
-        $this->getJson(route('content-queue.search', ['q' => 'community nursing']))
+        $this->getJson(route('suggestions.search', ['q' => 'community nursing']))
             ->assertSuccessful()
             ->assertJsonPath('results.0.title', 'What happens at your first community nursing appointment');
     }
@@ -114,7 +114,7 @@ class ContentQueueTest extends TestCase
     {
         $this->published();
 
-        $this->getJson(route('content-queue.search', ['q' => 'wh']))
+        $this->getJson(route('suggestions.search', ['q' => 'wh']))
             ->assertSuccessful()
             ->assertJsonCount(0, 'results');
     }
@@ -123,7 +123,7 @@ class ContentQueueTest extends TestCase
     {
         $request = $this->published();
 
-        $this->post(route('content-queue.watch', $request->reference), ['email' => 'watcher@example.com'])
+        $this->post(route('suggestions.watch', $request->reference), ['email' => 'watcher@example.com'])
             ->assertRedirect();
 
         Mail::assertSent(WatchConfirmation::class);
@@ -137,13 +137,36 @@ class ContentQueueTest extends TestCase
     public function test_confirming_and_unsubscribing_work_by_token(): void
     {
         $request = $this->published();
-        $this->post(route('content-queue.watch', $request->reference), ['email' => 'watcher@example.com']);
+        $this->post(route('suggestions.watch', $request->reference), ['email' => 'watcher@example.com']);
         $watcher = ChangeRequestWatcher::where('email', 'watcher@example.com')->firstOrFail();
 
-        $this->get(route('content-queue.confirm', $watcher->token))->assertRedirect();
+        $this->get(route('suggestions.confirm', $watcher->token))->assertRedirect();
         $this->assertNotNull($watcher->fresh()->confirmed_at);
 
-        $this->get(route('content-queue.unsubscribe', $watcher->token))->assertRedirect();
+        $this->get(route('suggestions.unsubscribe', $watcher->token))->assertRedirect();
         $this->assertNull(ChangeRequestWatcher::find($watcher->id));
+    }
+
+    public function test_declined_and_cancelled_suggestions_drop_off_the_list(): void
+    {
+        $this->published(['status' => 'declined', 'reference' => 'CR-DECLINED']);
+        $this->published(['status' => 'cancelled', 'reference' => 'CR-CANCELLED']);
+        $this->published(['status' => 'awaiting_funding', 'reference' => 'CR-LIVE']);
+
+        $this->get(route('suggestions'))
+            ->assertSuccessful()
+            ->assertSee('CR-LIVE')
+            ->assertDontSee('CR-DECLINED')
+            ->assertDontSee('CR-CANCELLED');
+    }
+
+    public function test_a_declined_suggestion_is_not_offered_as_a_duplicate_match(): void
+    {
+        $this->published(['status' => 'declined']);
+
+        // Suggesting something we already turned down should not read as "it exists".
+        $this->getJson(route('suggestions.search', ['q' => 'community nursing']))
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'results');
     }
 }

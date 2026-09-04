@@ -47,9 +47,35 @@
                             value="{{ $pivot['published_title'] ?? '' }}"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
                     </div>
+                    @if($site->id !== $changeRequest->site_id)
+                        <button type="submit" name="remove_site_id" value="{{ $site->id }}"
+                            class="mt-2 text-xs text-hcrg-grey-400 underline hover:text-hcrg-burgundy">Remove this site</button>
+                    @endif
                 </div>
             @endforeach
         </div>
+
+        @php $unlisted = \App\Models\Site::where('is_active', true)->whereNotIn('id', $changeRequest->allSites()->pluck('id'))->orderBy('name')->get(); @endphp
+        @if($unlisted->isNotEmpty())
+            <div class="mt-4 p-4 bg-hcrg-grey-100 rounded-lg">
+                <label for="addSite" class="block text-sm font-medium text-gray-700 mb-1">Also went live somewhere else?</label>
+                <p class="text-xs text-gray-500 mb-2">The requester's list was a suggestion — add any site this actually landed on.</p>
+                <div class="flex flex-wrap gap-2">
+                    <select name="add_site_id" id="addSite" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        <option value="">Choose a site...</option>
+                        @foreach($unlisted as $site)
+                            <option value="{{ $site->id }}">{{ $site->name }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">Add site</button>
+                </div>
+            </div>
+        @endif
+
+        <p class="mt-4 text-xs text-gray-500">
+            Adding a site does not affect clinical approval — one sign-off covers every site. Only changing the copy voids it, so if a site needs its own wording that is a separate request.
+        </p>
+
         <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save addresses</button>
     </form>
 </div>

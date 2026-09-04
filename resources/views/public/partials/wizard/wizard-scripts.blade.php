@@ -1422,10 +1422,88 @@
     document.querySelectorAll('input[name="brief_exists"]').forEach(r => {
         r.addEventListener('change', function () {
             document.getElementById('briefExistsDetailWrap').classList.toggle('hidden', this.value !== 'yes');
+            // Saying "yes" turns the uploader into an invitation to attach the thing.
+            document.getElementById('briefUploadHelp').textContent = this.value === 'yes'
+                ? "If the thing that already exists is a document, upload it here — or anything else worth reading first."
+                : "Draft wording, a service spec, or the leaflet you're replacing.";
             checkStepValid();
             saveState();
         });
     });
+
+    // ---- Brief attachments ----
+    // One uploader serving both jobs: evidence for "it already exists", and
+    // anything else worth reading first.
+    let briefFiles = [];
+
+    function renderBriefFiles() {
+        const list = document.getElementById('briefFileList');
+        list.innerHTML = briefFiles.map(f => `
+            <div class="flex items-center justify-between bg-hcrg-grey-100 rounded-lg px-3 py-2" data-filename="${esc(f.filename)}">
+                <span class="text-sm text-hcrg-charcoal truncate mr-2">${esc(f.original_name)}</span>
+                <button type="button" class="brief-file-remove text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>
+            </div>`).join('');
+        list.querySelectorAll('.brief-file-remove').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const name = btn.closest('[data-filename]').dataset.filename;
+                briefFiles = briefFiles.filter(f => f.filename !== name);
+                try { await fetch(`/api/upload/${name}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrfToken } }); } catch (e) {}
+                renderBriefFiles();
+            });
+        });
+    }
+
+    function briefFileError(msg) {
+        const el = document.getElementById('briefFileError');
+        el.textContent = msg;
+        el.classList.toggle('hidden', !msg);
+    }
+
+    async function uploadBriefFiles(files) {
+        briefFileError('');
+        for (const file of files) {
+            if (briefFiles.length >= 5) { briefFileError('Five files is the maximum.'); return; }
+            if (file.size > 128 * 1024 * 1024) { briefFileError(`${file.name} exceeds the 128MB limit.`); continue; }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const res = await fetch('{{ route("api.upload") }}', {
+                    method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: formData,
+                });
+                const data = await res.json();
+                if (data.success) {
+                    briefFiles.push(data);
+                    renderBriefFiles();
+                } else {
+                    briefFileError(data.message || `${file.name} could not be uploaded.`);
+                }
+            } catch (e) {
+                briefFileError(`${file.name} could not be uploaded.`);
+            }
+        }
+    }
+
+    const briefFileInput = document.getElementById('briefFileInput');
+    if (briefFileInput) {
+        briefFileInput.addEventListener('change', function () {
+            uploadBriefFiles([...this.files]);
+            this.value = '';
+        });
+    }
+
+    const briefDropzone = document.getElementById('briefDropzone');
+    if (briefDropzone) {
+        ['dragover', 'dragenter'].forEach(ev => briefDropzone.addEventListener(ev, e => {
+            e.preventDefault();
+            briefDropzone.classList.add('border-hcrg-burgundy');
+        }));
+        ['dragleave', 'drop'].forEach(ev => briefDropzone.addEventListener(ev, e => {
+            e.preventDefault();
+            briefDropzone.classList.remove('border-hcrg-burgundy');
+        }));
+        briefDropzone.addEventListener('drop', e => uploadBriefFiles([...e.dataTransfer.files]));
+    }
 
     // The queue's business case: catch a duplicate at the moment someone is
     // about to ask for one, rather than three weeks later.
@@ -2045,7 +2123,12 @@
                 <p class="text-sm text-gray-600">${lane === 'content' ? 'New content' : (selectedPage ? esc(selectedPage.title) + ' — ' + esc(selectedPage.url) : '')}</p>
             </div>`;
 
-        if (isStructured) {
+        // The content lane has no line items — a blank one sits in the DOM from
+        // init, and rendering it produced an empty "Changes (1)" card whose Edit
+        // led to the brief.
+        if (lane === 'content') {
+            // nothing to render here; the brief and where-it-lives cards follow
+        } else if (isStructured) {
             // Structured form review
             const structuredItems = getStructuredItems();
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-3">
@@ -2201,7 +2284,11 @@
         const isStructured = lane === 'change' && hasRichContentAreas();
         let items = [];
 
-        if (isStructured) {
+        if (lane === 'content') {
+            // A content request carries a brief, not line items. Reading the blank
+            // one left by init threw on `.action-type:checked` and killed submit.
+            items = [];
+        } else if (isStructured) {
             items = getStructuredItems();
         } else {
             document.querySelectorAll('.line-item').forEach(item => {
@@ -2241,6 +2328,7 @@
             request_type: isNew ? 'content' : 'change',
             content_type: isNew ? (document.querySelector('input[name="content_type"]:checked')?.value || null) : null,
             content_brief: isNew ? collectBrief() : null,
+            brief_files: isNew ? briefFiles : [],
             additional_site_ids: isNew ? collectAdditionalSiteIds() : [],
             requester_name: document.getElementById('requesterName').value,
             requester_email: document.getElementById('requesterEmail').value,

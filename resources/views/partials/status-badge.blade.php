@@ -1,28 +1,5 @@
-@php
-$colors = [
-    'requested' => 'bg-amber-100 text-amber-800',
-    'requires_referral' => 'bg-pink-100 text-pink-800',
-    'referred' => 'bg-orange-100 text-orange-800',
-    'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
-    'training' => 'bg-sky-100 text-sky-800',
-    'trained' => 'bg-teal-100 text-teal-800',
-    'scheduled' => 'bg-purple-100 text-purple-800',
-    'on_hold' => 'bg-yellow-100 text-yellow-700',
-    'awaiting_user' => 'bg-cyan-100 text-cyan-700',
-    'done' => 'bg-emerald-100 text-emerald-800',
-    'declined' => 'bg-red-100 text-red-800',
-    'cancelled' => 'bg-gray-200 text-gray-600',
-];
-$labels = [
-    'requires_referral' => 'Requires Referral',
-    'training' => 'Awaiting Training',
-    'trained' => 'Training Confirmed',
-    'on_hold' => 'On Hold',
-    'awaiting_user' => 'Awaiting User',
-];
-$color = $colors[$status] ?? 'bg-gray-100 text-gray-800';
-$label = $labels[$status] ?? ucfirst($status);
-@endphp
-<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap {{ $color }}">
-    {{ $label }}
+{{-- Single source for status pills. Labels and colours live on the model so the
+     six views that show a status cannot drift apart. --}}
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap {{ \App\Models\ChangeRequest::statusColor($status) }}">
+    {{ \App\Models\ChangeRequest::statusLabel($status) }}
 </span>
