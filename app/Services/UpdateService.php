@@ -118,10 +118,26 @@ class UpdateService
         try {
             $repo = config('version.repo');
 
-            // 1. Fetch release info for pinned download URL and optional checksum
+            // 1. Fetch release info for the pinned download URL and its checksum.
+            //
+            // Everything below is fail-closed on purpose. A release lookup that
+            // does not come back is the moment to stop, not the moment to guess:
+            // falling back to the tip of the default branch installed code that
+            // was never released, and did so with the checksum unavailable, so
+            // the integrity check disappeared exactly when something was wrong.
             $release = $this->checkForUpdates(force: true);
-            $zipUrl = $release['zipball_url']
-                ?? "https://github.com/{$repo}/archive/refs/heads/main.zip";
+
+            if (empty($release['available'])) {
+                throw new \RuntimeException('No update is available to install.');
+            }
+
+            if (empty($release['zipball_url'])) {
+                throw new \RuntimeException(
+                    'Could not read the release details from GitHub, so there is nothing verified to install. Try again shortly.'
+                );
+            }
+
+            $zipUrl = $release['zipball_url'];
             $tempZip = storage_path('app/update.zip');
             $tempDir = storage_path('app/update-extract');
 
@@ -149,15 +165,22 @@ class UpdateService
                 $expectedHash = strtolower($matches[1]);
             }
 
-            if ($expectedHash) {
-                if (!hash_equals($expectedHash, $downloadHash)) {
-                    @unlink($tempZip);
-                    throw new \RuntimeException("SHA-256 checksum mismatch. Expected: {$expectedHash}, Got: {$downloadHash}");
-                }
-                $log['steps']['verify'] = 'SHA-256 checksum verified.';
-            } else {
-                $log['steps']['verify'] = 'No checksum published in release notes — skipped verification.';
+            // A release with no checksum is not installed. Skipping verification
+            // meant the control could be removed by whatever published the
+            // release, which is the one thing it exists to check.
+            if (! $expectedHash) {
+                @unlink($tempZip);
+                throw new \RuntimeException(
+                    'This release publishes no SHA-256 checksum, so the download cannot be verified and was not installed.'
+                );
             }
+
+            if (! hash_equals($expectedHash, $downloadHash)) {
+                @unlink($tempZip);
+                throw new \RuntimeException("SHA-256 checksum mismatch. Expected: {$expectedHash}, Got: {$downloadHash}");
+            }
+
+            $log['steps']['verify'] = 'SHA-256 checksum verified.';
 
             // 3. Extract zip
             $zip = new \ZipArchive();
