@@ -270,7 +270,10 @@ class ChangeRequest extends Model
         }
 
         if ($this->isContentRequest()) {
+            // page_title is the working title on content the team started itself;
+            // without it there is only the generic type label to go on.
             return $this->public_title
+                ?: $this->page_title
                 ?: config("content-types.{$this->content_type}.label", 'New content');
         }
 

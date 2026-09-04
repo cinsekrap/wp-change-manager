@@ -14,7 +14,7 @@
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>
-                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site->name }}</p>
+                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site?->name ?? 'Not yet decided' }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Access to</p>

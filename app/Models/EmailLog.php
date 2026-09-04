@@ -21,9 +21,16 @@ class EmailLog extends Model
 
     /**
      * Send a mailable and log the result.
+     *
+     * Content a designer started themselves has no requester, so there is
+     * nobody to write to. Returns null rather than logging a send to nowhere.
      */
-    public static function dispatch(string $to, Mailable $mailable, ?ChangeRequest $changeRequest = null): self
+    public static function dispatch(?string $to, Mailable $mailable, ?ChangeRequest $changeRequest = null): ?self
     {
+        if (blank($to)) {
+            return null;
+        }
+
         $className = class_basename($mailable);
 
         try {

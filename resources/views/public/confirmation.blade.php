@@ -26,7 +26,7 @@
     </div>
 
     <div class="text-sm text-gray-500 space-y-1 mb-8">
-        <p><strong>Site:</strong> {{ $changeRequest->site->name }}</p>
+        <p><strong>Site:</strong> {{ $changeRequest->site?->name ?? 'Not yet decided' }}</p>
         @if($changeRequest->isAccessRequest())
             <p><strong>Access to:</strong> {{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
             <p><strong>Access for:</strong> {{ $changeRequest->access_recipient_name }}</p>

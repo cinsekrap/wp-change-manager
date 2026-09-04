@@ -2,7 +2,12 @@
 @section('title', 'Change Requests')
 
 @section('content')
-<h1 class="text-2xl font-bold text-gray-900 mb-6">Change Requests</h1>
+<div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Change Requests</h1>
+    {{-- Everything else here arrived from the request form; this is the one way in for
+         content the team decided it wants itself. --}}
+    <a href="{{ route('admin.requests.content.create') }}" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">New content</a>
+</div>
 
 @php
     $selectedStatuses = (array) request('status', []);
@@ -203,7 +208,7 @@
                     <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
                 </td>
                 <td class="px-3 py-3 text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
-                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name }}</td>
+                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name ?: '—' }}</td>
                 <td class="px-3 py-3 text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1.5">
                         @if($req->items_count > 0)

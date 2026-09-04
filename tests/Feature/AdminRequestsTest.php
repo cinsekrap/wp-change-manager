@@ -310,4 +310,26 @@ class AdminRequestsTest extends TestCase
         $this->assertCount(1, $cr->approvers);
         $this->assertEquals('Default Approver', $cr->approvers->first()->name);
     }
+
+    public function test_the_list_sorts_by_priority_on_any_database(): void
+    {
+        $this->loginAsAdmin();
+
+        foreach (['low', 'urgent', 'normal', 'high'] as $i => $priority) {
+            $this->createChangeRequest(
+                ['domain' => "site{$i}.example.com"],
+                ['reference' => "WCR-20260904-{$i}", 'priority' => $priority],
+            );
+        }
+
+        $order = fn (array $query) => collect(
+            $this->get(route('admin.requests.index', $query))->assertSuccessful()->viewData('requests')->items()
+        )->pluck('priority')->all();
+
+        // All three of these were MySQL's FIELD(), so the page died on any other
+        // driver the moment there was a row in the list to order.
+        $this->assertSame(['urgent', 'high', 'normal', 'low'], $order([]));
+        $this->assertSame(['urgent', 'high', 'normal', 'low'], $order(['sort' => 'priority', 'direction' => 'asc']));
+        $this->assertSame(['low', 'normal', 'high', 'urgent'], $order(['sort' => 'priority', 'direction' => 'desc']));
+    }
 }

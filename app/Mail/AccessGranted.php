@@ -29,7 +29,7 @@ class AccessGranted extends Mailable
     public function content(): Content
     {
         $emailContent = Setting::getEmailContent('access_granted', $this->placeholderValues());
-        $domain = $this->changeRequest->site->domain ?? null;
+        $domain = $this->changeRequest->site?->domain;
 
         return new Content(
             view: 'emails.access-granted',

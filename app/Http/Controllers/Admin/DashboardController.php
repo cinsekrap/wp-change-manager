@@ -64,6 +64,8 @@ class DashboardController extends Controller
             ->get();
 
         $topRequesters = ChangeRequest::selectRaw('requester_email, requester_name, count(*) as total')
+            // Content the team started itself has no requester; an empty row is not a person.
+            ->whereNotNull('requester_email')
             ->groupBy('requester_email', 'requester_name')
             ->orderByDesc('total')
             ->take(5)

@@ -159,7 +159,7 @@
                         <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium">{{ $req->reference }}</a>
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-600">{{ $req->site->name ?? '—' }}</td>
-                    <td class="px-6 py-4 text-sm text-gray-600">{{ $req->requester_name }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">{{ $req->requester_name ?: '—' }}</td>
                     <td class="px-6 py-4">
                         @include('partials.status-badge', ['status' => $req->status])
                     </td>

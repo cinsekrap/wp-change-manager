@@ -95,7 +95,7 @@
     @endphp
     @if($canSendForApproval)
         @php
-            $siteHasApprovers = !empty($changeRequest->site->default_approvers);
+            $siteHasApprovers = !empty($changeRequest->site?->default_approvers);
             $hasManualApprovers = $changeRequest->approvers->isNotEmpty();
             $allChecksPassed = collect($changeRequest->check_answers ?? [])->every(fn($a) => !empty($a['pass']));
         @endphp

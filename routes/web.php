@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ApproverController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BulkActionController;
 use App\Http\Controllers\Admin\ChangeRequestController;
+use App\Http\Controllers\Admin\ContentRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -121,6 +122,10 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::post('/requests/bulk/status', [BulkActionController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
     Route::post('/requests/bulk/assign', [BulkActionController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
     Route::get('/requests', [ChangeRequestController::class, 'index'])->name('admin.requests.index');
+    // Content the team starts itself. Both must stay above the {changeRequest}
+    // route or "create" is read as a reference and 404s.
+    Route::get('/requests/create-content', [ContentRequestController::class, 'create'])->name('admin.requests.content.create');
+    Route::post('/requests/create-content', [ContentRequestController::class, 'store'])->name('admin.requests.content.store');
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
     Route::post('/requests/{changeRequest}/notes', [ChangeRequestController::class, 'addNote'])->name('admin.requests.notes');

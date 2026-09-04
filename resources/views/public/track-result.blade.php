@@ -160,7 +160,7 @@
         <dl class="space-y-3 text-sm">
             <div class="flex justify-between">
                 <dt class="text-gray-500">Site</dt>
-                <dd class="text-gray-900 font-medium">{{ $changeRequest->site->name }}</dd>
+                <dd class="text-gray-900 font-medium">{{ $changeRequest->site?->name ?? 'Not yet decided' }}</dd>
             </div>
             @if($changeRequest->isAccessRequest())
             <div class="flex justify-between">

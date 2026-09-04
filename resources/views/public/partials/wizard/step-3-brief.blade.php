@@ -16,14 +16,7 @@
             <span class="block text-sm font-medium text-gray-700 mb-1">Who is it for? <span class="text-red-500">*</span></span>
             <p class="text-xs text-gray-500 mb-2">Pick everyone it genuinely has to serve — this usually changes how it's written.</p>
             <div id="briefAudience" class="flex flex-wrap gap-2">
-                @foreach ([
-                    'patients' => 'Patients & service users',
-                    'families' => 'Families & carers',
-                    'referrers' => 'Referrers & GPs',
-                    'staff' => 'Our staff',
-                    'commissioners' => 'Commissioners',
-                    'public' => 'General public',
-                ] as $value => $label)
+                @foreach (config('content-audiences') as $value => $label)
                     <label class="cursor-pointer">
                         <input type="checkbox" class="sr-only brief-audience" value="{{ $value }}">
                         <span class="audience-chip inline-block text-sm px-4 py-2 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal">{{ $label }}</span>

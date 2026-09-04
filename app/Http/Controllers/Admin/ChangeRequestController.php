@@ -37,14 +37,11 @@ class ChangeRequestController extends Controller
             $dir = $sortDirection;
             $query->orderByRaw("(SELECT name FROM sites WHERE sites.id = change_requests.site_id) $dir");
         } elseif ($sortColumn === 'priority') {
-            $order = $sortDirection === 'asc'
-                ? "FIELD(priority, 'urgent', 'high', 'normal', 'low')"
-                : "FIELD(priority, 'low', 'normal', 'high', 'urgent')";
-            $query->orderByRaw($order);
+            $query->orderByRaw(self::priorityOrder($sortDirection === 'asc'));
         } elseif (in_array($sortColumn, ['reference', 'requester_name', 'status', 'created_at'])) {
             $query->orderBy("change_requests.{$sortColumn}", $sortDirection);
         } else {
-            $query->orderByRaw("FIELD(priority, 'urgent', 'high', 'normal', 'low')")->latest();
+            $query->orderByRaw(self::priorityOrder(true))->latest();
         }
 
         $requests = $query->paginate(25)->withQueryString();
@@ -52,6 +49,25 @@ class ChangeRequestController extends Controller
         $adminUsers = User::admins()->orderBy('name')->get();
 
         return view('admin.requests.index', compact('requests', 'sites', 'adminUsers'));
+    }
+
+    /**
+     * Most urgent first, or least. Written as CASE rather than MySQL's FIELD()
+     * so the list is orderable on any driver — with FIELD() the whole page was
+     * untestable the moment there was a row in it.
+     */
+    private static function priorityOrder(bool $mostUrgentFirst): string
+    {
+        $order = $mostUrgentFirst
+            ? ['urgent', 'high', 'normal', 'low']
+            : ['low', 'normal', 'high', 'urgent'];
+
+        $cases = '';
+        foreach ($order as $position => $priority) {
+            $cases .= " WHEN '{$priority}' THEN {$position}";
+        }
+
+        return "CASE priority{$cases} ELSE ".count($order).' END';
     }
 
     public function export(Request $request): StreamedResponse
