@@ -208,6 +208,47 @@
         @endif
 
         {{-- Add approver form --}}
+        @if($changeRequest->isContentRequest())
+        {{-- Clinical sign-off names someone from the managed list, not free text. --}}
+        @php $clinicalApprovers = \App\Models\ClinicalApprover::active()->ordered()->get(); @endphp
+        <form method="POST" action="{{ route('admin.requests.approvers.add', $changeRequest) }}" class="border-t border-gray-100 pt-3">
+            @csrf
+            <p class="text-xs font-medium text-gray-500 mb-2">Ask a clinical approver</p>
+
+            @if($clinicalApprovers->isEmpty())
+                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                    No clinical approvers set up yet.
+                    <a href="{{ route('admin.clinical-approvers.index') }}" class="underline">Add one</a> before sending this for approval.
+                </p>
+            @else
+                <select name="clinical_approver_id" id="clinicalApproverSelect" required
+                    class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    <option value="">Choose an approver...</option>
+                    @foreach($clinicalApprovers as $ca)
+                        <option value="{{ $ca->id }}" data-expertise="{{ $ca->areas_of_expertise }}">{{ $ca->label() }}</option>
+                    @endforeach
+                </select>
+
+                {{-- Their expertise, so the designer can tell this is the right person to ask. --}}
+                <p id="clinicalApproverExpertise" class="hidden mt-2 text-xs text-hcrg-grey-400 bg-hcrg-grey-100 rounded-lg p-2"></p>
+
+                <button type="submit" class="mt-2 w-full bg-hcrg-burgundy text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Ask for approval</button>
+
+                <script>
+                (function () {
+                    var select = document.getElementById('clinicalApproverSelect');
+                    var note = document.getElementById('clinicalApproverExpertise');
+                    if (!select || !note) return;
+                    select.addEventListener('change', function () {
+                        var expertise = this.selectedOptions[0] ? this.selectedOptions[0].dataset.expertise : '';
+                        note.textContent = expertise ? 'Areas of expertise: ' + expertise : 'No areas of expertise recorded for this approver.';
+                        note.classList.toggle('hidden', !this.value);
+                    });
+                })();
+                </script>
+            @endif
+        </form>
+        @else
         <form method="POST" action="{{ route('admin.requests.approvers.add', $changeRequest) }}" class="border-t border-gray-100 pt-3">
             @csrf
             <p class="text-xs font-medium text-gray-500 mb-2">Add approver</p>
@@ -225,5 +266,6 @@
                 <button type="submit" class="w-full bg-hcrg-burgundy text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Add</button>
             </div>
         </form>
+        @endif
     </div>
 </div>

@@ -164,10 +164,13 @@ class ContentLaneWorkflowTest extends TestCase
         $request = $this->contentAwaitingApproval();
         $request->updateQuietly(['status' => 'approved']);
 
+        $clinical = \App\Models\ClinicalApprover::create([
+            'name' => 'Dr Second Opinion', 'email' => 'second@example.nhs.uk', 'is_active' => true,
+        ]);
+
         $this->loginAsAdmin();
         $this->post(route('admin.requests.approvers.add', $request), [
-            'name' => 'Dr Second Opinion',
-            'email' => 'second@example.nhs.uk',
+            'clinical_approver_id' => $clinical->id,
         ])->assertRedirect();
 
         // Not requires_referral, which belongs to the change lane.
