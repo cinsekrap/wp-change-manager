@@ -23,10 +23,19 @@ class LoginController extends Controller
 
     public function login(Request $request)
     {
+        // Signing in on top of an existing session would carry that session's
+        // state into a different identity. Log out first.
+        if (Auth::check()) {
+            return redirect()->route('admin.dashboard');
+        }
+
         $credentials = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
+
+        // Whatever this session already held belongs to whoever was here before.
+        $request->session()->forget('mfa_verified_user_id');
 
         if (Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
             $request->session()->regenerate();
