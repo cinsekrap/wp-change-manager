@@ -22,7 +22,7 @@ abstract class TestCase extends BaseTestCase
             'mfa_confirmed_at' => now(),
         ], $overrides));
 
-        $this->actingAs($user)->withSession(['mfa_verified' => true]);
+        $this->actingAs($user)->withSession(['mfa_verified_user_id' => $user->id]);
 
         return $user;
     }

@@ -26,8 +26,11 @@ class RequireMfa
             return redirect()->route('mfa.setup');
         }
 
-        // MFA is set up but not verified this session
-        if (! $request->session()->get('mfa_verified')) {
+        // MFA is set up but not verified this session, or verified by whoever was
+        // signed in before. A challenge is passed by a person, so the session has
+        // to name them — a flag that only says "somebody passed" is satisfied by
+        // anyone the session later becomes.
+        if ((int) $request->session()->get('mfa_verified_user_id') !== (int) $user->id) {
             return redirect()->route('mfa.challenge');
         }
 
