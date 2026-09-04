@@ -51,6 +51,17 @@
 
     <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-hcrg-burgundy hover:underline font-medium">track the status of your request</a> at any time.</p>
 
+    @if($changeRequest->isContentRequest())
+    {{-- The one moment someone cares that the queue exists. It does not appear
+         there until we have written a public title for it, so this promises a
+         list to look at, not that theirs is on it yet. --}}
+    <p class="text-sm text-gray-500 mb-6">
+        Suggestions are added to our
+        <a href="{{ route('suggestions') }}" class="text-hcrg-burgundy hover:underline font-medium">public list of content suggestions</a>
+        once we have written yours up, so you can see where it has got to alongside everything else people have asked for.
+    </p>
+    @endif
+
     <a href="{{ route('wizard') }}" class="inline-block bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
         Submit Another Request
     </a>

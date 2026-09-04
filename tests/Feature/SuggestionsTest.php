@@ -192,4 +192,65 @@ class SuggestionsTest extends TestCase
             ->assertSuccessful()
             ->assertJsonCount(1, 'results');
     }
+
+    public function test_the_queue_is_reachable_from_the_footer_not_the_header(): void
+    {
+        $html = $this->get(route('wizard'))->assertSuccessful()->getContent();
+
+        // Still reachable from every public page — it is public precisely
+        // because there is no sign-in.
+        $this->assertStringContainsString(route('suggestions'), $html);
+
+        // But not competing with the two things people come here to do. The
+        // header holds tasks; this is a destination.
+        $header = substr($html, 0, strpos($html, '</header>'));
+        $this->assertStringNotContainsString(route('suggestions'), $header,
+            'The suggestions queue is back in the header.');
+    }
+
+    public function test_a_content_suggester_is_told_the_public_list_exists(): void
+    {
+        $site = Site::create(['name' => 'HCRG', 'domain' => 'hcrg.test', 'is_active' => true]);
+
+        $request = ChangeRequest::create([
+            'reference' => 'CR-CONF01',
+            'request_type' => 'content',
+            'site_id' => $site->id,
+            'page_url' => 'new-content',
+            'cpt_slug' => 'content',
+            'status' => 'suggested',
+            'requester_name' => 'Jane Doe',
+            'requester_email' => 'jane@example.com',
+            'content_type' => 'appointment_prep',
+        ]);
+
+        $this->get(\Illuminate\Support\Facades\URL::signedRoute('confirmation', ['reference' => $request->reference]))
+            ->assertSuccessful()
+            ->assertSee(route('suggestions'), false)
+            // It is not on the list until an admin writes a public title, so the
+            // wording must not claim it already is.
+            ->assertSee('once we have written yours up', false);
+    }
+
+    public function test_a_change_requester_is_not_sent_to_the_content_queue(): void
+    {
+        $site = Site::create(['name' => 'HCRG', 'domain' => 'hcrg.test', 'is_active' => true]);
+
+        $request = ChangeRequest::create([
+            'reference' => 'CR-CONF02',
+            'request_type' => 'change',
+            'site_id' => $site->id,
+            'page_url' => '/a-page',
+            'page_title' => 'A page',
+            'cpt_slug' => 'pages',
+            'status' => 'requested',
+            'requester_name' => 'Jane Doe',
+            'requester_email' => 'jane@example.com',
+        ]);
+
+        // The queue is content only; a wording change has nothing to do with it.
+        $html = $this->get(\Illuminate\Support\Facades\URL::signedRoute('confirmation', ['reference' => $request->reference]))->assertSuccessful()->getContent();
+        $body = substr($html, strpos($html, '</header>'), strpos($html, '<footer') - strpos($html, '</header>'));
+        $this->assertStringNotContainsString(route('suggestions'), $body);
+    }
 }

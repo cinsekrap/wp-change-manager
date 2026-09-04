@@ -17,7 +17,6 @@
             <div class="flex items-center space-x-3">
                 <a href="{{ route('wizard') }}" class="text-sm font-medium text-white bg-hcrg-burgundy px-4 py-2 rounded-full hover:bg-[#9A1B4B] transition-colors">Submit a request</a>
                 <a href="{{ route('tracking') }}" class="text-sm font-medium text-hcrg-burgundy border border-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">Track a request</a>
-                <a href="{{ route('suggestions') }}" class="text-sm font-medium text-hcrg-burgundy border border-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">Suggestions</a>
                 <a href="{{ route(auth()->check() ? 'admin.reports' : 'login') }}" class="text-sm font-medium text-gray-400 border border-gray-300 px-4 py-2 rounded-full hover:border-hcrg-burgundy hover:text-hcrg-burgundy transition-colors">{{ auth()->check() ? 'Admin' : 'Sign in' }}</a>
             </div>
         </div>
@@ -29,6 +28,7 @@
 
     <footer class="bg-hcrg-burgundy text-white mt-12">
         <div class="max-w-3xl mx-auto px-4 py-8 text-center text-sm space-y-1">
+            <p><a href="{{ route('suggestions') }}" class="text-white/70 hover:text-white underline">Content suggestions</a></p>
             <p>&copy; {{ date('Y') }} {{ config('app.name') }}</p>
             <p class="text-white/50">Powered by <a href="https://github.com/cinsekrap/wp-change-manager" target="_blank" class="text-white/70 hover:text-white underline">WP Change Manager</a></p>
         </div>
