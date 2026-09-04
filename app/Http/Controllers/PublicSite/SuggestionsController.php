@@ -8,7 +8,7 @@ use App\Models\ChangeRequestWatcher;
 use App\Models\EmailLog;
 use Illuminate\Http\Request;
 
-class ContentQueueController extends Controller
+class SuggestionsController extends Controller
 {
     /**
      * There is no sign-in, so a queue entry is a published page. This is the
@@ -32,6 +32,9 @@ class ContentQueueController extends Controller
             ->select(self::PUBLIC_COLUMNS)
             ->where('request_type', 'content')
             ->whereNotNull('public_title')
+            // Declined and cancelled suggestions drop off the list. The suggester is
+            // emailed either way, so nobody is left guessing about their own request.
+            ->whereNotIn('status', ['declined', 'cancelled'])
             ->with(['site:id,name', 'additionalSites:id,name']);
     }
 
@@ -45,7 +48,7 @@ class ContentQueueController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('public.queue', [
+        return view('public.suggestions', [
             'entries' => $entries,
             'search' => $search,
             'contentTypes' => config('content-types'),
@@ -107,7 +110,7 @@ class ContentQueueController extends Controller
         $watcher = ChangeRequestWatcher::where('token', $token)->firstOrFail();
         $watcher->update(['confirmed_at' => now()]);
 
-        return redirect()->route('content-queue')->with('success', 'You will now get updates about that suggestion.');
+        return redirect()->route('suggestions')->with('success', 'You will now get updates about that suggestion.');
     }
 
     public function unsubscribe(string $token)
@@ -115,6 +118,6 @@ class ContentQueueController extends Controller
         $watcher = ChangeRequestWatcher::where('token', $token)->firstOrFail();
         $watcher->delete();
 
-        return redirect()->route('content-queue')->with('success', 'You will not get any more updates about that suggestion.');
+        return redirect()->route('suggestions')->with('success', 'You will not get any more updates about that suggestion.');
     }
 }

@@ -126,6 +126,12 @@ class EmailTemplateController extends Controller
             $sample->setRelation('items', collect());
         }
 
+        // Sample assignee for the request-assigned preview
+        $sampleAssignee = \App\Models\User::first() ?: new \App\Models\User([
+            'name' => 'Sam Taylor',
+            'email' => 'sam.taylor@example.com',
+        ]);
+
         // Sample watcher for the watch-confirmation preview
         $sampleWatcher = new \App\Models\ChangeRequestWatcher([
             'email' => 'someone@example.com',
@@ -198,6 +204,9 @@ class EmailTemplateController extends Controller
             'content-awaiting-funding' => new \App\Mail\ContentAwaitingFunding($sample),
             'content-published' => new \App\Mail\ContentPublished($sample),
             'watch-confirmation' => new \App\Mail\WatchConfirmation($sample, $sampleWatcher),
+            // These two are in config but had no preview; generating the list surfaced them.
+            'request-assigned' => new \App\Mail\RequestAssigned($sample, $sampleAssignee),
+            'group-approval-satisfied' => new \App\Mail\GroupApprovalSatisfied($sample, $sampleApprover, 'Dr Helen Johal'),
             default => abort(404),
         };
 

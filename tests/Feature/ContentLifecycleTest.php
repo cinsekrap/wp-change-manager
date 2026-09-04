@@ -129,4 +129,76 @@ class ContentLifecycleTest extends TestCase
         $this->assertContains('awaiting_approval', $content->statusOptions());
         $this->assertNotContains('awaiting_approval', $change->statusOptions());
     }
+
+    public function test_an_admin_can_add_a_site_the_requester_did_not_ask_for(): void
+    {
+        $request = $this->contentRequest(['status' => 'approved']);
+        $other = Site::create(['name' => 'Virgin Care Services', 'domain' => 'virgincare.co.uk', 'is_active' => true]);
+
+        $this->loginAsAdmin();
+
+        // The requester never selected this site; content landed there anyway.
+        $this->patch(route('admin.requests.published', $request), ['add_site_id' => $other->id])
+            ->assertRedirect();
+
+        $this->assertTrue($request->fresh()->additionalSites->contains('id', $other->id));
+    }
+
+    public function test_an_admin_can_drop_a_site_that_turned_out_not_to_be_needed(): void
+    {
+        $request = $this->contentRequest(['status' => 'approved']);
+        $other = Site::create(['name' => 'Virgin Care Services', 'domain' => 'virgincare.co.uk', 'is_active' => true]);
+        $request->additionalSites()->attach($other->id);
+
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.published', $request), ['remove_site_id' => $other->id])
+            ->assertRedirect();
+
+        $this->assertFalse($request->fresh()->additionalSites->contains('id', $other->id));
+    }
+
+    public function test_a_newly_added_site_can_take_a_published_address_in_the_same_save(): void
+    {
+        $request = $this->contentRequest(['status' => 'approved']);
+        $other = Site::create(['name' => 'Virgin Care Services', 'domain' => 'virgincare.co.uk', 'is_active' => true]);
+
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.published', $request), [
+            'add_site_id' => $other->id,
+            'published' => [$other->id => ['url' => 'https://virgincare.co.uk/x', 'title' => 'Page X']],
+        ])->assertRedirect();
+
+        $this->assertSame('https://virgincare.co.uk/x', $request->fresh()->publishedFor($other->id)['published_url']);
+    }
+
+    public function test_adding_a_site_does_not_void_a_clinical_approval(): void
+    {
+        $request = $this->contentRequest(['status' => 'approved', 'draft_content' => 'Approved wording.']);
+        $approver = $request->approvers()->create([
+            'name' => 'Dr Approver', 'email' => 'a@example.com', 'status' => 'approved',
+            'responded_at' => now(),
+            'approved_content_hash' => $request->draftContentHash(),
+            'approved_content_snapshot' => $request->draft_content,
+        ]);
+        $other = Site::create(['name' => 'Virgin Care Services', 'domain' => 'virgincare.co.uk', 'is_active' => true]);
+
+        $this->loginAsAdmin();
+        $this->patch(route('admin.requests.published', $request), ['add_site_id' => $other->id]);
+
+        // One sign-off covers every site; only changing the copy voids it.
+        $this->assertSame('approved', $approver->fresh()->status);
+        $this->assertSame('approved', $request->fresh()->status);
+    }
+
+    public function test_completing_a_content_request_refreshes_the_published_wait(): void
+    {
+        \Illuminate\Support\Facades\Cache::put('content_wait_days', 0, now()->addHours(6));
+
+        $this->contentRequest(['status' => 'scheduled'])->update(['status' => 'done']);
+
+        // Otherwise the wizard shows a stale figure for up to six hours.
+        $this->assertNull(\Illuminate\Support\Facades\Cache::get('content_wait_days'));
+    }
 }

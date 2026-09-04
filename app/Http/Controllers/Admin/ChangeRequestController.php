@@ -600,7 +600,22 @@ class ChangeRequestController extends Controller
             'published' => 'nullable|array',
             'published.*.url' => 'nullable|url|max:2048',
             'published.*.title' => 'nullable|string|max:512',
+            'add_site_id' => ['nullable', \Illuminate\Validation\Rule::exists('sites', 'id')->where('is_active', true)],
+            'remove_site_id' => 'nullable|integer',
         ]);
+
+        // Where content actually lands is the content designer's call, not the
+        // requester's — their step 4 answer is a suggestion, so sites can be
+        // added and dropped here.
+        if (!empty($validated['add_site_id']) && (int) $validated['add_site_id'] !== $changeRequest->site_id) {
+            $changeRequest->additionalSites()->syncWithoutDetaching([(int) $validated['add_site_id']]);
+        }
+
+        if (!empty($validated['remove_site_id'])) {
+            $changeRequest->additionalSites()->detach((int) $validated['remove_site_id']);
+        }
+
+        $changeRequest->load('additionalSites');
 
         foreach (($validated['published'] ?? []) as $siteId => $row) {
             $siteId = (int) $siteId;

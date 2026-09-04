@@ -53,6 +53,13 @@ class SubmissionController extends Controller
             'content_brief.measure' => 'nullable|string|max:1000',
             'content_brief.already_exists' => 'required_with:content_brief|in:yes,no,not_sure',
             'content_brief.already_exists_detail' => 'nullable|string|max:2000',
+            'brief_files' => 'nullable|array|max:5',
+            'brief_files.*.filename' => 'required|string',
+            'brief_files.*.original_name' => 'required|string',
+            'brief_files.*.title' => 'nullable|string|max:255',
+            'brief_files.*.description' => 'nullable|string|max:2000',
+            'brief_files.*.mime_type' => 'required|string',
+            'brief_files.*.file_size' => 'required|integer',
             'additional_site_ids' => 'nullable|array',
             'additional_site_ids.*' => [\Illuminate\Validation\Rule::exists('sites', 'id')->where('is_active', true)],
             'items.*.action_type' => 'required|in:add,change,delete,access_request',
@@ -130,6 +137,35 @@ class SubmissionController extends Controller
             // main home, so these rows are purely additive.
             if (!empty($validated['additional_site_ids'])) {
                 $changeRequest->additionalSites()->sync($validated['additional_site_ids']);
+            }
+
+            foreach (($validated['brief_files'] ?? []) as $fileData) {
+                if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$/', $fileData['filename'])) {
+                    continue;
+                }
+
+                $tempPath = "uploads/temp/{$fileData['filename']}";
+
+                if (!Storage::disk('local')->exists($tempPath)) {
+                    continue;
+                }
+
+                $fullPath = Storage::disk('local')->path($tempPath);
+                $actualSize = filesize($fullPath);
+                $actualMime = mime_content_type($fullPath) ?: 'application/octet-stream';
+
+                $permanentPath = "uploads/{$changeRequest->reference}/{$fileData['filename']}";
+                Storage::disk('local')->move($tempPath, $permanentPath);
+
+                ChangeRequestItemFile::create([
+                    'change_request_id' => $changeRequest->id,
+                    'original_filename' => $fileData['original_name'],
+                    'title' => $fileData['title'] ?? null,
+                    'description' => $fileData['description'] ?? null,
+                    'stored_path' => $permanentPath,
+                    'mime_type' => $actualMime,
+                    'file_size' => $actualSize,
+                ]);
             }
 
             foreach (($validated['items'] ?? []) as $index => $itemData) {

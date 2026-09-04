@@ -33,7 +33,7 @@ class WatchConfirmation extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'publicTitle' => $this->changeRequest->public_title,
-                'confirmUrl' => route('content-queue.confirm', $this->watcher->token),
+                'confirmUrl' => route('suggestions.confirm', $this->watcher->token),
                 'customBody' => Setting::get('email_watch_confirmation_body') ? $emailContent['body'] : null,
                 'defaultBody' => config('email-templates.watch_confirmation.body'),
             ],

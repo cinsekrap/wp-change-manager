@@ -13,7 +13,7 @@ Work through the phases in order. Each is independently shippable and leaves `ma
 - [x] Phase 1 — Schema and model foundations
 - [x] Phase 2 — The wizard fork
 - [x] Phase 3 — Lifecycle and clinical approval
-- [x] Phase 4 — Public queue and watchers
+- [x] Phase 4 — Suggestions list and watchers
 - [x] Phase 5 — Reporting
 
 Tick a phase in the same PR that completes it. This list is the record of what is done — do not infer
@@ -65,7 +65,7 @@ No user-visible change. Ships on its own.
 1. `add_content_fields_to_change_requests_table`
    - `content_type` — `string(40)` nullable, **indexed** (the page-type tag; needed for reporting)
    - `content_brief` — `json` nullable (achieve / audience / know-or-do / measure / already-exists)
-   - `public_title` — `string(255)` nullable (written by the content designer, safe for the public queue)
+   - `public_title` — `string(255)` nullable (written by the content designer, safe for the suggestions list)
 2. `create_change_request_sites_table` — the multi-site pivot
    - `change_request_id`, `site_id`, `published_url` nullable, `published_title` nullable, timestamps
    - unique on (`change_request_id`, `site_id`)
@@ -137,7 +137,7 @@ approval; the published email lists one URL per site.
 
 ---
 
-## Phase 4 — Public queue and watchers
+## Phase 4 — Suggestions list and watchers
 
 There is no sign-in, so **the queue is a published page**. The field allowlist is not a detail:
 

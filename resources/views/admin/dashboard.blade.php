@@ -65,31 +65,14 @@
     <div class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Status</h2>
         @php
-            $statusColors = [
-                'requested' => 'bg-amber-400',
-                'requires_referral' => 'bg-pink-400',
-                'referred' => 'bg-orange-400',
-                'approved' => 'bg-hcrg-burgundy',
-                'training' => 'bg-sky-400',
-                'trained' => 'bg-teal-500',
-                'scheduled' => 'bg-purple-500',
-                'done' => 'bg-emerald-500',
-                'declined' => 'bg-red-500',
-                'cancelled' => 'bg-gray-400',
-                'suggested' => 'bg-slate-300',
-                'scoped' => 'bg-slate-400',
-                'awaiting_funding' => 'bg-amber-400',
-                'in_progress' => 'bg-sky-400',
-                'awaiting_approval' => 'bg-violet-400',
-            ];
-            $maxStatus = $statusCounts->max() ?: 1;
+                        $maxStatus = $statusCounts->max() ?: 1;
         @endphp
         <div class="space-y-3">
             @foreach(\App\Models\ChangeRequest::STATUSES as $status)
                 @php
                     $count = $statusCounts[$status] ?? 0;
                     $pct = $maxStatus > 0 ? round(($count / $maxStatus) * 100) : 0;
-                    $barColor = $statusColors[$status] ?? 'bg-gray-400';
+                    $barColor = \App\Models\ChangeRequest::statusColor($status);
                     $label = \App\Models\ChangeRequest::statusLabel($status);
                 @endphp
                 <div>
