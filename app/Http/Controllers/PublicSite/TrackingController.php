@@ -17,6 +17,13 @@ class TrackingController extends Controller
 
     private const MISS_WINDOW_SECONDS = 3600;
 
+    /**
+     * How long an emailed tracking link works for. Every status email issues a
+     * fresh one, so anyone still in the process always has a working link, while
+     * a forwarded thread or an inherited mailbox stops being a way in.
+     */
+    public const LINK_LIFETIME_DAYS = 90;
+
     public function index()
     {
         return view('public.track');
@@ -42,7 +49,7 @@ class TrackingController extends Controller
 
     public static function signedUrl(ChangeRequest $changeRequest): string
     {
-        return \Illuminate\Support\Facades\URL::signedRoute('tracking.direct', [
+        return \Illuminate\Support\Facades\URL::temporarySignedRoute('tracking.direct', now()->addDays(self::LINK_LIFETIME_DAYS), [
             'reference' => $changeRequest->reference,
         ]);
     }

@@ -284,11 +284,11 @@ class SubmissionController extends Controller
             return response()->json([
                 'success' => true,
                 'reference' => $changeRequest->reference,
-                'redirect' => URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]),
+                'redirect' => URL::temporarySignedRoute('confirmation', now()->addDays(90), ['reference' => $changeRequest->reference]),
             ]);
         }
 
-        return redirect(URL::signedRoute('confirmation', ['reference' => $changeRequest->reference]));
+        return redirect(URL::temporarySignedRoute('confirmation', now()->addDays(90), ['reference' => $changeRequest->reference]));
     }
 
     public function confirmation(string $reference)
