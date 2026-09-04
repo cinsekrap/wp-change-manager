@@ -1,5 +1,5 @@
 {{-- Step 1: Select site --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6" data-step="1">
+<div class="wizard-step bg-white rounded-lg shadow p-6" data-step="1" data-panel="site">
     <h2 class="text-xl font-bold text-gray-900 mb-2">Select a website</h2>
     <p class="text-sm text-gray-500 mb-4">Choose the website you'd like to request a change for.</p>
 

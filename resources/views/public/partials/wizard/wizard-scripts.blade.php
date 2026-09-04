@@ -130,8 +130,6 @@
     }
 
     function getCurrentCptSlug() {
-        const isNew = document.getElementById('isNewPage').checked;
-        if (isNew) return document.getElementById('newPageCpt').value;
         if (selectedPage) return selectedPage.cpt_slug;
         // If a CPT tab is selected but no page yet, use the tab's CPT
         if (selectedCpt) return selectedCpt;
@@ -182,10 +180,8 @@
         // noise — hide it and surface the access form directly. Keep the
         // new-page section if that's how the user reached self-service mode.
         const selfService = mode === 'self_service';
-        const isNew = document.getElementById('isNewPage').checked;
         document.getElementById('pageSearchWrap').classList.toggle('hidden', selfService);
         document.getElementById('pageList').classList.toggle('hidden', selfService);
-        document.getElementById('newPageSection').classList.toggle('hidden', selfService && !isNew);
 
         checkStepValid();
     }
@@ -388,7 +384,7 @@
         }
 
         // Action type selector — depends on context
-        const isNewPage = document.getElementById('isNewPage').checked;
+        const isNewPage = false; // the content lane replaced the new-page path
         const allowAdd = area.allow_add !== false; // default true if not set
 
         if (isNewPage) {
@@ -1070,8 +1066,22 @@
     let selectedCpt = null;
     let uploadedFiles = {}; // keyed by item index
     let siteLoadError = null;
+    let lane = null; // 'change' | 'content', chosen at step 2
 
-    const stepTitles = ['Select site', 'Select page', 'Describe changes', 'Check questions', 'Your details', 'Review & submit'];
+    // Both lanes are six steps, so the progress bar needs no special-casing.
+    // A step maps to the panels it shows; the content lane folds the check
+    // questions in with the requester's details at step 5.
+    const lanePanels = {
+        change:  { 1: ['site'], 2: ['page'], 3: ['changes'], 4: ['questions'], 5: ['details'], 6: ['review'] },
+        content: { 1: ['site'], 2: ['page'], 3: ['brief'],   4: ['where'],     5: ['questions', 'details'], 6: ['review'] },
+    };
+
+    const laneTitles = {
+        change:  ['Select site', "What you're working on", 'Describe changes', 'Check questions', 'Your details', 'Review & submit'],
+        content: ['Select site', "What you're working on", 'The brief', 'What it is and where it lives', 'Your details', 'Review & submit'],
+    };
+
+    const stepTitles = laneTitles.change;
 
     // DOM elements
     const steps = document.querySelectorAll('.wizard-step');
@@ -1148,7 +1158,7 @@
     }
 
     function showGovernanceGate() {
-        const isNew = document.getElementById('isNewPage').checked;
+        const isNew = lane === 'content';
         govActiveGroup = isNew ? govNewChecks : govExistingChecks;
         govExistingChecks.classList.toggle('hidden', isNew);
         govNewChecks.classList.toggle('hidden', !isNew);
@@ -1199,9 +1209,8 @@
         ssError.classList.add('hidden');
         ssSuccess.classList.add('hidden');
 
-        const isNew = document.getElementById('isNewPage').checked;
-        const pageUrl = isNew ? 'new-page' : (selectedPage ? selectedPage.url : '');
-        const pageTitle = isNew ? document.getElementById('newPageTitle').value : (selectedPage ? selectedPage.title : '');
+        const pageUrl = selectedPage ? selectedPage.url : '';
+        const pageTitle = selectedPage ? selectedPage.title : '';
         // Use the selected CPT tab — a page selection isn't needed for access requests
         const cptSlug = getCurrentCptSlug() || '';
 
@@ -1305,22 +1314,138 @@
         });
     }
 
-    document.getElementById('isNewPage').addEventListener('change', function() {
-        document.getElementById('newPageFields').classList.toggle('hidden', !this.checked);
-        if (this.checked) {
+    // ---- Lane selection and the content lane ----
+
+    function setLane(next) {
+        lane = next;
+        document.querySelectorAll('.lane-option').forEach(el => {
+            const on = el.dataset.lane === next;
+            el.classList.toggle('border-hcrg-burgundy', on);
+            el.classList.toggle('border-2', on);
+            el.classList.toggle('bg-hcrg-burgundy/5', on);
+            el.classList.toggle('border-gray-300', !on);
+            const input = el.querySelector('input[name="wizard_lane"]');
+            if (input) input.checked = on;
+            const title = el.querySelector('.lane-title');
+            if (title) title.classList.toggle('text-hcrg-burgundy', on);
+        });
+        document.getElementById('lanePickerWrap').classList.toggle('hidden', next !== 'change');
+        document.getElementById('laneContentPreview').classList.toggle('hidden', next !== 'content');
+        if (next === 'content') {
             selectedPage = null;
-            document.querySelectorAll('.page-option.selected').forEach(el => el.classList.remove('selected', 'bg-hcrg-burgundy/10', 'border-hcrg-burgundy'));
+            document.querySelectorAll('.page-option.selected').forEach(el =>
+                el.classList.remove('selected', 'bg-hcrg-burgundy/10', 'border-hcrg-burgundy'));
         }
-        refreshAllContentAreaFields();
-        updateBlockedState();
+        governancePassed = false;
+        checkStepValid();
+        saveState();
+    }
+
+    document.querySelectorAll('.lane-option').forEach(el => {
+        el.addEventListener('click', () => setLane(el.dataset.lane));
     });
 
-    document.getElementById('newPageCpt').addEventListener('change', function() {
-        refreshAllContentAreaFields();
-        updateBlockedState();
+    document.getElementById('step2ChangeSite').addEventListener('click', () => {
+        currentStep = 1;
+        updateUI();
     });
 
-    document.getElementById('newPageTitle').addEventListener('input', checkStepValid);
+    function selectedSiteName() {
+        const opt = document.querySelector(`.site-option[data-value="${document.getElementById('siteSelect').value}"]`);
+        return opt ? opt.dataset.label : (document.getElementById('siteSearch').value || '');
+    }
+
+    function renderStep2SiteChip() {
+        const chip = document.getElementById('step2SiteChip');
+        if (chip) chip.textContent = selectedSiteName();
+    }
+
+    function renderWhereItLives() {
+        document.getElementById('contentHomeSite').textContent = selectedSiteName();
+
+        const homeId = document.getElementById('siteSelect').value;
+        const wrap = document.getElementById('additionalSites');
+        if (!wrap.dataset.rendered) {
+            wrap.innerHTML = [...document.querySelectorAll('.site-option')]
+                .filter(o => o.dataset.value !== homeId)
+                .map(o => `
+                    <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer bg-white">
+                        <input type="checkbox" class="additional-site h-4 w-4 rounded border-gray-300 accent-hcrg-burgundy" value="${esc(o.dataset.value)}">
+                        <span class="text-sm font-semibold text-hcrg-charcoal">${esc(o.querySelector('span').textContent)}</span>
+                        <span class="text-xs text-hcrg-grey-300">${esc(o.dataset.domain || '')}</span>
+                    </label>`).join('') || '<p class="text-sm text-gray-500">There are no other sites to share this with.</p>';
+            wrap.dataset.rendered = '1';
+            wrap.querySelectorAll('.additional-site').forEach(cb =>
+                cb.addEventListener('change', () => { updateSharedNotice(); checkStepValid(); saveState(); }));
+        }
+        updateSharedNotice();
+    }
+
+    function updateSharedNotice() {
+        const extra = document.querySelectorAll('.additional-site:checked').length;
+        const notice = document.getElementById('sharedContentNotice');
+        notice.classList.toggle('hidden', extra === 0);
+        document.getElementById('sharedSiteCount').textContent = extra + 1;
+    }
+
+    function collectAdditionalSiteIds() {
+        return [...document.querySelectorAll('.additional-site:checked')].map(cb => parseInt(cb.value));
+    }
+
+    function collectBrief() {
+        const exists = document.querySelector('input[name="brief_exists"]:checked');
+        return {
+            achieve: stripTags(document.getElementById('briefAchieve').value),
+            audience: [...document.querySelectorAll('.brief-audience:checked')].map(cb => cb.value),
+            know_or_do: stripTags(document.getElementById('briefKnowOrDo').value),
+            measure: stripTags(document.getElementById('briefMeasure').value) || null,
+            already_exists: exists ? exists.value : null,
+            already_exists_detail: exists && exists.value === 'yes'
+                ? stripTags(document.getElementById('briefExistsDetail').value) : null,
+        };
+    }
+
+    // Audience chips are checkboxes styled as pills.
+    document.querySelectorAll('.brief-audience').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const chip = this.parentElement.querySelector('.audience-chip');
+            chip.classList.toggle('bg-hcrg-burgundy', this.checked);
+            chip.classList.toggle('text-white', this.checked);
+            chip.classList.toggle('font-semibold', this.checked);
+            chip.classList.toggle('bg-hcrg-grey-100', !this.checked);
+            chip.classList.toggle('text-hcrg-charcoal', !this.checked);
+            checkStepValid();
+            saveState();
+        });
+    });
+
+    document.querySelectorAll('input[name="brief_exists"]').forEach(r => {
+        r.addEventListener('change', function () {
+            document.getElementById('briefExistsDetailWrap').classList.toggle('hidden', this.value !== 'yes');
+            checkStepValid();
+            saveState();
+        });
+    });
+
+    ['briefAchieve', 'briefKnowOrDo', 'briefMeasure', 'briefExistsDetail'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', () => { checkStepValid(); saveState(); });
+    });
+
+    document.querySelectorAll('input[name="content_type"]').forEach(r => {
+        r.addEventListener('change', function () {
+            document.querySelectorAll('.content-type-option').forEach(el => {
+                const on = el.contains(this);
+                el.classList.toggle('border-hcrg-burgundy', on);
+                el.classList.toggle('border-2', on);
+                el.classList.toggle('bg-hcrg-burgundy/5', on);
+                el.classList.toggle('border-gray-300', !on);
+            });
+            checkStepValid();
+            saveState();
+        });
+    });
+
     document.getElementById('pageSearch').addEventListener('input', filterPages);
 
     // Step 5 inputs
@@ -1344,8 +1469,9 @@
     document.getElementById('deadlineReason').addEventListener('input', checkStepValid);
 
     function updateUI() {
-        steps.forEach((step, i) => {
-            step.classList.toggle('hidden', i !== currentStep - 1);
+        const panels = (lanePanels[lane] || lanePanels.change)[currentStep] || [];
+        steps.forEach((step) => {
+            step.classList.toggle('hidden', !panels.includes(step.dataset.panel));
         });
 
         prevBtn.classList.toggle('hidden', currentStep === 1);
@@ -1354,10 +1480,16 @@
 
         progressBar.style.width = ((currentStep / totalSteps) * 100) + '%';
         stepLabel.textContent = `Step ${currentStep} of ${totalSteps}`;
-        stepTitle.textContent = stepTitles[currentStep - 1];
+        stepTitle.textContent = (laneTitles[lane] || laneTitles.change)[currentStep - 1];
 
-        if (currentStep === 3) {
+        if (currentStep === 2) {
+            renderStep2SiteChip();
+        }
+        if (currentStep === 3 && lane !== 'content') {
             updateStep3Flow();
+        }
+        if (lane === 'content' && currentStep === 4) {
+            renderWhereItLives();
         }
 
         if (currentStep === totalSteps) {
@@ -1381,13 +1513,44 @@
     }
 
     function validateStep(step) {
+        if (lane === 'content') return validateContentStep(step);
+        return validateChangeStep(step);
+    }
+
+    function validateContentStep(step) {
+        switch (step) {
+            case 1:
+                return document.getElementById('siteSelect').value !== '' && !siteLoadError;
+            case 2:
+                return lane !== null;
+            case 3: {
+                if (!document.getElementById('briefAchieve').value.trim()) return false;
+                if (!document.getElementById('briefKnowOrDo').value.trim()) return false;
+                if (document.querySelectorAll('.brief-audience:checked').length === 0) return false;
+                const exists = document.querySelector('input[name="brief_exists"]:checked');
+                if (!exists) return false;
+                if (exists.value === 'yes' && !document.getElementById('briefExistsDetail').value.trim()) return false;
+                return true;
+            }
+            case 4:
+                return document.querySelector('input[name="content_type"]:checked') !== null;
+            case 5:
+                // Content folds the check questions in with the requester's details.
+                return validateChangeStep(4) && validateChangeStep(5);
+            case 6:
+                return true;
+        }
+        return true;
+    }
+
+    function validateChangeStep(step) {
         switch(step) {
             case 1:
                 return document.getElementById('siteSelect').value !== '' && !siteLoadError;
             case 2:
+                if (lane === null) return false;
+                if (lane === 'content') return true;
                 if (isCurrentCptBlocked() || isCurrentCptSelfService()) return false;
-                const isNew = document.getElementById('isNewPage').checked;
-                if (isNew) return document.getElementById('newPageTitle').value.trim() !== '';
                 return selectedPage !== null;
             case 3:
                 if (hasRichContentAreas()) {
@@ -1831,8 +1994,6 @@
                     cpt_slug: this.dataset.cpt,
                 };
 
-                document.getElementById('isNewPage').checked = false;
-                document.getElementById('newPageTitle').classList.add('hidden');
                 refreshAllContentAreaFields();
                 updateBlockedState();
             });
@@ -1846,8 +2007,7 @@
     function buildReview() {
         const container = document.getElementById('reviewContent');
         const siteName = document.getElementById('siteSearch').value || '';
-        const isNew = document.getElementById('isNewPage').checked;
-        const isStructured = hasRichContentAreas();
+        const isStructured = lane === 'change' && hasRichContentAreas();
 
         let html = `
             <div class="border border-gray-200 rounded-lg p-4 space-y-2">
@@ -1856,7 +2016,7 @@
                     <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="1">Edit</button>
                 </div>
                 <p class="text-sm text-gray-900">${esc(siteName)}</p>
-                <p class="text-sm text-gray-600">${isNew ? 'New ' + esc(document.getElementById('newPageCpt').selectedOptions[0].text.toLowerCase()) + ': ' + esc(document.getElementById('newPageTitle').value) : (selectedPage ? esc(selectedPage.title) + ' — ' + esc(selectedPage.url) : '')}</p>
+                <p class="text-sm text-gray-600">${lane === 'content' ? 'New content' : (selectedPage ? esc(selectedPage.title) + ' — ' + esc(selectedPage.url) : '')}</p>
             </div>`;
 
         if (isStructured) {
@@ -1912,6 +2072,39 @@
                 </div>`;
             });
             html += `</div>`;
+        }
+
+        if (lane === 'content') {
+            const brief = collectBrief();
+            const typeInput = document.querySelector('input[name="content_type"]:checked');
+            const typeLabel = typeInput
+                ? typeInput.closest('.content-type-option').querySelector('.font-semibold').textContent
+                : '';
+            const audienceLabels = [...document.querySelectorAll('.brief-audience:checked')]
+                .map(cb => cb.parentElement.querySelector('.audience-chip').textContent.trim());
+            const extraSites = [...document.querySelectorAll('.additional-site:checked')]
+                .map(cb => cb.parentElement.querySelector('span').textContent.trim());
+
+            html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
+                <div class="flex justify-between">
+                    <h3 class="text-sm font-semibold text-gray-700">The brief</h3>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
+                </div>
+                <p class="text-sm text-gray-900">${esc(brief.achieve)}</p>
+                <p class="text-sm text-gray-600"><strong>For:</strong> ${esc(audienceLabels.join(', '))}</p>
+                <p class="text-sm text-gray-600"><strong>They should know or do:</strong> ${esc(brief.know_or_do)}</p>
+                ${brief.measure ? `<p class="text-sm text-gray-600"><strong>Success looks like:</strong> ${esc(brief.measure)}</p>` : ''}
+                ${brief.already_exists === 'yes' ? `<p class="text-sm text-gray-600"><strong>Something similar exists:</strong> ${esc(brief.already_exists_detail || '')}</p>` : ''}
+            </div>
+            <div class="border border-gray-200 rounded-lg p-4 space-y-2">
+                <div class="flex justify-between">
+                    <h3 class="text-sm font-semibold text-gray-700">What it is, and where it lives</h3>
+                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
+                </div>
+                <p class="text-sm text-gray-900">${esc(typeLabel)}</p>
+                <p class="text-sm text-gray-600"><strong>Main home:</strong> ${esc(selectedSiteName())}</p>
+                ${extraSites.length ? `<p class="text-sm text-gray-600"><strong>Also on:</strong> ${esc(extraSites.join(', '))}</p>` : ''}
+            </div>`;
         }
 
         // Deadline
@@ -1978,8 +2171,8 @@
         document.getElementById('submitError').classList.add('hidden');
         document.getElementById('submitError').classList.remove('bg-amber-50', 'border-amber-200', 'text-amber-700');
 
-        const isNew = document.getElementById('isNewPage').checked;
-        const isStructured = hasRichContentAreas();
+        const isNew = lane === 'content';
+        const isStructured = lane === 'change' && hasRichContentAreas();
         let items = [];
 
         if (isStructured) {
@@ -2015,10 +2208,14 @@
 
         const payload = {
             site_id: parseInt(document.getElementById('siteSelect').value),
-            page_url: isNew ? 'new-page' : selectedPage.url,
-            page_title: isNew ? document.getElementById('newPageTitle').value : (selectedPage ? selectedPage.title : null),
-            cpt_slug: isNew ? document.getElementById('newPageCpt').value : (selectedPage ? selectedPage.cpt_slug : (getCurrentCptSlug() || 'page')),
+            page_url: isNew ? 'new-content' : selectedPage.url,
+            page_title: isNew ? null : (selectedPage ? selectedPage.title : null),
+            cpt_slug: isNew ? 'content' : (selectedPage ? selectedPage.cpt_slug : (getCurrentCptSlug() || 'page')),
             is_new_page: isNew,
+            request_type: isNew ? 'content' : 'change',
+            content_type: isNew ? (document.querySelector('input[name="content_type"]:checked')?.value || null) : null,
+            content_brief: isNew ? collectBrief() : null,
+            additional_site_ids: isNew ? collectAdditionalSiteIds() : [],
             requester_name: document.getElementById('requesterName').value,
             requester_email: document.getElementById('requesterEmail').value,
             requester_phone: document.getElementById('requesterPhone').value || null,
@@ -2123,9 +2320,7 @@
             const state = {
                 siteId: document.getElementById('siteSelect').value,
                 selectedPage,
-                isNewPage: document.getElementById('isNewPage').checked,
-                newPageTitle: document.getElementById('newPageTitle').value,
-                newPageCpt: document.getElementById('newPageCpt').value,
+                lane,
                 hasDeadline: document.querySelector('input[name="has_deadline"]:checked')?.value || null,
                 deadlineDate: document.getElementById('deadlineDate').value,
                 deadlineReason: document.getElementById('deadlineReason').value,

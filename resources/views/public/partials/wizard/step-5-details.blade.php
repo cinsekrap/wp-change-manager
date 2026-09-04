@@ -1,5 +1,5 @@
 {{-- Step 5: Your details --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="5">
+<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="5" data-panel="details">
     <h2 class="text-xl font-bold text-gray-900 mb-2">Your details</h2>
     <p class="text-sm text-gray-500 mb-4">So we know who's requesting this change and how to contact you.</p>
 

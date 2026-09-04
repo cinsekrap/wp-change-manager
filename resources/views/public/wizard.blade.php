@@ -10,6 +10,8 @@
     @include('public.partials.wizard.step-1-site')
     @include('public.partials.wizard.step-2-page')
     @include('public.partials.wizard.step-3-changes')
+    @include('public.partials.wizard.step-3-brief')
+    @include('public.partials.wizard.step-4-where-it-lives')
     @include('public.partials.wizard.step-4-questions')
     @include('public.partials.wizard.step-5-details')
     @include('public.partials.wizard.step-6-review')

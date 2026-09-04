@@ -1,5 +1,5 @@
 {{-- Step 4: Check questions --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="4">
+<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="4" data-panel="questions">
     <h2 class="text-xl font-bold text-gray-900 mb-2">Before you submit</h2>
     <p class="text-sm text-gray-500 mb-4">Please answer the following questions.</p>
 
