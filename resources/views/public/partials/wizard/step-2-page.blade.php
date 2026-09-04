@@ -116,6 +116,11 @@
             <li><strong class="font-bold">4. What it is and where it lives.</strong> This site is its home — tell us if it's needed on others too.</li>
             <li><strong class="font-bold">5. Your details</strong>, then review and send. A content designer picks it up from there.</li>
         </ol>
+        @if($contentWaitDays)
+        <p class="text-sm font-bold text-blue-700 mt-3 pt-3 border-t border-blue-200">
+            The wait for new content is currently around {{ $contentWaitDays }} {{ Str::plural('day', $contentWaitDays) }}.
+        </p>
+        @endif
         <p class="text-sm text-blue-700 mt-3 pt-3 border-t border-blue-200">You won't be asked to choose a content type or write a page title. What it turns out to be — a page, a leaflet, a section of an existing page — is ours to work out from the brief.</p>
     </div>
 </div>

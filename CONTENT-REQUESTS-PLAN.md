@@ -14,7 +14,7 @@ Work through the phases in order. Each is independently shippable and leaves `ma
 - [x] Phase 2 — The wizard fork
 - [x] Phase 3 — Lifecycle and clinical approval
 - [x] Phase 4 — Public queue and watchers
-- [ ] Phase 5 — Reporting
+- [x] Phase 5 — Reporting
 
 Tick a phase in the same PR that completes it. This list is the record of what is done — do not infer
 progress from the state of the code.
