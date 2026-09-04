@@ -47,10 +47,23 @@ class ReportsController extends Controller
             ->map(fn ($cr) => ($done = $doneAt($cr)) ? round($cr->created_at->diffInHours($done) / 24, 1) : null)
             ->filter(fn ($d) => $d !== null);
 
+        // Content is slow by design and that is reported honestly — but averaged
+        // together with changes it produces a middle number describing neither
+        // lane, so each is reported on its own as well.
+        $daysFor = fn (string $type) => $completed
+            ->where('request_type', $type)
+            ->map(fn ($cr) => ($done = $doneAt($cr)) ? round($cr->created_at->diffInHours($done) / 24, 1) : null)
+            ->filter(fn ($d) => $d !== null);
+
+        $changeDays = $daysFor('change');
+        $contentDays = $daysFor('content');
+
         $kpis = [
             'submitted' => $requests->count(),
             'completed' => $completed->count(),
             'avg_days' => $completionDays->isNotEmpty() ? round($completionDays->avg(), 1) : null,
+            'avg_days_change' => $changeDays->isNotEmpty() ? round($changeDays->avg(), 1) : null,
+            'avg_days_content' => $contentDays->isNotEmpty() ? round($contentDays->avg(), 1) : null,
             'sla_pct' => $completed->count() ? (int) round($metSla->count() / $completed->count() * 100) : null,
             'declined' => $requests->where('status', 'declined')->count(),
             'cancelled' => $requests->where('status', 'cancelled')->count(),

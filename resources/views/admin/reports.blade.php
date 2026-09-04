@@ -35,6 +35,11 @@
     <div class="bg-white rounded-lg shadow p-5">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Days to Complete</div>
         <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ $kpis['avg_days'] ?? '—' }}</div>
+        {{-- Blended across both lanes this describes neither, so each is shown too. --}}
+        <div class="mt-2 text-xs text-hcrg-grey-400 space-y-0.5">
+            <div>Changes: <span class="font-semibold text-hcrg-charcoal">{{ $kpis['avg_days_change'] ?? '—' }}</span></div>
+            <div>Content: <span class="font-semibold text-hcrg-charcoal">{{ $kpis['avg_days_content'] ?? '—' }}</span></div>
+        </div>
     </div>
     <div class="bg-white rounded-lg shadow p-5">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Met SLA</div>
