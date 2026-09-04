@@ -53,6 +53,29 @@
     @endif
 </div>
 
+@if($changeRequest->files->isNotEmpty())
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="text-lg font-bold text-gray-900 mb-1">Attached to the brief</h2>
+    <p class="text-sm text-gray-500 mb-4">What the requester sent with the suggestion.</p>
+    <ul class="space-y-2">
+        @foreach($changeRequest->files as $file)
+            <li class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div>
+                    <p class="text-sm font-medium text-hcrg-charcoal">{{ $file->original_filename }}</p>
+                    <p class="text-xs text-hcrg-grey-400">{{ number_format($file->file_size / 1024, 0) }} KB</p>
+                </div>
+                @if($file->purged_at)
+                    <span class="text-xs text-hcrg-grey-400">removed {{ $file->purged_at->diffForHumans() }}</span>
+                @else
+                    <a href="{{ route('admin.requests.download', [$changeRequest, $file]) }}"
+                       class="text-sm text-hcrg-burgundy underline">Download</a>
+                @endif
+            </li>
+        @endforeach
+    </ul>
+</div>
+@endif
+
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h2 class="text-lg font-bold text-gray-900 mb-1">Where it went live</h2>
     <p class="text-sm text-gray-500 mb-4">
