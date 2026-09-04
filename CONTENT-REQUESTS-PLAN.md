@@ -12,7 +12,7 @@ Work through the phases in order. Each is independently shippable and leaves `ma
 
 - [x] Phase 1 — Schema and model foundations
 - [x] Phase 2 — The wizard fork
-- [ ] Phase 3 — Lifecycle and clinical approval
+- [x] Phase 3 — Lifecycle and clinical approval
 - [ ] Phase 4 — Public queue and watchers
 - [ ] Phase 5 — Reporting
 

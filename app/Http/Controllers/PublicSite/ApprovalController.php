@@ -77,12 +77,20 @@ class ApprovalController extends Controller
             return view('public.approval-group-satisfied', compact('approver', 'changeRequest'));
         }
 
+        // Bind a clinical approval to the exact copy it was given against, so a
+        // later edit cannot inherit the sign-off.
+        $boundCopy = ($request->status === 'approved' && $changeRequest->isContentRequest())
+            ? $changeRequest->draft_content
+            : null;
+
         $approver->update([
             'status' => $request->status,
             'notes' => $request->notes,
             'responded_at' => now(),
             'recorded_by' => null,
             'token' => null,
+            'approved_content_hash' => $boundCopy === null ? null : hash('sha256', $boundCopy),
+            'approved_content_snapshot' => $boundCopy,
         ]);
 
         $changeRequest = $approver->changeRequest;

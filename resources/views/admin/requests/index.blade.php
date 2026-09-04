@@ -64,7 +64,7 @@
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
                         <input type="checkbox" name="status[]" value="{{ $status }}" {{ in_array($status, $selectedStatuses) ? 'checked' : '' }}
                             class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
-                        {{ ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed'][$status] ?? ucfirst($status) }}
+                        {{ \App\Models\ChangeRequest::statusLabel($status) }}
                     </label>
                     @endforeach
                 </div>

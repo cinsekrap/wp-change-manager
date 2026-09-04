@@ -128,4 +128,28 @@ return [
         'body' => 'Good news — your access has been set up. You can now log in to {site_name} and manage {cpt_name} yourself. Thank you for completing the training.',
         'placeholders' => ['reference', 'site_name', 'cpt_name', 'recipient_name'],
     ],
+
+    'content_suggestion_received' => [
+        'name' => 'Content Suggestion Received',
+        'description' => 'Sent to the person who suggested new content, when they submit it.',
+        'subject' => 'Content suggestion {reference} — received',
+        'body' => 'Thanks for suggesting this. A content designer will read it, work out what it needs, and estimate the hours. Nothing is committed until it has been agreed and funded — we\'ll email you when that happens.',
+        'placeholders' => ['reference', 'site_name', 'content_type'],
+    ],
+
+    'content_awaiting_funding' => [
+        'name' => 'Content Awaiting Funding',
+        'description' => 'Sent when a content suggestion has been agreed in principle and is waiting for the hours to be funded.',
+        'subject' => 'Content suggestion {reference} — agreed, awaiting funding',
+        'body' => 'Good news: this has been agreed in principle. It is now waiting for the hours to be funded, which happens outside this tool. That can take a while — this is normal, and you\'ll hear from us as soon as writing starts.',
+        'placeholders' => ['reference', 'site_name', 'content_type'],
+    ],
+
+    'content_published' => [
+        'name' => 'Content Published',
+        'description' => 'Sent to the suggester when their content goes live, listing every site it was published to.',
+        'subject' => 'Content suggestion {reference} — now live',
+        'body' => 'Your content is live. Thank you for suggesting it — here is where you can find it.',
+        'placeholders' => ['reference', 'site_name', 'content_type', 'site_titles'],
+    ],
 ];

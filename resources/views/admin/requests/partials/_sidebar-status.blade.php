@@ -5,11 +5,10 @@
     <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}" id="statusForm">
         @csrf @method('PATCH')
         <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-            @php $statusLabels = ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed', 'on_hold' => 'On Hold', 'awaiting_user' => 'Awaiting User']; @endphp
             @foreach($changeRequest->statusOptions() as $status)
                 @php $blocked = !$canMovePast && in_array($status, \App\Models\ChangeRequest::POST_REFERRED_STATUSES); @endphp
                 <option value="{{ $status }}" {{ $changeRequest->status === $status ? 'selected' : '' }} {{ $blocked ? 'disabled' : '' }}>
-                    {{ $statusLabels[$status] ?? ucfirst($status) }}{{ $blocked ? ' (approvals required)' : '' }}
+                    {{ \App\Models\ChangeRequest::statusLabel($status) }}{{ $blocked ? ' (approvals required)' : '' }}
                 </option>
             @endforeach
         </select>

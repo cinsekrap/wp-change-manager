@@ -205,7 +205,15 @@ class SubmissionController extends Controller
         });
 
         // Send email notifications
-        EmailLog::dispatch($changeRequest->requester_email, new RequestSubmitted($changeRequest), $changeRequest);
+        // A content suggestion is not a submitted change request: it sets a very
+        // different expectation about what happens next and how long it takes.
+        EmailLog::dispatch(
+            $changeRequest->requester_email,
+            $changeRequest->isContentRequest()
+                ? new \App\Mail\ContentSuggestionReceived($changeRequest)
+                : new RequestSubmitted($changeRequest),
+            $changeRequest
+        );
 
         // Send approval request emails (only if approvers were auto-added)
         foreach ($createdApprovers as $approver) {
