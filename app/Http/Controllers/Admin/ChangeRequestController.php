@@ -367,8 +367,12 @@ class ChangeRequestController extends Controller
 
     public function downloadFile(ChangeRequest $changeRequest, ChangeRequestItemFile $file)
     {
-        $itemIds = $changeRequest->items()->pluck('id');
-        if (!$itemIds->contains($file->change_request_item_id)) {
+        // A file belongs either to one of this request's line items, or — for a
+        // content brief, which has no items — to the request itself.
+        $belongsToItem = $changeRequest->items()->pluck('id')->contains($file->change_request_item_id);
+        $belongsToRequest = $file->change_request_id === $changeRequest->id;
+
+        if (!$belongsToItem && !$belongsToRequest) {
             abort(404);
         }
 

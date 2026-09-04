@@ -144,4 +144,92 @@ class PurgeCompletedUploadsTest extends TestCase
             ->assertSee('brief.pdf')
             ->assertSee('after the request was closed');
     }
+
+    /**
+     * Content briefs attach files to the request rather than to a line item, so
+     * the sweep has to cover both or those attachments live on disk forever.
+     */
+    private function briefAttachment(string $status = 'done', ?int $closedDaysAgo = 40): ChangeRequestItemFile
+    {
+        static $counter = 500;
+        $counter++;
+
+        $site = Site::firstOrCreate(['domain' => 'example.com'], ['name' => 'Example', 'is_active' => true]);
+
+        $request = ChangeRequest::create([
+            'reference' => sprintf('WCR-BRIEF-%03d', $counter),
+            'request_type' => 'content',
+            'site_id' => $site->id,
+            'page_url' => 'new-content',
+            'cpt_slug' => 'content',
+            'status' => $status,
+            'requester_name' => 'John Doe',
+            'requester_email' => 'john@example.com',
+        ]);
+
+        if ($closedDaysAgo !== null) {
+            $log = ChangeRequestStatusLog::create([
+                'change_request_id' => $request->id,
+                'user_id' => null,
+                'old_status' => 'in_progress',
+                'new_status' => $status,
+            ]);
+            ChangeRequestStatusLog::whereKey($log->id)->update(['created_at' => now()->subDays($closedDaysAgo)]);
+        }
+
+        $storedPath = "uploads/{$request->reference}/brief.pdf";
+        Storage::disk('local')->put($storedPath, 'dummy content');
+
+        return ChangeRequestItemFile::create([
+            'change_request_id' => $request->id,
+            'original_filename' => 'the-old-leaflet.pdf',
+            'stored_path' => $storedPath,
+            'mime_type' => 'application/pdf',
+            'file_size' => 13,
+        ]);
+    }
+
+    public function test_purges_brief_attachments_on_closed_content_requests(): void
+    {
+        $file = $this->briefAttachment();
+
+        $this->artisan('uploads:purge-completed')->assertSuccessful();
+
+        $this->assertNotNull($file->fresh()->purged_at);
+        $this->assertFalse(Storage::disk('local')->exists($file->stored_path));
+    }
+
+    public function test_leaves_brief_attachments_on_recently_closed_requests_alone(): void
+    {
+        $file = $this->briefAttachment('done', 5);
+
+        $this->artisan('uploads:purge-completed')->assertSuccessful();
+
+        $this->assertNull($file->fresh()->purged_at);
+        $this->assertTrue(Storage::disk('local')->exists($file->stored_path));
+    }
+
+    public function test_leaves_brief_attachments_on_open_requests_alone(): void
+    {
+        $file = $this->briefAttachment('in_progress', null);
+
+        $this->artisan('uploads:purge-completed')->assertSuccessful();
+
+        $this->assertNull($file->fresh()->purged_at);
+        $this->assertTrue(Storage::disk('local')->exists($file->stored_path));
+    }
+
+    public function test_a_brief_attachment_can_be_downloaded_and_is_gone_once_purged(): void
+    {
+        $file = $this->briefAttachment('done', 5);
+        $request = $file->changeRequest;
+
+        $this->loginAsAdmin();
+
+        // Previously 404'd: the download only accepted files belonging to a line item.
+        $this->get(route('admin.requests.download', [$request, $file]))->assertSuccessful();
+
+        $file->update(['purged_at' => now()]);
+        $this->get(route('admin.requests.download', [$request, $file]))->assertStatus(410);
+    }
 }
