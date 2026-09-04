@@ -241,6 +241,24 @@ class InstallerController extends Controller
         // Ensure runtime DB config is set from session
         $this->applyRuntimeConfig($request);
 
+        // An installed site already has users. Reaching this step against one
+        // means the lock file has gone missing rather than that anything needs
+        // installing, and creating an administrator would be the wrong answer to
+        // that. The lock file is the fix.
+        try {
+            $alreadyInstalled = User::query()->exists();
+        } catch (\Throwable) {
+            // No users table yet, which is what a genuine install looks like.
+            $alreadyInstalled = false;
+        }
+
+        if ($alreadyInstalled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This site is already set up. If you are seeing the installer, storage/installed.lock is missing — restore it rather than installing again.',
+            ], 409);
+        }
+
         try {
             $user = User::create([
                 'name' => $request->input('name'),
