@@ -27,7 +27,14 @@ class ChaseStaleRequests extends Command
         $cutoff = now()->subHours($chaseHours);
 
         $staleRequests = ChangeRequest::with(['assignee', 'site'])
-            ->whereNotIn('status', array_merge(ChangeRequest::TERMINAL_STATUSES, ChangeRequest::SLA_PAUSED_STATUSES))
+            ->whereNotIn('status', array_merge(
+                ChangeRequest::TERMINAL_STATUSES,
+                ChangeRequest::SLA_PAUSED_STATUSES,
+                // Content is slow by design. Chasing a suggestion parked in
+                // awaiting_funding every 48 hours for months is noise, and each
+                // chase writes a note row.
+                ChangeRequest::CONTENT_ONLY_STATUSES,
+            ))
             ->where('updated_at', '<', $cutoff)
             ->get();
 

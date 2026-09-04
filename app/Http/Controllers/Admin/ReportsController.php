@@ -64,7 +64,12 @@ class ReportsController extends Controller
             'avg_days' => $completionDays->isNotEmpty() ? round($completionDays->avg(), 1) : null,
             'avg_days_change' => $changeDays->isNotEmpty() ? round($changeDays->avg(), 1) : null,
             'avg_days_content' => $contentDays->isNotEmpty() ? round($contentDays->avg(), 1) : null,
+            // Split like avg_days above: content is slow by design and would
+            // otherwise drag the compliance figure down for the change lane.
             'sla_pct' => $completed->count() ? (int) round($metSla->count() / $completed->count() * 100) : null,
+            'sla_pct_change' => ($changeCompleted = $completed->where('request_type', 'change'))->count()
+                ? (int) round($metSla->where('request_type', 'change')->count() / $changeCompleted->count() * 100)
+                : null,
             'declined' => $requests->where('status', 'declined')->count(),
             'cancelled' => $requests->where('status', 'cancelled')->count(),
             'open' => $requests->whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)->count(),

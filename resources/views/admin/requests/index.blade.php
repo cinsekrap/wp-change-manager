@@ -274,9 +274,12 @@
                     <svg class="w-3 h-3 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div id="bulkStatusMenu" class="hidden absolute bottom-full mb-2 right-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1">
-                    @foreach(\App\Models\ChangeRequest::STATUSES as $status)
-                    <button type="button" onclick="bulkChangeStatus('{{ $status }}', this)" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        {{ ['requires_referral' => 'Requires Referral', 'training' => 'Awaiting Training', 'trained' => 'Training Confirmed'][$status] ?? ucfirst($status) }}
+                    {{-- Paused statuses need a reason, which a bulk action cannot
+                         carry — BulkActionController rejects them, so do not offer
+                         them. Labels come from the model, not a local copy. --}}
+                    @foreach(array_diff(\App\Models\ChangeRequest::STATUSES, \App\Models\ChangeRequest::SLA_PAUSED_STATUSES) as $status)
+                    <button type="button" onclick="bulkChangeStatus('{{ $status }}', this, '{{ \App\Models\ChangeRequest::statusLabel($status) }}')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        {{ \App\Models\ChangeRequest::statusLabel($status) }}
                     </button>
                     @endforeach
                 </div>
@@ -439,10 +442,10 @@ function deselectAll() {
     updateBulkBar();
 }
 
-function bulkChangeStatus(status, btn) {
+function bulkChangeStatus(status, btn, label) {
     var ids = getSelectedIds();
     if (!ids.length) return;
-    armConfirm(btn, 'Set ' + ids.length + ' request(s) to "' + status + '"?', function() { doBulkChangeStatus(status, ids); });
+    armConfirm(btn, 'Set ' + ids.length + ' request(s) to "' + (label || status) + '"?', function() { doBulkChangeStatus(status, ids); });
 }
 
 function doBulkChangeStatus(status, ids) {

@@ -69,6 +69,16 @@ class Setting extends Model
     }
 
     /**
+     * The keys stored encrypted. Exposed so callers cannot drift from this list —
+     * the config export decrypts on read, so a secret missing from a caller's own
+     * copy would be written to a downloadable file in plaintext.
+     */
+    public static function encryptedKeys(): array
+    {
+        return static::$encryptedKeys;
+    }
+
+    /**
      * Get email template content (subject + body) with placeholders replaced.
      *
      * Falls back to defaults from config/email-templates.php when no

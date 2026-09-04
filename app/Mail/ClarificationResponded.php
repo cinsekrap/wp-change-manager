@@ -52,7 +52,7 @@ class ClarificationResponded extends Mailable
     {
         $pageTitle = $this->changeRequest->isAccessRequest()
             ? ($this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug) . ' access request'
-            : ($this->changeRequest->page_title ?? $this->changeRequest->page_url);
+            : ($this->changeRequest->subjectDescription());
 
         return [
             'reference' => $this->changeRequest->reference,

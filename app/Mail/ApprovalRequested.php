@@ -39,9 +39,10 @@ class ApprovalRequested extends Mailable
                 'approverName' => $this->approver->name,
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'isNewPage' => $this->changeRequest->is_new_page,
                 'isAccessRequest' => $this->changeRequest->isAccessRequest(),
+                'isContentRequest' => $this->changeRequest->isContentRequest(),
                 'cptName' => $this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug,
                 'recipientName' => $this->changeRequest->access_recipient_name,
                 'recipientEmail' => $this->changeRequest->access_recipient_email,
@@ -61,7 +62,7 @@ class ApprovalRequested extends Mailable
         // so substitute something meaningful for the {page_title} token.
         $pageTitle = $this->changeRequest->isAccessRequest()
             ? ($this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug) . ' access request'
-            : ($this->changeRequest->page_title ?? $this->changeRequest->page_url);
+            : ($this->changeRequest->subjectDescription());
 
         return [
             'reference' => $this->changeRequest->reference,

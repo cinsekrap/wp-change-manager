@@ -36,7 +36,7 @@ class NewRequestAlert extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'requesterName' => $this->changeRequest->requester_name,
                 'requesterEmail' => $this->changeRequest->requester_email,
                 'itemCount' => $this->changeRequest->items->count(),
@@ -52,7 +52,7 @@ class NewRequestAlert extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'requester_name' => $this->changeRequest->requester_name,
             'requester_email' => $this->changeRequest->requester_email,
             'item_count' => (string) $this->changeRequest->items->count(),

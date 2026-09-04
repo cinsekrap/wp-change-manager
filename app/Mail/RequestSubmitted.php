@@ -36,7 +36,7 @@ class RequestSubmitted extends Mailable
             with: [
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
-                'pageTitle' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+                'pageTitle' => $this->changeRequest->subjectDescription(),
                 'itemCount' => $this->changeRequest->items->count(),
                 'deadlineDate' => $this->changeRequest->deadline_date,
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
@@ -51,7 +51,7 @@ class RequestSubmitted extends Mailable
         return [
             'reference' => $this->changeRequest->reference,
             'site_name' => $this->changeRequest->site->name ?? 'Unknown site',
-            'page_title' => $this->changeRequest->page_title ?? $this->changeRequest->page_url,
+            'page_title' => $this->changeRequest->subjectDescription(),
             'item_count' => (string) $this->changeRequest->items->count(),
             'deadline_date' => $this->changeRequest->deadline_date?->format('j M Y') ?? '',
         ];

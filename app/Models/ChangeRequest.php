@@ -256,6 +256,27 @@ class ChangeRequest extends Model
         return $this->request_type === 'access';
     }
 
+    /**
+     * A human description of what this request is about, for emails and views.
+     *
+     * Content requests have no page: page_url is the placeholder 'new-content' and
+     * page_title is null, which rendered as "New page:" followed by nothing in ten
+     * email templates.
+     */
+    public function subjectDescription(): string
+    {
+        if ($this->isAccessRequest()) {
+            return $this->cptType->name ?? $this->cpt_slug;
+        }
+
+        if ($this->isContentRequest()) {
+            return $this->public_title
+                ?: config("content-types.{$this->content_type}.label", 'New content');
+        }
+
+        return $this->page_title ?: $this->page_url;
+    }
+
     public function isContentRequest(): bool
     {
         return $this->request_type === 'content';

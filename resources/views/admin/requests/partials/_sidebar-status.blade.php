@@ -85,8 +85,15 @@
     </div>
     @endif
 
-    {{-- Send for approval button --}}
-    @if($changeRequest->status === 'requested')
+    {{-- Send for approval button. Content requests never reach 'requested' — they
+         start at 'suggested' — so they need their own window, which also covers
+         re-requesting approval after an edit voids a sign-off. --}}
+    @php
+        $canSendForApproval = $changeRequest->isContentRequest()
+            ? in_array($changeRequest->status, ['in_progress', 'awaiting_approval'])
+            : $changeRequest->status === 'requested';
+    @endphp
+    @if($canSendForApproval)
         @php
             $siteHasApprovers = !empty($changeRequest->site->default_approvers);
             $hasManualApprovers = $changeRequest->approvers->isNotEmpty();

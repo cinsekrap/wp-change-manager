@@ -12,6 +12,9 @@ class ContentAwaitingFunding extends Mailable
 {
     public function __construct(
         public ChangeRequest $changeRequest,
+        // Set when this is going to a watcher rather than the suggester, so the
+        // email can carry their unsubscribe link.
+        public ?\App\Models\ChangeRequestWatcher $watcher = null,
     ) {
         $this->changeRequest->loadMissing(['site', 'additionalSites']);
     }
@@ -34,6 +37,9 @@ class ContentAwaitingFunding extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'contentTypeLabel' => $this->contentTypeLabel(),
                 'trackingUrl' => \App\Http\Controllers\PublicSite\TrackingController::signedUrl($this->changeRequest),
+                'unsubscribeUrl' => $this->watcher
+                    ? route('suggestions.unsubscribe', $this->watcher->token)
+                    : null,
                 'customBody' => Setting::get('email_content_awaiting_funding_body') ? $emailContent['body'] : null,
                 'defaultBody' => config('email-templates.content_awaiting_funding.body'),
             ], $this->extraViewData()),

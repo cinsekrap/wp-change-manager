@@ -217,7 +217,13 @@ class SubmissionController extends Controller
             $site = Site::find($validated['site_id']);
             $checkAnswers = $changeRequest->check_answers ?? [];
             $allChecksPassed = collect($checkAnswers)->every(fn($a) => !empty($a['pass']));
-            $canAutoRefer = $allChecksPassed && !$site->requires_approval;
+            // A content suggestion must never auto-refer. There is nothing to approve
+            // yet — it has not been scoped, funded or written — and referring it would
+            // email approvers about copy that does not exist while telling the
+            // requester it will take months. Content leaves 'suggested' by hand.
+            $canAutoRefer = $allChecksPassed
+                && !$site->requires_approval
+                && !$changeRequest->isContentRequest();
 
             // Only auto-add approvers and send emails if checks pass and site doesn't require manual approval
             $defaultApprovers = $site->default_approvers ?? [];

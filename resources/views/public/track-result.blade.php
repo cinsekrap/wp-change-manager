@@ -17,7 +17,45 @@
 
     {{-- Status explainer card --}}
     @php
+        $clock = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>';
         $statusExplainers = [
+            // Content lane. Without these the whole card silently disappeared —
+            // on the very page the first two content emails link to.
+            'suggested' => [
+                'icon' => $clock,
+                'bg' => 'bg-hcrg-grey-100 border-hcrg-grey-200',
+                'iconColor' => 'text-hcrg-grey-400',
+                'title' => 'Your suggestion has been received',
+                'text' => 'A content designer will read it and work out what it needs. Nothing is committed yet.',
+            ],
+            'scoped' => [
+                'icon' => $clock,
+                'bg' => 'bg-hcrg-grey-100 border-hcrg-grey-200',
+                'iconColor' => 'text-hcrg-grey-400',
+                'title' => 'A content designer has looked at it',
+                'text' => 'They have worked out what it needs and roughly how long it will take. It now goes for a decision on whether to fund the work.',
+            ],
+            'awaiting_funding' => [
+                'icon' => $clock,
+                'bg' => 'bg-amber-50 border-amber-200',
+                'iconColor' => 'text-amber-500',
+                'title' => 'Agreed — waiting for the work to be funded',
+                'text' => 'This has been agreed in principle and is waiting for the hours to be funded, which happens outside this tool. It can sit here for a while: that is the process working, not your request being forgotten.',
+            ],
+            'in_progress' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>',
+                'bg' => 'bg-sky-50 border-sky-200',
+                'iconColor' => 'text-sky-500',
+                'title' => 'Being written',
+                'text' => 'A content designer is writing this now.',
+            ],
+            'awaiting_approval' => [
+                'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>',
+                'bg' => 'bg-fuchsia-50 border-fuchsia-200',
+                'iconColor' => 'text-fuchsia-500',
+                'title' => 'With a clinical approver',
+                'text' => 'The copy has been written and is being checked for clinical safety before it goes live.',
+            ],
             'requested' => [
                 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>',
                 'bg' => 'bg-amber-50 border-amber-200',
@@ -106,7 +144,7 @@
         $explainer = $statusExplainers[$changeRequest->status] ?? null;
     @endphp
     @if($explainer)
-    <div class="rounded-lg border p-5 mb-6 {{ $explainer['bg'] }}">
+    <div data-status-explainer class="rounded-lg border p-5 mb-6 {{ $explainer['bg'] }}">
         <div class="flex items-start space-x-3">
             <svg class="w-6 h-6 {{ $explainer['iconColor'] }} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{!! $explainer['icon'] !!}</svg>
             <div>
@@ -178,7 +216,11 @@
         </dl>
     </div>
 
-    @if ($changeRequest->isContentRequest() && $changeRequest->published_url)
+    @php
+    $publishedAnywhere = $changeRequest->isContentRequest()
+        && $changeRequest->allSites()->contains(fn ($s) => $changeRequest->publishedFor($s->id)['published_url']);
+@endphp
+@if ($publishedAnywhere)
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h3 class="text-sm font-semibold text-gray-700 mb-3">Where it went live</h3>
         <ul class="space-y-2">

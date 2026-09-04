@@ -16,8 +16,15 @@ class DashboardController extends Controller
     {
         $stats = [
             'total' => ChangeRequest::count(),
-            'requested' => ChangeRequest::whereIn('status', ['requested', 'requires_referral'])->count(),
-            'in_progress' => ChangeRequest::whereIn('status', ['referred', 'approved', 'training', 'trained', 'scheduled'])->count(),
+            // These two buckets must partition every non-terminal status, or work
+            // exists that neither tile counts — which is what happened to all five
+            // content statuses, while the chart below showed them.
+            'requested' => ChangeRequest::whereIn('status', ['requested', 'requires_referral', 'suggested'])->count(),
+            'in_progress' => ChangeRequest::whereIn('status', [
+                'referred', 'approved', 'training', 'trained', 'scheduled',
+                'scoped', 'awaiting_funding', 'in_progress', 'awaiting_approval',
+                'on_hold', 'awaiting_user',
+            ])->count(),
             'done' => ChangeRequest::where('status', 'done')->count(),
             'sites' => Site::active()->count(),
             'my_requests' => ChangeRequest::where('assigned_to', auth()->id())
