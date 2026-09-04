@@ -157,6 +157,12 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         // CPT Types
         Route::resource('cpts', CptController::class)->names('admin.cpts');
 
+        // Clinical approvers — the named people who may sign off content
+        Route::resource('clinical-approvers', \App\Http\Controllers\Admin\ClinicalApproverController::class)
+            ->names('admin.clinical-approvers')
+            ->parameters(['clinical-approvers' => 'clinicalApprover'])
+            ->except(['show']);
+
         // Mail Settings
         Route::get('/settings/mail', [MailSettingsController::class, 'edit'])->name('admin.settings.mail');
         Route::put('/settings/mail', [MailSettingsController::class, 'update'])->name('admin.settings.mail.update');

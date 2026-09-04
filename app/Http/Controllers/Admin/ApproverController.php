@@ -17,18 +17,42 @@ class ApproverController extends Controller
 {
     public function addApprover(Request $request, ChangeRequest $changeRequest)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'group' => 'nullable|string|max:255',
-        ]);
+        // A clinical sign-off has to name someone from the managed list. Free-text
+        // name-and-email is fine for a wording change on a site; it is not a
+        // defensible clinical record.
+        if ($changeRequest->isContentRequest()) {
+            $validated = $request->validate([
+                'clinical_approver_id' => [
+                    'required',
+                    \Illuminate\Validation\Rule::exists('clinical_approvers', 'id')->where('is_active', true),
+                ],
+            ], [], ['clinical_approver_id' => 'clinical approver']);
 
-        $approver = $changeRequest->approvers()->create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'group' => $request->group ?: null,
-            'token' => ChangeRequestApprover::generateToken(),
-        ]);
+            $clinical = \App\Models\ClinicalApprover::findOrFail($validated['clinical_approver_id']);
+
+            if ($changeRequest->approvers()->where('email', $clinical->email)->exists()) {
+                return back()->with('info', "{$clinical->name} has already been asked to approve this.");
+            }
+
+            $approver = $changeRequest->approvers()->create([
+                'name' => $clinical->label(),
+                'email' => $clinical->email,
+                'token' => ChangeRequestApprover::generateToken(),
+            ]);
+        } else {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'nullable|email|max:255',
+                'group' => 'nullable|string|max:255',
+            ]);
+
+            $approver = $changeRequest->approvers()->create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'group' => $request->group ?: null,
+                'token' => ChangeRequestApprover::generateToken(),
+            ]);
+        }
 
         // Send approval request email if approver has an email
         if ($approver->email && $approver->token) {
@@ -168,11 +192,20 @@ class ApproverController extends Controller
 
     public function sendForApproval(ChangeRequest $changeRequest)
     {
+        // Content is not approved *for a site* — one clinical sign-off covers every
+        // site it goes to — so borrowing the main home's approvers would be an
+        // arbitrary choice among them. A clinical approver is named explicitly.
+        if ($changeRequest->isContentRequest()) {
+            if ($changeRequest->approvers->isEmpty()) {
+                return back()->with('error', 'Choose a clinical approver before sending this for approval.');
+            }
+        }
+
         $site = $changeRequest->site;
         $defaultApprovers = $site->default_approvers ?? [];
 
         // Auto-add site's default approvers if none exist yet
-        if ($changeRequest->approvers->isEmpty() && !empty($defaultApprovers)) {
+        if (!$changeRequest->isContentRequest() && $changeRequest->approvers->isEmpty() && !empty($defaultApprovers)) {
             foreach ($defaultApprovers as $approver) {
                 $changeRequest->approvers()->create([
                     'name' => $approver['name'],
