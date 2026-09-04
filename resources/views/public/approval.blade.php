@@ -78,7 +78,14 @@
             </div>
         @endif
 
-        {{-- Reading-age guidance: shown when any change raises the reading age --}}
+        {{-- Reading-age guidance: shown when any change raises the reading age.
+
+             Deliberately items-only, so a content request never reaches the
+             "Yes, approve anyway" step. This fires on an INCREASE — someone made
+             existing copy worse — and content has no earlier version to compare
+             against. The designer writing it is already stopped by the gate on
+             the draft editor, and they are the one who can fix it; the clinician
+             is here to judge clinical safety, and gets the score to read. --}}
         @php
             $anyReadingAgeIncrease = $changeRequest->items->contains(fn($i) =>
                 $i->action_type === 'change'
