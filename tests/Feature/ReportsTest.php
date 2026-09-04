@@ -57,9 +57,9 @@ class ReportsTest extends TestCase
         $this->createRequest();
         $this->createRequest([], doneDaysAfter: '2');
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('Reports')
+            ->assertSee('Dashboard')
             ->assertSee('Submitted vs Completed')
             ->assertSee('Average Days to Complete')
             ->assertSee('Requests by Site')
@@ -73,7 +73,7 @@ class ReportsTest extends TestCase
         $outOfRange = $this->createRequest();
         ChangeRequest::whereKey($outOfRange->id)->update(['created_at' => now()->subYears(2)]);
 
-        $response = $this->get(route('admin.reports', [
+        $response = $this->get(route('admin.dashboard', [
             'from' => now()->subMonth()->format('Y-m-d'),
             'to' => now()->format('Y-m-d'),
         ]));
@@ -91,16 +91,17 @@ class ReportsTest extends TestCase
     {
         $this->loginAsAdmin();
 
-        $this->get(route('admin.reports', ['from' => '2026-06-01', 'to' => '2026-01-01']))
+        $this->get(route('admin.dashboard', ['from' => '2026-06-01', 'to' => '2026-01-01']))
             ->assertSessionHasErrors('to');
     }
 
-    public function test_reports_is_the_landing_page(): void
+    public function test_the_dashboard_is_the_landing_page(): void
     {
         $this->loginAsAdmin();
 
         $this->get('/admin')
             ->assertSuccessful()
+            ->assertSee('Dashboard')
             ->assertSee('Management reporting on request volumes')
             // It is no longer a trial.
             ->assertDontSee('v2 preview')
@@ -112,10 +113,10 @@ class ReportsTest extends TestCase
         $this->loginAsAdmin();
 
         // It was /admin/reports for the whole trial; links to it exist.
-        $this->get('/admin/reports')->assertRedirect(route('admin.reports'));
+        $this->get('/admin/reports')->assertRedirect(route('admin.dashboard'));
 
         $this->get('/admin/reports?from=2026-01-01&to=2026-06-01')
-            ->assertRedirect(route('admin.reports', ['from' => '2026-01-01', 'to' => '2026-06-01']));
+            ->assertRedirect(route('admin.dashboard', ['from' => '2026-01-01', 'to' => '2026-06-01']));
     }
 
     public function test_the_operational_figures_ignore_the_date_filter(): void
@@ -134,7 +135,7 @@ class ReportsTest extends TestCase
         $this->assertTrue($overdue->fresh()->isOverSla(), 'Fixture is not actually overdue.');
 
         // A window that contains none of it.
-        $html = $this->get(route('admin.reports', [
+        $html = $this->get(route('admin.dashboard', [
             'from' => now()->subDays(2)->format('Y-m-d'),
             'to' => now()->format('Y-m-d'),
         ]))->assertSuccessful()->getContent();
@@ -149,7 +150,7 @@ class ReportsTest extends TestCase
     /** The value the view was actually given, rather than guessing at rendered markup. */
     private function viewValue(string $key): mixed
     {
-        return $this->get(route('admin.reports', [
+        return $this->get(route('admin.dashboard', [
             'from' => now()->subDays(2)->format('Y-m-d'),
             'to' => now()->format('Y-m-d'),
         ]))->viewData($key);

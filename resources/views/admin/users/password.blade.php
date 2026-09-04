@@ -31,7 +31,7 @@
 
         <div class="flex items-center space-x-3 pt-4">
             <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Update Password</button>
-            <a href="{{ route('admin.reports') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
+            <a href="{{ route('admin.dashboard') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
         </div>
     </form>
 

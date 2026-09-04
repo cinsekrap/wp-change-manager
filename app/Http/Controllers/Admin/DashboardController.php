@@ -8,7 +8,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
-class ReportsController extends Controller
+/**
+ * The admin landing page: how the team is doing over a period, with the handful
+ * of things that need attention right now sitting above it.
+ */
+class DashboardController extends Controller
 {
     public function index(Request $request)
     {
@@ -138,7 +142,7 @@ class ReportsController extends Controller
             'avg_training_days' => $trainingDays->isNotEmpty() ? round($trainingDays->avg(), 1) : null,
         ];
 
-        return view('admin.reports', array_merge(
+        return view('admin.dashboard', array_merge(
             compact('from', 'to', 'kpis', 'monthly', 'bySite', 'byCpt', 'approvals', 'access'),
             $this->currentState(),
         ));

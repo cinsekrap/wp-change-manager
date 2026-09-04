@@ -97,7 +97,7 @@ class EntraController extends Controller
         );
 
         if ($user->isAdmin()) {
-            return redirect()->intended(route('admin.reports'));
+            return redirect()->intended(route('admin.dashboard'));
         }
 
         // Non-admin SSO users: redirect to the public wizard with a message

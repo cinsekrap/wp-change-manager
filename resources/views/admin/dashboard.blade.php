@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Reports')
+@section('title', 'Dashboard')
 
 @section('content')
 @php $update = app(App\Services\UpdateService::class)->checkForUpdates(); @endphp
@@ -21,10 +21,10 @@
 
 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Reports</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p class="text-sm text-gray-500 mt-1">Management reporting on request volumes, turnaround and approvals.</p>
     </div>
-    <form method="GET" action="{{ route('admin.reports') }}" class="flex items-end gap-2">
+    <form method="GET" action="{{ route('admin.dashboard') }}" class="flex items-end gap-2">
         <div>
             <label for="from" class="block text-xs font-medium text-gray-500 mb-1">From</label>
             <input type="date" id="from" name="from" value="{{ $from->format('Y-m-d') }}"

@@ -103,7 +103,7 @@ class ContentReportingTest extends TestCase
 
         $this->loginAsAdmin();
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertSuccessful()
             ->assertSee('Changes:')
             ->assertSee('Content:');

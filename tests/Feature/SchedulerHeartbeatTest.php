@@ -33,7 +33,7 @@ class SchedulerHeartbeatTest extends TestCase
         $this->loginAsAdmin();
         Cache::put('scheduler_last_run', now()->subMinute()->timestamp);
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Scheduler running')
             ->assertDontSee('Scheduled tasks are not running.');
@@ -44,7 +44,7 @@ class SchedulerHeartbeatTest extends TestCase
         $this->loginAsAdmin();
         Cache::put('scheduler_last_run', now()->subHours(2)->timestamp);
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Scheduler not running')
             ->assertSee('Scheduled tasks are not running.')
@@ -55,7 +55,7 @@ class SchedulerHeartbeatTest extends TestCase
     {
         $this->loginAsAdmin();
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Scheduler not running')
             ->assertSee('No heartbeat has ever been recorded.');
@@ -69,7 +69,7 @@ class SchedulerHeartbeatTest extends TestCase
         $this->loginAsAdmin();
         Cache::put('scheduler_last_run', now());
 
-        $this->get(route('admin.reports'))
+        $this->get(route('admin.dashboard'))
             ->assertOk()
             ->assertSee('Scheduler not running');
     }

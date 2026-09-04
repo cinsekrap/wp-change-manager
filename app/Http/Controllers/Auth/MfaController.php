@@ -29,7 +29,7 @@ class MfaController extends Controller
 
         // If MFA is already set up and confirmed, redirect to dashboard
         if ($user->hasMfaEnabled()) {
-            return redirect()->route('admin.reports');
+            return redirect()->route('admin.dashboard');
         }
 
         // Generate a new secret if not already in session
@@ -102,7 +102,7 @@ class MfaController extends Controller
         $request->session()->put('mfa_verified', true);
         $request->session()->forget('mfa_setup_secret');
 
-        return redirect()->route('admin.reports');
+        return redirect()->route('admin.dashboard');
     }
 
     /**
@@ -119,7 +119,7 @@ class MfaController extends Controller
 
         // If already verified, go to dashboard
         if ($request->session()->get('mfa_verified')) {
-            return redirect()->route('admin.reports');
+            return redirect()->route('admin.dashboard');
         }
 
         return view('auth.mfa-challenge');
@@ -154,7 +154,7 @@ class MfaController extends Controller
 
         $request->session()->put('mfa_verified', true);
 
-        return redirect()->intended(route('admin.reports'));
+        return redirect()->intended(route('admin.dashboard'));
     }
 
     /**
