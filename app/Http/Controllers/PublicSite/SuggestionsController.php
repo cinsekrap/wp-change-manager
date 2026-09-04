@@ -42,7 +42,10 @@ class SuggestionsController extends Controller
     {
         $search = trim((string) $request->query('q', ''));
 
+        // The list is about work in flight. Published content stays out of it, but
+        // remains searchable below — it is the likeliest thing to be duplicated.
         $entries = $this->publicQuery()
+            ->where('status', '!=', 'done')
             ->when($search !== '', fn ($q) => $q->where('public_title', 'like', '%'.$search.'%'))
             ->orderByDesc('created_at')
             ->paginate(20)
@@ -68,6 +71,8 @@ class SuggestionsController extends Controller
             return response()->json(['results' => []]);
         }
 
+        // Deliberately includes published content: "it already exists" is most often
+        // true of something that is finished.
         $results = $this->publicQuery()
             ->where('public_title', 'like', '%'.$search.'%')
             ->limit(5)

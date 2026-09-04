@@ -169,4 +169,27 @@ class SuggestionsTest extends TestCase
             ->assertSuccessful()
             ->assertJsonCount(0, 'results');
     }
+
+    public function test_published_suggestions_are_not_listed(): void
+    {
+        $this->published(['status' => 'done', 'reference' => 'CR-PUBLISHED']);
+        $this->published(['status' => 'in_progress', 'reference' => 'CR-INFLIGHT']);
+
+        // The list is about work in flight.
+        $this->get(route('suggestions'))
+            ->assertSuccessful()
+            ->assertSee('CR-INFLIGHT')
+            ->assertDontSee('CR-PUBLISHED');
+    }
+
+    public function test_published_suggestions_are_still_found_by_the_duplicate_search(): void
+    {
+        $this->published(['status' => 'done']);
+
+        // Something finished is the likeliest thing to be duplicated, so hiding it
+        // from the list must not hide it from the check on the brief.
+        $this->getJson(route('suggestions.search', ['q' => 'community nursing']))
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'results');
+    }
 }
