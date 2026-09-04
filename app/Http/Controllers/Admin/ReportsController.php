@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChangeRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class ReportsController extends Controller
 {
@@ -137,6 +138,41 @@ class ReportsController extends Controller
             'avg_training_days' => $trainingDays->isNotEmpty() ? round($trainingDays->avg(), 1) : null,
         ];
 
-        return view('admin.reports', compact('from', 'to', 'kpis', 'monthly', 'bySite', 'byCpt', 'approvals', 'access'));
+        return view('admin.reports', array_merge(
+            compact('from', 'to', 'kpis', 'monthly', 'bySite', 'byCpt', 'approvals', 'access'),
+            $this->currentState(),
+        ));
+    }
+
+    /**
+     * Where things stand right now, which is not a question about a reporting
+     * period: an overdue request is overdue today whatever dates are in the
+     * filter. Kept apart from $kpis for that reason — mixing them into the same
+     * numbers would make the date range appear to change them.
+     */
+    private function currentState(): array
+    {
+        $overdue = ChangeRequest::whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
+            ->select(['id', 'status', 'priority', 'created_at'])
+            ->get()
+            ->filter(fn ($cr) => $cr->isOverSla())
+            ->count();
+
+        $myRequests = ChangeRequest::where('assigned_to', auth()->id())
+            ->whereNotIn('status', ChangeRequest::TERMINAL_STATUSES)
+            ->count();
+
+        // Scheduler heartbeat, written every minute by routes/console.php.
+        // Defensive on purpose: whatever is in the cache (missing, legacy
+        // object, corrupt), a bad heartbeat must show the warning, never 500.
+        try {
+            $heartbeat = Cache::get('scheduler_last_run');
+        } catch (\Throwable) {
+            $heartbeat = null;
+        }
+        $schedulerLastRun = is_numeric($heartbeat) ? Carbon::createFromTimestamp((int) $heartbeat) : null;
+        $schedulerOk = $schedulerLastRun !== null && $schedulerLastRun->gt(now()->subMinutes(5));
+
+        return compact('overdue', 'myRequests', 'schedulerLastRun', 'schedulerOk');
     }
 }

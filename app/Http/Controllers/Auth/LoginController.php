@@ -13,7 +13,7 @@ class LoginController extends Controller
     public function showLoginForm()
     {
         if (Auth::check()) {
-            return redirect()->route('admin.dashboard');
+            return redirect()->route('admin.reports');
         }
 
         $entraEnabled = (bool) Setting::get('entra_enabled');
@@ -37,7 +37,7 @@ class LoginController extends Controller
                 description: 'Successful login: ' . Auth::user()->email,
             );
 
-            return redirect()->intended(route('admin.dashboard'));
+            return redirect()->intended(route('admin.reports'));
         }
 
         AuditService::log(

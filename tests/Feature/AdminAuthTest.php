@@ -28,7 +28,7 @@ class AdminAuthTest extends TestCase
             'password' => 'secret123',
         ]);
 
-        $response->assertRedirect(route('admin.dashboard'));
+        $response->assertRedirect(route('admin.reports'));
         $this->assertAuthenticated();
     }
 

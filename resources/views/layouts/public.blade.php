@@ -18,7 +18,7 @@
                 <a href="{{ route('wizard') }}" class="text-sm font-medium text-white bg-hcrg-burgundy px-4 py-2 rounded-full hover:bg-[#9A1B4B] transition-colors">Submit a request</a>
                 <a href="{{ route('tracking') }}" class="text-sm font-medium text-hcrg-burgundy border border-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">Track a request</a>
                 <a href="{{ route('suggestions') }}" class="text-sm font-medium text-hcrg-burgundy border border-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">Suggestions</a>
-                <a href="{{ route(auth()->check() ? 'admin.dashboard' : 'login') }}" class="text-sm font-medium text-gray-400 border border-gray-300 px-4 py-2 rounded-full hover:border-hcrg-burgundy hover:text-hcrg-burgundy transition-colors">{{ auth()->check() ? 'Admin' : 'Sign in' }}</a>
+                <a href="{{ route(auth()->check() ? 'admin.reports' : 'login') }}" class="text-sm font-medium text-gray-400 border border-gray-300 px-4 py-2 rounded-full hover:border-hcrg-burgundy hover:text-hcrg-burgundy transition-colors">{{ auth()->check() ? 'Admin' : 'Sign in' }}</a>
             </div>
         </div>
     </header>

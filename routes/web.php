@@ -7,7 +7,8 @@ use App\Http\Controllers\Admin\ChangeRequestController;
 use App\Http\Controllers\Admin\ContentRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
-use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Admin\WhatsNewController;
 use App\Http\Controllers\Admin\ConfigController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\Admin\EmailLogController;
@@ -113,9 +114,11 @@ Route::middleware('auth')->prefix('admin/mfa')->group(function () {
 
 // Admin routes (editor + super_admin)
 Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () {
-    Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
-    Route::get('/reports', [\App\Http\Controllers\Admin\ReportsController::class, 'index'])->name('admin.reports');
-    Route::post('/whats-new/dismiss', [DashboardController::class, 'dismissWhatsNew'])->name('admin.whats-new.dismiss');
+    // Reports is the landing page. /reports is kept as a redirect because it was
+    // the address while the view was being trialled, and links to it exist.
+    Route::get('/', [ReportsController::class, 'index'])->name('admin.reports');
+    Route::get('/reports', fn () => redirect()->route('admin.reports', request()->query()));
+    Route::post('/whats-new/dismiss', [WhatsNewController::class, 'dismiss'])->name('admin.whats-new.dismiss');
 
     // Change requests
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');

@@ -2,10 +2,27 @@
 @section('title', 'Reports')
 
 @section('content')
+@php $update = app(App\Services\UpdateService::class)->checkForUpdates(); @endphp
+@if($update['available'])
+<div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+    <span class="text-sm text-amber-800">A new version ({{ $update['latest_version'] }}) is available.</span>
+    <a href="{{ route('admin.settings.updates') }}" class="text-sm font-medium text-hcrg-burgundy hover:underline">View update</a>
+</div>
+@endif
+@unless($schedulerOk)
+<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+    <span class="text-sm text-red-800">
+        <strong>Scheduled tasks are not running.</strong>
+        {{ $schedulerLastRun ? 'Last heartbeat ' . $schedulerLastRun->diffForHumans() . '.' : 'No heartbeat has ever been recorded.' }}
+        Daily reminders and upload cleanup will not happen — check the hosting panel's scheduled task is enabled and running <code class="text-xs">artisan schedule:run</code> every minute.
+    </span>
+</div>
+@endunless
+
 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Reports <span class="align-middle ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy">v2 preview</span></h1>
-        <p class="text-sm text-gray-500 mt-1">Management reporting on request volumes, turnaround and approvals. Feedback welcome — this view is being trialled.</p>
+        <h1 class="text-2xl font-bold text-gray-900">Reports</h1>
+        <p class="text-sm text-gray-500 mt-1">Management reporting on request volumes, turnaround and approvals.</p>
     </div>
     <form method="GET" action="{{ route('admin.reports') }}" class="flex items-end gap-2">
         <div>
@@ -22,7 +39,30 @@
     </form>
 </div>
 
-{{-- KPI tiles --}}
+{{-- Where things stand right now. Deliberately above and outside the date range:
+     an overdue request is overdue today whatever period is being reported on. --}}
+<div class="flex flex-wrap items-center gap-3 mb-6">
+    <a href="{{ route('admin.requests.index') }}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors
+              {{ $overdue > 0 ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">
+        <span class="text-lg font-bold leading-none">{{ $overdue }}</span> overdue
+    </a>
+    <a href="{{ route('admin.requests.index', ['my_requests' => 1]) }}"
+       class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors">
+        <span class="text-lg font-bold leading-none text-hcrg-burgundy">{{ $myRequests }}</span> assigned to me
+    </a>
+    @if($schedulerOk)
+    <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200" title="Last heartbeat {{ $schedulerLastRun->diffForHumans() }}">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>Scheduler running
+    </span>
+    @else
+    <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+        <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span>Scheduler not running
+    </span>
+    @endif
+</div>
+
+{{-- Everything below is for the selected period. --}}
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
     <div class="bg-white rounded-lg shadow p-5">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted</div>

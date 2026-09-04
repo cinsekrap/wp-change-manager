@@ -46,7 +46,7 @@ class DesignerInitiatedContentTest extends TestCase
 
         // The menu lives in the layout, so it has to be on every admin page —
         // not just the one it was added to.
-        foreach ([route('admin.dashboard'), route('admin.requests.index')] as $url) {
+        foreach ([route('admin.reports'), route('admin.requests.index')] as $url) {
             $this->get($url)
                 ->assertSuccessful()
                 ->assertSee('New Content')
@@ -152,7 +152,7 @@ class DesignerInitiatedContentTest extends TestCase
         $this->loginAsAdmin();
 
         $this->get(route('admin.requests.index'))->assertSuccessful();
-        $this->get(route('admin.dashboard'))->assertSuccessful();
+        $this->get(route('admin.reports'))->assertSuccessful();
     }
 
     public function test_the_tracking_page_renders_with_no_requester_and_no_site(): void
@@ -207,7 +207,7 @@ class DesignerInitiatedContentTest extends TestCase
 
         $this->loginAsAdmin();
 
-        $this->get(route('admin.dashboard'))
+        $this->get(route('admin.reports'))
             ->assertSuccessful()
             // An empty row under "Top requesters" is not a person.
             ->assertDontSee('mailto:"');
