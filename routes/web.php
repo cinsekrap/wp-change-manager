@@ -54,7 +54,8 @@ Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmat
 
 // Public content queue — no sign-in, so SuggestionsController owns the field allowlist
 Route::get('/suggestions', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'index'])->name('suggestions');
-Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'search'])->name('suggestions.search');
+Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'search'])
+    ->name('suggestions.search')->middleware('throttle:public-api');
 Route::post('/suggestions/{reference}/watch', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'watch'])
     ->name('suggestions.watch')->middleware('throttle:public-tracking');
 Route::get('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'confirm'])->name('suggestions.confirm');
@@ -83,7 +84,7 @@ Route::prefix('api')->middleware('throttle:public-api')->group(function () {
     Route::post('/sitemap/refresh/{site}', [SitemapController::class, 'refresh'])->name('api.sitemap.refresh');
     Route::get('/sitemap/status/{site}', [SitemapController::class, 'status'])->name('api.sitemap.status');
     Route::get('/pages/{site}', [SitemapController::class, 'pages'])->name('api.pages');
-    Route::post('/upload', [UploadController::class, 'store'])->name('api.upload');
+    Route::post('/upload', [UploadController::class, 'store'])->name('api.upload')->middleware('throttle:public-upload');
     Route::delete('/upload/{filename}', [UploadController::class, 'destroy'])->name('api.upload.destroy');
 });
 
