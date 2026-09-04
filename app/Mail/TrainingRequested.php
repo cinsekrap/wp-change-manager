@@ -38,7 +38,7 @@ class TrainingRequested extends Mailable
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'cptName' => $this->changeRequest->cptType->name ?? $this->changeRequest->cpt_slug,
                 'requesterName' => $this->changeRequest->requester_name,
-                'trainingUrl' => $this->changeRequest->cptType->training_url ?? '',
+                'trainingUrl' => \App\Support\SafeUrl::for($this->changeRequest->cptType->training_url ?? null) ?? '',
                 'confirmUrl' => route('training.show', $this->changeRequest->training_token),
                 'customBody' => Setting::get('email_training_requested_body') ? $emailContent['body'] : null,
                 'defaultBody' => $emailContent['body'],

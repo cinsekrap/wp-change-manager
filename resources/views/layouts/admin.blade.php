@@ -152,7 +152,7 @@
                 </button>
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-4 prose prose-sm max-w-none">
-                {!! \Illuminate\Support\Str::markdown($whatsNewNotes) !!}
+                {!! \Illuminate\Support\Str::markdown($whatsNewNotes, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}
             </div>
             <div class="px-6 py-4 border-t border-gray-200 text-right">
                 <button onclick="dismissWhatsNew()" class="px-5 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] transition-colors">Got it</button>

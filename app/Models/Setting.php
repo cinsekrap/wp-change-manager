@@ -73,6 +73,25 @@ class Setting extends Model
      * the config export decrypts on read, so a secret missing from a caller's own
      * copy would be written to a downloadable file in plaintext.
      */
+    public static function portableKeys(): array
+    {
+        return static::$portableKeys;
+    }
+
+    /**
+     * Settings a config export may carry and a config import may write.
+     *
+     * Deliberately an allowlist. Everything absent from it is either a secret, a
+     * per-user artefact, or something that decides where authentication and mail
+     * go — none of which should travel in a file that gets emailed around.
+     */
+    protected static array $portableKeys = [
+        'sla_low', 'sla_normal', 'sla_high', 'sla_urgent',
+        'chase_enabled', 'chase_hours', 'chase_unassigned_email',
+        'new_request_alert_email',
+        'mail_from_name', 'mail_from_address',
+    ];
+
     public static function encryptedKeys(): array
     {
         return static::$encryptedKeys;

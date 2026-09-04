@@ -72,12 +72,9 @@ class ConfigController extends Controller
             $exportableSettings = [];
 
             foreach ($allSettings as $key => $value) {
-                // Skip sensitive keys
-                if (in_array($key, $sensitiveKeys)) {
-                    continue;
-                }
-                // Skip email template customisations (exported separately)
-                if (str_starts_with($key, 'email_')) {
+                // Allowlist, not a blocklist. Tying "exportable" to "not encrypted"
+                // meant anything new was exported by default, in plaintext.
+                if (! in_array($key, Setting::portableKeys(), true)) {
                     continue;
                 }
                 $exportableSettings[$key] = Setting::get($key);
@@ -228,12 +225,10 @@ class ConfigController extends Controller
             $count = 0;
 
             foreach ($data['settings'] as $key => $value) {
-                // Never import sensitive keys
-                if (in_array($key, $sensitiveKeys)) {
-                    continue;
-                }
-                // Never import email template keys via settings
-                if (str_starts_with($key, 'email_')) {
+                // Same allowlist as the export. A blocklist let an imported file
+                // write any key it named, including ones that are rendered back
+                // into the admin UI or that belong to a particular user.
+                if (! in_array($key, Setting::portableKeys(), true)) {
                     continue;
                 }
                 Setting::set($key, $value);

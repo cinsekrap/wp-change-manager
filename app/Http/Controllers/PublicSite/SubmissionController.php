@@ -27,7 +27,7 @@ class SubmissionController extends Controller
     {
         $validated = $request->validate([
             'site_id' => ['required', \Illuminate\Validation\Rule::exists('sites', 'id')->where('is_active', true)],
-            'page_url' => 'required|string|max:2048',
+            'page_url' => ['required', 'string', 'max:2048', new \App\Rules\WebUrl],
             'page_title' => 'nullable|string|max:512',
             'cpt_slug' => 'required|string|max:100',
             'is_new_page' => 'boolean',
