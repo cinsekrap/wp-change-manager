@@ -15,6 +15,8 @@ class WizardController extends Controller
         $cptTypes = CptType::active()->ordered()->get(['id', 'slug', 'name', 'description', 'form_config', 'request_mode', 'mode_message']);
         $questions = CheckQuestion::active()->ordered()->get();
 
-        return view('public.wizard', compact('sites', 'cptTypes', 'questions'));
+        $contentTypes = config('content-types');
+
+        return view('public.wizard', compact('sites', 'cptTypes', 'questions', 'contentTypes'));
     }
 }

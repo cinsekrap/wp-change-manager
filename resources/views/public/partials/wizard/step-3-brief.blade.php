@@ -1,0 +1,67 @@
+{{-- Content lane, step 3: the brief. Replaces "what changes do you need?" for new content. --}}
+<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="7" data-panel="brief">
+    <h2 class="text-xl font-bold text-gray-900 mb-2">Tell us about the content</h2>
+    <p class="text-sm text-gray-500 mb-6">You don't need to write it — that's our job. We need to understand what it's for.</p>
+
+    <div class="space-y-6">
+
+        <div>
+            <label for="briefAchieve" class="block text-sm font-medium text-gray-700 mb-1">What is this trying to achieve? <span class="text-red-500">*</span></label>
+            <p class="text-xs text-gray-500 mb-2">What should be different once it's published? If nothing would change, it might not need to exist.</p>
+            <textarea id="briefAchieve" rows="3" placeholder="e.g. People referred to us keep ringing to ask what happens at the first appointment..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"></textarea>
+        </div>
+
+        <div>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Who is it for? <span class="text-red-500">*</span></span>
+            <p class="text-xs text-gray-500 mb-2">Pick everyone it genuinely has to serve — this usually changes how it's written.</p>
+            <div id="briefAudience" class="flex flex-wrap gap-2">
+                @foreach ([
+                    'patients' => 'Patients & service users',
+                    'families' => 'Families & carers',
+                    'referrers' => 'Referrers & GPs',
+                    'staff' => 'Our staff',
+                    'commissioners' => 'Commissioners',
+                    'public' => 'General public',
+                ] as $value => $label)
+                    <label class="cursor-pointer">
+                        <input type="checkbox" class="sr-only brief-audience" value="{{ $value }}">
+                        <span class="audience-chip inline-block text-sm px-4 py-2 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal">{{ $label }}</span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
+
+        <div>
+            <label for="briefKnowOrDo" class="block text-sm font-medium text-gray-700 mb-1">What do you want them to know, or do? <span class="text-red-500">*</span></label>
+            <p class="text-xs text-gray-500 mb-2">The one or two things that matter most. We'll build the content around them.</p>
+            <textarea id="briefKnowOrDo" rows="2"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"></textarea>
+        </div>
+
+        <div>
+            <label for="briefMeasure" class="block text-sm font-medium text-gray-700 mb-1">How will we know it worked? <span class="text-gray-400">(optional)</span></label>
+            <p class="text-xs text-gray-500 mb-2">Even a rough measure helps us write to a purpose — and tells us later whether it landed.</p>
+            <input type="text" id="briefMeasure" placeholder="e.g. Fewer &quot;what happens next&quot; calls to the single point of access"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+        </div>
+
+        <div class="p-4 bg-hcrg-grey-100 rounded-lg">
+            <span class="block text-sm font-medium text-gray-700 mb-1">Does something like this already exist? <span class="text-red-500">*</span></span>
+            <p class="text-xs text-gray-500 mb-3">On any of our sites, or as a leaflet or document. We'd rather improve one thing than publish a second version of it.</p>
+            <div class="flex flex-wrap gap-5 mb-3">
+                @foreach (['yes' => 'Yes, something similar', 'no' => 'No', 'not_sure' => 'Not sure'] as $value => $label)
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="radio" name="brief_exists" value="{{ $value }}" class="h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <span class="text-sm text-gray-700">{{ $label }}</span>
+                    </label>
+                @endforeach
+            </div>
+            <div id="briefExistsDetailWrap" class="hidden">
+                <input type="text" id="briefExistsDetail" placeholder="Where is it? A link or a description is fine."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            </div>
+        </div>
+
+    </div>
+</div>

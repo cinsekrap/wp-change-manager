@@ -31,7 +31,7 @@ class SubmissionController extends Controller
             'page_title' => 'nullable|string|max:512',
             'cpt_slug' => 'required|string|max:100',
             'is_new_page' => 'boolean',
-            'request_type' => 'nullable|in:change,access',
+            'request_type' => 'nullable|in:change,access,content',
             'requester_name' => 'required|string|max:255',
             'requester_email' => 'required|email|max:255',
             'requester_phone' => 'nullable|string|max:50',
@@ -42,7 +42,19 @@ class SubmissionController extends Controller
             'priority' => 'nullable|in:low,normal,high,urgent',
             'deadline_date' => 'nullable|date|after:today',
             'deadline_reason' => 'nullable|string|max:500',
-            'items' => 'required|array|min:1',
+            // Content requests carry a brief instead of line items.
+            'items' => 'required_unless:request_type,content|array|min:1',
+            'content_type' => ['required_if:request_type,content', 'nullable', \Illuminate\Validation\Rule::in(array_keys(config('content-types')))],
+            'content_brief' => 'required_if:request_type,content|nullable|array',
+            'content_brief.achieve' => 'required_with:content_brief|string|max:5000',
+            'content_brief.know_or_do' => 'required_with:content_brief|string|max:5000',
+            'content_brief.audience' => 'required_with:content_brief|array|min:1',
+            'content_brief.audience.*' => 'string|max:50',
+            'content_brief.measure' => 'nullable|string|max:1000',
+            'content_brief.already_exists' => 'required_with:content_brief|in:yes,no,not_sure',
+            'content_brief.already_exists_detail' => 'nullable|string|max:2000',
+            'additional_site_ids' => 'nullable|array',
+            'additional_site_ids.*' => [\Illuminate\Validation\Rule::exists('sites', 'id')->where('is_active', true)],
             'items.*.action_type' => 'required|in:add,change,delete,access_request',
             'items.*.content_area' => 'nullable|string|max:255',
             'items.*.description' => 'required|string|max:5000',
@@ -63,7 +75,7 @@ class SubmissionController extends Controller
         // Compare normalised text so a curly-quote/nbsp-only "difference" — which
         // renders as an empty diff — is still rejected.
         $validator = \Illuminate\Support\Facades\Validator::make([], []);
-        foreach ($validated['items'] as $i => $item) {
+        foreach (($validated['items'] ?? []) as $i => $item) {
             if (($item['action_type'] ?? null) === 'change' && isset($item['current_content'])) {
                 $current = trim(\App\Support\WordDiff::normalize((string) $item['current_content']));
                 $updated = trim(\App\Support\WordDiff::normalize((string) $item['description']));
@@ -97,7 +109,11 @@ class SubmissionController extends Controller
                 'page_title' => $validated['page_title'] ?? null,
                 'cpt_slug' => $validated['cpt_slug'],
                 'is_new_page' => $validated['is_new_page'] ?? false,
-                'status' => 'requested',
+                'content_type' => $validated['content_type'] ?? null,
+                'content_brief' => $validated['content_brief'] ?? null,
+                // Content starts as a suggestion: nothing is committed until it is
+                // agreed and the hours are funded.
+                'status' => ($validated['request_type'] ?? 'change') === 'content' ? 'suggested' : 'requested',
                 'priority' => $validated['priority'] ?? 'normal',
                 'requester_name' => $validated['requester_name'],
                 'requester_email' => $validated['requester_email'],
@@ -110,7 +126,13 @@ class SubmissionController extends Controller
                 'deadline_reason' => $validated['deadline_reason'] ?? null,
             ]);
 
-            foreach ($validated['items'] as $index => $itemData) {
+            // Additional sites this content should also appear on. site_id stays the
+            // main home, so these rows are purely additive.
+            if (!empty($validated['additional_site_ids'])) {
+                $changeRequest->additionalSites()->sync($validated['additional_site_ids']);
+            }
+
+            foreach (($validated['items'] ?? []) as $index => $itemData) {
                 $item = ChangeRequestItem::create([
                     'change_request_id' => $changeRequest->id,
                     'action_type' => $itemData['action_type'],

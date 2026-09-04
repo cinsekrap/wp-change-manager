@@ -1,5 +1,5 @@
 {{-- Step 3: What do you want to do? --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="3">
+<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="3" data-panel="changes">
     <h2 class="text-xl font-bold text-gray-900 mb-2">What changes do you need?</h2>
     <p id="step3Subtitle" class="text-sm text-gray-500 mb-4">Describe each change you need. You can add multiple changes.</p>
 
