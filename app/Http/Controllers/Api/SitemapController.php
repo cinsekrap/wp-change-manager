@@ -13,6 +13,19 @@ class SitemapController extends Controller
     {
         abort_unless($site->is_active, 404);
 
+        // A refresh fetches the site's sitemap and rewrites every page row for it.
+        // This endpoint is public because the wizard needs it, and the wizard
+        // already checks staleness first — but a caller who skips that check
+        // should not be able to drive an unbounded crawl. Admins refresh through
+        // their own authenticated route, which is not bound by this.
+        if (! $sitemapService->needsRefresh($site)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Sitemap is already up to date.',
+                'skipped' => true,
+            ]);
+        }
+
         $result = $sitemapService->refresh($site);
         return response()->json($result);
     }
