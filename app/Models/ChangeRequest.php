@@ -127,6 +127,27 @@ class ChangeRequest extends Model
     }
 
     /**
+     * Is there a live clinical sign-off against exactly this copy?
+     *
+     * When there is, the draft is locked: a sign-off is a clinician putting their
+     * name to a specific text, and changing it should be a deliberate act rather
+     * than something discovered after the fact.
+     */
+    public function hasBoundApproval(): bool
+    {
+        $hash = $this->draftContentHash();
+
+        if ($hash === null) {
+            return false;
+        }
+
+        return $this->approvers()
+            ->where('status', 'approved')
+            ->where('approved_content_hash', $hash)
+            ->exists();
+    }
+
+    /**
      * Approvals that were given against a different version of the copy.
      */
     public function staleApprovals()

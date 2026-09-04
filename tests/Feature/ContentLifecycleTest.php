@@ -104,8 +104,10 @@ class ContentLifecycleTest extends TestCase
 
         $this->loginAsAdmin();
 
-        $this->patch(route('admin.requests.draft', $request), ['draft_content' => 'Rewritten wording.'])
-            ->assertRedirect();
+        $this->patch(route('admin.requests.draft', $request), [
+            'draft_content' => 'Rewritten wording.',
+            'void_approval' => '1',
+        ])->assertRedirect();
 
         $this->assertSame('pending', $approver->fresh()->status);
         $this->assertSame('awaiting_approval', $request->fresh()->status);
@@ -200,5 +202,73 @@ class ContentLifecycleTest extends TestCase
 
         // Otherwise the wizard shows a stale figure for up to six hours.
         $this->assertNull(\Illuminate\Support\Facades\Cache::get('content_wait_days'));
+    }
+
+    private function approvedRequest(): ChangeRequest
+    {
+        $request = $this->contentRequest(['status' => 'approved', 'draft_content' => 'Approved wording.']);
+        $request->approvers()->create([
+            'name' => 'Dr Approver', 'email' => 'a@example.com', 'status' => 'approved',
+            'responded_at' => now(),
+            'approved_content_hash' => $request->draftContentHash(),
+            'approved_content_snapshot' => $request->draft_content,
+        ]);
+
+        return $request->fresh();
+    }
+
+    public function test_approved_copy_cannot_be_changed_without_acknowledging_the_loss(): void
+    {
+        $request = $this->approvedRequest();
+
+        $this->loginAsAdmin();
+
+        // Enforced server-side: the guarantee must not depend on the form.
+        $this->patch(route('admin.requests.draft', $request), ['draft_content' => 'Quietly rewritten.'])
+            ->assertSessionHasErrors('draft_content');
+
+        $this->assertSame('Approved wording.', $request->fresh()->draft_content);
+        $this->assertSame('approved', $request->fresh()->status);
+    }
+
+    public function test_resaving_approved_copy_unchanged_is_allowed(): void
+    {
+        $request = $this->approvedRequest();
+
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.draft', $request), ['draft_content' => 'Approved wording.'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        // Nothing changed, so the sign-off stands.
+        $this->assertSame('approved', $request->fresh()->status);
+    }
+
+    public function test_withdrawing_an_approval_is_recorded_in_the_audit_trail(): void
+    {
+        $request = $this->approvedRequest();
+
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.draft', $request), [
+            'draft_content' => 'Deliberately rewritten.',
+            'void_approval' => '1',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('audit_logs', ['action' => 'draft_unlocked']);
+    }
+
+    public function test_an_unapproved_draft_is_not_locked(): void
+    {
+        $request = $this->contentRequest(['status' => 'in_progress', 'draft_content' => 'Work in progress.']);
+
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.draft', $request), ['draft_content' => 'Still working on it.'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Still working on it.', $request->fresh()->draft_content);
     }
 }

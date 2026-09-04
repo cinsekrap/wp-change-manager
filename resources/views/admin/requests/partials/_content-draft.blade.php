@@ -12,13 +12,44 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('admin.requests.draft', $changeRequest) }}">
-        @csrf @method('PATCH')
-        <textarea name="draft_content" rows="10"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
-        @error('draft_content') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-        <button type="submit" class="mt-3 bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save draft</button>
-    </form>
+    @php $locked = $changeRequest->hasBoundApproval() && !request()->boolean('unlock_draft'); @endphp
+
+    @if($locked)
+        {{-- A sign-off is a clinician putting their name to this exact text. --}}
+        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p class="text-sm font-semibold text-green-800 mb-1">Approved and locked</p>
+            <p class="text-sm text-green-700">
+                @php $approval = $changeRequest->approvers->firstWhere('approved_content_hash', $changeRequest->draftContentHash()); @endphp
+                Clinically approved{{ $approval?->responded_at ? ' on ' . $approval->responded_at->format('j M Y') : '' }}. Editing this copy withdraws that approval and sends it back for re-approval.
+            </p>
+        </div>
+
+        <div class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-hcrg-grey-100 text-hcrg-charcoal whitespace-pre-wrap">{{ $changeRequest->draft_content }}</div>
+
+        <a href="{{ route('admin.requests.show', $changeRequest) }}?unlock_draft=1#draft"
+           class="mt-3 inline-block border border-hcrg-burgundy text-hcrg-burgundy px-6 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+            Unlock for editing
+        </a>
+    @else
+        @if($changeRequest->hasBoundApproval())
+            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-sm font-semibold text-amber-800 mb-1">Unlocked — the approval will be withdrawn</p>
+                <p class="text-sm text-amber-700">Saving a change here withdraws {{ $changeRequest->approvers->firstWhere('approved_content_hash', $changeRequest->draftContentHash())?->name ?? 'the approver' }}'s sign-off and returns this to Awaiting Clinical Approval. Leave without saving and nothing changes.</p>
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('admin.requests.draft', $changeRequest) }}" id="draft"
+            @if($changeRequest->hasBoundApproval()) data-confirm="This withdraws the clinical approval and sends the copy back for re-approval. Continue?" @endif>
+            @csrf @method('PATCH')
+            @if($changeRequest->hasBoundApproval())
+                <input type="hidden" name="void_approval" value="1">
+            @endif
+            <textarea name="draft_content" rows="10"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
+            @error('draft_content') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            <button type="submit" class="mt-3 bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save draft</button>
+        </form>
+    @endif
 </div>
 
 <div class="bg-white rounded-lg shadow p-6 mb-6">
