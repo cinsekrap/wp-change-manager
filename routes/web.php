@@ -58,8 +58,12 @@ Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\Suggesti
     ->name('suggestions.search')->middleware('throttle:public-api');
 Route::post('/suggestions/{reference}/watch', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'watch'])
     ->name('suggestions.watch')->middleware('throttle:public-tracking');
+// The links in the email land on a page with a button; the button does the work.
+// A scanner that follows links in a message must not confirm or cancel anything.
 Route::get('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'confirm'])->name('suggestions.confirm');
+Route::post('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'applyConfirm'])->name('suggestions.confirm.apply');
 Route::get('/suggestions/unsubscribe/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'unsubscribe'])->name('suggestions.unsubscribe');
+Route::post('/suggestions/unsubscribe/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'applyUnsubscribe'])->name('suggestions.unsubscribe.apply');
 
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');

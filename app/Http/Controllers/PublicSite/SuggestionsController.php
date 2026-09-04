@@ -98,19 +98,48 @@ class SuggestionsController extends Controller
             'email' => $validated['email'],
         ]);
 
+        // One answer whatever the state. Saying "you are already following that"
+        // would let anyone test whether a given address follows a given
+        // suggestion, and nobody asking this question needs to know.
+        $answer = 'Almost there — check your email and confirm you want these updates.';
+
         if ($watcher->confirmed_at) {
-            return back()->with('success', 'You are already following that suggestion.');
+            return back()->with('success', $answer);
         }
 
-        $watcher->token = ChangeRequestWatcher::generateToken();
+        // An unconfirmed watcher keeps the token it was already sent. Reissuing
+        // it on every request meant anyone submitting somebody else's address
+        // could invalidate the confirmation link sitting in their inbox, over
+        // and over.
+        if (! $watcher->exists || ! $watcher->token) {
+            $watcher->token = ChangeRequestWatcher::generateToken();
+        }
+
         $watcher->save();
 
         EmailLog::dispatch($watcher->email, new \App\Mail\WatchConfirmation($changeRequest, $watcher), $changeRequest);
 
-        return back()->with('success', 'Almost there — check your email and confirm you want these updates.');
+        return back()->with('success', $answer);
     }
 
+    /**
+     * Both of these change something, so neither happens on the click itself.
+     *
+     * Mail security scanners follow links in messages before anyone reads them.
+     * On a GET that acted, a scanner would confirm a subscription the recipient
+     * never asked for, and unsubscribe people who never chose to leave.
+     */
     public function confirm(string $token)
+    {
+        return view('public.watch-action', [
+            'action' => route('suggestions.confirm.apply', $token),
+            'heading' => 'Confirm these updates',
+            'body' => 'Tell us to send you updates about this suggestion.',
+            'button' => 'Yes, send me updates',
+        ]);
+    }
+
+    public function applyConfirm(string $token)
     {
         $watcher = ChangeRequestWatcher::where('token', $token)->firstOrFail();
         $watcher->update(['confirmed_at' => now()]);
@@ -119,6 +148,16 @@ class SuggestionsController extends Controller
     }
 
     public function unsubscribe(string $token)
+    {
+        return view('public.watch-action', [
+            'action' => route('suggestions.unsubscribe.apply', $token),
+            'heading' => 'Stop these updates',
+            'body' => 'Stop sending you updates about this suggestion.',
+            'button' => 'Yes, stop the updates',
+        ]);
+    }
+
+    public function applyUnsubscribe(string $token)
     {
         $watcher = ChangeRequestWatcher::where('token', $token)->firstOrFail();
         $watcher->delete();

@@ -16,7 +16,7 @@ class ClarificationController extends Controller
 {
     public static function respondUrl(ChangeRequest $changeRequest): string
     {
-        return URL::signedRoute('respond.show', [
+        return URL::temporarySignedRoute('respond.show', now()->addDays(90), [
             'reference' => $changeRequest->reference,
         ]);
     }
