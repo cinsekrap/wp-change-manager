@@ -112,7 +112,40 @@
         <div class="mb-6">
             <h2 class="text-sm font-semibold text-gray-700 mb-2">The copy you are approving</h2>
             @if($changeRequest->draft_content)
-                <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $changeRequest->draft_content }}</div>
+                @if($changeRequest->draft_fields && $changeRequest->hasStructuredDraft())
+                    {{-- The same copy the hash covers, shown in the sections it
+                         was written into rather than run together. --}}
+                    <div class="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+                        @foreach($changeRequest->contentFields() as $field)
+                            @php
+                                $name = $field['name'];
+                                $value = $changeRequest->draft_fields[$name] ?? null;
+                                $entries = is_array($value) && array_is_list($value) ? $value : ($value === null || $value === '' ? [] : [$value]);
+                                $entries = collect($entries)->filter(fn ($e) => is_array($e) ? collect($e)->filter()->isNotEmpty() : filled($e));
+                            @endphp
+                            @if($entries->isNotEmpty())
+                            <div>
+                                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{{ $name }}</p>
+                                @foreach($entries as $entry)
+                                    @if(is_array($entry))
+                                        <div class="mb-2 last:mb-0">
+                                            @foreach($entry as $key => $val)
+                                                @if(filled($val))
+                                                    <p class="text-sm text-gray-800"><span class="text-gray-500">{{ $key }}:</span> {{ $val }}</p>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <p class="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $entry }}</p>
+                                    @endif
+                                @endforeach
+                            </div>
+                            @endif
+                        @endforeach
+                    </div>
+                @else
+                    <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $changeRequest->draft_content }}</div>
+                @endif
                 {{-- The approver is the last person to read this before it publishes;
                      they should see what the writer saw. --}}
                 @php $copyReadingAge = \App\Support\ReadingAge::grade($changeRequest->draft_content); @endphp

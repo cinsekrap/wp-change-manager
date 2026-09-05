@@ -647,10 +647,21 @@ class ChangeRequestController extends Controller
 
         $validated = $request->validate([
             'draft_content' => 'nullable|string|max:100000',
+            'fields' => 'nullable|array',
             'void_approval' => 'sometimes|accepted',
         ]);
 
-        $new = $validated['draft_content'] ?? null;
+        // Copy is written either into the page type's own fields or into one box
+        // of text. Either way draft_content holds the plain rendering, because
+        // clinical approval binds to a hash of it and the reading-age check reads
+        // it — so the lock below applies the same to both.
+        $structured = $changeRequest->hasStructuredDraft();
+        $fields = $structured ? ($validated['fields'] ?? []) : null;
+
+        $new = $structured
+            ? ChangeRequest::renderDraftFields($changeRequest->contentFields(), $fields)
+            : ($validated['draft_content'] ?? null);
+
         $unchanged = $new === $changeRequest->draft_content;
 
         // Approved copy is locked. Changing it needs an explicit acknowledgement
@@ -662,7 +673,12 @@ class ChangeRequestController extends Controller
                 ->withErrors(['draft_content' => 'This copy has been clinically approved. Unlock it first if you need to change it — doing so withdraws the approval.']);
         }
 
-        $changeRequest->update(['draft_content' => $new]);
+        $update = ['draft_content' => $new];
+        if ($structured) {
+            $update['draft_fields'] = $fields;
+        }
+
+        $changeRequest->update($update);
 
         if (!$unchanged && !empty($validated['void_approval'])) {
             AuditService::log(
