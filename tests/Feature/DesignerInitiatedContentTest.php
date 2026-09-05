@@ -38,7 +38,7 @@ class DesignerInitiatedContentTest extends TestCase
         ]);
     }
 
-    public function test_the_form_is_reachable_from_the_create_menu(): void
+    public function test_the_form_is_reachable_from_the_content_menu(): void
     {
         Site::create(['name' => 'HCRG', 'domain' => 'hcrg.test', 'is_active' => true]);
 
@@ -46,6 +46,7 @@ class DesignerInitiatedContentTest extends TestCase
 
         // The menu lives in the layout, so it has to be on every admin page —
         // not just the one it was added to.
+        // It sits under Content, alongside Funding.
         foreach ([route('admin.dashboard'), route('admin.requests.index')] as $url) {
             $this->get($url)
                 ->assertSuccessful()

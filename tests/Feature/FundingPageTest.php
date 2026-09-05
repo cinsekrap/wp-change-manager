@@ -160,6 +160,24 @@ class FundingPageTest extends TestCase
         }
     }
 
+    public function test_it_sits_under_content_with_the_other_content_work(): void
+    {
+        $this->loginAsAdmin();
+
+        $html = $this->get(route('admin.dashboard'))->assertSuccessful()->getContent();
+
+        // One menu for the work the team starts and runs itself.
+        $this->assertStringContainsString('Content', $html);
+        $this->assertStringNotContainsString('>Create<', $html);
+
+        // Both live in the same dropdown, so the funding link must appear after
+        // the menu opens rather than as a top-level item of its own.
+        $menu = substr($html, strpos($html, 'id="contentMenu"'));
+        $menu = substr($menu, 0, strpos($menu, '</div>'));
+        $this->assertStringContainsString(route('admin.requests.content.create'), $menu);
+        $this->assertStringContainsString(route('admin.funding'), $menu);
+    }
+
     public function test_it_needs_an_admin(): void
     {
         $this->get(route('admin.funding'))->assertRedirect();
