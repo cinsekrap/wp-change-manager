@@ -1,23 +1,29 @@
 @extends('layouts.admin')
-@section('title', $question->exists ? 'Edit Question' : 'Add Question')
+@section('title', $question->exists ? 'Edit question' : 'Add question')
 
 @section('content')
-<div class="max-w-2xl">
-    <h1 class="page-title mb-6">{{ $question->exists ? 'Edit Question' : 'Add Question' }}</h1>
+<div class="max-w-3xl">
+    <x-admin.page-header
+        :title="$question->exists ? 'Edit question' : 'Add question'"
+        lede="Asked before a request is submitted, so obvious problems are caught early." />
 
-    <form method="POST" action="{{ $question->exists ? route('admin.questions.update', $question) : route('admin.questions.store') }}" class="card card-body space-y-5" id="questionForm">
+    <form method="POST" action="{{ $question->exists ? route('admin.questions.update', $question) : route('admin.questions.store') }}" class="card" id="questionForm">
         @csrf
         @if($question->exists) @method('PUT') @endif
 
-        <div>
-            <label for="question_text" class="field-label">Question Text</label>
+        <x-admin.form-section title="The question" help="Shown to the person making a request, with the options below.">
+        <div class="field mb-0">
+            <label for="question_text" class="field-label">Question <span class="text-status-error">*</span></label>
             <textarea name="question_text" id="question_text" rows="3" required
                 class="field-input">{{ old('question_text', $question->question_text) }}</textarea>
-            @error('question_text') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            @error('question_text') <p class="field-error">{{ $message }}</p> @enderror
         </div>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Options</label>
+        </x-admin.form-section>
+
+        <x-admin.form-section title="Answers" help="Tick Pass for the answers that let a request through.">
+        <div class="field mb-0">
+            <label class="field-label">Options</label>
             <p class="field-help">Tick "Pass" for answers that count as passing the check.</p>
             <div id="optionsList" class="space-y-2">
                 @php
@@ -40,16 +46,19 @@
                 @endforeach
             </div>
             <button type="button" onclick="addOption()" class="btn btn-secondary mt-2">+ Add option</button>
-            @error('options') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            @error('options') <p class="field-error">{{ $message }}</p> @enderror
         </div>
 
-        <div>
-            <label for="sort_order" class="field-label">Sort Order</label>
+        </x-admin.form-section>
+
+        <x-admin.form-section title="When it appears" help="Order in the list, and whether it is asked at all.">
+        <div class="field">
+            <label for="sort_order" class="field-label">Sort order</label>
             <input type="number" name="sort_order" id="sort_order" value="{{ old('sort_order', $question->sort_order ?? 0) }}" min="0"
                 class="field-input w-24">
         </div>
 
-        <div class="flex items-center space-x-6">
+        <div class="field mb-0 flex items-center gap-6">
             <div class="flex items-center">
                 <input type="hidden" name="is_active" value="0">
                 <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $question->is_active ?? true) ? 'checked' : '' }}
@@ -64,12 +73,12 @@
             </div>
         </div>
 
-        <div class="flex items-center space-x-3 pt-4">
-            <button type="submit" class="btn btn-primary">
-                {{ $question->exists ? 'Update' : 'Create' }}
-            </button>
-            <a href="{{ route('admin.questions.index') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
-        </div>
+        </x-admin.form-section>
+
+        <x-admin.form-actions>
+            <button type="submit" class="btn btn-primary">{{ $question->exists ? 'Save changes' : 'Add question' }}</button>
+            <a href="{{ route('admin.questions.index') }}" class="btn btn-quiet">Cancel</a>
+        </x-admin.form-actions>
     </form>
 </div>
 

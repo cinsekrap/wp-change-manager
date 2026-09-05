@@ -2,19 +2,13 @@
 @section('title', 'New content')
 
 @section('content')
-<a href="{{ route('admin.requests.index') }}" class="text-sm text-hcrg-burgundy hover:underline">← Back to requests</a>
-<h1 class="page-title mt-2 mb-2">New content</h1>
-<p class="text-sm text-gray-500 mb-6 max-w-3xl">
-    For content the team wants, rather than something someone has asked for. Only the working title is
-    needed &mdash; fill in whatever else you know.
-</p>
+<x-admin.page-header title="New content"
+    lede="For content the team wants, rather than something someone has asked for." />
 
-<form method="POST" action="{{ route('admin.requests.content.store') }}" class="max-w-3xl">
+<form method="POST" action="{{ route('admin.requests.content.store') }}" class="card max-w-3xl">
     @csrf
 
-    <div class="card card-body mb-6">
-        <h2 class="card-title mb-4">What it is</h2>
-
+    <x-admin.form-section title="What it is" help="Only the working title is needed. Fill in whatever else you know.">
         <div class="space-y-5">
             <div>
                 <label for="page_title" class="field-label">Working title <span class="text-red-500">*</span></label>
@@ -47,10 +41,9 @@
                 @error('content_type') <p class="field-error">{{ $message }}</p> @enderror
             </div>
         </div>
-    </div>
+    </x-admin.form-section>
 
-    <div class="card card-body mb-6">
-        <h2 class="card-title mb-1">Where it lives</h2>
+    <x-admin.form-section title="Where it lives" help="Content can go on more than one site.">
         <p class="text-xs text-gray-500 mb-4">
             Content can go on more than one site. Leave blank if you haven't decided.
         </p>
@@ -81,10 +74,9 @@
                 </div>
             </div>
         </div>
-    </div>
+    </x-admin.form-section>
 
-    <div class="card card-body mb-6">
-        <h2 class="card-title mb-1">The brief</h2>
+    <x-admin.form-section title="The brief" help="What the clinical approver reads alongside the copy.">
         <p class="text-xs text-gray-500 mb-4">
             What the clinical approver reads alongside the copy.
         </p>
@@ -139,10 +131,9 @@
                 @error('brief.already_exists_detail') <p class="field-error">{{ $message }}</p> @enderror
             </div>
         </div>
-    </div>
+    </x-admin.form-section>
 
-    <div class="card card-body mb-6">
-        <h2 class="card-title mb-1">The copy</h2>
+    <x-admin.form-section title="The copy" help="Only if you've already written it. Editing approved copy withdraws the approval.">
         <p class="text-xs text-gray-500 mb-4">
             Only if you've already written it. Editing approved copy withdraws the approval.
         </p>
@@ -150,11 +141,9 @@
             class="field-input">{{ old('draft_content') }}</textarea>
         @error('draft_content') <p class="field-error">{{ $message }}</p> @enderror
         @include('partials.reading-age', ['field' => 'draft_content'])
-    </div>
+    </x-admin.form-section>
 
-    <div class="card card-body mb-6">
-        <h2 class="card-title mb-4">Who and when</h2>
-
+    <x-admin.form-section title="Who and when" help="Ownership, priority and any date it is needed by.">
         <div class="grid gap-5 sm:grid-cols-2">
             <div>
                 <label for="assigned_to" class="field-label">Owner</label>
@@ -201,11 +190,11 @@
                 @error('deadline_reason') <p class="field-error">{{ $message }}</p> @enderror
             </div>
         </div>
-    </div>
+    </x-admin.form-section>
 
-    <div class="flex items-center gap-4">
+    <x-admin.form-actions>
         <button type="submit" class="btn btn-primary">Create content</button>
-        <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:underline">Cancel</a>
-    </div>
+        <a href="{{ route('admin.requests.index') }}" class="btn btn-quiet">Cancel</a>
+    </x-admin.form-actions>
 </form>
 @endsection
