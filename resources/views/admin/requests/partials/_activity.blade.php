@@ -1,4 +1,4 @@
-{{-- Activity timeline: notes + status changes merged --}}
+{{-- What has happened: notes, status changes, approvals and email, merged. --}}
 <div class="card card-body">
     <h2 class="card-title mb-4">Activity</h2>
 
@@ -81,15 +81,4 @@
         </div>
     </div>
 
-    {{-- Add note form --}}
-    <form method="POST" action="{{ route('admin.requests.notes', $changeRequest) }}" class="mt-6 pt-4 border-t border-gray-200">
-        @csrf
-        <div class="flex items-start space-x-3">
-            <div class="flex-1">
-                <textarea name="note" rows="2" required placeholder="Add a note..."
-                    class="field-input"></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary flex-shrink-0">Add</button>
-        </div>
-    </form>
 </div>

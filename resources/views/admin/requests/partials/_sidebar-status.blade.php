@@ -89,26 +89,16 @@
     </div>
     @endif
 
-    {{-- Request clarification --}}
-    @if($changeRequest->isActive())
+    {{-- What we asked, while we are waiting on the answer. Asking is done from
+         the work tab; this is the state it leaves behind. --}}
+    @if($changeRequest->status === 'awaiting_user')
     <div class="mt-3 pt-3 border-t border-gray-100">
-        @if($changeRequest->status === 'awaiting_user')
-        <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg mb-2">
-            <p class="text-xs font-medium text-blue-700 mb-0.5">Awaiting response from requester{{ $changeRequest->clarification_requested_at ? ' since ' . $changeRequest->clarification_requested_at->format('j M') : '' }}{{ $changeRequest->previous_status ? ' (was ' . ucfirst(str_replace('_', ' ', $changeRequest->previous_status)) . ')' : '' }}</p>
+        <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-xs font-medium text-blue-700 mb-0.5">Waiting on the requester{{ $changeRequest->clarification_requested_at ? ' since ' . $changeRequest->clarification_requested_at->format('j M') : '' }}</p>
             @if($changeRequest->clarification_message)
             <p class="text-sm text-blue-800">{{ $changeRequest->clarification_message }}</p>
             @endif
         </div>
-        @endif
-        <form method="POST" action="{{ route('admin.requests.request-clarification', $changeRequest) }}" data-confirm="This will email the requester and pause the SLA until they respond. Continue?">
-            @csrf
-            <textarea name="clarification_message" rows="2" required placeholder="What do you need to know? This is emailed to the requester..."
-                class="field-input mb-2">{{ old('clarification_message') }}</textarea>
-            @error('clarification_message') <p class="mb-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-gray-900 text-sm font-medium transition-colors">
-                {{ $changeRequest->status === 'awaiting_user' ? 'Send Another Clarification Request' : 'Request Clarification' }}
-            </button>
-        </form>
     </div>
     @endif
 

@@ -1,7 +1,7 @@
-{{-- Page history --}}
+{{-- Other requests raised against this same page. --}}
 @if($pageHistory->isNotEmpty())
 <div class="card card-body">
-    <h2 class="text-sm font-semibold text-gray-900 mb-2">Page History</h2>
+    <h2 class="card-title mb-3">Page history</h2>
     <div class="space-y-2">
         @foreach($pageHistory as $prev)
         <a href="{{ route('admin.requests.show', $prev) }}" class="block px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100">
