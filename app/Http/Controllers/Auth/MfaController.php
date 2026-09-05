@@ -98,8 +98,8 @@ class MfaController extends Controller
             description: 'MFA setup completed for: ' . $request->user()->email,
         );
 
-        // Mark MFA as verified for this session
-        $request->session()->put('mfa_verified', true);
+        // Mark MFA as verified for this session, for this user
+        $request->session()->put('mfa_verified_user_id', $request->user()->id);
         $request->session()->forget('mfa_setup_secret');
 
         return redirect()->route('admin.dashboard');
@@ -118,7 +118,7 @@ class MfaController extends Controller
         }
 
         // If already verified, go to dashboard
-        if ($request->session()->get('mfa_verified')) {
+        if ((int) $request->session()->get('mfa_verified_user_id') === (int) $user->id) {
             return redirect()->route('admin.dashboard');
         }
 
@@ -152,7 +152,7 @@ class MfaController extends Controller
             ]);
         }
 
-        $request->session()->put('mfa_verified', true);
+        $request->session()->put('mfa_verified_user_id', $user->id);
 
         return redirect()->intended(route('admin.dashboard'));
     }

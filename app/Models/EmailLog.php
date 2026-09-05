@@ -72,7 +72,7 @@ class EmailLog extends Model
                 if ($debug) {
                     $debug = preg_replace('/^.*\bAUTH\b.*$\n?/mi', '', $debug);
                     $debug = preg_replace('/^.*\b334\s.*$\n?/m', '', $debug);
-                    $debug = preg_replace('/^.*>\s*[A-Za-z0-9+\/=]{8,}\s*$\n?/m', '', $debug);
+                    $debug = preg_replace('/^.*>\s*[A-Za-z0-9+\/=]+={0,2}\s*$\n?/m', '', $debug);
                     $debug = preg_replace('/^.*\b235\s.*$\n?/m', '', $debug);
                     $debug = trim(preg_replace('/\n{3,}/', "\n\n", $debug));
                 }

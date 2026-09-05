@@ -35,8 +35,25 @@
         </div>
     </form>
 
+    @if((bool) \App\Models\Setting::get('entra_enabled'))
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-2">Microsoft sign-in</h2>
+            @if(auth()->user()->usesSso())
+                <p class="text-sm text-gray-600">Your account is linked to Microsoft sign-in. A super admin can unlink it if you need to sign in another way.</p>
+            @else
+                <p class="text-sm text-gray-600 mb-4">
+                    Link your account to Microsoft so you sign in there instead. Your password will stop working,
+                    and Microsoft's own two-factor replaces the code you enter here.
+                </p>
+                <a href="{{ route('auth.microsoft') }}" class="inline-block border border-hcrg-burgundy text-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors text-sm font-medium">
+                    Link Microsoft sign-in
+                </a>
+            @endif
+        </div>
+    @endif
+
     {{-- Disable MFA section (only for non-SSO users with MFA enabled) --}}
-    @if(auth()->user()->hasMfaEnabled() && auth()->user()->provider !== 'microsoft')
+    @if(auth()->user()->hasMfaEnabled() && ! auth()->user()->usesSso())
         <div class="bg-white rounded-lg shadow p-6 mt-6">
             <h2 class="text-lg font-bold text-gray-900 mb-2">Two-factor authentication</h2>
             <p class="text-sm text-gray-600 mb-4">MFA is currently enabled on your account (set up {{ auth()->user()->mfa_confirmed_at->diffForHumans() }}). You can disable it below, but you will be required to set it up again on your next login.</p>

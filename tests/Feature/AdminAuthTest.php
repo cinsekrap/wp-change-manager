@@ -83,7 +83,7 @@ class AdminAuthTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->withSession(['mfa_verified' => true])
+            ->withSession(['mfa_verified_user_id' => $user->id])
             ->get('/admin');
 
         $response->assertStatus(403);

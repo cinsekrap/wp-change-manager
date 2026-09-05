@@ -56,11 +56,16 @@ Route::get('/confirmation/{reference}', [SubmissionController::class, 'confirmat
 
 // Public content queue — no sign-in, so SuggestionsController owns the field allowlist
 Route::get('/suggestions', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'index'])->name('suggestions');
-Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'search'])->name('suggestions.search');
+Route::get('/api/suggestions/search', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'search'])
+    ->name('suggestions.search')->middleware('throttle:public-api');
 Route::post('/suggestions/{reference}/watch', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'watch'])
     ->name('suggestions.watch')->middleware('throttle:public-tracking');
+// The links in the email land on a page with a button; the button does the work.
+// A scanner that follows links in a message must not confirm or cancel anything.
 Route::get('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'confirm'])->name('suggestions.confirm');
+Route::post('/suggestions/confirm/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'applyConfirm'])->name('suggestions.confirm.apply');
 Route::get('/suggestions/unsubscribe/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'unsubscribe'])->name('suggestions.unsubscribe');
+Route::post('/suggestions/unsubscribe/{token}', [\App\Http\Controllers\PublicSite\SuggestionsController::class, 'applyUnsubscribe'])->name('suggestions.unsubscribe.apply');
 
 // Public tracking
 Route::get('/track', [TrackingController::class, 'index'])->name('tracking');
@@ -85,7 +90,7 @@ Route::prefix('api')->middleware('throttle:public-api')->group(function () {
     Route::post('/sitemap/refresh/{site}', [SitemapController::class, 'refresh'])->name('api.sitemap.refresh');
     Route::get('/sitemap/status/{site}', [SitemapController::class, 'status'])->name('api.sitemap.status');
     Route::get('/pages/{site}', [SitemapController::class, 'pages'])->name('api.pages');
-    Route::post('/upload', [UploadController::class, 'store'])->name('api.upload');
+    Route::post('/upload', [UploadController::class, 'store'])->name('api.upload')->middleware('throttle:public-upload');
     Route::delete('/upload/{filename}', [UploadController::class, 'destroy'])->name('api.upload.destroy');
 });
 
@@ -212,6 +217,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         // Users
         Route::resource('users', UserController::class)->except(['show'])->names('admin.users');
         Route::post('/users/{user}/reset-mfa', [UserController::class, 'resetMfa'])->name('admin.users.reset-mfa');
+        Route::post('/users/{user}/unlink-sso', [UserController::class, 'unlinkSso'])->name('admin.users.unlink-sso');
 
         // Audit Log
         Route::get('/audit-log', [AuditLogController::class, 'index'])->name('admin.audit-log');

@@ -26,7 +26,7 @@ class EntraSettingsController extends Controller
     {
         $validated = $request->validate([
             'entra_enabled'        => 'nullable|boolean',
-            'entra_tenant_id'      => 'nullable|string|max:255',
+            'entra_tenant_id'      => 'required_if:entra_enabled,1|nullable|string|max:255',
             'entra_client_id'      => 'nullable|string|max:255',
             'entra_client_secret'  => 'nullable|string|max:500',
             'entra_auto_provision' => 'nullable|boolean',

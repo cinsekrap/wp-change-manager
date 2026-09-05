@@ -59,7 +59,7 @@
             @if($changeRequest->is_new_page)
                 <p class="text-sm font-medium text-gray-800 mt-1">New page: {{ $changeRequest->page_title }}</p>
             @else
-                <a href="{{ $changeRequest->page_url }}" target="_blank" class="inline-flex items-center mt-1 text-sm font-medium text-hcrg-burgundy hover:underline">
+                <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" class="inline-flex items-center mt-1 text-sm font-medium text-hcrg-burgundy hover:underline">
                     {{ $changeRequest->page_title ?: $changeRequest->page_url }}
                     <svg class="w-3.5 h-3.5 ml-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 </a>

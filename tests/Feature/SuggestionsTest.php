@@ -140,10 +140,21 @@ class SuggestionsTest extends TestCase
         $this->post(route('suggestions.watch', $request->reference), ['email' => 'watcher@example.com']);
         $watcher = ChangeRequestWatcher::where('email', 'watcher@example.com')->firstOrFail();
 
-        $this->get(route('suggestions.confirm', $watcher->token))->assertRedirect();
+        // Both are two steps now: the emailed link shows a page, the button acts.
+        $this->get(route('suggestions.confirm', $watcher->token))
+            ->assertSuccessful()
+            ->assertSee('Yes, send me updates');
+        $this->assertNull($watcher->fresh()->confirmed_at, 'Opening the link confirmed it on its own.');
+
+        $this->post(route('suggestions.confirm.apply', $watcher->token))->assertRedirect();
         $this->assertNotNull($watcher->fresh()->confirmed_at);
 
-        $this->get(route('suggestions.unsubscribe', $watcher->token))->assertRedirect();
+        $this->get(route('suggestions.unsubscribe', $watcher->token))
+            ->assertSuccessful()
+            ->assertSee('Yes, stop the updates');
+        $this->assertNotNull(ChangeRequestWatcher::find($watcher->id), 'Opening the link unsubscribed on its own.');
+
+        $this->post(route('suggestions.unsubscribe.apply', $watcher->token))->assertRedirect();
         $this->assertNull(ChangeRequestWatcher::find($watcher->id));
     }
 

@@ -228,7 +228,7 @@
                 @php $published = $changeRequest->publishedFor($site->id); @endphp
                 @if ($published['published_url'])
                     <li class="text-sm">
-                        <a href="{{ $published['published_url'] }}" class="text-hcrg-burgundy underline">{{ $published['published_title'] ?: $published['published_url'] }}</a>
+                        <a href="{{ \App\Support\SafeUrl::for($published['published_url']) ?? '#' }}" class="text-hcrg-burgundy underline">{{ $published['published_title'] ?: $published['published_url'] }}</a>
                         <span class="text-gray-400">— {{ $site->name }}</span>
                     </li>
                 @endif

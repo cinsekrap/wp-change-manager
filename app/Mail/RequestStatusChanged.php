@@ -39,7 +39,9 @@ class RequestStatusChanged extends Mailable
                 'reference' => $this->changeRequest->reference,
                 'siteName' => $this->changeRequest->site->name ?? 'Unknown site',
                 'pageTitle' => $this->changeRequest->subjectDescription(),
-                'pageUrl' => ($this->changeRequest->is_new_page || $this->changeRequest->isAccessRequest()) ? null : $this->changeRequest->page_url,
+                'pageUrl' => ($this->changeRequest->is_new_page || $this->changeRequest->isAccessRequest())
+                    ? null
+                    : \App\Support\SafeUrl::for($this->changeRequest->page_url),
                 'isNewPage' => $this->changeRequest->is_new_page,
                 'isAccessRequest' => $this->changeRequest->isAccessRequest(),
                 'isContentRequest' => $this->changeRequest->isContentRequest(),
