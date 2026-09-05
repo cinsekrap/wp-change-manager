@@ -226,4 +226,44 @@ class UiRequestDetailTest extends TestCase
             ->assertSuccessful()
             ->assertSee('unlock_draft=1#draft', false);
     }
+
+    public function test_adding_a_note_sits_with_the_work(): void
+    {
+        $request = $this->request('content');
+        $this->loginAsAdmin();
+
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+
+        // Writing a note is something you do while working on a request.
+        $this->assertStringContainsString(
+            route('admin.requests.notes', $request),
+            $this->panelBody($html, 'work')
+        );
+    }
+
+    public function test_reading_what_happened_stays_under_history(): void
+    {
+        $request = $this->request('content');
+        $request->notes()->create(['user_id' => null, 'note' => 'A note somebody left earlier.']);
+
+        $this->loginAsAdmin();
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+
+        $history = $this->panelBody($html, 'history');
+        $this->assertStringContainsString('A note somebody left earlier.', $history);
+
+        // The form is not duplicated into the timeline it feeds.
+        $this->assertStringNotContainsString(route('admin.requests.notes', $request), $history);
+    }
+
+    public function test_a_note_can_still_be_added(): void
+    {
+        $request = $this->request('content');
+        $this->loginAsAdmin();
+
+        $this->post(route('admin.requests.notes', $request), ['note' => 'Chased the approver.'])
+            ->assertRedirect();
+
+        $this->assertSame('Chased the approver.', $request->notes()->latest()->first()->note);
+    }
 }

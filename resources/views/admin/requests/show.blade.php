@@ -30,6 +30,8 @@
                         @include('admin.requests.partials._check-answers')
                     @endunless
                 @endif
+
+                @include('admin.requests.partials._add-note')
             </div>
 
             @if($changeRequest->isContentRequest())
