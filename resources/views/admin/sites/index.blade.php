@@ -2,34 +2,33 @@
 @section('title', 'Sites')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="page-title">Sites</h1>
-    <a href="{{ route('admin.sites.create') }}" class="btn btn-primary">Add Site</a>
-</div>
+<x-admin.page-header title="Sites" lede="The websites requests can be made against.">
+    <a href="{{ route('admin.sites.create') }}" class="btn btn-primary">Add site</a>
+</x-admin.page-header>
 
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap w-16">Pages</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase w-20">Status</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase w-48">Actions</th>
+                <th>Name</th>
+                <th>Domain</th>
+                <th class="whitespace-nowrap w-16">Pages</th>
+                <th>Assignee</th>
+                <th class="w-20">Status</th>
+                <th class="text-right w-48">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($sites as $site)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-4 py-4 font-medium text-gray-900 truncate max-w-[180px]">{{ $site->name }}</td>
-                <td class="px-4 py-4 text-sm text-gray-600 truncate max-w-[160px]">{{ $site->domain }}</td>
-                <td class="px-3 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $site->sitemap_pages_count }}</td>
-                <td class="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{{ $site->defaultAssignee?->name ?? '—' }}</td>
-                <td class="px-3 py-4">
+            <tr class="hover:bg-gray-50">
+                <td class="font-medium text-gray-900 truncate max-w-[180px]">{{ $site->name }}</td>
+                <td class="text-gray-600 truncate max-w-[160px]">{{ $site->domain }}</td>
+                <td class="text-gray-600 whitespace-nowrap">{{ $site->sitemap_pages_count }}</td>
+                <td class="text-gray-600 whitespace-nowrap">{{ $site->defaultAssignee?->name ?? '—' }}</td>
+                <td>
                     @include('admin.partials.active-badge', ['active' => $site->is_active])
                 </td>
-                <td class="px-4 py-4 text-right whitespace-nowrap">
+                <td class="text-right whitespace-nowrap">
                     <div class="flex flex-col items-end space-y-1">
                         <button type="button" onclick="refreshSitemap(this, {{ $site->id }})" class="refresh-btn inline-flex items-center text-xs text-green-600 hover:text-green-800 transition-colors">
                             <svg class="w-3.5 h-3.5 mr-1 refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -50,7 +49,11 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No sites yet.</td></tr>
+            <tr><td colspan="6" class="p-0">
+                <x-admin.empty-state message="No sites yet. Requests are made against a site, so add one to get started.">
+                    <a href="{{ route('admin.sites.create') }}" class="btn btn-primary btn-sm">Add site</a>
+                </x-admin.empty-state>
+            </td></tr>
             @endforelse
         </tbody>
     </table>

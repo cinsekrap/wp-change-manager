@@ -1,10 +1,8 @@
 @extends('layouts.admin')
-@section('title', 'Audit Log')
+@section('title', 'Audit log')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="page-title">Audit Log</h1>
-</div>
+<x-admin.page-header title="Audit log" lede="Every change made in the admin, newest first." />
 
 {{-- Filters --}}
 <div class="card card-body mb-6">
@@ -46,27 +44,27 @@
 
 {{-- Table --}}
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
+                <th>Date/Time</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Description</th>
+                <th>IP</th>
+                <th></th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($logs as $log)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-3 text-sm text-gray-500 whitespace-nowrap">
+            <tr class="hover:bg-gray-50">
+                <td class="text-gray-500 whitespace-nowrap">
                     {{ $log->created_at->format('d M Y H:i:s') }}
                 </td>
-                <td class="px-6 py-3 text-sm text-gray-900 whitespace-nowrap">
+                <td class="text-gray-900 whitespace-nowrap">
                     {{ $log->user->name ?? 'System' }}
                 </td>
-                <td class="px-6 py-3 whitespace-nowrap">
+                <td class="whitespace-nowrap">
                     @php
                         $actionColors = [
                             'created' => 'bg-green-100 text-green-700',
@@ -88,13 +86,13 @@
                         {{ str_replace('_', ' ', ucfirst($log->action)) }}
                     </span>
                 </td>
-                <td class="px-6 py-3 text-sm text-gray-700 max-w-md truncate" title="{{ $log->description }}">
+                <td class="text-gray-700 max-w-md truncate" title="{{ $log->description }}">
                     {{ \Illuminate\Support\Str::limit($log->description, 80) }}
                 </td>
-                <td class="px-6 py-3 text-xs text-gray-400 whitespace-nowrap">
+                <td class="text-xs text-gray-400 whitespace-nowrap">
                     {{ $log->ip_address }}
                 </td>
-                <td class="px-6 py-3 text-right whitespace-nowrap">
+                <td class="text-right whitespace-nowrap">
                     @if($log->old_values || $log->new_values)
                         <button type="button" onclick="toggleAuditDetail({{ $log->id }})" class="text-xs text-hcrg-burgundy hover:text-[#9A1B4B] font-medium">
                             Details
@@ -124,7 +122,9 @@
             @endif
             @empty
             <tr>
-                <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-400">No audit log entries found.</td>
+                <td colspan="6" class="p-0">
+                    <x-admin.empty-state message="Nothing recorded for these filters." />
+                </td>
             </tr>
             @endforelse
         </tbody>

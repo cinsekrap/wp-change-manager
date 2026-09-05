@@ -1,11 +1,10 @@
 @extends('layouts.admin')
-@section('title', 'Email Log')
+@section('title', 'Email log')
 
 @section('content')
-<div class="flex items-center justify-between mb-6">
-    <h1 class="page-title">Email Log</h1>
-    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to Notifications</a>
-</div>
+<x-admin.page-header title="Email log" lede="Every message the tool has sent, and whether it arrived.">
+    <a href="{{ route('admin.settings.notifications') }}" class="btn btn-quiet">&larr; Back to notifications</a>
+</x-admin.page-header>
 
 {{-- Search --}}
 <div class="card card-body mb-6">
@@ -33,38 +32,38 @@
         </div>
     @else
         <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table class="table">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Request</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th class="px-4 py-3"></th>
+                    <th>Sent</th>
+                    <th>Recipient</th>
+                    <th>Subject</th>
+                    <th>Request</th>
+                    <th>Status</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody>
                 @foreach($logs as $log)
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $log->created_at->format('j M Y H:i') }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate" title="{{ $log->recipient_email }}">{{ $log->recipient_email }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{{ $log->subject }}</td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                    <td class="text-gray-500 whitespace-nowrap">{{ $log->created_at->format('j M Y H:i') }}</td>
+                    <td class="text-gray-700 max-w-xs truncate" title="{{ $log->recipient_email }}">{{ $log->recipient_email }}</td>
+                    <td class="text-gray-700 max-w-xs truncate">{{ $log->subject }}</td>
+                    <td class="whitespace-nowrap">
                         @if($log->changeRequest)
                             <a href="{{ route('admin.requests.show', $log->changeRequest) }}" class="text-hcrg-burgundy hover:underline">{{ $log->changeRequest->reference }}</a>
                         @else
                             <span class="text-gray-300">&mdash;</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 text-sm whitespace-nowrap">
+                    <td class="whitespace-nowrap">
                         @if($log->status === 'sent')
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Sent</span>
                         @else
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ $log->error_message }}">Failed</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
+                    <td class="text-right whitespace-nowrap space-x-2">
                         @if($log->message_id || $log->smtp_debug || $log->error_message)
                             <button type="button" onclick="toggleDetail({{ $log->id }})"
                                 class="text-sm text-gray-400 hover:text-gray-600">Detail</button>

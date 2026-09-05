@@ -1,27 +1,26 @@
 @extends('layouts.admin')
-@section('title', 'Admin Users')
+@section('title', 'Admins')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="page-title">Admin Users</h1>
-    <a href="{{ route('admin.users.create') }}" class="btn btn-primary">Add User</a>
-</div>
+<x-admin.page-header title="Admins" lede="People who can sign in and work on requests.">
+    <a href="{{ route('admin.users.create') }}" class="btn btn-primary">Add admin</a>
+</x-admin.page-header>
 
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @foreach($users as $user)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-4 font-medium text-gray-900">
+            <tr class="hover:bg-gray-50">
+                <td class="font-medium text-gray-900">
                     {{ $user->name }}
                     @if($user->hasMfaEnabled())
                         <span class="inline-flex items-center ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-700" title="Two-factor authentication enabled">
@@ -30,8 +29,8 @@
                         </span>
                     @endif
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $user->email }}</td>
-                <td class="px-6 py-4">
+                <td class="text-gray-600">{{ $user->email }}</td>
+                <td>
                     @if($user->isSuperAdmin())
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/20 text-hcrg-burgundy">Super Admin</span>
                     @elseif($user->isEditor())
@@ -40,10 +39,10 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No Access</span>
                     @endif
                 </td>
-                <td class="px-6 py-4">
+                <td>
                     @include('admin.partials.active-badge', ['active' => $user->is_active])
                 </td>
-                <td class="px-6 py-4 text-right space-x-2">
+                <td class="text-right space-x-2">
                     <a href="{{ route('admin.users.edit', $user) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
                     @if($user->id !== auth()->id())
                     <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline" data-confirm="Delete this user?">

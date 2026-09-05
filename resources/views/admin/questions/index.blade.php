@@ -1,35 +1,34 @@
 @extends('layouts.admin')
-@section('title', 'Check Questions')
+@section('title', 'Check questions')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="page-title">Check Questions</h1>
-    <a href="{{ route('admin.questions.create') }}" class="btn btn-primary">Add Question</a>
-</div>
+<x-admin.page-header title="Check questions" lede="Asked before a request is submitted, so obvious problems are caught early.">
+    <a href="{{ route('admin.questions.create') }}" class="btn btn-primary">Add question</a>
+</x-admin.page-header>
 
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Options</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Required</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th>Order</th>
+                <th>Question</th>
+                <th>Options</th>
+                <th>Required</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($questions as $question)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $question->sort_order }}</td>
-                <td class="px-6 py-4 text-sm text-gray-900 max-w-md truncate">{{ $question->question_text }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ count($question->options ?? []) }} options</td>
-                <td class="px-6 py-4 text-sm">{{ $question->is_required ? 'Yes' : 'No' }}</td>
-                <td class="px-6 py-4">
+            <tr class="hover:bg-gray-50">
+                <td class="text-gray-600">{{ $question->sort_order }}</td>
+                <td class="text-gray-900 max-w-md truncate">{{ $question->question_text }}</td>
+                <td class="text-gray-600">{{ count($question->options ?? []) }} options</td>
+                <td>{{ $question->is_required ? 'Yes' : 'No' }}</td>
+                <td>
                     @include('admin.partials.active-badge', ['active' => $question->is_active])
                 </td>
-                <td class="px-6 py-4 text-right space-x-2">
+                <td class="text-right space-x-2">
                     <a href="{{ route('admin.questions.edit', $question) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
                     <form method="POST" action="{{ route('admin.questions.destroy', $question) }}" class="inline" data-confirm="Delete this question?">
                         @csrf @method('DELETE')
@@ -38,7 +37,11 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No questions yet.</td></tr>
+            <tr><td colspan="6" class="p-0">
+                <x-admin.empty-state message="No check questions yet. These are asked before a request is submitted.">
+                    <a href="{{ route('admin.questions.create') }}" class="btn btn-primary btn-sm">Add question</a>
+                </x-admin.empty-state>
+            </td></tr>
             @endforelse
         </tbody>
     </table>

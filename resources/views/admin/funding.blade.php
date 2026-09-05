@@ -3,15 +3,9 @@
 
 @section('content')
 <div class="funding-page">
-    <div class="flex flex-wrap justify-between items-start gap-3 mb-2">
-        <h1 class="page-title">Content awaiting funding</h1>
-        <button type="button" onclick="window.print()" class="btn btn-secondary no-print">
-            Print this list
-        </button>
-    </div>
-    <p class="text-sm text-gray-500 mb-6 max-w-3xl">
-        Content that needs hours agreed before writing starts, oldest first.
-    </p>
+    <x-admin.page-header title="Content awaiting funding" lede="Content that needs hours agreed before writing starts, oldest first.">
+        <button type="button" onclick="window.print()" class="btn btn-secondary no-print">Print this list</button>
+    </x-admin.page-header>
 
     {{-- The numbers you get asked for in the room. --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -36,44 +30,44 @@
 
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <table class="table">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-3 py-3 w-8 no-print"><input type="checkbox" id="selAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"></th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">What it is</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">What it's for</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sites</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Waiting</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
+                        <th class="w-8 no-print"><input type="checkbox" id="selAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"></th>
+                        <th>Reference</th>
+                        <th>What it is</th>
+                        <th>What it's for</th>
+                        <th>Sites</th>
+                        <th>Status</th>
+                        <th class="text-right whitespace-nowrap">Waiting</th>
+                        <th class="text-right">Hours</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody>
                     @forelse($requests as $req)
-                    <tr class="hover:bg-gray-50 even:bg-gray-50/50">
+                    <tr class="hover:bg-gray-50">
                         @php $waitingOn = $pendingByRequest[$req->id] ?? null; @endphp
-                        <td class="px-3 py-3 no-print">
+                        <td class="no-print">
                             <input type="checkbox" class="fund-row h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"
                                    value="{{ $req->id }}" data-hours="{{ (float) $req->estimated_hours }}"
                                    data-sized="{{ $req->estimated_hours === null ? '0' : '1' }}"
                                    data-asked="{{ $waitingOn ? '1' : '0' }}"
                                    data-ref="{{ $req->reference }}">
                         </td>
-                        <td class="px-3 py-3 whitespace-nowrap">
+                        <td class="whitespace-nowrap">
                             <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium">{{ $req->reference }}</a>
                         </td>
-                        <td class="px-3 py-3 text-gray-900 max-w-xs">{{ $req->subjectDescription() }}</td>
-                        <td class="px-3 py-3 text-gray-600 max-w-sm">{{ \Illuminate\Support\Str::limit($req->content_brief['achieve'] ?? '', 120) ?: '—' }}</td>
-                        <td class="px-3 py-3 text-gray-600">{{ $req->allSites()->pluck('name')->join(', ') ?: 'Not yet decided' }}</td>
-                        <td class="px-3 py-3">
+                        <td class="text-gray-900 max-w-xs">{{ $req->subjectDescription() }}</td>
+                        <td class="text-gray-600 max-w-sm">{{ \Illuminate\Support\Str::limit($req->content_brief['achieve'] ?? '', 120) ?: '—' }}</td>
+                        <td class="text-gray-600">{{ $req->allSites()->pluck('name')->join(', ') ?: 'Not yet decided' }}</td>
+                        <td>
                             @include('partials.status-badge', ['status' => $req->status])
                             @if($waitingOn)
                                 <span class="block text-xs text-hcrg-grey-400 mt-1">asked {{ $waitingOn->created_at->diffForHumans() }}</span>
                             @endif
                         </td>
-                        <td class="px-3 py-3 text-right text-gray-600 whitespace-nowrap">{{ (int) $req->created_at->diffInDays(now()) }} days</td>
-                        <td class="px-3 py-3 text-right font-semibold whitespace-nowrap">
+                        <td class="text-right text-gray-600 whitespace-nowrap">{{ (int) $req->created_at->diffInDays(now()) }} days</td>
+                        <td class="text-right font-semibold whitespace-nowrap">
                             @if($req->estimated_hours !== null)
                                 <span class="text-gray-900">{{ rtrim(rtrim(number_format((float) $req->estimated_hours, 1), '0'), '.') }}</span>
                             @else

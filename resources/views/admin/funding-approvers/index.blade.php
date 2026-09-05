@@ -2,40 +2,36 @@
 @section('title', 'Funding Approvers')
 
 @section('content')
-<div class="flex justify-between items-center mb-2">
-    <h1 class="page-title">Funding Approvers</h1>
-    <a href="{{ route('admin.funding-approvers.create') }}" class="btn btn-primary">Add Approver</a>
-</div>
-<p class="text-sm text-gray-500 mb-6 max-w-3xl">
-    The people who can agree to spend content design hours.
-</p>
+<x-admin.page-header title="Funding approvers" lede="The people who can agree to spend content design hours.">
+    <a href="{{ route('admin.funding-approvers.create') }}" class="btn btn-primary">Add approver</a>
+</x-admin.page-header>
 
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remit</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Remit</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($approvers as $approver)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-4">
+            <tr class="hover:bg-gray-50">
+                <td>
                     <p class="text-sm font-medium text-gray-900">{{ $approver->name }}</p>
                     @if($approver->job_title)
                         <p class="text-xs text-hcrg-grey-400">{{ $approver->job_title }}</p>
                     @endif
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $approver->email }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600 max-w-md">{{ $approver->remit ?: '—' }}</td>
-                <td class="px-6 py-4">
+                <td class="text-gray-600">{{ $approver->email }}</td>
+                <td class="text-gray-600 max-w-md">{{ $approver->remit ?: '—' }}</td>
+                <td>
                     @include('admin.partials.active-badge', ['active' => $approver->is_active])
                 </td>
-                <td class="px-6 py-4 text-right text-sm">
+                <td class="text-right">
                     <a href="{{ route('admin.funding-approvers.edit', $approver) }}" class="text-hcrg-burgundy hover:underline">Edit</a>
                     @if($approver->is_active)
                         <form method="POST" action="{{ route('admin.funding-approvers.destroy', $approver) }}" class="inline ml-3"
