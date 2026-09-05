@@ -7,6 +7,58 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.0.0
+
+ACME Change now handles two kinds of ask: changing a page that already exists, and writing
+content that does not exist yet. The admin has been rebuilt around that.
+
+### Features
+- **Content requests.** Anyone can now ask for new content as well as a change. They answer a
+  short brief — what it should achieve, who it is for, what someone should know or do
+  afterwards — instead of describing edits to a page nobody has written.
+- **Content designers can start their own work.** Content the team decides to write itself no
+  longer needs a requester, or a site, to exist against.
+- **Clinical approval is tied to the exact words approved.** A clinician signs off the copy
+  they actually read; editing it afterwards voids the sign-off, so nothing reaches a page
+  carrying approval for something else. Approved copy stays locked until it is deliberately
+  unlocked.
+- **A managed list of clinical approvers**, with each person's role and areas of expertise, so
+  the right clinician is asked rather than whoever was typed in last time.
+- **Estimated hours and funding approval.** A designer records how long a piece will take, and
+  hours go to a funding approver as a batch with enough detail to decide. Estimates are never
+  shown to requesters.
+- **Drafts follow the structure of the page they become.** Copy is written into the fields the
+  page type actually has, with repeatable groups where a page needs several — a set of
+  questions and answers, for example. Page types with no structure set keep the single copy box.
+- **A public queue of suggested content**, so people can see what has already been asked for and
+  add themselves as a watcher instead of asking again.
+- **Reading age checks on copy written in the tool**, matching the checks already applied to copy
+  we are asked to change.
+- **Reports is now the Dashboard**, and reports on the two lanes separately — including the real
+  wait time for content.
+
+### Improvements
+- The admin has one visual language: one button, one card, one field, one list layout and one
+  form layout across every screen.
+- A request page is split into the work, the brief and the history, so what you came to do is
+  what you see first.
+- Configuration is grouped by subject rather than by who is allowed to change it.
+- Notes and requests for clarification are written in the same place, with a choice of whether
+  the requester sees them.
+- Copy a clinician cannot approve now goes back to the designer to revise, with the feedback,
+  rather than being declined outright.
+- Each lane offers only the statuses that apply to it, and a blocked status says what it is
+  waiting for.
+- The suggestions queue moved to the footer, and the request flow points people at it.
+- Various security and maintenance updates.
+
+### Bug Fixes
+- Content requests could be rejected on submission for carrying no change items.
+- Approvers could be asked to approve a request that was already closed.
+- Content that had been published still appeared on the suggestions list.
+- Attachments on a brief were unreachable, and are now purged on schedule once a request closes.
+- A status read "Approved (approvals required)".
+
 ## 1.11.4
 
 ### Improvements
