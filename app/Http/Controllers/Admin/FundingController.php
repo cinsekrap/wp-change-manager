@@ -31,10 +31,22 @@ class FundingController extends Controller
             ->orderBy('created_at')
             ->get();
 
+        // Which pieces are already sitting in somebody's inbox, so the page can
+        // say so rather than letting a designer ask twice.
+        $pendingByRequest = \App\Models\FundingRound::where('status', 'pending')
+            ->with('items')
+            ->get()
+            ->flatMap(fn ($round) => $round->items->mapWithKeys(
+                fn ($item) => [$item->change_request_id => $round]
+            ));
+
         return view('admin.funding', [
             'requests' => $requests,
             'totalHours' => $requests->sum(fn ($r) => (float) $r->estimated_hours),
             'unsized' => $requests->filter(fn ($r) => $r->estimated_hours === null)->count(),
+            'pendingByRequest' => $pendingByRequest,
+            'fundingApprovers' => \App\Models\FundingApprover::active()->ordered()->get(),
+            'openRounds' => \App\Models\FundingRound::where('status', 'pending')->withCount('items')->latest()->get(),
         ]);
     }
 }

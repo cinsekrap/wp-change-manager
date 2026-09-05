@@ -142,7 +142,7 @@ class EstimatedHoursTest extends TestCase
         ))->assertSuccessful()->assertDontSee(self::HOURS);
     }
 
-    public function test_it_is_in_no_email_anyone_receives(): void
+    public function test_it_is_in_no_email_a_requester_or_approver_receives(): void
     {
         $request = $this->content();
         $approver = ChangeRequestApprover::create([
@@ -196,12 +196,41 @@ class EstimatedHoursTest extends TestCase
         $this->assertSame([], $leaking, 'These emails carry the internal estimate: '.implode(', ', $leaking));
     }
 
+    public function test_the_funding_approver_is_the_one_person_who_does_see_it(): void
+    {
+        $request = $this->content();
+        $approver = \App\Models\FundingApprover::create([
+            'name' => 'Sam Okafor', 'email' => 'sam@example.com', 'is_active' => true,
+        ]);
+
+        $round = \App\Models\FundingRound::create([
+            'reference' => 'FR-20260905-001',
+            'funding_approver_id' => $approver->id,
+            'approver_name' => $approver->label(),
+            'approver_email' => $approver->email,
+            'status' => 'pending',
+            'token' => \App\Models\FundingRound::generateToken(),
+            'total_hours' => self::HOURS,
+        ]);
+        $round->items()->create([
+            'change_request_id' => $request->id,
+            'estimated_hours' => self::HOURS,
+        ]);
+
+        // The exception that proves the rule: hiding the number from the person
+        // being asked to pay for it would make the ask meaningless.
+        $this->assertStringContainsString(self::HOURS, (new \App\Mail\FundingRequested($round->fresh()))->render());
+    }
+
     public function test_every_mailable_carrying_a_request_is_covered_above(): void
     {
         $onDisk = collect(glob(app_path('Mail/*.php')))
             ->map(fn ($f) => basename($f, '.php'))
             // Takes no change request, so it cannot carry the estimate.
             ->reject(fn ($n) => $n === 'PasswordResetMail')
+            // Goes to the funding approver, and carries the hours on purpose —
+            // covered by its own test above.
+            ->reject(fn ($n) => $n === 'FundingRequested')
             ->values()->all();
 
         $covered = [

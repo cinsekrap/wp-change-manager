@@ -105,6 +105,11 @@ Route::post('/admin/forgot-password', [PasswordResetController::class, 'sendRese
 Route::get('/admin/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
 Route::post('/admin/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:3,1');
 
+// Funding decisions. No login: the budget holder holds a token, as approvers do.
+Route::get('/funding/{token}', [\App\Http\Controllers\PublicSite\FundingApprovalController::class, 'show'])->name('funding.show');
+Route::post('/funding/{token}', [\App\Http\Controllers\PublicSite\FundingApprovalController::class, 'respond'])
+    ->name('funding.respond')->middleware('throttle:5,1');
+
 // Microsoft Entra SSO
 Route::get('/auth/microsoft', [EntraController::class, 'redirect'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [EntraController::class, 'callback'])->name('auth.microsoft.callback');
@@ -127,6 +132,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
 
     // Change requests
     Route::get('/funding', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('admin.funding');
+    Route::post('/funding/rounds', [\App\Http\Controllers\Admin\FundingRoundController::class, 'store'])->name('admin.funding.rounds.store');
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
     Route::post('/requests/bulk/status', [BulkActionController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
     Route::post('/requests/bulk/assign', [BulkActionController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
@@ -173,6 +179,10 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::resource('cpts', CptController::class)->names('admin.cpts');
 
         // Clinical approvers — the named people who may sign off content
+        Route::resource('funding-approvers', \App\Http\Controllers\Admin\FundingApproverController::class)
+            ->names('admin.funding-approvers')
+            ->parameters(['funding-approvers' => 'fundingApprover'])
+            ->except(['show']);
         Route::resource('clinical-approvers', \App\Http\Controllers\Admin\ClinicalApproverController::class)
             ->names('admin.clinical-approvers')
             ->parameters(['clinical-approvers' => 'clinicalApprover'])

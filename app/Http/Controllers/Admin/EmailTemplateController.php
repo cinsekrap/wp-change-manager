@@ -185,6 +185,28 @@ class EmailTemplateController extends Controller
                 ?: 'Could you confirm which of the two phone numbers on this page is correct?';
         }
 
+        // A funding ask is about a batch, not one request, so its preview needs a
+        // round rather than the shared sample. Built in memory only.
+        if ($template === 'funding-requested') {
+            $round = new \App\Models\FundingRound([
+                'reference' => 'FR-'.now()->format('Ymd').'-001',
+                'approver_name' => 'Sam Okafor — Head of Communications',
+                'approver_email' => 'sam.okafor@example.com',
+                'status' => 'pending',
+                'total_hours' => 20,
+            ]);
+            $round->id = 0;
+            $round->token = str_repeat('0', 64);
+
+            $line = new \App\Models\FundingRoundItem(['estimated_hours' => 8]);
+            $line->setRelation('changeRequest', $sample);
+            $second = new \App\Models\FundingRoundItem(['estimated_hours' => 12]);
+            $second->setRelation('changeRequest', $sample);
+            $round->setRelation('items', collect([$line, $second]));
+
+            return new \App\Mail\FundingRequested($round);
+        }
+
         $mailable = match ($template) {
             'request-submitted' => new RequestSubmitted($sample),
             'status-changed' => new RequestStatusChanged($sample, 'requested', 'approved'),

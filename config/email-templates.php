@@ -137,6 +137,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'content_type'],
     ],
 
+    'funding_requested' => [
+        'name' => 'Funding Requested',
+        'description' => 'Sent to a funding approver when a designer asks them to fund a batch of content. Lists every piece and the total hours.',
+        'subject' => 'Funding decision needed: {reference} — {total_hours} hours',
+        'body' => 'A batch of content is ready to be written and needs the hours agreed before work starts. Everything in the ask is listed below with what each piece is expected to take.',
+        'placeholders' => ['reference', 'total_hours', 'item_count'],
+    ],
+
     'content_awaiting_funding' => [
         'name' => 'Content Awaiting Funding',
         'description' => 'Sent when a content suggestion has been agreed in principle and is waiting for the hours to be funded.',
