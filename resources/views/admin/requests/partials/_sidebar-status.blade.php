@@ -5,10 +5,19 @@
     <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}" id="statusForm">
         @csrf @method('PATCH')
         <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            @php
+                // Why the option is unavailable, said in a way that reads after the
+                // status name. "Approved (approvals required)" described the rule
+                // rather than the situation, and read like a contradiction.
+                $pendingApprovers = $changeRequest->approvers->where('status', 'pending')->count();
+                $blockedNote = $pendingApprovers > 0
+                    ? ' — waiting on '.$pendingApprovers.' '.str('approver')->plural($pendingApprovers)
+                    : ' — approvals not complete';
+            @endphp
             @foreach($changeRequest->statusOptions() as $status)
                 @php $blocked = !$canMovePast && in_array($status, \App\Models\ChangeRequest::POST_REFERRED_STATUSES); @endphp
                 <option value="{{ $status }}" {{ $changeRequest->status === $status ? 'selected' : '' }} {{ $blocked ? 'disabled' : '' }}>
-                    {{ \App\Models\ChangeRequest::statusLabel($status) }}{{ $blocked ? ' (approvals required)' : '' }}
+                    {{ \App\Models\ChangeRequest::statusLabel($status) }}{{ $blocked ? $blockedNote : '' }}
                 </option>
             @endforeach
         </select>

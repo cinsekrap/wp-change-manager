@@ -129,4 +129,67 @@ class ClosedRequestApprovalTest extends TestCase
         $this->assertCount(1, $request->fresh()->approvers);
         Mail::assertSent(ApprovalRequested::class);
     }
+
+    public function test_a_blocked_status_says_what_it_is_waiting_for(): void
+    {
+        $request = $this->request('awaiting_approval');
+        $request->approvers()->create([
+            'name' => 'Dr Helen Johal',
+            'email' => 'h.johal@example.nhs.uk',
+            'status' => 'pending',
+            'token' => \App\Models\ChangeRequestApprover::generateToken(),
+        ]);
+
+        $this->loginAsAdmin();
+
+        $this->get(route('admin.requests.show', $request))
+            ->assertSuccessful()
+            // "Approved (approvals required)" read like a contradiction.
+            ->assertDontSee('approvals required')
+            ->assertSee('Approved — waiting on 1 approver', false);
+    }
+
+    public function test_the_count_is_the_number_actually_outstanding(): void
+    {
+        $request = $this->request('awaiting_approval');
+        foreach (['a@example.nhs.uk', 'b@example.nhs.uk'] as $email) {
+            $request->approvers()->create([
+                'name' => 'Dr '.$email,
+                'email' => $email,
+                'status' => 'pending',
+                'token' => \App\Models\ChangeRequestApprover::generateToken(),
+            ]);
+        }
+        $request->approvers()->create([
+            'name' => 'Dr Already Said Yes',
+            'email' => 'c@example.nhs.uk',
+            'status' => 'approved',
+            'responded_at' => now(),
+        ]);
+
+        $this->loginAsAdmin();
+
+        // Three approvers, two still to respond.
+        $this->get(route('admin.requests.show', $request))
+            ->assertSuccessful()
+            ->assertSee('waiting on 2 approvers', false);
+    }
+
+    public function test_nothing_is_appended_when_the_move_is_allowed(): void
+    {
+        $request = $this->request('awaiting_approval');
+        $request->approvers()->create([
+            'name' => 'Dr Helen Johal',
+            'email' => 'h.johal@example.nhs.uk',
+            'status' => 'approved',
+            'responded_at' => now(),
+        ]);
+
+        $this->loginAsAdmin();
+
+        $this->get(route('admin.requests.show', $request))
+            ->assertSuccessful()
+            ->assertDontSee('waiting on')
+            ->assertDontSee('approvals not complete');
+    }
 }
