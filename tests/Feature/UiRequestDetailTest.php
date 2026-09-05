@@ -365,4 +365,39 @@ class UiRequestDetailTest extends TestCase
 
         $this->assertSame('done', $request->fresh()->status);
     }
+
+    public function test_the_draft_does_not_explain_rules_before_they_apply(): void
+    {
+        $request = $this->request('content');
+        $this->loginAsAdmin();
+
+        $work = $this->panelBody(
+            $this->get(route('admin.requests.show', $request))->getContent(), 'work'
+        );
+
+        // The approved and unlocked states say what editing costs, at the moment
+        // it costs something. Saying it in general beforehand is noise.
+        $this->assertStringNotContainsString('binds to this text', $work);
+        $this->assertStringNotContainsString('does not affect clinical approval', $work);
+    }
+
+    public function test_it_still_says_so_when_the_copy_is_actually_approved(): void
+    {
+        $request = $this->request('content');
+        $request->approvers()->create([
+            'name' => 'Dr Helen Johal',
+            'email' => 'h.johal@example.nhs.uk',
+            'status' => 'approved',
+            'responded_at' => now(),
+            'approved_content_hash' => $request->draftContentHash(),
+            'approved_content_snapshot' => $request->draft_content,
+        ]);
+
+        $this->loginAsAdmin();
+
+        $this->get(route('admin.requests.show', $request))
+            ->assertSuccessful()
+            ->assertSee('Approved and locked')
+            ->assertSee('Editing this copy withdraws that approval');
+    }
 }

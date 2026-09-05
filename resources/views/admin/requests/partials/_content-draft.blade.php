@@ -1,11 +1,7 @@
 {{-- Content lane: the draft copy, and where it went live. --}}
 @if($changeRequest->isContentRequest())
 <div class="card card-body mb-6">
-    <h2 class="card-title mb-1">Draft copy</h2>
-    <p class="text-sm text-gray-500 mb-4">
-        Clinical approval binds to this text. Editing it after sign-off voids the approval and sends it back for re-approval.
-    </p>
-
+    <h2 class="card-title mb-4">Draft copy</h2>
     @if($changeRequest->staleApprovals()->isNotEmpty())
         <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <p class="text-sm text-amber-800 mb-2">This copy has changed since it was approved, so the sign-off no longer applies.</p>
@@ -127,10 +123,6 @@
                 </div>
             </div>
         @endif
-
-        <p class="mt-4 text-xs text-gray-500">
-            Adding a site does not affect clinical approval — one sign-off covers every site. Only changing the copy voids it, so if a site needs its own wording that is a separate request.
-        </p>
 
         <button type="submit" class="btn btn-primary mt-4">Save addresses</button>
     </form>
