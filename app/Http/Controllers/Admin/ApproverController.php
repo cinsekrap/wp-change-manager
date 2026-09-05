@@ -170,7 +170,9 @@ class ApproverController extends Controller
                 auth()->id(),
             );
 
-            return back()->with('success', 'Rejection recorded. Request has been declined and notifications sent.');
+            return back()->with('success', $changeRequest->isContentRequest()
+                ? 'Recorded. The copy has gone back to be revised and the designer has the feedback.'
+                : 'Rejection recorded. Request has been declined and notifications sent.');
         }
 
         return back()->with('success', 'Approval recorded.');

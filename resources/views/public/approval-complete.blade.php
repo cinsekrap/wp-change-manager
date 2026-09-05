@@ -28,6 +28,12 @@
         <p class="text-sm text-gray-400 mt-1">Ref: {{ $changeRequest->reference }}</p>
     </div>
 
+    @if($status === 'rejected' && $changeRequest->isContentRequest())
+        <p class="text-gray-600 mb-6 max-w-md mx-auto">
+            Your notes have gone to the person writing this copy. They will revise it and ask you again once it is ready.
+        </p>
+    @endif
+
     <p class="text-sm text-gray-400">You can close this page.</p>
 
     @include('public.partials.approval-queue')

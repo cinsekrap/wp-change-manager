@@ -137,6 +137,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'content_type'],
     ],
 
+    'content_revision_needed' => [
+        'name' => 'Content Revision Needed',
+        'description' => 'Sent to the content designer when a clinician does not approve the copy. Carries their feedback.',
+        'subject' => 'Changes needed: {reference}',
+        'body' => '{approver_name} has read the copy and cannot approve it as written. Their feedback is below. Revise the draft and send it for approval again when it is ready.',
+        'placeholders' => ['reference', 'approver_name', 'content_title'],
+    ],
+
     'funding_requested' => [
         'name' => 'Funding Requested',
         'description' => 'Sent to a funding approver when hours are submitted for approval. Lists every piece and the total.',
