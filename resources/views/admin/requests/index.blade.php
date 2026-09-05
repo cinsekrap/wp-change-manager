@@ -1,8 +1,10 @@
 @extends('layouts.admin')
-@section('title', 'Change Requests')
+@section('title', 'Requests')
 
 @section('content')
-<h1 class="page-title mb-6">Change Requests</h1>
+<x-admin.page-header title="Requests" lede="Everything asked for across all sites, newest first.">
+    <a href="{{ route('admin.requests.export') }}" class="btn btn-secondary">Export</a>
+</x-admin.page-header>
 
 @php
     $selectedStatuses = (array) request('status', []);
@@ -151,10 +153,10 @@
 {{-- Results --}}
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-3 py-3 text-left w-8">
+                <th class="w-8">
                     <input type="checkbox" id="selectAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded">
                 </th>
                 @foreach([
@@ -162,7 +164,7 @@
                     'site' => 'Site',
                     'requester_name' => 'Requester',
                 ] as $col => $label)
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th>
                     <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
                         {{ $label }}
                         @if($currentSort === $col)
@@ -173,14 +175,14 @@
                     </a>
                 </th>
                 @endforeach
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned</th>
+                <th>Items</th>
+                <th>Assigned</th>
                 @foreach([
                     'priority' => 'Priority / SLA',
                     'status' => 'Status',
                     'created_at' => 'Date',
                 ] as $col => $label)
-                <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th>
                     <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
                         {{ $label }}
                         @if($currentSort === $col)
@@ -193,18 +195,18 @@
                 @endforeach
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($requests as $req)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-3 py-3" onclick="event.stopPropagation()">
+            <tr class="hover:bg-gray-50">
+                <td onclick="event.stopPropagation()">
                     <input type="checkbox" class="row-checkbox h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded" value="{{ $req->id }}">
                 </td>
-                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
                 </td>
-                <td class="px-3 py-3 text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
-                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name ?: '—' }}</td>
-                <td class="px-3 py-3 text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
+                <td class="text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name ?: '—' }}</td>
+                <td class="text-gray-600 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1.5">
                         @if($req->items_count > 0)
                         <span class="text-xs {{ $req->items_done_count === $req->items_count ? 'text-emerald-600 font-medium' : 'text-gray-500' }}">{{ $req->items_done_count }}/{{ $req->items_count }}</span>
@@ -216,7 +218,7 @@
                         @endif
                     </div>
                 </td>
-                <td class="px-3 py-3 text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     @if($req->assignee)
                         <span class="inline-flex items-center">
                             <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-[10px] font-semibold mr-1.5">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
@@ -226,7 +228,7 @@
                         <span class="text-gray-300">—</span>
                     @endif
                 </td>
-                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     <div class="flex items-center space-x-1.5">
                         @include('admin.partials.priority-badge', ['priority' => $req->priority ?? 'normal'])
                         @if($req->slaStopped())
@@ -243,13 +245,15 @@
                         @endif
                     </div>
                 </td>
-                <td class="px-3 py-3 cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
+                <td class="cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     @include('partials.status-badge', ['status' => $req->status])
                 </td>
-                <td class="px-3 py-3 text-gray-500 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
+                <td class="text-gray-500 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->created_at->format('d M Y') }}</td>
             </tr>
             @empty
-            <tr><td colspan="9" class="px-6 py-8 text-center text-gray-500">No requests found.</td></tr>
+            <tr><td colspan="9" class="p-0">
+                <x-admin.empty-state message="No requests match these filters." />
+            </td></tr>
             @endforelse
         </tbody>
     </table>

@@ -1,35 +1,34 @@
 @extends('layouts.admin')
-@section('title', 'CPT Types')
+@section('title', 'Content types')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
-    <h1 class="page-title">CPT Types</h1>
-    <a href="{{ route('admin.cpts.create') }}" class="btn btn-primary">Add CPT Type</a>
-</div>
+<x-admin.page-header title="Content types" lede="The kinds of page each site has, and how requests for them behave.">
+    <a href="{{ route('admin.cpts.create') }}" class="btn btn-primary">Add content type</a>
+</x-admin.page-header>
 
 <div class="card overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <table class="table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Content Areas</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th>Order</th>
+                <th>Slug</th>
+                <th>Name</th>
+                <th>Content Areas</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
+        <tbody>
             @forelse($cpts as $cpt)
-            <tr class="hover:bg-gray-50 even:bg-gray-50/50">
-                <td class="px-6 py-4 text-sm text-gray-600">{{ $cpt->sort_order }}</td>
-                <td class="px-6 py-4 font-mono text-sm text-gray-900">{{ $cpt->slug }}</td>
-                <td class="px-6 py-4 text-sm text-gray-900">{{ $cpt->name }}</td>
-                <td class="px-6 py-4 text-sm text-gray-600">
+            <tr class="hover:bg-gray-50">
+                <td class="text-gray-600">{{ $cpt->sort_order }}</td>
+                <td class="font-mono text-gray-900">{{ $cpt->slug }}</td>
+                <td class="text-gray-900">{{ $cpt->name }}</td>
+                <td class="text-gray-600">
                     @php $areaCount = count($cpt->form_config['content_areas'] ?? []); @endphp
                     {{ $areaCount > 0 ? $areaCount . ' ' . Str::plural('area', $areaCount) : '—' }}
                 </td>
-                <td class="px-6 py-4 space-x-1">
+                <td class="space-x-1">
                     @include('admin.partials.active-badge', ['active' => $cpt->is_active])
                     @if($cpt->request_mode === 'blocked')
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Blocked</span>
@@ -37,7 +36,7 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Self-service</span>
                     @endif
                 </td>
-                <td class="px-6 py-4 text-right space-x-2">
+                <td class="text-right space-x-2">
                     <a href="{{ route('admin.cpts.edit', $cpt) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
                     <form method="POST" action="{{ route('admin.cpts.destroy', $cpt) }}" class="inline" data-confirm="Delete this CPT type?">
                         @csrf @method('DELETE')
@@ -46,7 +45,11 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No CPT types yet.</td></tr>
+            <tr><td colspan="6" class="p-0">
+                <x-admin.empty-state message="No content types yet. These are the kinds of page people can request changes to.">
+                    <a href="{{ route('admin.cpts.create') }}" class="btn btn-primary btn-sm">Add content type</a>
+                </x-admin.empty-state>
+            </td></tr>
             @endforelse
         </tbody>
     </table>
