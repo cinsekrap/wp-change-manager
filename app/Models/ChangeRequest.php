@@ -334,7 +334,8 @@ class ChangeRequest extends Model
 
             foreach (self::normaliseFieldValue($entries) as $entry) {
                 $body = is_array($entry)
-                    ? collect($entry)->map(fn ($v, $k) => trim("{$k}: {$v}"))->filter()->implode("\n")
+                    ? self::orderSubFields($entry, $field['sub_fields'] ?? [])
+                        ->map(fn ($v, $k) => trim("{$k}: {$v}"))->implode("\n")
                     : trim((string) $entry);
 
                 if ($body !== '') {
@@ -344,6 +345,25 @@ class ChangeRequest extends Model
         }
 
         return implode("\n\n", $out);
+    }
+
+    /**
+     * Sub-fields in the order they were configured, not the order they came back.
+     *
+     * A MySQL JSON column does not keep key order, so reading them out of the
+     * stored value puts them in an order nobody chose — and this text is what
+     * clinical approval is taken over.
+     */
+    public static function orderSubFields(array $entry, array $subFields): \Illuminate\Support\Collection
+    {
+        if ($subFields === []) {
+            return collect($entry)->filter(fn ($v) => filled($v));
+        }
+
+        return collect($subFields)
+            ->pluck('name')
+            ->mapWithKeys(fn ($name) => [$name => $entry[$name] ?? null])
+            ->filter(fn ($v) => filled($v));
     }
 
     /** A field holds one value, or several when it repeats. */

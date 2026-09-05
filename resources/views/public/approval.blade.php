@@ -129,10 +129,9 @@
                                 @foreach($entries as $entry)
                                     @if(is_array($entry))
                                         <div class="mb-2 last:mb-0">
-                                            @foreach($entry as $key => $val)
-                                                @if(filled($val))
-                                                    <p class="text-sm text-gray-800"><span class="text-gray-500">{{ $key }}:</span> {{ $val }}</p>
-                                                @endif
+                                            {{-- Configured order, not the order the database hands back. --}}
+                                            @foreach(\App\Models\ChangeRequest::orderSubFields($entry, $field['sub_fields'] ?? []) as $key => $val)
+                                                <p class="text-sm text-gray-800"><span class="text-gray-500">{{ $key }}:</span> {{ $val }}</p>
                                             @endforeach
                                         </div>
                                     @else

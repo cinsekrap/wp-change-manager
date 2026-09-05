@@ -341,4 +341,54 @@ class StructuredDraftTest extends TestCase
         $this->assertSame([], CptType::where('slug', 'needs')->first()->content_kinds);
         $this->assertFalse($request->fresh()->hasStructuredDraft());
     }
+
+    public function test_sub_fields_keep_the_order_they_were_configured_in(): void
+    {
+        $this->needsType();
+        $request = $this->content();
+        $this->loginAsAdmin();
+
+        // Deliberately sent back to front. A MySQL JSON column does not keep key
+        // order, so reading them out of the stored value gives an order nobody
+        // chose — and this text is what clinical approval is taken over.
+        $this->patch(route('admin.requests.draft', $request), ['fields' => [
+            'Contact Details' => [
+                'Contact notes' => 'Weekdays only.',
+                'Phone number(s)' => '0300 123',
+            ],
+        ]]);
+
+        $text = $request->fresh()->draft_content;
+        $this->assertLessThan(
+            strpos($text, 'Contact notes'),
+            strpos($text, 'Phone number(s)'),
+            'Sub-fields are being written in the order the database returned them'
+        );
+    }
+
+    public function test_the_approver_sees_sub_fields_in_that_same_order(): void
+    {
+        $this->needsType();
+        $request = $this->content();
+        $this->loginAsAdmin();
+
+        $this->patch(route('admin.requests.draft', $request), ['fields' => [
+            'Questions and Answers' => [['Answer' => 'No.', 'Question' => 'Do I need a referral?']],
+        ]]);
+
+        $request->refresh();
+        $request->updateQuietly(['status' => 'awaiting_approval']);
+        $approver = $request->approvers()->create([
+            'name' => 'Dr Helen Johal', 'email' => 'h.johal@example.nhs.uk',
+            'status' => 'pending', 'token' => \App\Models\ChangeRequestApprover::generateToken(),
+        ]);
+
+        $html = $this->get(route('approval.show', $approver->token))->assertSuccessful()->getContent();
+
+        $this->assertLessThan(
+            strpos($html, 'No.'),
+            strpos($html, 'Do I need a referral?'),
+            'The answer is being shown before the question'
+        );
+    }
 }
