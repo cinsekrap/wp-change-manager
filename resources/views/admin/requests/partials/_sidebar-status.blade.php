@@ -1,10 +1,10 @@
 {{-- Status + Priority + Assignment combined card --}}
-<div class="bg-white rounded-lg shadow p-4">
+<div class="card card-body">
     <h2 class="text-sm font-semibold text-gray-900 mb-3">Status & Priority</h2>
     @php $canMovePast = $changeRequest->canMovePastReferred(); @endphp
     <form method="POST" action="{{ route('admin.requests.status', $changeRequest) }}" id="statusForm">
         @csrf @method('PATCH')
-        <select name="status" id="statusSelect" onchange="toggleReasonField()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+        <select name="status" id="statusSelect" onchange="toggleReasonField()" class="field-input mb-2">
             @php
                 // Why the option is unavailable, said in a way that reads after the
                 // status name. "Approved (approvals required)" described the rule
@@ -23,22 +23,22 @@
         </select>
         <div id="reasonField" class="hidden mb-2">
             <textarea name="rejection_reason" rows="2" placeholder="Reason (required)..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('rejection_reason') }}</textarea>
-            @error('rejection_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                class="field-input">{{ old('rejection_reason') }}</textarea>
+            @error('rejection_reason') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div id="holdReasonField" class="hidden mb-2">
             <textarea name="hold_reason" rows="2" placeholder="Reason for hold (required) — this is emailed to the requester..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('hold_reason') }}</textarea>
-            @error('hold_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                class="field-input">{{ old('hold_reason') }}</textarea>
+            @error('hold_reason') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div id="scheduledField" class="hidden mb-2">
             <label class="block text-xs font-medium text-gray-500 mb-1">Scheduled for (required)</label>
             <input type="date" name="scheduled_date" min="{{ now()->format('Y-m-d') }}"
                 value="{{ old('scheduled_date', $changeRequest->scheduled_date?->format('Y-m-d')) }}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-            @error('scheduled_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                class="field-input">
+            @error('scheduled_date') <p class="field-error">{{ $message }}</p> @enderror
         </div>
-        <button type="submit" class="w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Update Status</button>
+        <button type="submit" class="btn btn-primary w-full">Update Status</button>
     </form>
     <script>
     function toggleReasonField() {
@@ -67,11 +67,11 @@
             <input type="number" name="estimated_hours" id="estimatedHours" step="0.5" min="0" max="9999"
                 value="{{ old('estimated_hours', $changeRequest->estimated_hours ? rtrim(rtrim(number_format((float) $changeRequest->estimated_hours, 1), '0'), '.') : '') }}"
                 placeholder="e.g. 8"
-                class="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save</button>
+                class="field-input flex-1 min-w-0">
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
         </div>
         <p class="mt-1 text-xs text-gray-400">Internal only &mdash; not shown to the requester.</p>
-        @error('estimated_hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+        @error('estimated_hours') <p class="field-error">{{ $message }}</p> @enderror
     </form>
     @endif
 
@@ -103,7 +103,7 @@
         <form method="POST" action="{{ route('admin.requests.request-clarification', $changeRequest) }}" data-confirm="This will email the requester and pause the SLA until they respond. Continue?">
             @csrf
             <textarea name="clarification_message" rows="2" required placeholder="What do you need to know? This is emailed to the requester..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('clarification_message') }}</textarea>
+                class="field-input mb-2">{{ old('clarification_message') }}</textarea>
             @error('clarification_message') <p class="mb-1 text-xs text-red-600">{{ $message }}</p> @enderror
             <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-gray-900 text-sm font-medium transition-colors">
                 {{ $changeRequest->status === 'awaiting_user' ? 'Send Another Clarification Request' : 'Request Clarification' }}
@@ -147,7 +147,7 @@
         <form method="POST" action="{{ route('admin.requests.priority', $changeRequest) }}">
             @csrf @method('PATCH')
             <select name="priority" onchange="this.form.submit()"
-                class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
                 @foreach(\App\Models\ChangeRequest::PRIORITIES as $p)
                     <option value="{{ $p }}" {{ ($changeRequest->priority ?? 'normal') === $p ? 'selected' : '' }}>{{ ucfirst($p) }}</option>
                 @endforeach
@@ -161,7 +161,7 @@
             <span class="text-xs font-medium text-gray-500">Assigned to</span>
             @if($changeRequest->assignee)
                 <div class="flex items-center space-x-1.5">
-                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-hcrg-burgundy text-white text-[10px] font-semibold flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
+                    <span class="btn btn-primary w-5 h-5 text-[10px] flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
                     <span class="text-xs font-medium text-gray-700">{{ $changeRequest->assignee->name }}</span>
                 </div>
             @else
@@ -171,7 +171,7 @@
         <form method="POST" action="{{ route('admin.requests.assign', $changeRequest) }}">
             @csrf @method('PATCH')
             <select name="assigned_to" onchange="this.form.submit()"
-                class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
                 <option value="">Unassigned</option>
                 @foreach($adminUsers as $admin)
                     <option value="{{ $admin->id }}" {{ $changeRequest->assigned_to == $admin->id ? 'selected' : '' }}>{{ $admin->name }}</option>

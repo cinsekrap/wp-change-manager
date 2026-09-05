@@ -2,7 +2,7 @@
 @section('title', 'Approval Request')
 
 @section('content')
-<div class="bg-white rounded-lg shadow p-8">
+<div class="card p-8">
     <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">{{ $changeRequest->isAccessRequest() ? 'Access Request Approval' : 'Approval Request' }}</h1>
 
     {{-- Request summary card --}}
@@ -250,7 +250,7 @@
                 id="approveNotesField"
                 rows="3"
                 maxlength="1000"
-                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-hcrg-burgundy focus:ring-hcrg-burgundy text-sm p-3 border"
+                class="field-input shadow-sm p-3"
                 placeholder="Add any comments about your approval..."
             >{{ old('notes') }}</textarea>
         </div>
@@ -295,7 +295,7 @@
                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3 border"
                         placeholder="Please explain why you are rejecting this request..."
                     ></textarea>
-                    <p id="rejectReasonError" class="hidden mt-1 text-xs text-red-600">Please provide a reason for rejection.</p>
+                    <p id="rejectReasonError" class="field-error hidden">Please provide a reason for rejection.</p>
                 </div>
 
                 <label class="flex items-start space-x-2 cursor-pointer">

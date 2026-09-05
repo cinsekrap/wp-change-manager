@@ -1,6 +1,6 @@
 {{-- Activity timeline: notes + status changes merged --}}
-<div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-lg font-semibold text-gray-900 mb-4">Activity</h2>
+<div class="card card-body">
+    <h2 class="card-title mb-4">Activity</h2>
 
     <div class="relative">
         <div class="absolute left-3.5 top-2 bottom-2 w-px bg-gray-200"></div>
@@ -87,9 +87,9 @@
         <div class="flex items-start space-x-3">
             <div class="flex-1">
                 <textarea name="note" rows="2" required placeholder="Add a note..."
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"></textarea>
+                    class="field-input"></textarea>
             </div>
-            <button type="submit" class="flex-shrink-0 bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Add</button>
+            <button type="submit" class="btn btn-primary flex-shrink-0">Add</button>
         </div>
     </form>
 </div>

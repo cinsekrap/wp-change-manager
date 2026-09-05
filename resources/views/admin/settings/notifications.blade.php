@@ -3,8 +3,8 @@
 
 @section('content')
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Notifications</h1>
-    <a href="{{ route('admin.settings.email-templates') }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+    <h1 class="page-title">Notifications</h1>
+    <a href="{{ route('admin.settings.email-templates') }}" class="btn btn-secondary">
         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Edit Email Templates
     </a>
@@ -14,8 +14,8 @@
     {{-- Left column (2/3) --}}
     <div class="lg:col-span-2 space-y-6">
         {{-- Email Templates section --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Email Templates</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Email Templates</h2>
             <p class="text-sm text-gray-500 mb-4">Customise the subject lines and body text of automated emails sent by the system.</p>
 
             <a href="{{ route('admin.settings.email-templates') }}"
@@ -26,30 +26,30 @@
         </div>
 
         {{-- New Request Alert --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">New Request Alert</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">New Request Alert</h2>
             <p class="text-sm text-gray-500 mb-4">Send an email notification when a new change request is submitted.</p>
 
             <form method="POST" action="{{ route('admin.settings.new-request-alert.update') }}">
                 @csrf @method('PUT')
                 <div>
-                    <label for="new_request_alert_email" class="block text-sm font-medium text-gray-700 mb-1">Recipient email</label>
+                    <label for="new_request_alert_email" class="field-label">Recipient email</label>
                     <input type="email" name="new_request_alert_email" id="new_request_alert_email"
                         value="{{ \App\Models\Setting::get('new_request_alert_email') }}" placeholder="team@example.com"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     <p class="mt-1 text-xs text-gray-500">Leave blank to disable. The alert uses the <em>New Request Alert</em> email template.</p>
                     @error('new_request_alert_email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
 
-                <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                <button type="submit" class="btn btn-primary mt-4">
                     Save Alert Settings
                 </button>
             </form>
         </div>
 
         {{-- SLA Settings --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">SLA Turnaround Times</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">SLA Turnaround Times</h2>
             <p class="text-sm text-gray-500 mb-4">Business hours per priority level (Mon-Fri, 8h/day).</p>
 
             <form method="POST" action="{{ route('admin.settings.sla.update') }}">
@@ -64,21 +64,21 @@
                         <label for="sla_{{ $priority }}" class="text-sm font-medium text-gray-700 capitalize">{{ ucfirst($priority) }}</label>
                         <div class="flex items-center space-x-2">
                             <input type="number" name="sla_{{ $priority }}" id="sla_{{ $priority }}" value="{{ $currentHours }}" min="1" max="999"
-                                class="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                class="field-input w-20 text-right">
                             <span class="text-xs text-gray-400">hours</span>
                         </div>
                     </div>
                     @endforeach
                 </div>
-                <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                <button type="submit" class="btn btn-primary mt-4">
                     Save SLA Settings
                 </button>
             </form>
         </div>
 
         {{-- Chase Reminder Settings --}}
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Chase Reminders</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Chase Reminders</h2>
             <p class="text-sm text-gray-500 mb-4">Automatically remind assignees when a request has been inactive.</p>
 
             <form method="POST" action="{{ route('admin.settings.chase.update') }}">
@@ -93,27 +93,27 @@
                     </label>
 
                     <div>
-                        <label for="chase_hours" class="block text-sm font-medium text-gray-700 mb-1">Chase after inactivity</label>
+                        <label for="chase_hours" class="field-label">Chase after inactivity</label>
                         <div class="flex items-center space-x-2">
                             <input type="number" name="chase_hours" id="chase_hours"
                                 value="{{ \App\Models\Setting::get('chase_hours', 48) }}" min="1" max="9999"
-                                class="w-20 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                class="field-input w-20 text-right">
                             <span class="text-xs text-gray-400">hours</span>
                         </div>
                         @error('chase_hours') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
-                        <label for="chase_unassigned_email" class="block text-sm font-medium text-gray-700 mb-1">Notify for unassigned requests</label>
+                        <label for="chase_unassigned_email" class="field-label">Notify for unassigned requests</label>
                         <input type="email" name="chase_unassigned_email" id="chase_unassigned_email"
                             value="{{ \App\Models\Setting::get('chase_unassigned_email') }}" placeholder="team@example.com"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                         <p class="mt-1 text-xs text-gray-500">Fallback email for stale requests with no assignee.</p>
                         @error('chase_unassigned_email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
                 </div>
 
-                <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                <button type="submit" class="btn btn-primary mt-4">
                     Save Chase Settings
                 </button>
             </form>
@@ -124,8 +124,8 @@
 
     {{-- Right column (1/3): Email log + Template previews --}}
     <div class="space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Email Log</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Email Log</h2>
             <p class="text-sm text-gray-500 mb-4">View all emails sent by the system with their content.</p>
             <a href="{{ route('admin.settings.email-log') }}"
                class="inline-flex items-center px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors">
@@ -134,8 +134,8 @@
             </a>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Template Previews</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Template Previews</h2>
             <p class="text-sm text-gray-500 mb-4">Preview emails with sample data.</p>
 
             <div class="space-y-2">

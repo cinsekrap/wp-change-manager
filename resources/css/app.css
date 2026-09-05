@@ -55,3 +55,60 @@
         transition: all 200ms ease;
     }
 }
+
+/*
+ * Component layer.
+ *
+ * Each of these was previously written out as a utility string at every call
+ * site, which is how the app came to have seven sizes of the same button and
+ * three card paddings. Size and weight now carry meaning rather than recording
+ * when a screen was written.
+ */
+@layer components {
+    /* Buttons. One height. The variant says how important the action is, and
+       .btn-sm exists only for table rows and sidebar cards. */
+    .btn {
+        @apply inline-flex items-center justify-center gap-1.5 rounded-full
+               px-5 py-2 text-sm font-medium whitespace-nowrap
+               disabled:opacity-40 disabled:cursor-not-allowed;
+    }
+    .btn-primary   { @apply bg-hcrg-burgundy text-white hover:bg-[#9A1B4B]; }
+    .btn-secondary { @apply border border-hcrg-burgundy text-hcrg-burgundy
+                            hover:bg-hcrg-burgundy hover:text-white; }
+    .btn-danger    { @apply border border-status-error text-status-error
+                            hover:bg-status-error hover:text-white; }
+    .btn-quiet     { @apply px-0 text-hcrg-grey-400 hover:text-hcrg-charcoal; }
+    .btn-sm        { @apply px-3.5 py-1.5 text-xs; }
+
+    /* Card. A border rather than a shadow: stacked cards stop vibrating against
+       each other, and dense pages hold together. */
+    .card        { @apply bg-white rounded-lg border border-hcrg-grey-200; }
+    .card-body   { @apply p-5; }
+    .card-header { @apply px-5 py-3.5 border-b border-hcrg-grey-100; }
+
+    /* Type. Three levels. Spacing belongs to the container, not the heading. */
+    .page-title  { @apply text-2xl font-bold text-gray-900; }
+    .page-lede   { @apply mt-1 text-sm text-hcrg-grey-400 max-w-3xl; }
+    .card-title  { @apply text-base font-bold text-gray-900; }
+    .group-label { @apply text-xs font-bold uppercase tracking-wide text-hcrg-grey-300; }
+
+    /* Fields. Help always above the input it explains, in one grey. */
+    .field        { @apply mb-4; }
+    .field-label  { @apply block text-sm font-medium text-gray-700 mb-1; }
+    .field-help   { @apply text-xs text-hcrg-grey-400 mb-1.5; }
+    .field-input  { @apply block w-full px-3 py-2 rounded-lg text-sm
+                           border border-hcrg-grey-200
+                           focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy; }
+    .field-error  { @apply mt-1 text-xs text-status-error; }
+
+    /* Tables. One padding, no striping — the row border is enough. */
+    .table        { @apply min-w-full; }
+    .table th     { @apply px-5 py-3 text-left text-xs font-bold uppercase tracking-wide
+                           text-hcrg-grey-300 border-b border-hcrg-grey-100; }
+    .table td     { @apply px-5 py-3.5 text-sm border-b border-hcrg-grey-100; }
+    .table tbody tr:last-child td { @apply border-b-0; }
+
+    /* Empty state. Says what goes here, and offers the way to add it. */
+    .empty-state   { @apply px-6 py-10 text-center; }
+    .empty-state p { @apply text-sm text-hcrg-grey-400 mb-3; }
+}

@@ -1,5 +1,5 @@
 {{-- Step 4: Check questions --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="4" data-panel="questions">
+<div class="card card-body wizard-step hidden" data-step="4" data-panel="questions">
     <h2 class="text-xl font-bold text-gray-900 mb-2">Before you submit</h2>
     <p class="text-sm text-gray-500 mb-4">Please answer the following questions.</p>
 
@@ -18,13 +18,13 @@
         <div id="deadlineFields" class="hidden space-y-3">
             <div>
                 <label for="deadlineDate" class="block text-xs font-medium text-gray-500 mb-1">When is this needed by?</label>
-                <input type="date" id="deadlineDate" min="{{ now()->addDay()->format('Y-m-d') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <input type="date" id="deadlineDate" min="{{ now()->addDay()->format('Y-m-d') }}" class="field-input">
                 <p class="mt-1 text-xs text-gray-400">Must be at least 1 day from today.</p>
             </div>
             <div>
                 <label for="deadlineReason" class="block text-xs font-medium text-gray-500 mb-1">Why is this date important?</label>
                 <input type="text" id="deadlineReason" placeholder="e.g. Service launch, event date, campaign go-live..."
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
         </div>
     </div>

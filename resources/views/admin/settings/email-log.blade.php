@@ -3,20 +3,20 @@
 
 @section('content')
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Email Log</h1>
+    <h1 class="page-title">Email Log</h1>
     <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to Notifications</a>
 </div>
 
 {{-- Search --}}
-<div class="bg-white rounded-lg shadow p-4 mb-6">
+<div class="card card-body mb-6">
     <form method="GET" action="{{ route('admin.settings.email-log') }}" class="flex items-end gap-4">
         <div class="flex-1">
             <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Recipient email or subject..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
         <div class="flex items-center gap-2">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Search</button>
+            <button type="submit" class="btn btn-primary">Search</button>
             @if(request('search'))
                 <a href="{{ route('admin.settings.email-log') }}" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
             @endif
@@ -25,7 +25,7 @@
 </div>
 
 {{-- Table --}}
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     @if($logs->isEmpty())
         <div class="p-8 text-center text-gray-400">
             <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>

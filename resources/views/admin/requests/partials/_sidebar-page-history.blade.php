@@ -1,6 +1,6 @@
 {{-- Page history --}}
 @if($pageHistory->isNotEmpty())
-<div class="bg-white rounded-lg shadow p-4">
+<div class="card card-body">
     <h2 class="text-sm font-semibold text-gray-900 mb-2">Page History</h2>
     <div class="space-y-2">
         @foreach($pageHistory as $prev)

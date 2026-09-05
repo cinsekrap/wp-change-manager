@@ -2,7 +2,7 @@
 @section('title', 'Training Confirmation')
 
 @section('content')
-<div class="bg-white rounded-lg shadow p-8">
+<div class="card p-8">
     <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">Training Confirmation</h1>
 
     {{-- Request summary card --}}

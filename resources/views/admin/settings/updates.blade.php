@@ -3,11 +3,11 @@
 
 @section('content')
 <div class="max-w-2xl">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">Updates</h1>
+    <h1 class="page-title mb-6">Updates</h1>
 
     {{-- Current version --}}
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <div class="text-2xl font-bold text-gray-900">{{ config('app.name') }} <span class="text-hcrg-burgundy">v{{ $currentVersion }}</span></div>
+    <div class="card card-body mb-6">
+        <div class="page-title">{{ config('app.name') }} <span class="text-hcrg-burgundy">v{{ $currentVersion }}</span></div>
         <p class="text-sm text-gray-500 mt-1">Installed version</p>
     </div>
 
@@ -39,7 +39,7 @@
                 <div class="mt-4 pt-4 border-t border-amber-200 flex items-center space-x-3">
                     <form method="POST" action="{{ route('admin.settings.updates.install') }}" data-confirm="This will pull the latest code and run migrations. Continue?">
                         @csrf
-                        <button type="submit" class="bg-hcrg-burgundy text-white px-5 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                        <button type="submit" class="btn btn-primary">
                             Install Update
                         </button>
                     </form>
@@ -77,8 +77,8 @@
 
     {{-- Update history --}}
     @if($lastDeploy)
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-3">Last Update</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-3">Last Update</h2>
             <div class="text-sm text-gray-600 space-y-1">
                 <p><span class="font-medium text-gray-700">Time:</span> {{ $lastDeploy['timestamp'] ?? 'Unknown' }}</p>
                 <p>
@@ -121,8 +121,8 @@
     @endif
 
     {{-- GitHub Token --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-3">GitHub API Token</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-3">GitHub API Token</h2>
         <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-hcrg-burgundy hover:underline">github.com/settings/tokens</a> with no special permissions.</p>
         <form method="POST" action="{{ route('admin.settings.github-token.update') }}">
             @csrf
@@ -130,20 +130,20 @@
             <div class="flex items-end space-x-3">
                 <div class="flex-1">
                     <input type="password" name="github_token" value="" placeholder="{{ \App\Models\Setting::get('github_token') ? '••••••••' : 'Paste token here' }}"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     @if(\App\Models\Setting::get('github_token'))
                         <p class="mt-1 text-xs text-gray-500">Token is set. Leave blank to keep current.</p>
                     @endif
                 </div>
-                <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium whitespace-nowrap">Save</button>
+                <button type="submit" class="btn btn-primary">Save</button>
             </div>
         </form>
     </div>
 
     {{-- Rollback --}}
     @if(!empty($backups))
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-3">Rollback</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-3">Rollback</h2>
         <p class="text-sm text-gray-500 mb-4">A backup is created automatically before each update. You can restore to a previous version if something goes wrong.</p>
 
         <div class="space-y-2">
@@ -157,7 +157,7 @@
                     <form method="POST" action="{{ route('admin.settings.updates.rollback') }}" data-confirm="This will restore the app to this backup. The current version will be overwritten. Continue?">
                         @csrf
                         <input type="hidden" name="backup" value="{{ $backup['filename'] }}">
-                        <button type="submit" class="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 rounded-full border border-red-300 hover:bg-red-50 transition-colors">
+                        <button type="submit" class="btn btn-danger btn-sm hover:text-red-800 border-red-300">
                             Restore
                         </button>
                     </form>

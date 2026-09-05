@@ -3,35 +3,35 @@
 
 @section('content')
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Mail Settings</h1>
+    <h1 class="page-title">Mail Settings</h1>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- Left: SMTP config --}}
     <div class="lg:col-span-2">
-        <form method="POST" action="{{ route('admin.settings.mail.update') }}" class="bg-white rounded-lg shadow p-6 space-y-5">
+        <form method="POST" action="{{ route('admin.settings.mail.update') }}" class="card card-body space-y-5">
             @csrf
             @method('PUT')
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="mail_host" class="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
+                    <label for="mail_host" class="field-label">SMTP Host</label>
                     <input type="text" name="mail_host" id="mail_host" value="{{ old('mail_host', $settings->get('mail_host')) }}" required placeholder="smtp.office365.com"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     @error('mail_host') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="mail_port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                        <label for="mail_port" class="field-label">Port</label>
                         <input type="number" name="mail_port" id="mail_port" value="{{ old('mail_port', $settings->get('mail_port', '587')) }}" required placeholder="587" min="1" max="65535"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                         @error('mail_port') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label for="mail_encryption" class="block text-sm font-medium text-gray-700 mb-1">Encryption</label>
+                        <label for="mail_encryption" class="field-label">Encryption</label>
                         <select name="mail_encryption" id="mail_encryption"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                             <option value="tls" {{ old('mail_encryption', $settings->get('mail_encryption', 'tls')) === 'tls' ? 'selected' : '' }}>TLS</option>
                             <option value="ssl" {{ old('mail_encryption', $settings->get('mail_encryption', 'tls')) === 'ssl' ? 'selected' : '' }}>SSL</option>
                             <option value="none" {{ old('mail_encryption', $settings->get('mail_encryption', 'tls')) === 'none' ? 'selected' : '' }}>None</option>
@@ -43,18 +43,18 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="mail_username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <label for="mail_username" class="field-label">Username</label>
                     <input type="text" name="mail_username" id="mail_username" value="{{ old('mail_username', $settings->get('mail_username')) }}" placeholder="user@example.com"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     @error('mail_username') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
-                    <label for="mail_password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <label for="mail_password" class="field-label">Password</label>
                     <div class="relative">
                         <input type="password" name="mail_password" id="mail_password"
                             placeholder="{{ $settings->get('mail_password') ? '••••••••' : '' }}"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy pr-16">
+                            class="field-input pr-16">
                         <button type="button" onclick="togglePassword()" id="togglePasswordBtn"
                             class="absolute inset-y-0 right-0 flex items-center px-3 text-sm text-gray-500 hover:text-gray-700">
                             Show
@@ -69,30 +69,30 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label for="mail_from_address" class="block text-sm font-medium text-gray-700 mb-1">From Address</label>
+                    <label for="mail_from_address" class="field-label">From Address</label>
                     <input type="email" name="mail_from_address" id="mail_from_address" value="{{ old('mail_from_address', $settings->get('mail_from_address')) }}" required placeholder="noreply@example.com"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     @error('mail_from_address') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
-                    <label for="mail_from_name" class="block text-sm font-medium text-gray-700 mb-1">From Name</label>
+                    <label for="mail_from_name" class="field-label">From Name</label>
                     <input type="text" name="mail_from_name" id="mail_from_name" value="{{ old('mail_from_name', $settings->get('mail_from_name')) }}" required placeholder="ACME Change"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                     @error('mail_from_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
             </div>
 
             <div class="flex items-center space-x-3 pt-2">
-                <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                <button type="submit" class="btn btn-primary">
                     Save Settings
                 </button>
             </div>
         </form>
 
         {{-- Test --}}
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Test Configuration</h2>
+        <div class="card card-body mt-6">
+            <h2 class="card-title mb-4">Test Configuration</h2>
 
             @if(session('test_success'))
                 <div class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{{ session('test_success') }}</div>
@@ -104,11 +104,11 @@
             <form method="POST" action="{{ route('admin.settings.mail.test') }}" class="flex items-end space-x-3">
                 @csrf
                 <div class="flex-1">
-                    <label for="test_email" class="block text-sm font-medium text-gray-700 mb-1">Send test email to</label>
+                    <label for="test_email" class="field-label">Send test email to</label>
                     <input type="email" name="test_email" id="test_email" value="{{ old('test_email') }}" required placeholder="you@example.com"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                        class="field-input">
                 </div>
-                <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium whitespace-nowrap">
+                <button type="submit" class="btn btn-primary">
                     Send Test
                 </button>
             </form>
@@ -117,12 +117,12 @@
 
     {{-- Right: Notification settings link --}}
     <div class="space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Notifications</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Notifications</h2>
             <p class="text-sm text-gray-500 mb-4">Manage email templates, SLA turnaround times and chase reminder settings.</p>
 
             <a href="{{ route('admin.settings.notifications') }}"
-               class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+               class="btn btn-secondary">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                 Manage email templates and notification settings &rarr;
             </a>

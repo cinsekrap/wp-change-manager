@@ -5,7 +5,7 @@
 <div class="max-w-lg mx-auto">
     {{-- Header --}}
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 font-mono">{{ $changeRequest->reference }}</h1>
+        <h1 class="page-title font-mono">{{ $changeRequest->reference }}</h1>
         @php
                                     $badgeColor = \App\Models\ChangeRequest::statusColor($changeRequest->status);
             $badgeLabel = \App\Models\ChangeRequest::statusLabel($changeRequest->status);
@@ -148,7 +148,7 @@
         <div class="flex items-start space-x-3">
             <svg class="w-6 h-6 {{ $explainer['iconColor'] }} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{!! $explainer['icon'] !!}</svg>
             <div>
-                <h2 class="text-base font-bold text-gray-900">{{ $explainer['title'] }}</h2>
+                <h2 class="card-title">{{ $explainer['title'] }}</h2>
                 <p class="text-sm text-gray-600 mt-1">{{ $explainer['text'] }}</p>
             </div>
         </div>
@@ -156,7 +156,7 @@
     @endif
 
     {{-- Details card --}}
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="card card-body mb-6">
         <dl class="space-y-3 text-sm">
             <div class="flex justify-between">
                 <dt class="text-gray-500">Site</dt>
@@ -221,7 +221,7 @@
         && $changeRequest->allSites()->contains(fn ($s) => $changeRequest->publishedFor($s->id)['published_url']);
 @endphp
 @if ($publishedAnywhere)
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="card card-body mb-6">
         <h3 class="text-sm font-semibold text-gray-700 mb-3">Where it went live</h3>
         <ul class="space-y-2">
             @foreach ($changeRequest->allSites() as $site)
@@ -239,7 +239,7 @@
 
     {{-- Changes requested --}}
     @if ($changeRequest->items->isNotEmpty())
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="card card-body mb-6">
             <h2 class="text-sm font-semibold text-gray-900 mb-4">Changes Requested</h2>
             <div class="space-y-3">
                 @foreach ($changeRequest->items as $item)
@@ -279,7 +279,7 @@
                 <p class="text-sm text-gray-700 mb-3">{!! nl2br(e($changeRequest->clarification_message)) !!}</p>
             @endif
             <a href="{{ \App\Http\Controllers\PublicSite\ClarificationController::respondUrl($changeRequest) }}"
-                class="inline-flex items-center justify-center w-full bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium transition-colors">
+                class="btn btn-primary w-full">
                 Respond to This Request
             </a>
         </div>
@@ -303,7 +303,7 @@
 
     {{-- Status timeline --}}
     @if ($changeRequest->statusLogs->isNotEmpty())
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="card card-body mb-6">
             <h2 class="text-sm font-semibold text-gray-900 mb-4">Status History</h2>
             <ol class="relative border-l border-gray-200 ml-2 space-y-4">
                 @foreach ($changeRequest->statusLogs as $log)

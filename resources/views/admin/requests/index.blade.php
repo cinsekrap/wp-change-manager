@@ -2,7 +2,7 @@
 @section('title', 'Change Requests')
 
 @section('content')
-<h1 class="text-2xl font-bold text-gray-900 mb-6">Change Requests</h1>
+<h1 class="page-title mb-6">Change Requests</h1>
 
 @php
     $selectedStatuses = (array) request('status', []);
@@ -36,14 +36,14 @@
 </div>
 
 {{-- Filters --}}
-<form method="GET" action="{{ route('admin.requests.index') }}" class="bg-white rounded-lg shadow p-4 mb-6" id="filterForm">
+<form method="GET" action="{{ route('admin.requests.index') }}" class="card card-body mb-6" id="filterForm">
     @if($myRequestsActive)<input type="hidden" name="my_requests" value="1">@endif
     @if($currentSort)<input type="hidden" name="sort" value="{{ $currentSort }}"><input type="hidden" name="direction" value="{{ $currentDir }}">@endif
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <input type="text" name="search" value="{{ request('search') }}" placeholder="Reference, name, email..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
 
         {{-- Status multi-select dropdown --}}
@@ -51,7 +51,7 @@
             <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
             <div class="relative multi-dropdown">
                 <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
+                    class="field-input text-left bg-white flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedStatuses) ? 'All statuses' : count($selectedStatuses) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -76,7 +76,7 @@
             <label class="block text-xs font-medium text-gray-500 mb-1">Priority</label>
             <div class="relative multi-dropdown">
                 <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
+                    class="field-input text-left bg-white flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedPriorities) ? 'All priorities' : count($selectedPriorities) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -97,7 +97,7 @@
             <label class="block text-xs font-medium text-gray-500 mb-1">Site</label>
             <div class="relative multi-dropdown">
                 <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" aria-haspopup="true" aria-expanded="false"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy flex items-center justify-between">
+                    class="field-input text-left bg-white flex items-center justify-between">
                     <span class="multi-label truncate">{{ empty($selectedSites) ? 'All sites' : count($selectedSites) . ' selected' }}</span>
                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -117,7 +117,7 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Assigned to</label>
             <select name="assigned_to" onchange="this.form.submit()"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input bg-white">
                 <option value="">All</option>
                 <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
                 @foreach($adminUsers as $admin)
@@ -129,16 +129,16 @@
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
             <input type="date" name="date_from" value="{{ request('date_from') }}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
+                class="field-input" onchange="this.form.submit()">
         </div>
         <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
             <input type="date" name="date_to" value="{{ request('date_to') }}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy" onchange="this.form.submit()">
+                class="field-input" onchange="this.form.submit()">
         </div>
     </div>
     <div class="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-gray-100">
-        <a href="{{ route('admin.requests.export', request()->query()) }}" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors">
+        <a href="{{ route('admin.requests.export', request()->query()) }}" class="btn btn-secondary">
             <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export CSV
         </a>
@@ -149,7 +149,7 @@
 </form>
 
 {{-- Results --}}
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     <div class="overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50">
@@ -262,14 +262,14 @@
 <div id="bulkBar" class="hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-200/60 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <div class="flex items-center space-x-4">
-            <span class="inline-flex items-center px-3 py-1 rounded-full bg-hcrg-burgundy text-white text-sm font-bold"><span id="bulkCount">0</span><span class="ml-1 font-medium">selected</span></span>
+            <span class="btn btn-primary btn-sm"><span id="bulkCount">0</span><span class="ml-1 font-medium">selected</span></span>
             <button type="button" onclick="deselectAll()" class="text-sm text-gray-500 hover:text-gray-700 underline">Deselect all</button>
         </div>
         <div class="flex items-center space-x-3">
             {{-- Change Status --}}
             <div class="relative" id="bulkStatusDropdown">
                 <button type="button" onclick="document.getElementById('bulkStatusMenu').classList.toggle('hidden')"
-                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors shadow-sm">
+                    class="btn btn-primary shadow-sm">
                     Change Status
                     <svg class="w-3 h-3 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -288,7 +288,7 @@
             {{-- Assign to --}}
             <div class="relative" id="bulkAssignDropdown">
                 <button type="button" onclick="document.getElementById('bulkAssignMenu').classList.toggle('hidden')"
-                    class="inline-flex items-center px-4 py-2 bg-hcrg-burgundy text-white text-sm font-medium rounded-full hover:bg-[#9A1B4B] transition-colors shadow-sm">
+                    class="btn btn-primary shadow-sm">
                     Assign to
                     <svg class="w-3 h-3 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
@@ -301,7 +301,7 @@
             </div>
 
             {{-- Export selected --}}
-            <button type="button" onclick="exportSelected()" class="inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy text-sm font-medium rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors shadow-sm">
+            <button type="button" onclick="exportSelected()" class="btn btn-secondary shadow-sm">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Export
             </button>

@@ -2,9 +2,9 @@
      designer has nothing to work from. --}}
 @if($changeRequest->isContentRequest())
 @php $brief = $changeRequest->content_brief ?? []; @endphp
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card card-body mb-6">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <h2 class="text-lg font-bold text-gray-900">The brief</h2>
+        <h2 class="card-title">The brief</h2>
         @if($changeRequest->content_type && config("content-types.{$changeRequest->content_type}"))
             @php $type = config("content-types.{$changeRequest->content_type}"); @endphp
             <span class="text-xs text-hcrg-grey-400 border border-hcrg-grey-200 rounded-full px-3 py-1 whitespace-nowrap">
@@ -73,18 +73,18 @@
     {{-- The only title safe to publish: written here, not taken from the requester. --}}
     <form method="POST" action="{{ route('admin.requests.public-title', $changeRequest) }}" class="mt-6 pt-5 border-t border-gray-100">
         @csrf @method('PATCH')
-        <label for="publicTitle" class="block text-sm font-medium text-gray-700 mb-1">Public title</label>
-        <p class="text-xs text-gray-500 mb-2">
+        <label for="publicTitle" class="field-label">Public title</label>
+        <p class="field-help">
             Shown on the public suggestions list and used by the duplicate check. Until you set one, this suggestion does not appear publicly at all.
         </p>
         <div class="flex flex-wrap gap-2">
             <input type="text" name="public_title" id="publicTitle" maxlength="255"
                 value="{{ old('public_title', $changeRequest->public_title) }}"
                 placeholder="e.g. What happens at your first appointment"
-                class="flex-1 min-w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save</button>
+                class="field-input flex-1 min-w-64">
+            <button type="submit" class="btn btn-primary">Save</button>
         </div>
-        @error('public_title') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+        @error('public_title') <p class="field-error">{{ $message }}</p> @enderror
     </form>
 </div>
 @endif

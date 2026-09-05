@@ -1,5 +1,5 @@
 {{-- Combined request + requester info --}}
-<div class="bg-white rounded-lg shadow p-6">
+<div class="card card-body">
     <div class="flex flex-wrap items-start gap-x-8 gap-y-2 text-sm">
         <div class="flex items-center">
             <span class="text-gray-500">Site:</span>

@@ -1,5 +1,5 @@
 {{-- Approvals — collapsible --}}
-<div class="bg-white rounded-lg shadow">
+<div class="card">
     <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')"
         class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors">
         <div class="flex items-center space-x-2">
@@ -106,7 +106,7 @@
                                         <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-hcrg-burgundy border-gray-300 rounded">
                                         <span class="text-[10px] text-gray-500">Share approver name with requester</span>
                                     </label>
-                                    <button type="submit" class="w-full bg-hcrg-burgundy text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-[#9A1B4B]">Record</button>
+                                    <button type="submit" class="btn btn-primary btn-sm w-full">Record</button>
                                 </form>
                                 <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" data-confirm="Remove this approver?">
                                     @csrf @method('DELETE')
@@ -172,7 +172,7 @@
                                 <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-hcrg-burgundy border-gray-300 rounded">
                                 <span class="text-[10px] text-gray-500">Share approver name with requester</span>
                             </label>
-                            <button type="submit" class="w-full bg-hcrg-burgundy text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-[#9A1B4B]">Record</button>
+                            <button type="submit" class="btn btn-primary btn-sm w-full">Record</button>
                         </form>
                         <form method="POST" action="{{ route('admin.requests.approvers.remove', [$changeRequest, $approver]) }}" class="mt-1" data-confirm="Remove this approver?">
                             @csrf @method('DELETE')
@@ -219,7 +219,7 @@
         @php $clinicalApprovers = \App\Models\ClinicalApprover::active()->ordered()->get(); @endphp
         <form method="POST" action="{{ route('admin.requests.approvers.add', $changeRequest) }}" class="border-t border-gray-100 pt-3">
             @csrf
-            <p class="text-xs font-medium text-gray-500 mb-2">Ask a clinical approver</p>
+            <p class="field-help font-medium">Ask a clinical approver</p>
 
             @if($clinicalApprovers->isEmpty())
                 <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
@@ -228,7 +228,7 @@
                 </p>
             @else
                 <select name="clinical_approver_id" id="clinicalApproverSelect" required
-                    class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
                     <option value="">Choose an approver...</option>
                     @foreach($clinicalApprovers as $ca)
                         <option value="{{ $ca->id }}" data-expertise="{{ $ca->areas_of_expertise }}">{{ $ca->label() }}</option>
@@ -238,7 +238,7 @@
                 {{-- Their expertise, so the designer can tell this is the right person to ask. --}}
                 <p id="clinicalApproverExpertise" class="hidden mt-2 text-xs text-hcrg-grey-400 bg-hcrg-grey-100 rounded-lg p-2"></p>
 
-                <button type="submit" class="mt-2 w-full bg-hcrg-burgundy text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Ask for approval</button>
+                <button type="submit" class="btn btn-primary btn-sm mt-2 w-full">Ask for approval</button>
 
                 <script>
                 (function () {
@@ -257,11 +257,11 @@
         @else
         <form method="POST" action="{{ route('admin.requests.approvers.add', $changeRequest) }}" class="border-t border-gray-100 pt-3">
             @csrf
-            <p class="text-xs font-medium text-gray-500 mb-2">Add approver</p>
+            <p class="field-help font-medium">Add approver</p>
             <div class="space-y-2">
-                <input type="text" name="name" required placeholder="Name" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-                <input type="email" name="email" placeholder="Email (optional)" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-                <input type="text" name="group" placeholder="Group (optional)" list="existingGroups" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                <input type="text" name="name" required placeholder="Name" class="field-input">
+                <input type="email" name="email" placeholder="Email (optional)" class="field-input">
+                <input type="text" name="group" placeholder="Group (optional)" list="existingGroups" class="field-input">
                 @if($changeRequest->approvers->whereNotNull('group')->isNotEmpty())
                 <datalist id="existingGroups">
                     @foreach($changeRequest->approvers->whereNotNull('group')->pluck('group')->unique() as $g)
@@ -269,7 +269,7 @@
                     @endforeach
                 </datalist>
                 @endif
-                <button type="submit" class="w-full bg-hcrg-burgundy text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Add</button>
+                <button type="submit" class="btn btn-primary btn-sm w-full">Add</button>
             </div>
         </form>
         @endif

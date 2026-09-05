@@ -2,7 +2,7 @@
 @if(auth()->user()->isSuperAdmin())
 @php $auditEntries = \App\Models\AuditLog::forModel($changeRequest)->with('user')->latest()->get(); @endphp
 @if($auditEntries->isNotEmpty())
-<div class="bg-white rounded-lg shadow">
+<div class="card">
     <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')"
         class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors">
         <div class="flex items-center space-x-2">

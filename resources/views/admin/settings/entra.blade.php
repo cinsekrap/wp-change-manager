@@ -2,12 +2,12 @@
 @section('title', 'SSO Settings')
 
 @section('content')
-<h1 class="text-2xl font-bold text-gray-900 mb-6">SSO Settings</h1>
+<h1 class="page-title mb-6">SSO Settings</h1>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- Left: Entra configuration --}}
     <div class="lg:col-span-2">
-        <form method="POST" action="{{ route('admin.settings.entra.update') }}" class="bg-white rounded-lg shadow p-6 space-y-5">
+        <form method="POST" action="{{ route('admin.settings.entra.update') }}" class="card card-body space-y-5">
             @csrf
             @method('PUT')
 
@@ -27,33 +27,33 @@
 
             {{-- Tenant ID --}}
             <div>
-                <label for="entra_tenant_id" class="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
+                <label for="entra_tenant_id" class="field-label">Tenant ID</label>
                 <input type="text" name="entra_tenant_id" id="entra_tenant_id"
                     value="{{ old('entra_tenant_id', $settings->get('entra_tenant_id')) }}"
                     placeholder="your-tenant-id or common"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
                 <p class="mt-1 text-xs text-gray-500">Find this in Azure Portal &rarr; Microsoft Entra ID &rarr; Overview. Use "common" to allow any Azure AD tenant.</p>
                 @error('entra_tenant_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
 
             {{-- Client ID --}}
             <div>
-                <label for="entra_client_id" class="block text-sm font-medium text-gray-700 mb-1">Client ID / Application ID</label>
+                <label for="entra_client_id" class="field-label">Client ID / Application ID</label>
                 <input type="text" name="entra_client_id" id="entra_client_id"
                     value="{{ old('entra_client_id', $settings->get('entra_client_id')) }}"
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
                 <p class="mt-1 text-xs text-gray-500">The Application (client) ID from your App Registration in Azure Portal.</p>
                 @error('entra_client_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
 
             {{-- Client Secret --}}
             <div>
-                <label for="entra_client_secret" class="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
+                <label for="entra_client_secret" class="field-label">Client Secret</label>
                 <div class="relative">
                     <input type="password" name="entra_client_secret" id="entra_client_secret"
                         placeholder="{{ $settings->get('entra_client_secret') ? '••••••••' : '' }}"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy pr-16">
+                        class="field-input pr-16">
                     <button type="button" onclick="toggleSecret()" id="toggleSecretBtn"
                         class="absolute inset-y-0 right-0 flex items-center px-3 text-sm text-gray-500 hover:text-gray-700">
                         Show
@@ -82,7 +82,7 @@
             </div>
 
             <div class="flex items-center space-x-3 pt-2">
-                <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+                <button type="submit" class="btn btn-primary">
                     Save Settings
                 </button>
             </div>
@@ -91,8 +91,8 @@
 
     {{-- Right: Setup instructions --}}
     <div class="space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Redirect URI</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Redirect URI</h2>
             <p class="text-sm text-gray-500 mb-3">Copy this URI into your Azure App Registration under <strong>Authentication &rarr; Web &rarr; Redirect URIs</strong>.</p>
 
             <div class="flex items-center space-x-2">
@@ -105,8 +105,8 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-2">Azure Setup Guide</h2>
+        <div class="card card-body">
+            <h2 class="card-title mb-2">Azure Setup Guide</h2>
             <ol class="text-sm text-gray-600 space-y-2 list-decimal list-inside">
                 <li>Go to <strong>Azure Portal</strong> &rarr; <strong>Microsoft Entra ID</strong> &rarr; <strong>App registrations</strong></li>
                 <li>Click <strong>New registration</strong></li>

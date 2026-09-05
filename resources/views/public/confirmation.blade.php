@@ -2,14 +2,14 @@
 @section('title', 'Request Submitted')
 
 @section('content')
-<div class="bg-white rounded-lg shadow p-8 text-center">
+<div class="card p-8 text-center">
     <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
     </div>
 
-    <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $changeRequest->isContentRequest() ? 'Suggestion Received' : 'Request Submitted' }}</h1>
+    <h1 class="page-title mb-2">{{ $changeRequest->isContentRequest() ? 'Suggestion Received' : 'Request Submitted' }}</h1>
     <p class="text-gray-600 mb-6">
         @if($changeRequest->isAccessRequest())
             Your access request has been received.
@@ -62,7 +62,7 @@
     </p>
     @endif
 
-    <a href="{{ route('wizard') }}" class="inline-block bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+    <a href="{{ route('wizard') }}" class="btn btn-primary">
         Submit Another Request
     </a>
 </div>

@@ -2,7 +2,7 @@
 @section('title', 'Respond: ' . $changeRequest->reference)
 
 @section('content')
-<div class="bg-white rounded-lg shadow p-8">
+<div class="card p-8">
     <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">We need some more information</h1>
 
     {{-- Request summary card --}}
@@ -51,7 +51,7 @@
         <div class="mb-6">
             <label for="comment" class="block text-sm font-semibold text-gray-900 mb-2">Your response</label>
             <textarea name="comment" id="comment" rows="4" placeholder="Type your reply here..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('comment') }}</textarea>
+                class="field-input">{{ old('comment') }}</textarea>
             @error('comment') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
@@ -84,7 +84,7 @@
                         <p class="text-sm text-gray-500 mb-2"><span class="font-medium">Currently:</span> {{ Str::limit($item->current_content, 200) }}</p>
                     @endif
                     <textarea name="items[{{ $item->id }}]" rows="3"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('items.' . $item->id, $item->description) }}</textarea>
+                        class="field-input">{{ old('items.' . $item->id, $item->description) }}</textarea>
                 </div>
                 @endforeach
             </div>

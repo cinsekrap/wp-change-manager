@@ -3,14 +3,14 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-2">
-    <h1 class="text-2xl font-bold text-gray-900">Funding Approvers</h1>
-    <a href="{{ route('admin.funding-approvers.create') }}" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Add Approver</a>
+    <h1 class="page-title">Funding Approvers</h1>
+    <a href="{{ route('admin.funding-approvers.create') }}" class="btn btn-primary">Add Approver</a>
 </div>
 <p class="text-sm text-gray-500 mb-6 max-w-3xl">
     The people who can agree to spend content design hours.
 </p>
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>

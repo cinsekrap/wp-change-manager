@@ -4,7 +4,7 @@
     $allPass = collect($changeRequest->check_answers)->every(fn($a) => !empty($a['pass']));
     $failCount = collect($changeRequest->check_answers)->filter(fn($a) => isset($a['pass']) && !$a['pass'])->count();
 @endphp
-<div class="bg-white rounded-lg shadow">
+<div class="card">
     <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chevron').classList.toggle('rotate-180')"
         class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors">
         <div class="flex items-center space-x-2">

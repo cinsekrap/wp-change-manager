@@ -4,10 +4,10 @@
         &larr; Back
     </button>
     <div class="sm:ml-auto" id="navButtonGroup">
-        <button type="button" id="nextBtn" class="w-full sm:w-auto px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+        <button type="button" id="nextBtn" class="btn btn-primary w-full sm:w-auto" disabled>
             Next &rarr;
         </button>
-        <button type="button" id="submitBtn" class="hidden w-full sm:w-auto px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B]">
+        <button type="button" id="submitBtn" class="btn btn-primary hidden w-full sm:w-auto">
             Submit Request
         </button>
     </div>
@@ -42,7 +42,7 @@
         <button type="button" id="govBack" class="px-6 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50">
             &larr; Back to page
         </button>
-        <button type="button" id="govContinue" class="px-6 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+        <button type="button" id="govContinue" class="btn btn-primary" disabled>
             Continue &rarr;
         </button>
     </div>

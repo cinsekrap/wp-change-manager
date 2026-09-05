@@ -1,7 +1,7 @@
 {{-- Content lane: the draft copy, and where it went live. --}}
 @if($changeRequest->isContentRequest())
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h2 class="text-lg font-bold text-gray-900 mb-1">Draft copy</h2>
+<div class="card card-body mb-6">
+    <h2 class="card-title mb-1">Draft copy</h2>
     <p class="text-sm text-gray-500 mb-4">
         Clinical approval binds to this text. Editing it after sign-off voids the approval and sends it back for re-approval.
     </p>
@@ -28,7 +28,7 @@
         <div class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-hcrg-grey-100 text-hcrg-charcoal whitespace-pre-wrap">{{ $changeRequest->draft_content }}</div>
 
         <a href="{{ route('admin.requests.show', $changeRequest) }}?unlock_draft=1#draft"
-           class="mt-3 inline-block border border-hcrg-burgundy text-hcrg-burgundy px-6 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+           class="btn btn-secondary mt-3">
             Unlock for editing
         </a>
     @else
@@ -46,17 +46,17 @@
                 <input type="hidden" name="void_approval" value="1">
             @endif
             <textarea name="draft_content" id="draftContent" rows="10"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
-            @error('draft_content') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                class="field-input">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
+            @error('draft_content') <p class="field-error">{{ $message }}</p> @enderror
             @include('partials.reading-age', ['field' => 'draftContent'])
-            <button type="submit" class="mt-3 bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save draft</button>
+            <button type="submit" class="btn btn-primary mt-3">Save draft</button>
         </form>
     @endif
 </div>
 
 @if($changeRequest->files->isNotEmpty())
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h2 class="text-lg font-bold text-gray-900 mb-1">Attached to the brief</h2>
+<div class="card card-body mb-6">
+    <h2 class="card-title mb-1">Attached to the brief</h2>
     <p class="text-sm text-gray-500 mb-4">What the requester sent with the suggestion.</p>
     <ul class="space-y-2">
         @foreach($changeRequest->files as $file)
@@ -77,8 +77,8 @@
 </div>
 @endif
 
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h2 class="text-lg font-bold text-gray-900 mb-1">Where it went live</h2>
+<div class="card card-body mb-6">
+    <h2 class="card-title mb-1">Where it went live</h2>
     <p class="text-sm text-gray-500 mb-4">
         One address per site, recorded as you publish. The suggester gets these by email; the public queue shows only the site titles.
     </p>
@@ -98,10 +98,10 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="url" name="published[{{ $site->id }}][url]" placeholder="https://..."
                             value="{{ $pivot['published_url'] ?? '' }}"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                         <input type="text" name="published[{{ $site->id }}][title]" placeholder="Page title"
                             value="{{ $pivot['published_title'] ?? '' }}"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                     </div>
                     @if($site->id !== $changeRequest->site_id)
                         <button type="submit" name="remove_site_id" value="{{ $site->id }}"
@@ -114,16 +114,16 @@
         @php $unlisted = \App\Models\Site::where('is_active', true)->whereNotIn('id', $changeRequest->allSites()->pluck('id'))->orderBy('name')->get(); @endphp
         @if($unlisted->isNotEmpty())
             <div class="mt-4 p-4 bg-hcrg-grey-100 rounded-lg">
-                <label for="addSite" class="block text-sm font-medium text-gray-700 mb-1">Also went live somewhere else?</label>
-                <p class="text-xs text-gray-500 mb-2">The requester's list was a suggestion — add any site this actually landed on.</p>
+                <label for="addSite" class="field-label">Also went live somewhere else?</label>
+                <p class="field-help">The requester's list was a suggestion — add any site this actually landed on.</p>
                 <div class="flex flex-wrap gap-2">
-                    <select name="add_site_id" id="addSite" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    <select name="add_site_id" id="addSite" class="field-input">
                         <option value="">Choose a site...</option>
                         @foreach($unlisted as $site)
                             <option value="{{ $site->id }}">{{ $site->name }}</option>
                         @endforeach
                     </select>
-                    <button type="submit" class="border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">Add site</button>
+                    <button type="submit" class="btn btn-secondary">Add site</button>
                 </div>
             </div>
         @endif
@@ -132,7 +132,7 @@
             Adding a site does not affect clinical approval — one sign-off covers every site. Only changing the copy voids it, so if a site needs its own wording that is a separate request.
         </p>
 
-        <button type="submit" class="mt-4 bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save addresses</button>
+        <button type="submit" class="btn btn-primary mt-4">Save addresses</button>
     </form>
 </div>
 @endif

@@ -165,7 +165,7 @@
         <div class="relative w-[90vw] max-w-lg max-h-[60vh] bg-white rounded-lg shadow-xl flex flex-col">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                 <div>
-                    <h2 class="text-lg font-bold text-gray-900">What's new in v{{ $whatsNewVersion }}</h2>
+                    <h2 class="card-title">What's new in v{{ $whatsNewVersion }}</h2>
                     <p class="text-xs text-gray-500 mt-0.5">This update has been installed</p>
                 </div>
                 <button onclick="dismissWhatsNew()" class="text-gray-400 hover:text-gray-600 p-1">
@@ -176,7 +176,7 @@
                 {!! \Illuminate\Support\Str::markdown($whatsNewNotes, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}
             </div>
             <div class="px-6 py-4 border-t border-gray-200 text-right">
-                <button onclick="dismissWhatsNew()" class="px-5 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] transition-colors">Got it</button>
+                <button onclick="dismissWhatsNew()" class="btn btn-primary">Got it</button>
             </div>
         </div>
     </div>

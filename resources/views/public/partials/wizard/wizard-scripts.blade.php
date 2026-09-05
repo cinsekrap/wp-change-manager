@@ -392,7 +392,7 @@
             html += `<input type="hidden" class="area-action-preset" value="add">`;
         } else {
             html += `<div class="mb-4 pt-3 border-t border-gray-100">`;
-            html += `<p class="text-xs font-medium text-gray-500 mb-2">What do you want to do?</p>`;
+            html += `<p class="field-help font-medium">What do you want to do?</p>`;
             html += `<div class="flex flex-wrap gap-2">`;
             if (allowAdd) {
                 html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
@@ -477,10 +477,10 @@
 
         if (action === 'delete') {
             // Delete: what should be removed + optional reason
-            fieldHtml += `<label class="block text-sm font-medium text-gray-700 mb-1">What should be removed? <span class="text-red-500">*</span></label>`;
-            fieldHtml += `<p class="text-xs text-gray-400 mb-2">Copy/paste the content or describe what needs to be removed.</p>`;
+            fieldHtml += `<label class="field-label">What should be removed? <span class="text-red-500">*</span></label>`;
+            fieldHtml += `<p class="field-help">Copy/paste the content or describe what needs to be removed.</p>`;
             fieldHtml += `<textarea class="sf-input ${inputClass}" rows="4" placeholder="Paste or describe the content to remove..."></textarea>`;
-            fieldHtml += `<label class="block text-sm font-medium text-gray-700 mb-1 mt-3">Reason for removal <span class="text-gray-400 font-normal">(optional)</span></label>`;
+            fieldHtml += `<label class="field-label mt-3">Reason for removal <span class="text-gray-400 font-normal">(optional)</span></label>`;
             fieldHtml += `<input type="text" class="sf-delete-reason ${inputClass}" placeholder="e.g. Outdated, no longer relevant...">`;
 
             fieldsContainer.innerHTML = fieldHtml;
