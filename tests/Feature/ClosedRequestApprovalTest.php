@@ -113,7 +113,7 @@ class ClosedRequestApprovalTest extends TestCase
         $this->get(route('admin.requests.show', $request))
             ->assertSuccessful()
             ->assertDontSee('Ask a clinical approver')
-            ->assertSee('nobody can be asked to approve it');
+            ->assertSee('Change its status to ask');
     }
 
     public function test_an_open_request_is_unaffected(): void

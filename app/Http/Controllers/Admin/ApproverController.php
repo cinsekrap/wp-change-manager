@@ -22,7 +22,7 @@ class ApproverController extends Controller
         // sends them a decision that has already been taken — and the link they
         // follow tells them so. Reopen it first if it genuinely needs approval.
         if (in_array($changeRequest->status, ChangeRequest::TERMINAL_STATUSES)) {
-            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status before asking anyone to approve it.');
+            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status to ask someone for approval.');
         }
 
         // A clinical sign-off has to name someone from the managed list. Free-text
@@ -205,7 +205,7 @@ class ApproverController extends Controller
         // sends them a decision that has already been taken — and the link they
         // follow tells them so. Reopen it first if it genuinely needs approval.
         if (in_array($changeRequest->status, ChangeRequest::TERMINAL_STATUSES)) {
-            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status before asking anyone to approve it.');
+            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status to ask someone for approval.');
         }
 
         // Content is not approved *for a site* — one clinical sign-off covers every

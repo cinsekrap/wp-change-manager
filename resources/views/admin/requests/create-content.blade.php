@@ -5,9 +5,8 @@
 <a href="{{ route('admin.requests.index') }}" class="text-sm text-hcrg-burgundy hover:underline">← Back to requests</a>
 <h1 class="text-2xl font-bold text-gray-900 mt-2 mb-2">New content</h1>
 <p class="text-sm text-gray-500 mb-6 max-w-3xl">
-    For content the team has decided it wants, rather than content somebody asked for. It starts as a
-    suggestion and goes through the same gates as anything from the request form. Only the working title
-    is needed now &mdash; fill in whatever else you already know.
+    For content the team wants, rather than something someone has asked for. Only the working title is
+    needed &mdash; fill in whatever else you know.
 </p>
 
 <form method="POST" action="{{ route('admin.requests.content.store') }}" class="max-w-3xl">
@@ -20,9 +19,7 @@
             <div>
                 <label for="page_title" class="block text-sm font-medium text-gray-700 mb-1">Working title <span class="text-red-500">*</span></label>
                 <p class="text-xs text-gray-500 mb-2">
-                    How you and the team refer to it while it is being written &mdash; it also names this
-                    piece in approval emails. The public title is set separately, once you are ready for it
-                    to appear on the public list.
+                    What the team calls it while it's being written. The public title is set later.
                 </p>
                 <input type="text" name="page_title" id="page_title" required maxlength="255"
                     value="{{ old('page_title') }}"
@@ -33,7 +30,7 @@
 
             <div>
                 <span class="block text-sm font-medium text-gray-700 mb-1">What job does it do?</span>
-                <p class="text-xs text-gray-500 mb-2">This sets the page type it lands on. Leave it if you have not decided.</p>
+                <p class="text-xs text-gray-500 mb-2">Sets the page type it lands on. Skip if you haven't decided.</p>
                 <div class="space-y-2">
                     @foreach($contentTypes as $key => $type)
                         <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-hcrg-burgundy has-[:checked]:border-hcrg-burgundy has-[:checked]:bg-hcrg-grey-100">
@@ -55,8 +52,7 @@
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-lg font-bold text-gray-900 mb-1">Where it lives</h2>
         <p class="text-xs text-gray-500 mb-4">
-            Content is approved once and can go on more than one site. If you have not decided yet, leave
-            this alone &mdash; a home can be set later.
+            Content can go on more than one site. Leave blank if you haven't decided.
         </p>
 
         <div class="space-y-5">
@@ -90,8 +86,7 @@
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-lg font-bold text-gray-900 mb-1">The brief</h2>
         <p class="text-xs text-gray-500 mb-4">
-            The same questions the request form asks. It is what the clinical approver reads to judge whether
-            the copy does what it set out to do, so it is worth filling in even when you wrote it yourself.
+            What the clinical approver reads alongside the copy.
         </p>
 
         <div class="space-y-5">
@@ -149,8 +144,7 @@
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-lg font-bold text-gray-900 mb-1">The copy</h2>
         <p class="text-xs text-gray-500 mb-4">
-            Only if you have already written it. Editing it later voids any clinical approval it has been
-            given, so the sign-off always belongs to the words that were actually read.
+            Only if you've already written it. Editing approved copy withdraws the approval.
         </p>
         <textarea name="draft_content" id="draft_content" rows="8"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('draft_content') }}</textarea>
@@ -189,7 +183,7 @@
                 <input type="number" name="estimated_hours" id="estimated_hours" step="0.5" min="0" max="9999"
                     value="{{ old('estimated_hours') }}" placeholder="e.g. 8"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
-                <p class="mt-1 text-xs text-gray-400">Internal only. What the funding decision turns on; leave blank until you have sized it up.</p>
+                <p class="mt-1 text-xs text-gray-400">Internal only. Leave blank until you've sized it up.</p>
                 @error('estimated_hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 

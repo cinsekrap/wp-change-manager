@@ -4,14 +4,13 @@
 @section('content')
 <div class="funding-page">
     <div class="flex flex-wrap justify-between items-start gap-3 mb-2">
-        <h1 class="text-2xl font-bold text-gray-900">Content awaiting a funding decision</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Content awaiting funding</h1>
         <button type="button" onclick="window.print()" class="no-print border border-hcrg-burgundy text-hcrg-burgundy px-4 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
             Print this list
         </button>
     </div>
     <p class="text-sm text-gray-500 mb-6 max-w-3xl">
-        Everything suggested, sized up or waiting on money &mdash; oldest first, because the wait is part of the
-        argument. Funding is decided outside this tool; tick what gets a yes and mark it funded to move it on.
+        Content that needs hours agreed before writing starts, oldest first.
     </p>
 
     {{-- The numbers you get asked for in the room. --}}
@@ -83,7 +82,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">Nothing is waiting on a funding decision.</td></tr>
+                    <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">Nothing is waiting for funding.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -94,7 +93,7 @@
             @if($fundingApprovers->isEmpty())
                 <p class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
                     No funding approvers set up yet.
-                    <a href="{{ route('admin.funding-approvers.index') }}" class="underline">Add one</a> to ask for money from here.
+                    <a href="{{ route('admin.funding-approvers.index') }}" class="underline">Add one</a> to request funding from here.
                 </p>
             @else
                 <form method="POST" action="{{ route('admin.funding.rounds.store') }}" id="askForm" class="flex flex-wrap items-end gap-3">
@@ -125,7 +124,7 @@
                     class="border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                     Mark selected as funded
                 </button>
-                <span class="text-xs text-gray-500">For a decision already made elsewhere. Moves them straight to Being Written without asking anyone.</span>
+                <span class="text-xs text-gray-500">For hours already agreed elsewhere. Moves them straight to Being Written.</span>
             </div>
         </div>
         @endif

@@ -106,6 +106,6 @@ class ContentRequestController extends Controller
 
         return redirect()
             ->route('admin.requests.show', $changeRequest)
-            ->with('success', "Content {$changeRequest->reference} created. Set a public title when you are ready for it to appear on the public list.");
+            ->with('success', "Content {$changeRequest->reference} created. Add a public title to show it on the public list.");
     }
 }

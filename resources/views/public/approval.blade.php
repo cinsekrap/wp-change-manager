@@ -126,8 +126,7 @@
                     </p>
                     @if($copyReadingAge > 13)
                         <div class="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                            This copy reads older than most of our audience can manage &mdash; the average reading age in the UK is 9&ndash;10.
-                            Clinical accuracy and plain English are not in tension: if this can be said more simply without losing meaning, please ask for that before approving.
+                            This copy reads older than most of our audience can manage. The average reading age in the UK is 9&ndash;10.
                         </div>
                     @endif
                 @endif

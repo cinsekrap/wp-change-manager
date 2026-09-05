@@ -139,9 +139,9 @@ return [
 
     'funding_requested' => [
         'name' => 'Funding Requested',
-        'description' => 'Sent to a funding approver when a designer asks them to fund a batch of content. Lists every piece and the total hours.',
+        'description' => 'Sent to a funding approver when hours are submitted for approval. Lists every piece and the total.',
         'subject' => 'Funding decision needed: {reference} — {total_hours} hours',
-        'body' => 'A batch of content is ready to be written and needs the hours agreed before work starts. Everything in the ask is listed below with what each piece is expected to take.',
+        'body' => 'Content design hours need agreeing before writing starts. Each piece is listed below with its estimate.',
         'placeholders' => ['reference', 'total_hours', 'item_count'],
     ],
 

@@ -181,7 +181,7 @@ class FundingRoundTest extends TestCase
         // approver's business.
         $this->get(route('funding.show', FundingRound::firstOrFail()->token))
             ->assertSuccessful()
-            ->assertSee('Something similar may already exist')
+            ->assertSee('May already exist')
             ->assertSee('There is a leaflet that covers some of this.');
     }
 

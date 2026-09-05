@@ -3,11 +3,10 @@
 
 @section('content')
 <div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h1 class="text-xl font-bold text-gray-900 mb-1">Funding decision needed</h1>
+    <h1 class="text-xl font-bold text-gray-900 mb-1">Approve content design hours</h1>
     <p class="text-sm text-gray-500">
         {{ $round->items->count() }} {{ \Illuminate\Support\Str::plural('piece', $round->items->count()) }} of content,
         {{ rtrim(rtrim(number_format((float) $round->total_hours, 1), '0'), '.') }} hours in total.
-        Nothing is written until this is agreed.
     </p>
 </div>
 
@@ -58,8 +57,8 @@
                 {{-- Relevant to a decision about money: we are being asked to pay
                      for something the requester thought might already exist. --}}
                 <div>
-                    <dt class="text-xs font-medium text-amber-700 uppercase tracking-wide">Something similar may already exist</dt>
-                    <dd class="text-amber-800 mt-0.5 whitespace-pre-wrap">{{ ($brief['already_exists_detail'] ?? null) ?: 'The person who asked was not sure.' }}</dd>
+                    <dt class="text-xs font-medium text-amber-700 uppercase tracking-wide">May already exist</dt>
+                    <dd class="text-amber-800 mt-0.5 whitespace-pre-wrap">{{ ($brief['already_exists_detail'] ?? null) ?: 'No detail given.' }}</dd>
                 </div>
                 @endif
             </dl>
@@ -78,8 +77,8 @@
         <input type="hidden" name="decision" id="decisionField" value="approved">
 
         <div id="declineReason" class="hidden mb-4">
-            <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Why not? <span class="text-red-500">*</span></label>
-            <p class="text-xs text-gray-500 mb-2">The content team picks this up, so a sentence on what would change your mind is more use than a no.</p>
+            <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Reason <span class="text-red-500">*</span></label>
+            <p class="text-xs text-gray-500 mb-2">What would need to change?</p>
             <textarea name="notes" id="notes" rows="3"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('notes') }}</textarea>
             @error('notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

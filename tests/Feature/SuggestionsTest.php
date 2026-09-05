@@ -240,7 +240,7 @@ class SuggestionsTest extends TestCase
             ->assertSee(route('suggestions'), false)
             // It is not on the list until an admin writes a public title, so the
             // wording must not claim it already is.
-            ->assertSee('once we have written yours up', false);
+            ->assertSee("Once we've written it up", false);
     }
 
     public function test_a_change_requester_is_not_sent_to_the_content_queue(): void

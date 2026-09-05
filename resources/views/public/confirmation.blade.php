@@ -56,9 +56,9 @@
          there until we have written a public title for it, so this promises a
          list to look at, not that theirs is on it yet. --}}
     <p class="text-sm text-gray-500 mb-6">
-        Suggestions are added to our
-        <a href="{{ route('suggestions') }}" class="text-hcrg-burgundy hover:underline font-medium">public list of content suggestions</a>
-        once we have written yours up, so you can see where it has got to alongside everything else people have asked for.
+        Once we've written it up it will appear on our
+        <a href="{{ route('suggestions') }}" class="text-hcrg-burgundy hover:underline font-medium">list of content suggestions</a>,
+        where you can follow its progress.
     </p>
     @endif
 

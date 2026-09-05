@@ -35,7 +35,7 @@
         <div>
             <label for="remit" class="block text-sm font-medium text-gray-700 mb-1">Remit</label>
             <p class="text-xs text-gray-500 mb-2">
-                What budget they hold, so a designer can tell whether this is the right person to ask. Write it however is most useful.
+                What budget they hold. Shown when someone picks an approver.
             </p>
             <textarea name="remit" id="remit" rows="3"
                 placeholder="e.g. Community services content budget, BSW and Bath"

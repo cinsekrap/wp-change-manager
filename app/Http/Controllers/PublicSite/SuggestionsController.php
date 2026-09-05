@@ -134,7 +134,7 @@ class SuggestionsController extends Controller
         return view('public.watch-action', [
             'action' => route('suggestions.confirm.apply', $token),
             'heading' => 'Confirm these updates',
-            'body' => 'Tell us to send you updates about this suggestion.',
+            'body' => 'You asked to be told when this suggestion moves.',
             'button' => 'Yes, send me updates',
         ]);
     }
@@ -152,7 +152,7 @@ class SuggestionsController extends Controller
         return view('public.watch-action', [
             'action' => route('suggestions.unsubscribe.apply', $token),
             'heading' => 'Stop these updates',
-            'body' => 'Stop sending you updates about this suggestion.',
+            'body' => 'You will no longer be told when this suggestion moves.',
             'button' => 'Yes, stop the updates',
         ]);
     }

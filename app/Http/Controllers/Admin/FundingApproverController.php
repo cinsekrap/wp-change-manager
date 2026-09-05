@@ -71,7 +71,7 @@ class FundingApproverController extends Controller
         );
 
         return redirect()->route('admin.funding-approvers.index')
-            ->with('success', $fundingApprover->name.' can no longer be asked to fund work. Decisions they already made are kept.');
+            ->with('success', $fundingApprover->name.' can no longer be asked to fund work.');
     }
 
     private function validated(Request $request): array

@@ -7,7 +7,7 @@
     <a href="{{ route('admin.funding-approvers.create') }}" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Add Approver</a>
 </div>
 <p class="text-sm text-gray-500 mb-6 max-w-3xl">
-    The people who can agree to spend content design hours. A funding ask names one of them, and the record of what was agreed keeps their name.
+    The people who can agree to spend content design hours.
 </p>
 
 <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -39,7 +39,7 @@
                     <a href="{{ route('admin.funding-approvers.edit', $approver) }}" class="text-hcrg-burgundy hover:underline">Edit</a>
                     @if($approver->is_active)
                         <form method="POST" action="{{ route('admin.funding-approvers.destroy', $approver) }}" class="inline ml-3"
-                              data-confirm="Deactivate {{ $approver->name }}? Past approvals will still name them.">
+                              data-confirm="Deactivate {{ $approver->name }}? They will no longer appear when requesting funding.">
                             @csrf @method('DELETE')
                             <button type="submit" class="text-red-600 hover:underline">Deactivate</button>
                         </form>
@@ -49,7 +49,7 @@
             @empty
             <tr>
                 <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
-                    No funding approvers yet. Content cannot be sent for approval until there is at least one.
+                    No funding approvers yet. Add one to request funding from the funding page.
                 </td>
             </tr>
             @endforelse
