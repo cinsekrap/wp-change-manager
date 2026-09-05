@@ -48,6 +48,10 @@ class ContentRequestSubmissionTest extends TestCase
             'requester_email' => 'jane@example.com',
             'priority' => 'normal',
             'check_answers' => [],
+            // The wizard sends this key with an empty array rather than omitting
+            // it, and a present field is what rules fire on. Tests that left it
+            // out passed while every real submission was rejected.
+            'items' => [],
         ], $overrides);
     }
 
@@ -131,5 +135,42 @@ class ContentRequestSubmissionTest extends TestCase
             ->assertSee('Governance')
             // The checkbox the content lane replaces is gone.
             ->assertDontSee('id="isNewPage"', false);
+    }
+
+    public function test_a_content_request_is_accepted_with_an_empty_items_array(): void
+    {
+        [$home] = $this->sites();
+
+        // Not the same as omitting the key: items: [] is a present field, so any
+        // rule that fires on presence applies to it.
+        $this->postJson('/submit', $this->payload($home, ['items' => []]))
+            ->assertSuccessful();
+
+        $this->assertSame(1, ChangeRequest::where('request_type', 'content')->count());
+    }
+
+    public function test_a_change_request_is_still_refused_without_line_items(): void
+    {
+        [$home] = $this->sites();
+
+        foreach ([[], null] as $items) {
+            $this->postJson('/submit', $this->payload($home, [
+                'request_type' => 'change',
+                'page_url' => '/a-page',
+                'cpt_slug' => 'pages',
+                'content_type' => null,
+                'content_brief' => null,
+                'items' => $items,
+            ]))->assertStatus(422)->assertJsonValidationErrors('items');
+        }
+    }
+
+    public function test_the_wizard_still_sends_items_for_content(): void
+    {
+        $js = file_get_contents(resource_path('views/public/partials/wizard/wizard-scripts.blade.php'));
+
+        // If the wizard ever stops sending the key, the empty-array case above
+        // stops being the one that matters and this needs revisiting.
+        $this->assertStringContainsString('items: items.map(item => ({', $js);
     }
 }

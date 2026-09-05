@@ -25,6 +25,12 @@ class SubmissionController extends Controller
 {
     public function store(Request $request)
     {
+        // A content request carries a brief instead of line items, and the wizard
+        // sends an empty items array for it rather than omitting the key. That is
+        // a present field, so a blanket min:1 rejected every content submission
+        // while leaving the PHP tests — which omit the key — perfectly happy.
+        $wantsItems = $request->input('request_type') !== 'content';
+
         $validated = $request->validate([
             'site_id' => ['required', \Illuminate\Validation\Rule::exists('sites', 'id')->where('is_active', true)],
             'page_url' => ['required', 'string', 'max:2048', new \App\Rules\WebUrl],
@@ -43,7 +49,7 @@ class SubmissionController extends Controller
             'deadline_date' => 'nullable|date|after:today',
             'deadline_reason' => 'nullable|string|max:500',
             // Content requests carry a brief instead of line items.
-            'items' => 'required_unless:request_type,content|array|min:1',
+            'items' => $wantsItems ? ['required', 'array', 'min:1'] : ['nullable', 'array'],
             'content_type' => ['required_if:request_type,content', 'nullable', \Illuminate\Validation\Rule::in(array_keys(config('content-types')))],
             'content_brief' => 'required_if:request_type,content|nullable|array',
             'content_brief.achieve' => 'required_with:content_brief|string|max:5000',
