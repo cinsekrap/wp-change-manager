@@ -57,17 +57,23 @@ class FundingPageTest extends TestCase
 
     public function test_it_leaves_out_anything_already_decided(): void
     {
-        $this->content('in_progress', '8');
-        $this->content('done', '8');
-        $this->content('declined', '8');
+        $decided = [
+            $this->content('in_progress', '8'),
+            $this->content('done', '8'),
+            $this->content('declined', '8'),
+        ];
         $waiting = $this->content('awaiting_funding', '4');
 
         $this->loginAsAdmin();
 
-        $html = $this->get(route('admin.funding'))->assertSuccessful()->getContent();
+        $response = $this->get(route('admin.funding'))->assertSuccessful();
 
-        $this->assertStringContainsString($waiting->reference, $html);
-        $this->assertSame(1, substr_count($html, 'WCR-'), 'Something already decided is still on the funding list.');
+        $response->assertSee($waiting->reference);
+        foreach ($decided as $request) {
+            // Naming each one, rather than counting references — a row carries
+            // its reference more than once, and a count says nothing about which.
+            $response->assertDontSee($request->reference);
+        }
     }
 
     public function test_change_requests_never_appear(): void

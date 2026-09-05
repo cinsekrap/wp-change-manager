@@ -57,7 +57,9 @@
                         <td class="px-3 py-3 no-print">
                             <input type="checkbox" class="fund-row h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"
                                    value="{{ $req->id }}" data-hours="{{ (float) $req->estimated_hours }}"
-                                   @disabled($waitingOn || $req->estimated_hours === null)>
+                                   data-sized="{{ $req->estimated_hours === null ? '0' : '1' }}"
+                                   data-asked="{{ $waitingOn ? '1' : '0' }}"
+                                   data-ref="{{ $req->reference }}">
                         </td>
                         <td class="px-3 py-3 whitespace-nowrap">
                             <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium">{{ $req->reference }}</a>
@@ -72,8 +74,12 @@
                             @endif
                         </td>
                         <td class="px-3 py-3 text-right text-gray-600 whitespace-nowrap">{{ (int) $req->created_at->diffInDays(now()) }} days</td>
-                        <td class="px-3 py-3 text-right font-semibold {{ $req->estimated_hours === null ? 'text-amber-600' : 'text-gray-900' }} whitespace-nowrap">
-                            {{ $req->estimated_hours !== null ? rtrim(rtrim(number_format((float) $req->estimated_hours, 1), '0'), '.') : 'not sized' }}
+                        <td class="px-3 py-3 text-right font-semibold whitespace-nowrap">
+                            @if($req->estimated_hours !== null)
+                                <span class="text-gray-900">{{ rtrim(rtrim(number_format((float) $req->estimated_hours, 1), '0'), '.') }}</span>
+                            @else
+                                <a href="{{ route('admin.requests.show', $req) }}" class="text-amber-600 underline hover:text-amber-700">not sized</a>
+                            @endif
                         </td>
                     </tr>
                     @empty
@@ -108,6 +114,8 @@
                         Request funding for selected
                     </button>
                     <span id="askRemit" class="hidden text-xs text-hcrg-grey-400 basis-full"></span>
+                    {{-- Why the ask cannot go, named rather than left to a disabled button. --}}
+                    <span id="askBlocked" class="hidden text-xs text-amber-700 basis-full"></span>
                 </form>
                 @error('funding_approver_id') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
             @endif
@@ -145,15 +153,39 @@
 
     function selected() { return rows.filter(function (r) { return r.checked; }); }
 
+    var ask = document.getElementById('askButton');
+    var askBlocked = document.getElementById('askBlocked');
+
+    function listRefs(rows) {
+        var refs = rows.map(function (r) { return r.dataset.ref; });
+        return refs.length > 3 ? refs.slice(0, 3).join(', ') + ' and ' + (refs.length - 3) + ' more' : refs.join(', ');
+    }
+
     function paint() {
         var picked = selected();
         var total = picked.reduce(function (sum, r) { return sum + (parseFloat(r.dataset.hours) || 0); }, 0);
         count.textContent = picked.length;
         // Whole numbers read better than 8.0 in a conversation about money.
         hours.textContent = total % 1 === 0 ? total : total.toFixed(1);
+
+        // Recording a decision made elsewhere needs no estimate and no round.
         if (button) button.disabled = picked.length === 0;
-        var ask = document.getElementById('askButton');
-        if (ask) ask.disabled = picked.length === 0;
+
+        if (!ask) return;
+
+        var unsized = picked.filter(function (r) { return r.dataset.sized === '0'; });
+        var asked = picked.filter(function (r) { return r.dataset.asked === '1'; });
+        var reasons = [];
+
+        if (unsized.length) reasons.push('Give these an estimate first: ' + listRefs(unsized) + '.');
+        if (asked.length) reasons.push('Already waiting on a decision: ' + listRefs(asked) + '.');
+
+        ask.disabled = picked.length === 0 || reasons.length > 0;
+
+        if (askBlocked) {
+            askBlocked.textContent = reasons.join(' ');
+            askBlocked.classList.toggle('hidden', reasons.length === 0);
+        }
     }
 
     rows.forEach(function (r) { r.addEventListener('change', paint); });
