@@ -11,7 +11,7 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
-        'content_type', 'content_brief', 'public_title', 'draft_content',
+        'content_type', 'content_brief', 'estimated_hours', 'public_title', 'draft_content',
         'published_url', 'published_title',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
         'clarification_message', 'clarification_requested_at',

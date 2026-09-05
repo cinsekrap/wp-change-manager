@@ -139,6 +139,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::post('/requests/{changeRequest}/notes', [ChangeRequestController::class, 'addNote'])->name('admin.requests.notes');
     Route::delete('/requests/{changeRequest}/watchers/{watcher}', [ChangeRequestController::class, 'removeWatcher'])->name('admin.requests.watcher.remove');
     Route::patch('/requests/{changeRequest}/public-title', [ChangeRequestController::class, 'updatePublicTitle'])->name('admin.requests.public-title');
+    Route::patch('/requests/{changeRequest}/estimate', [ChangeRequestController::class, 'updateEstimate'])->name('admin.requests.estimate');
     Route::patch('/requests/{changeRequest}/draft', [ChangeRequestController::class, 'updateDraft'])->name('admin.requests.draft');
     Route::patch('/requests/{changeRequest}/published', [ChangeRequestController::class, 'updatePublished'])->name('admin.requests.published');
     Route::post('/requests/{changeRequest}/request-clarification', [ChangeRequestController::class, 'requestClarification'])->name('admin.requests.request-clarification');

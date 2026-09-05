@@ -92,7 +92,7 @@ class ChangeRequestController extends Controller
 
             fputcsv($handle, [
                 'Reference', 'Type', 'Site', 'All Sites', 'Page or Content', 'CPT',
-                'Content Type', 'Public Title', 'Published URL', 'Requester Name',
+                'Content Type', 'Estimated Hours', 'Public Title', 'Published URL', 'Requester Name',
                 'Requester Email', 'Requester Role', 'Status', 'Priority', 'Items Count',
                 'Deadline', 'Submitted Date',
             ]);
@@ -108,6 +108,7 @@ class ChangeRequestController extends Controller
                         $row->subjectDescription(),
                         $row->cpt_slug ?? '',
                         $row->content_type ? config("content-types.{$row->content_type}.label", $row->content_type) : '',
+                        $row->estimated_hours ?? '',
                         $row->public_title ?? '',
                         $row->published_url ?? '',
                         $row->requester_name,
@@ -738,5 +739,36 @@ class ChangeRequestController extends Controller
         $watcher->delete();
 
         return back()->with('success', 'Watcher removed.');
+    }
+
+    /**
+     * The hours a content designer estimates at Sized Up, which the funding
+     * decision turns on.
+     *
+     * Internal only: it is not shown to the requester, not in any email to them,
+     * and not on the public suggestions list.
+     */
+    public function updateEstimate(Request $request, ChangeRequest $changeRequest)
+    {
+        $validated = $request->validate([
+            'estimated_hours' => 'nullable|numeric|min:0|max:9999',
+        ]);
+
+        $old = $changeRequest->estimated_hours;
+        $new = $validated['estimated_hours'] ?? null;
+
+        $changeRequest->update(['estimated_hours' => $new]);
+
+        AuditService::log(
+            action: 'estimate_updated',
+            model: $changeRequest,
+            description: "Estimate for {$changeRequest->reference}: ".($new === null ? 'cleared' : $new.' hours'),
+            oldValues: ['estimated_hours' => $old],
+            newValues: ['estimated_hours' => $new],
+        );
+
+        return back()->with('success', $new === null
+            ? 'Estimate cleared.'
+            : 'Estimate saved: '.rtrim(rtrim(number_format((float) $new, 1), '0'), '.').' hours.');
     }
 }

@@ -57,6 +57,24 @@
     toggleReasonField();
     </script>
 
+    @if($changeRequest->isContentRequest())
+    {{-- What Sized Up produces and what the funding decision turns on. Internal:
+         never shown to the requester or on the public list. --}}
+    <form method="POST" action="{{ route('admin.requests.estimate', $changeRequest) }}" class="mt-3 pt-3 border-t border-gray-100">
+        @csrf @method('PATCH')
+        <label for="estimatedHours" class="block text-xs font-medium text-gray-500 mb-1">Estimated hours</label>
+        <div class="flex gap-2">
+            <input type="number" name="estimated_hours" id="estimatedHours" step="0.5" min="0" max="9999"
+                value="{{ old('estimated_hours', $changeRequest->estimated_hours ? rtrim(rtrim(number_format((float) $changeRequest->estimated_hours, 1), '0'), '.') : '') }}"
+                placeholder="e.g. 8"
+                class="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <button type="submit" class="bg-hcrg-burgundy text-white px-3 py-1.5 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Save</button>
+        </div>
+        <p class="mt-1 text-xs text-gray-400">Internal only &mdash; not shown to the requester.</p>
+        @error('estimated_hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+    </form>
+    @endif
+
     @if($changeRequest->rejection_reason && in_array($changeRequest->status, ['declined', 'cancelled']))
     <div class="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
         <p class="text-xs font-medium text-red-700 mb-0.5">Reason</p>

@@ -46,6 +46,7 @@ class ContentRequestController extends Controller
             'additional_site_ids.*' => 'exists:sites,id',
             'assigned_to' => 'nullable|exists:users,id',
             'priority' => ['nullable', Rule::in(ChangeRequest::PRIORITIES)],
+            'estimated_hours' => 'nullable|numeric|min:0|max:9999',
             'deadline_date' => 'nullable|date',
             'deadline_reason' => 'nullable|string|max:1000',
             'draft_content' => 'nullable|string',
@@ -82,6 +83,7 @@ class ContentRequestController extends Controller
                 'is_new_page' => true,
                 'content_type' => $validated['content_type'] ?? null,
                 'content_brief' => $brief ?: null,
+                'estimated_hours' => $validated['estimated_hours'] ?? null,
                 'draft_content' => $validated['draft_content'] ?? null,
                 // Enters at the same gate as a suggestion from the public wizard.
                 'status' => 'suggested',
