@@ -28,6 +28,7 @@ class StructuredDraftTest extends TestCase
         return CptType::updateOrCreate(['slug' => 'needs'], [
             'name' => 'Needs',
             'request_mode' => 'normal',
+            'content_kinds' => ['situation_support', 'appointment_prep'],
             'form_config' => ['content_areas' => [
                 ['name' => 'Need Introduction', 'type' => 'richtext', 'reading_age' => true, 'word_limit' => 500],
                 ['name' => 'Contact Details', 'type' => 'group', 'sub_fields' => [
@@ -86,7 +87,8 @@ class StructuredDraftTest extends TestCase
     public function test_a_page_type_with_no_fields_configured_keeps_one_box(): void
     {
         CptType::updateOrCreate(['slug' => 'needs'], [
-            'name' => 'Needs', 'request_mode' => 'normal', 'form_config' => null,
+            'name' => 'Needs', 'request_mode' => 'normal',
+            'content_kinds' => ['situation_support'], 'form_config' => null,
         ]);
 
         $this->assertFalse($this->content('situation_support')->hasStructuredDraft());
@@ -267,5 +269,76 @@ class StructuredDraftTest extends TestCase
         $this->get(route('approval.show', $approver->token))
             ->assertSuccessful()
             ->assertSee('Plain copy for approval.');
+    }
+
+    public function test_the_mapping_is_set_on_the_page_type_in_the_admin(): void
+    {
+        $this->needsType();
+        $this->loginAsAdmin();
+
+        // It used to live in a config file, so wiring up a page type somebody had
+        // just added needed a code change and a deploy.
+        $this->get(route('admin.cpts.edit', CptType::where('slug', 'needs')->first()))
+            ->assertSuccessful()
+            ->assertSee('Used for new content')
+            ->assertSee('Explains a situation and what support exists')
+            ->assertSee('name="content_kinds[]"', false);
+    }
+
+    public function test_claiming_a_kind_changes_where_content_is_written(): void
+    {
+        $this->needsType();
+        $services = CptType::updateOrCreate(['slug' => 'services'], [
+            'name' => 'Services', 'request_mode' => 'normal',
+            'form_config' => ['content_areas' => [['name' => 'Service Title', 'type' => 'text']]],
+        ]);
+
+        $governance = $this->content('governance');
+        $this->assertFalse($governance->hasStructuredDraft());
+
+        $this->loginAsAdmin();
+        $this->put(route('admin.cpts.update', $services), [
+            'slug' => 'services', 'name' => 'Services', 'sort_order' => 0,
+            'request_mode' => 'normal',
+            'content_kinds' => ['governance'],
+            'content_areas' => [['name' => 'Service Title', 'type' => 'text']],
+        ])->assertRedirect();
+
+        $this->assertTrue($governance->fresh()->hasStructuredDraft());
+        $this->assertSame('services', $governance->fresh()->contentCptType()->slug);
+    }
+
+    public function test_a_kind_another_page_type_has_taken_cannot_be_claimed_twice(): void
+    {
+        $this->needsType();
+        $services = CptType::updateOrCreate(['slug' => 'services'], [
+            'name' => 'Services', 'request_mode' => 'normal',
+            'form_config' => ['content_areas' => [['name' => 'Service Title', 'type' => 'text']]],
+        ]);
+
+        $this->loginAsAdmin();
+
+        // Needs already claims situation_support; the form shows it as taken
+        // rather than letting two page types fight over it.
+        $this->get(route('admin.cpts.edit', $services))
+            ->assertSuccessful()
+            ->assertSee('Already used by Needs');
+    }
+
+    public function test_unticking_every_kind_returns_content_to_free_text(): void
+    {
+        $this->needsType();
+        $request = $this->content('situation_support');
+        $this->assertTrue($request->hasStructuredDraft());
+
+        $this->loginAsAdmin();
+        $this->put(route('admin.cpts.update', CptType::where('slug', 'needs')->first()), [
+            'slug' => 'needs', 'name' => 'Needs', 'sort_order' => 0, 'request_mode' => 'normal',
+            'content_areas' => [['name' => 'Need Introduction', 'type' => 'richtext']],
+        ])->assertRedirect();
+
+        // Sending no kinds means none, rather than leaving the old ones in place.
+        $this->assertSame([], CptType::where('slug', 'needs')->first()->content_kinds);
+        $this->assertFalse($request->fresh()->hasStructuredDraft());
     }
 }

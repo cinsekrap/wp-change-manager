@@ -298,9 +298,7 @@ class ChangeRequest extends Model
             return null;
         }
 
-        $slug = config("content-types.{$this->content_type}.cpt");
-
-        return $slug ? CptType::where('slug', $slug)->first() : null;
+        return CptType::forContentKind($this->content_type);
     }
 
     /**
