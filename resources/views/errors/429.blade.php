@@ -17,7 +17,7 @@
         @endif
         and try again.
     </p>
-    <a href="{{ url()->previous() }}" class="inline-flex items-center px-5 py-2 bg-hcrg-burgundy text-white rounded-full text-sm font-medium hover:bg-[#9A1B4B] transition-colors">
+    <a href="{{ url()->previous() }}" class="btn btn-primary">
         Go back
     </a>
 </div>

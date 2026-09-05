@@ -1,5 +1,5 @@
 {{-- Step 3: What do you want to do? --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="3" data-panel="changes">
+<div class="card card-body wizard-step hidden" data-step="3" data-panel="changes">
     <h2 class="text-xl font-bold text-gray-900 mb-2">What changes do you need?</h2>
     <p id="step3Subtitle" class="text-sm text-gray-500 mb-4">Describe each change you need. You can add multiple changes.</p>
 
@@ -7,7 +7,7 @@
     <div id="genericFlow">
         <div id="lineItems" class="space-y-4"></div>
 
-        <button type="button" id="addItemBtn" class="mt-4 inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+        <button type="button" id="addItemBtn" class="btn btn-secondary mt-4">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Add another change
         </button>

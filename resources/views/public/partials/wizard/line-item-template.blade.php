@@ -37,7 +37,7 @@
                     <span class="item-description-label">Description</span> <span class="text-red-500">*</span>
                     <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-hcrg-burgundy hover:underline">reset to current</button>
                 </label>
-                <textarea class="item-description w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                <textarea class="field-input item-description"
                     rows="3" placeholder="Describe the change you need in detail..."></textarea>
             </div>
             {{-- Live diff preview (changes only) --}}

@@ -4,8 +4,8 @@
 @section('content')
 <div class="funding-page">
     <div class="flex flex-wrap justify-between items-start gap-3 mb-2">
-        <h1 class="text-2xl font-bold text-gray-900">Content awaiting funding</h1>
-        <button type="button" onclick="window.print()" class="no-print border border-hcrg-burgundy text-hcrg-burgundy px-4 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+        <h1 class="page-title">Content awaiting funding</h1>
+        <button type="button" onclick="window.print()" class="btn btn-secondary no-print">
             Print this list
         </button>
     </div>
@@ -15,26 +15,26 @@
 
     {{-- The numbers you get asked for in the room. --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-5">
+        <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pieces waiting</div>
             <div class="text-3xl font-bold text-hcrg-charcoal mt-1">{{ $requests->count() }}</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-5">
+        <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Hours estimated</div>
             <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ rtrim(rtrim(number_format($totalHours, 1), '0'), '.') ?: '0' }}</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-5">
+        <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Still to size up</div>
             <div class="text-3xl font-bold {{ $unsized ? 'text-amber-600' : 'text-hcrg-charcoal' }} mt-1">{{ $unsized }}</div>
         </div>
-        <div class="bg-white rounded-lg shadow p-5 no-print">
+        <div class="card card-body no-print">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Selected</div>
             <div class="text-3xl font-bold text-hcrg-charcoal mt-1"><span id="selCount">0</span></div>
             <div class="text-xs text-hcrg-grey-400 mt-1"><span id="selHours">0</span> hours</div>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="card overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
@@ -101,7 +101,7 @@
                     <div>
                         <label for="fundingApprover" class="block text-xs font-medium text-gray-500 mb-1">Ask for funding from</label>
                         <select name="funding_approver_id" id="fundingApprover"
-                            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            class="field-input">
                             <option value="">Choose someone...</option>
                             @foreach($fundingApprovers as $fa)
                                 <option value="{{ $fa->id }}" data-remit="{{ $fa->remit }}">{{ $fa->label() }}</option>
@@ -109,7 +109,7 @@
                         </select>
                     </div>
                     <button type="submit" id="askButton" disabled
-                        class="bg-hcrg-burgundy text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-40 disabled:cursor-not-allowed">
+                        class="btn btn-primary">
                         Request funding for selected
                     </button>
                     <span id="askRemit" class="hidden text-xs text-hcrg-grey-400 basis-full"></span>
@@ -121,7 +121,7 @@
 
             <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3">
                 <button type="button" id="markFunded" disabled
-                    class="border border-hcrg-burgundy text-hcrg-burgundy px-5 py-2 rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="btn btn-secondary">
                     Mark selected as funded
                 </button>
                 <span class="text-xs text-gray-500">For hours already agreed elsewhere. Moves them straight to Being Written.</span>

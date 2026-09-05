@@ -23,25 +23,25 @@
             <input type="hidden" name="token" value="{{ $token }}">
 
             <div class="mb-4">
-                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label for="email" class="field-label">Email</label>
                 <input type="email" name="email" id="email" value="{{ old('email', $email) }}" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
 
             <div class="mb-4">
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                <label for="password" class="field-label">New Password</label>
                 <input type="password" name="password" id="password" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
                 <p class="mt-1 text-xs text-gray-500">Minimum 10 characters, must include uppercase, lowercase, and a number.</p>
             </div>
 
             <div class="mb-6">
-                <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                <label for="password_confirmation" class="field-label">Confirm Password</label>
                 <input type="password" name="password_confirmation" id="password_confirmation" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
 
-            <button type="submit" class="w-full bg-hcrg-burgundy text-white py-2 px-4 rounded-full hover:bg-[#9A1B4B] font-medium">
+            <button type="submit" class="btn btn-primary w-full">
                 Reset Password
             </button>
         </form>

@@ -4,7 +4,7 @@
 @section('content')
 <div class="flex items-center justify-between mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Email Templates</h1>
+        <h1 class="page-title">Email Templates</h1>
         <p class="mt-1 text-sm text-gray-500">Customise the subject lines and body text of automated emails. Use placeholders to insert dynamic content.</p>
     </div>
     <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-hcrg-burgundy hover:underline">&larr; Notifications</a>
@@ -16,11 +16,11 @@
 
     <div class="space-y-6">
         @foreach($templates as $key => $tpl)
-        <div class="bg-white rounded-lg shadow" id="panel-{{ $key }}">
+        <div class="card" id="panel-{{ $key }}">
             {{-- Accordion header --}}
             <button type="button" onclick="togglePanel('{{ $key }}')" class="w-full flex items-center justify-between px-6 py-4 text-left focus:outline-none">
                 <div>
-                    <h2 class="text-lg font-semibold text-gray-900">{{ $tpl['name'] }}</h2>
+                    <h2 class="card-title">{{ $tpl['name'] }}</h2>
                     <p class="text-sm text-gray-500 mt-0.5">{{ $tpl['description'] }}</p>
                 </div>
                 <div class="flex items-center space-x-3">
@@ -49,7 +49,7 @@
 
                 {{-- Subject --}}
                 <div>
-                    <label for="subject_{{ $key }}" class="block text-sm font-medium text-gray-700 mb-1">Subject line</label>
+                    <label for="subject_{{ $key }}" class="field-label">Subject line</label>
                     <input type="text"
                         name="templates[{{ $key }}][subject]"
                         id="subject_{{ $key }}"
@@ -57,14 +57,14 @@
                         data-field="subject"
                         value="{{ old("templates.{$key}.subject", $tpl['subject']) }}"
                         placeholder="{{ $tpl['default_subject'] }}"
-                        class="template-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy text-sm"
+                        class="field-input template-field"
                         onfocus="setActiveField(this)">
                     <p class="mt-1 text-xs text-gray-400">Default: {{ $tpl['default_subject'] }}</p>
                 </div>
 
                 {{-- Body --}}
                 <div>
-                    <label for="body_{{ $key }}" class="block text-sm font-medium text-gray-700 mb-1">Body text</label>
+                    <label for="body_{{ $key }}" class="field-label">Body text</label>
                     <textarea
                         name="templates[{{ $key }}][body]"
                         id="body_{{ $key }}"
@@ -72,7 +72,7 @@
                         data-field="body"
                         rows="4"
                         placeholder="{{ $tpl['default_body'] }}"
-                        class="template-field w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy text-sm"
+                        class="field-input template-field"
                         onfocus="setActiveField(this)">{{ old("templates.{$key}.body", $tpl['body']) }}</textarea>
                     <p class="mt-1 text-xs text-gray-400">Default: {{ $tpl['default_body'] }}</p>
                 </div>
@@ -98,7 +98,7 @@
     </div>
 
     <div class="mt-6 flex items-center space-x-3">
-        <button type="submit" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium transition-colors shadow-sm">
+        <button type="submit" class="btn btn-primary shadow-sm">
             Save All Templates
         </button>
     </div>

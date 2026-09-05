@@ -21,21 +21,21 @@
 
 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 class="page-title">Dashboard</h1>
         <p class="text-sm text-gray-500 mt-1">Management reporting on request volumes, turnaround and approvals.</p>
     </div>
     <form method="GET" action="{{ route('admin.dashboard') }}" class="flex items-end gap-2">
         <div>
             <label for="from" class="block text-xs font-medium text-gray-500 mb-1">From</label>
             <input type="date" id="from" name="from" value="{{ $from->format('Y-m-d') }}"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
         <div>
             <label for="to" class="block text-xs font-medium text-gray-500 mb-1">To</label>
             <input type="date" id="to" name="to" value="{{ $to->format('Y-m-d') }}"
-                class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
-        <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B]">Apply</button>
+        <button type="submit" class="btn btn-primary">Apply</button>
     </form>
 </div>
 
@@ -64,15 +64,15 @@
 
 {{-- Everything below is for the selected period. --}}
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted</div>
         <div class="text-3xl font-bold text-hcrg-charcoal mt-1">{{ $kpis['submitted'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Completed</div>
         <div class="text-3xl font-bold text-emerald-600 mt-1">{{ $kpis['completed'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Days to Complete</div>
         <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ $kpis['avg_days'] ?? '—' }}</div>
         {{-- Blended across both lanes this describes neither, so each is shown too. --}}
@@ -81,16 +81,16 @@
             <div>Content: <span class="font-semibold text-hcrg-charcoal">{{ $kpis['avg_days_content'] ?? '—' }}</span></div>
         </div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Met SLA</div>
         <div class="text-3xl font-bold {{ ($kpis['sla_pct'] ?? 100) >= 80 ? 'text-emerald-600' : 'text-amber-600' }} mt-1">{{ $kpis['sla_pct'] !== null ? $kpis['sla_pct'] . '%' : '—' }}</div>
         <div class="mt-2 text-xs text-hcrg-grey-400">Changes only: <span class="font-semibold text-hcrg-charcoal">{{ $kpis['sla_pct_change'] !== null ? $kpis['sla_pct_change'] . '%' : '—' }}</span></div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Declined / Cancelled</div>
         <div class="text-3xl font-bold text-red-600 mt-1">{{ $kpis['declined'] + $kpis['cancelled'] }}</div>
     </div>
-    <div class="bg-white rounded-lg shadow p-5">
+    <div class="card card-body">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Still Open</div>
         <div class="text-3xl font-bold text-amber-600 mt-1">{{ $kpis['open'] }}</div>
     </div>
@@ -98,8 +98,8 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     {{-- Submitted vs completed by month --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-1">Submitted vs Completed</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-1">Submitted vs Completed</h2>
         <p class="text-xs text-gray-500 mb-4">Per month; completions counted in the month they were finished.</p>
         @php $maxMonthly = max($monthly->map(fn ($m) => max($m['submitted'], $m['completed']))->max() ?: 0, 1); @endphp
         <div class="flex items-end justify-between gap-2" style="height: 200px;">
@@ -123,8 +123,8 @@
     </div>
 
     {{-- Turnaround trend --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-1">Average Days to Complete</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-1">Average Days to Complete</h2>
         <p class="text-xs text-gray-500 mb-4">From submission to marked done, by month of completion.</p>
         @php $maxDays = max($monthly->pluck('avg_days')->filter()->max() ?: 0, 1); @endphp
         <div class="flex items-end justify-between gap-3" style="height: 200px;">
@@ -143,8 +143,8 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     {{-- By site --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Site</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-4">Requests by Site</h2>
         @php $maxSite = max($bySite->pluck('total')->max() ?: 0, 1); @endphp
         <div class="space-y-3">
             @forelse($bySite as $site => $counts)
@@ -165,8 +165,8 @@
     </div>
 
     {{-- By content type --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Requests by Content Type</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-4">Requests by Content Type</h2>
         @php $maxCpt = max($byCpt->max() ?: 0, 1); @endphp
         <div class="space-y-3">
             @forelse($byCpt as $cpt => $count)
@@ -188,16 +188,16 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     {{-- Approvals --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Approvals</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-4">Approvals</h2>
         <dl class="grid grid-cols-3 gap-4">
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Response</dt>
-                <dd class="text-2xl font-bold text-hcrg-charcoal mt-1">{{ $approvals['avg_response_days'] !== null ? $approvals['avg_response_days'] . ' days' : '—' }}</dd>
+                <dd class="page-title mt-1">{{ $approvals['avg_response_days'] !== null ? $approvals['avg_response_days'] . ' days' : '—' }}</dd>
             </div>
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Responses</dt>
-                <dd class="text-2xl font-bold text-hcrg-charcoal mt-1">{{ $approvals['responded'] }}</dd>
+                <dd class="page-title mt-1">{{ $approvals['responded'] }}</dd>
             </div>
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Rejections</dt>
@@ -208,16 +208,16 @@
     </div>
 
     {{-- Access requests --}}
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Access Requests</h2>
+    <div class="card card-body">
+        <h2 class="card-title mb-4">Access Requests</h2>
         <dl class="grid grid-cols-2 gap-4">
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Submitted</dt>
-                <dd class="text-2xl font-bold text-hcrg-charcoal mt-1">{{ $access['total'] }}</dd>
+                <dd class="page-title mt-1">{{ $access['total'] }}</dd>
             </div>
             <div>
                 <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Days to Train</dt>
-                <dd class="text-2xl font-bold text-hcrg-charcoal mt-1">{{ $access['avg_training_days'] !== null ? $access['avg_training_days'] : '—' }}</dd>
+                <dd class="page-title mt-1">{{ $access['avg_training_days'] !== null ? $access['avg_training_days'] : '—' }}</dd>
             </div>
         </dl>
         <p class="text-xs text-gray-500 mt-3">Training turnaround runs from the training email being sent to the recipient confirming.</p>

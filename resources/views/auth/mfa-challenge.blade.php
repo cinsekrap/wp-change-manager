@@ -21,12 +21,12 @@
             @csrf
 
             <div class="mb-4">
-                <label for="code" class="block text-sm font-medium text-gray-700 mb-1">6-digit code</label>
+                <label for="code" class="field-label">6-digit code</label>
                 <input type="text" name="code" id="code" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" required autofocus
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy text-center text-lg tracking-widest font-mono">
+                    class="field-input text-center text-lg tracking-widest font-mono">
             </div>
 
-            <button type="submit" class="w-full bg-hcrg-burgundy text-white py-2 px-4 rounded-full hover:bg-[#9A1B4B] font-medium">
+            <button type="submit" class="btn btn-primary w-full">
                 Verify
             </button>
         </form>

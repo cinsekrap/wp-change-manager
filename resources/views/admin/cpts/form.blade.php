@@ -3,38 +3,38 @@
 
 @section('content')
 <div class="max-w-3xl">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">{{ $cpt->exists ? 'Edit CPT Type' : 'Add CPT Type' }}</h1>
+    <h1 class="page-title mb-6">{{ $cpt->exists ? 'Edit CPT Type' : 'Add CPT Type' }}</h1>
 
-    <form method="POST" action="{{ $cpt->exists ? route('admin.cpts.update', $cpt) : route('admin.cpts.store') }}" class="bg-white rounded-lg shadow p-6 space-y-5">
+    <form method="POST" action="{{ $cpt->exists ? route('admin.cpts.update', $cpt) : route('admin.cpts.store') }}" class="card card-body space-y-5">
         @csrf
         @if($cpt->exists) @method('PUT') @endif
 
         <div>
-            <label for="slug" class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+            <label for="slug" class="field-label">Slug</label>
             <input type="text" name="slug" id="slug" value="{{ old('slug', $cpt->slug) }}" required placeholder="e.g. services, news"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy font-mono">
+                class="field-input font-mono">
             <p class="mt-1 text-xs text-gray-500">URL prefix used to match pages. Use lowercase, no spaces.</p>
             @error('slug') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+            <label for="name" class="field-label">Display Name</label>
             <input type="text" name="name" id="name" value="{{ old('name', $cpt->name) }}" required
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
             @error('name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label for="description" class="field-label">Description</label>
             <textarea name="description" id="description" rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('description', $cpt->description) }}</textarea>
+                class="field-input">{{ old('description', $cpt->description) }}</textarea>
             @error('description') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="sort_order" class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+            <label for="sort_order" class="field-label">Sort Order</label>
             <input type="number" name="sort_order" id="sort_order" value="{{ old('sort_order', $cpt->sort_order ?? 0) }}" min="0"
-                class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input w-24">
             @error('sort_order') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
@@ -76,13 +76,13 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Name <span class="text-red-500">*</span></label>
                                 <input type="text" name="content_areas[{{ $index }}][name]" value="{{ $area['name'] ?? '' }}" required placeholder="e.g. Hero image"
-                                    class="area-name-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                                    class="field-input area-name-input"
                                     oninput="updateSummary(this)">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-500 mb-1">Field type <span class="text-red-500">*</span></label>
                                 <select name="content_areas[{{ $index }}][type]" required
-                                    class="area-type-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                                    class="field-input area-type-select"
                                     onchange="onTypeChange(this)">
                                     <option value="text" {{ ($area['type'] ?? 'text') === 'text' ? 'selected' : '' }}>Text</option>
                                     <option value="textarea" {{ ($area['type'] ?? '') === 'textarea' ? 'selected' : '' }}>Textarea</option>
@@ -116,7 +116,7 @@
                         <div class="word-limit-row" style="{{ in_array($area['type'] ?? 'text', ['text', 'textarea', 'richtext']) ? '' : 'display:none' }}">
                             <label class="block text-xs font-medium text-gray-500 mb-1">Word limit</label>
                             <input type="number" name="content_areas[{{ $index }}][word_limit]" value="{{ $area['word_limit'] ?? '' }}" placeholder="No limit" min="1" max="10000"
-                                class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                class="field-input w-32">
                         </div>
 
                         <div class="reading-age-row" style="{{ in_array($area['type'] ?? 'text', ['textarea', 'richtext']) ? '' : 'display:none' }}">
@@ -133,13 +133,13 @@
                         <div>
                             <label class="block text-xs font-medium text-gray-500 mb-1">Help text</label>
                             <input type="text" name="content_areas[{{ $index }}][help]" value="{{ $area['help'] ?? '' }}" placeholder="Guidance shown below the field label"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                class="field-input">
                         </div>
 
                         <div class="placeholder-row" style="{{ in_array($area['type'] ?? 'text', ['checkbox', 'file', 'group']) ? 'display:none' : '' }}">
                             <label class="block text-xs font-medium text-gray-500 mb-1">Placeholder</label>
                             <input type="text" name="content_areas[{{ $index }}][placeholder]" value="{{ $area['placeholder'] ?? '' }}" placeholder="Placeholder text for the input"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                class="field-input">
                         </div>
 
                         <div class="options-section" style="{{ ($area['type'] ?? 'text') !== 'select' ? 'display:none' : '' }}">
@@ -148,7 +148,7 @@
                                 @foreach(($area['options'] ?? []) as $optIndex => $option)
                                 <div class="flex items-center space-x-2 option-row">
                                     <input type="text" name="content_areas[{{ $index }}][options][]" value="{{ $option }}" placeholder="Option value"
-                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                        class="field-input flex-1">
                                     <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm px-2">&times;</button>
                                 </div>
                                 @endforeach
@@ -162,9 +162,9 @@
                                 @foreach(($area['sub_fields'] ?? []) as $sfIndex => $subField)
                                 <div class="flex items-center space-x-2 sub-field-row">
                                     <input type="text" name="content_areas[{{ $index }}][sub_fields][{{ $sfIndex }}][name]" value="{{ $subField['name'] ?? '' }}" placeholder="Field name"
-                                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                        class="field-input flex-1">
                                     <select name="content_areas[{{ $index }}][sub_fields][{{ $sfIndex }}][type]"
-                                        class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                        class="field-input w-32">
                                         <option value="text" {{ ($subField['type'] ?? 'text') === 'text' ? 'selected' : '' }}>Text</option>
                                         <option value="textarea" {{ ($subField['type'] ?? '') === 'textarea' ? 'selected' : '' }}>Textarea</option>
                                     </select>
@@ -190,7 +190,7 @@
                 @endforeach
             </div>
 
-            <button type="button" onclick="addContentArea()" class="mt-3 inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors">
+            <button type="button" onclick="addContentArea()" class="btn btn-secondary mt-3">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Add content area
             </button>
@@ -238,12 +238,12 @@
         </div>
 
         <div id="modeMessageSection" class="{{ in_array($currentMode, ['blocked', 'self_service']) ? '' : 'hidden' }}">
-            <label for="mode_message" id="modeMessageLabel" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="mode_message" id="modeMessageLabel" class="field-label">
                 Message to display
             </label>
             <textarea name="mode_message" id="mode_message" rows="4"
                 placeholder="{{ $currentMode === 'self_service' ? 'e.g. This content can be managed using the self-service tool. If you need access, submit a request below...' : 'e.g. Requests for this content type are not currently available...' }}"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">{{ old('mode_message', $cpt->mode_message) }}</textarea>
+                class="field-input">{{ old('mode_message', $cpt->mode_message) }}</textarea>
             <p id="modeMessageHelp" class="mt-1 text-xs text-gray-500">
                 {{ $currentMode === 'self_service' ? 'This message will be shown alongside a simplified access request form.' : 'This message will be displayed when a user selects a page of this content type. They will not be able to submit a request.' }}
             </p>
@@ -251,12 +251,12 @@
         </div>
 
         <div id="trainingUrlSection" class="{{ $currentMode === 'self_service' ? '' : 'hidden' }}">
-            <label for="training_url" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="training_url" class="field-label">
                 Training video URL
             </label>
             <input type="url" name="training_url" id="training_url" value="{{ old('training_url', $cpt->training_url) }}"
                 placeholder="https://..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
             <p class="mt-1 text-xs text-gray-500">
                 Link to the training video the access recipient must watch. The training email cannot be sent without this.
             </p>
@@ -264,7 +264,7 @@
         </div>
 
         <div class="flex items-center space-x-3 pt-4">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+            <button type="submit" class="btn btn-primary">
                 {{ $cpt->exists ? 'Update' : 'Create' }}
             </button>
             <a href="{{ route('admin.cpts.index') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
@@ -300,13 +300,13 @@ function addContentArea() {
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Name <span class="text-red-500">*</span></label>
                     <input type="text" name="content_areas[${idx}][name]" required placeholder="e.g. Hero image"
-                        class="area-name-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                        class="field-input area-name-input"
                         oninput="updateSummary(this)">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Field type <span class="text-red-500">*</span></label>
                     <select name="content_areas[${idx}][type]" required
-                        class="area-type-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                        class="field-input area-type-select"
                         onchange="onTypeChange(this)">
                         <option value="text">Text</option>
                         <option value="textarea">Textarea</option>
@@ -338,7 +338,7 @@ function addContentArea() {
             <div class="word-limit-row">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Word limit</label>
                 <input type="number" name="content_areas[${idx}][word_limit]" placeholder="No limit" min="1" max="10000"
-                    class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input w-32">
             </div>
 
             <div class="reading-age-row" style="display:none">
@@ -354,13 +354,13 @@ function addContentArea() {
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Help text</label>
                 <input type="text" name="content_areas[${idx}][help]" placeholder="Guidance shown below the field label"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
 
             <div class="placeholder-row">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Placeholder</label>
                 <input type="text" name="content_areas[${idx}][placeholder]" placeholder="Placeholder text for the input"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
 
             <div class="options-section" style="display:none">
@@ -470,7 +470,7 @@ function addOption(btn) {
     row.className = 'flex items-center space-x-2 option-row';
     row.innerHTML = `
         <input type="text" name="content_areas[${idx}][options][]" placeholder="Option value"
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            class="field-input flex-1">
         <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 text-sm px-2">&times;</button>
     `;
     list.appendChild(row);
@@ -488,9 +488,9 @@ function addSubField(btn) {
     row.className = 'flex items-center space-x-2 sub-field-row';
     row.innerHTML = `
         <input type="text" name="content_areas[${idx}][sub_fields][${sfIdx}][name]" placeholder="Field name"
-            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            class="field-input flex-1">
         <select name="content_areas[${idx}][sub_fields][${sfIdx}][type]"
-            class="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            class="field-input w-32">
             <option value="text">Text</option>
             <option value="textarea">Textarea</option>
         </select>

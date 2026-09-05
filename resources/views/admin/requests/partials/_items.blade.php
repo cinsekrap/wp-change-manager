@@ -1,5 +1,5 @@
 {{-- Line items --}}
-<div class="bg-white rounded-lg shadow p-6">
+<div class="card card-body">
     @php
         $totalItems = $changeRequest->items->count();
         $doneItems = $changeRequest->items->where('status', 'done')->count();
@@ -14,7 +14,7 @@
     @endphp
 
     <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Change Items ({{ $totalItems }})</h2>
+        <h2 class="card-title">Change Items ({{ $totalItems }})</h2>
         @if($totalItems > 0)
         <div class="flex items-center space-x-3">
             <span class="text-sm text-gray-500">{{ $doneItems }} of {{ $totalItems }} items completed</span>
@@ -120,7 +120,7 @@
 
             @if($item->files->isNotEmpty())
             <div class="mt-3 pt-3 border-t border-gray-100">
-                <p class="text-xs font-medium text-gray-500 mb-2">Attachments:</p>
+                <p class="field-help font-medium">Attachments:</p>
                 <div class="space-y-1">
                     @foreach($item->files as $file)
                     <div class="mb-2">

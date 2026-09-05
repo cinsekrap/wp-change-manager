@@ -1,6 +1,6 @@
 {{-- Step 2: which lane. The page picker below is unchanged; it just no longer carries
      the "this is a new page" checkbox, which the content lane replaces. --}}
-<div class="wizard-step bg-white rounded-lg shadow p-6 hidden" data-step="2" data-panel="page">
+<div class="card card-body wizard-step hidden" data-step="2" data-panel="page">
 
     <div class="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
         <span class="text-sm text-gray-500">Site</span>
@@ -15,14 +15,14 @@
         <label class="lane-option flex flex-col p-5 border border-gray-300 rounded-lg cursor-pointer" data-lane="change">
             <input type="radio" name="wizard_lane" value="change" class="sr-only">
             <svg class="w-6 h-6 text-hcrg-grey-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
-            <span class="lane-title text-base font-bold text-gray-900 mb-1">A page that already exists</span>
+            <span class="card-title lane-title mb-1">A page that already exists</span>
             <span class="text-sm text-hcrg-grey-400">Wording, images, contact details or links that need updating.</span>
         </label>
 
         <label class="lane-option flex flex-col p-5 border border-gray-300 rounded-lg cursor-pointer" data-lane="content">
             <input type="radio" name="wizard_lane" value="content" class="sr-only">
             <svg class="w-6 h-6 text-hcrg-grey-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 5v14M5 12h14"/></svg>
-            <span class="lane-title text-base font-bold text-gray-900 mb-1">Something new</span>
+            <span class="card-title lane-title mb-1">Something new</span>
             <span class="text-sm text-hcrg-grey-400">Content that doesn't exist yet (this might be for one website, or to be used across many).</span>
         </label>
     </div>
@@ -33,7 +33,7 @@
 
         <div id="pageSearchWrap" class="mb-4">
             <input type="text" id="pageSearch" placeholder="Search pages..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
 
         <div id="pageList" class="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100"></div>
@@ -67,16 +67,16 @@
                     <div>
                         <label for="ssReason" class="block text-xs font-medium text-gray-700 mb-1">Reason for needing access <span class="text-red-500">*</span></label>
                         <textarea id="ssReason" rows="3" placeholder="Describe why you need access to manage this content..."
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"></textarea>
+                            class="field-input"></textarea>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label for="ssName" class="block text-xs font-medium text-gray-700 mb-1">Your name <span class="text-red-500">*</span></label>
-                            <input type="text" id="ssName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            <input type="text" id="ssName" class="field-input">
                         </div>
                         <div>
                             <label for="ssEmail" class="block text-xs font-medium text-gray-700 mb-1">Your email <span class="text-red-500">*</span></label>
-                            <input type="email" id="ssEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            <input type="email" id="ssEmail" class="field-input">
                         </div>
                     </div>
 
@@ -89,17 +89,17 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label for="ssAccessName" class="block text-xs font-medium text-gray-700 mb-1">Their name <span class="text-red-500">*</span></label>
-                                <input type="text" id="ssAccessName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                <input type="text" id="ssAccessName" class="field-input">
                             </div>
                             <div>
                                 <label for="ssAccessEmail" class="block text-xs font-medium text-gray-700 mb-1">Their email <span class="text-red-500">*</span></label>
-                                <input type="email" id="ssAccessEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                <input type="email" id="ssAccessEmail" class="field-input">
                             </div>
                         </div>
                     </div>
                     <div id="ssError" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg"></div>
                     <div id="ssSuccess" class="hidden p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg"></div>
-                    <button type="button" id="ssSubmitBtn" class="bg-hcrg-burgundy text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#9A1B4B] disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <button type="button" id="ssSubmitBtn" class="btn btn-primary" disabled>
                         Request Access
                     </button>
                 </div>

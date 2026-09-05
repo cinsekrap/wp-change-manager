@@ -2,7 +2,7 @@
 @section('title', 'Funding decision')
 
 @section('content')
-<div class="bg-white rounded-lg shadow p-8 text-center max-w-lg mx-auto">
+<div class="card p-8 text-center max-w-lg mx-auto">
     @if($round->status === 'approved')
         <h1 class="text-xl font-bold text-gray-900 mb-2">Funding approved</h1>
         <p class="text-sm text-gray-600">

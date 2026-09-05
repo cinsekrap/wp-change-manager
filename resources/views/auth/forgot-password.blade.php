@@ -27,12 +27,12 @@
             @csrf
 
             <div class="mb-6">
-                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label for="email" class="field-label">Email</label>
                 <input type="email" name="email" id="email" value="{{ old('email') }}" required autofocus
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                    class="field-input">
             </div>
 
-            <button type="submit" class="w-full bg-hcrg-burgundy text-white py-2 px-4 rounded-full hover:bg-[#9A1B4B] font-medium">
+            <button type="submit" class="btn btn-primary w-full">
                 Send Reset Link
             </button>
         </form>

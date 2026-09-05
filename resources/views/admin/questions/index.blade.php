@@ -3,11 +3,11 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Check Questions</h1>
-    <a href="{{ route('admin.questions.create') }}" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Add Question</a>
+    <h1 class="page-title">Check Questions</h1>
+    <a href="{{ route('admin.questions.create') }}" class="btn btn-primary">Add Question</a>
 </div>
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>

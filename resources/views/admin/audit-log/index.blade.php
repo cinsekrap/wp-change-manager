@@ -3,15 +3,15 @@
 
 @section('content')
 <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Audit Log</h1>
+    <h1 class="page-title">Audit Log</h1>
 </div>
 
 {{-- Filters --}}
-<div class="bg-white rounded-lg shadow p-4 mb-6">
+<div class="card card-body mb-6">
     <form method="GET" action="{{ route('admin.audit-log') }}" class="flex flex-wrap items-end gap-4">
         <div class="flex-1 min-w-[160px]">
             <label class="block text-xs font-medium text-gray-500 mb-1">User</label>
-            <select name="user_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <select name="user_id" class="field-input">
                 <option value="">All users</option>
                 @foreach($users as $user)
                     <option value="{{ $user->id }}" {{ request('user_id') == $user->id ? 'selected' : '' }}>{{ $user->name }}</option>
@@ -20,7 +20,7 @@
         </div>
         <div class="flex-1 min-w-[160px]">
             <label class="block text-xs font-medium text-gray-500 mb-1">Action</label>
-            <select name="action" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <select name="action" class="field-input">
                 <option value="">All actions</option>
                 @foreach($actions as $action)
                     <option value="{{ $action }}" {{ request('action') === $action ? 'selected' : '' }}>{{ str_replace('_', ' ', ucfirst($action)) }}</option>
@@ -29,14 +29,14 @@
         </div>
         <div class="flex-1 min-w-[140px]">
             <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <input type="date" name="date_from" value="{{ request('date_from') }}" class="field-input">
         </div>
         <div class="flex-1 min-w-[140px]">
             <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+            <input type="date" name="date_to" value="{{ request('date_to') }}" class="field-input">
         </div>
         <div class="flex items-center gap-2">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">Filter</button>
+            <button type="submit" class="btn btn-primary">Filter</button>
             @if(request()->hasAny(['user_id', 'action', 'date_from', 'date_to']))
                 <a href="{{ route('admin.audit-log') }}" class="text-sm text-gray-500 hover:text-gray-700">Clear</a>
             @endif
@@ -45,7 +45,7 @@
 </div>
 
 {{-- Table --}}
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>

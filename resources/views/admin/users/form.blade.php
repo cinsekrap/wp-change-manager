@@ -3,39 +3,39 @@
 
 @section('content')
 <div class="max-w-2xl">
-    <h1 class="text-2xl font-bold text-gray-900 mb-6">{{ $user->exists ? 'Edit User' : 'Add User' }}</h1>
+    <h1 class="page-title mb-6">{{ $user->exists ? 'Edit User' : 'Add User' }}</h1>
 
-    <form method="POST" action="{{ $user->exists ? route('admin.users.update', $user) : route('admin.users.store') }}" class="bg-white rounded-lg shadow p-6 space-y-5">
+    <form method="POST" action="{{ $user->exists ? route('admin.users.update', $user) : route('admin.users.store') }}" class="card card-body space-y-5">
         @csrf
         @if($user->exists) @method('PUT') @endif
 
         <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label for="name" class="field-label">Name</label>
             <input type="text" name="name" id="name" value="{{ old('name', $user->name) }}" required
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
             @error('name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label for="email" class="field-label">Email</label>
             <input type="email" name="email" id="email" value="{{ old('email', $user->email) }}" required
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
             @error('email') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="password" class="field-label">
                 Password @if($user->exists) <span class="text-gray-400 font-normal">(leave blank to keep current)</span> @endif
             </label>
             <input type="password" name="password" id="password" {{ $user->exists ? '' : 'required' }}
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
             @error('password') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
         </div>
 
         <div>
-            <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+            <label for="password_confirmation" class="field-label">Confirm Password</label>
             <input type="password" name="password_confirmation" id="password_confirmation"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
         </div>
 
         <div class="flex items-center space-x-6">
@@ -48,9 +48,9 @@
         </div>
 
         <div>
-            <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <label for="role" class="field-label">Role</label>
             <select name="role" id="role"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                class="field-input">
                 <option value="" {{ old('role', $user->role) === null ? 'selected' : '' }}>No admin access</option>
                 <option value="editor" {{ old('role', $user->role) === 'editor' ? 'selected' : '' }}>Editor</option>
                 <option value="super_admin" {{ old('role', $user->role) === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
@@ -59,7 +59,7 @@
         </div>
 
         <div class="flex items-center space-x-3 pt-4">
-            <button type="submit" class="bg-hcrg-burgundy text-white px-4 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
+            <button type="submit" class="btn btn-primary">
                 {{ $user->exists ? 'Update' : 'Create' }}
             </button>
             <a href="{{ route('admin.users.index') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
@@ -68,8 +68,8 @@
 
     {{-- Reset MFA section (only for existing users with MFA enabled) --}}
     @if($user->exists && $user->usesSso())
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-            <h2 class="text-lg font-bold text-gray-900 mb-2">Microsoft sign-in</h2>
+        <div class="card card-body mt-6">
+            <h2 class="card-title mb-2">Microsoft sign-in</h2>
             <p class="text-sm text-gray-600 mb-4">
                 This account signs in with Microsoft and has no password sign-in. Unlink it if Microsoft
                 sign-in is unavailable and they need to get in another way &mdash; they will need to set a
@@ -78,7 +78,7 @@
             <form method="POST" action="{{ route('admin.users.unlink-sso', $user) }}"
                   data-confirm="Return {{ $user->name }} to password sign-in? They will need a new password and to set up two-factor authentication.">
                 @csrf
-                <button type="submit" class="border border-hcrg-burgundy text-hcrg-burgundy px-4 py-2 rounded-full hover:bg-hcrg-burgundy hover:text-white transition-colors text-sm font-medium">
+                <button type="submit" class="btn btn-secondary">
                     Unlink Microsoft sign-in
                 </button>
             </form>
@@ -86,12 +86,12 @@
     @endif
 
     @if($user->exists && $user->hasMfaEnabled())
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-            <h2 class="text-lg font-bold text-gray-900 mb-2">Two-factor authentication</h2>
+        <div class="card card-body mt-6">
+            <h2 class="card-title mb-2">Two-factor authentication</h2>
             <p class="text-sm text-gray-600 mb-4">This user has MFA enabled (set up {{ $user->mfa_confirmed_at->diffForHumans() }}). Resetting will require them to set up a new authenticator app on their next login.</p>
             <form method="POST" action="{{ route('admin.users.reset-mfa', $user) }}" data-confirm="Are you sure? This user will need to set up MFA again on their next login.">
                 @csrf
-                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-full hover:bg-red-700 text-sm font-medium">
+                <button type="submit" class="btn btn-danger">
                     Reset two-factor authentication
                 </button>
             </form>
