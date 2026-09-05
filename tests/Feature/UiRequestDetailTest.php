@@ -276,10 +276,13 @@ class UiRequestDetailTest extends TestCase
             $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent(), 'work'
         );
 
-        // Two textareas doing similar-looking things was the problem.
-        $this->assertStringContainsString('A note on the job', $work);
-        $this->assertStringContainsString('A question for Jane Doe', $work);
-        $this->assertStringContainsString('SLA clock stops', $work);
+        // Two textareas doing similar-looking things was the problem. One box,
+        // and the button says which of the two you are doing.
+        $this->assertStringContainsString('Add note', $work);
+        $this->assertStringContainsString('Send as a question to Jane Doe', $work);
+
+        // The choice is not also a radio group: the buttons are the choice.
+        $this->assertStringNotContainsString('name="kind" value="note" checked', $work);
     }
 
     public function test_the_sidebar_no_longer_asks_for_clarification(): void
@@ -334,7 +337,7 @@ class UiRequestDetailTest extends TestCase
             $this->get(route('admin.requests.show', $request))->getContent(), 'work'
         );
         $this->assertStringContainsString('no requester', $work);
-        $this->assertStringNotContainsString('A question for', $work);
+        $this->assertStringNotContainsString('Send as a question', $work);
 
         $this->post(route('admin.requests.notes', $request), [
             'note' => 'Anyone there?', 'kind' => 'question',
@@ -354,7 +357,7 @@ class UiRequestDetailTest extends TestCase
             $this->get(route('admin.requests.show', $request))->getContent(), 'work'
         );
         $this->assertStringNotContainsString('closed', $work);
-        $this->assertStringNotContainsString('A question for', $work);
+        $this->assertStringNotContainsString('Send as a question', $work);
 
         $this->post(route('admin.requests.notes', $request), [
             'note' => 'Still fine?', 'kind' => 'question',
