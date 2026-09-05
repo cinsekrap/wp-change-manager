@@ -74,4 +74,49 @@ class UiNavigationTest extends TestCase
                 "'{$route}' fell out of the menu");
         }
     }
+
+    public function test_no_blade_syntax_leaks_onto_the_page(): void
+    {
+        $this->loginAsAdmin();
+
+        // A comment that loses a brace renders as visible text rather than
+        // failing, so nothing catches it except looking at the page.
+        foreach (['admin.dashboard', 'admin.requests.index', 'admin.funding'] as $route) {
+            $html = $this->get(route($route))->assertSuccessful()->getContent();
+
+            foreach (['{{--', '{--', '--}}', '{{ route(', '{ route('] as $leak) {
+                $this->assertStringNotContainsString($leak, $html,
+                    "'{$leak}' is being rendered as text on {$route}");
+            }
+        }
+    }
+
+    public function test_the_layout_tags_balance(): void
+    {
+        $layout = file_get_contents(resource_path('views/layouts/admin.blade.php'));
+        $nav = substr($layout, strpos($layout, '<nav'), strpos($layout, '</nav>') - strpos($layout, '<nav'));
+
+        // One missing close puts the user menu inside the left-hand nav group,
+        // which looks like a styling problem and is a structural one.
+        $this->assertSame(
+            preg_match_all('/<div\b/', $nav),
+            substr_count($nav, '</div>'),
+            'The nav div tags do not balance'
+        );
+    }
+
+    public function test_the_user_menu_sits_outside_the_nav_links(): void
+    {
+        $this->loginAsAdmin();
+        $html = $this->get(route('admin.dashboard'))->assertSuccessful()->getContent();
+
+        $links = strpos($html, 'id="configDropdown"');
+        $user = strpos($html, 'id="userDropdown"');
+        $justify = strpos($html, 'justify-between');
+
+        // It is pushed right by the justify-between row, so it has to come after
+        // the link group closes rather than inside it.
+        $this->assertLessThan($user, $links);
+        $this->assertLessThan($links, $justify);
+    }
 }

@@ -56,8 +56,8 @@
                                 <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
                             <div id="configMenu" class="hidden absolute left-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                                {-- Grouped by subject. Anything a person cannot reach still does
-                                     not appear, so the groups describe the work rather than the role. --}
+                                {{-- Grouped by subject. Anything a person cannot reach still does
+                                     not appear, so the groups describe the work rather than the role. --}}
                                 <p class="px-4 pt-2 pb-1 group-label">Content</p>
                                 <a href="{{ route('admin.sites.index') }}" class="flex items-center px-4 py-2 text-sm {{ request()->routeIs('admin.sites.*') ? 'bg-hcrg-burgundy/10 text-hcrg-burgundy' : 'text-gray-700 hover:bg-gray-50' }}">
                                     Sites
@@ -104,6 +104,7 @@
                                 </a>
                                 @endif
                             </div>
+                        </div>
                     </div>
                 </div>
                 <div class="relative" id="userDropdown">
