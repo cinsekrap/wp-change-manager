@@ -1,30 +1,31 @@
 @extends('layouts.admin')
-@section('title', $site->exists ? 'Edit Site' : 'Add Site')
+@section('title', $site->exists ? 'Edit site' : 'Add site')
 
 @section('content')
 <div class="max-w-2xl">
-    <h1 class="page-title mb-6">{{ $site->exists ? 'Edit Site' : 'Add Site' }}</h1>
+    <x-admin.page-header
+        :title="$site->exists ? 'Edit site' : 'Add site'"
+        lede="A website requests can be made against." />
 
-    <form method="POST" action="{{ $site->exists ? route('admin.sites.update', $site) : route('admin.sites.store') }}" class="space-y-6">
+    <form method="POST" action="{{ $site->exists ? route('admin.sites.update', $site) : route('admin.sites.store') }}" class="card">
         @csrf
         @if($site->exists) @method('PUT') @endif
 
         {{-- Site Details --}}
-        <div class="card card-body space-y-5">
-            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Site Details</h2>
+        <x-admin.form-section title="Site details" help="The name people choose from, and where its pages live.">
 
             <div>
                 <label for="name" class="field-label">Name</label>
                 <input type="text" name="name" id="name" value="{{ old('name', $site->name) }}" required
                     class="field-input">
-                @error('name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                @error('name') <p class="field-error">{{ $message }}</p> @enderror
             </div>
 
             <div>
                 <label for="domain" class="field-label">Domain</label>
                 <input type="text" name="domain" id="domain" value="{{ old('domain', $site->domain) }}" required placeholder="example.nhs.uk"
                     class="field-input">
-                @error('domain') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                @error('domain') <p class="field-error">{{ $message }}</p> @enderror
             </div>
 
             <div>
@@ -34,13 +35,12 @@
                 <input type="url" name="sitemap_url" id="sitemap_url" value="{{ old('sitemap_url', $site->sitemap_url) }}" placeholder="Leave blank to auto-detect"
                     class="field-input">
                 <p class="mt-1 text-xs text-gray-500">If left blank, we'll check for <code>/sitemap_index.xml</code> and <code>/sitemap.xml</code> automatically.</p>
-                @error('sitemap_url') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                @error('sitemap_url') <p class="field-error">{{ $message }}</p> @enderror
             </div>
-        </div>
+        </x-admin.form-section>
 
         {{-- Approvals --}}
-        <div class="card card-body space-y-5">
-            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Approvals</h2>
+        <x-admin.form-section title="Approvals" help="Who signs off wording changes on this site.">
 
             <div>
                 <label class="field-label">Default Approvers</label>
@@ -73,11 +73,10 @@
                 </div>
                 <p class="text-xs text-gray-500 mt-1 ml-6">When enabled, all requests will need admin review before being sent for approval, even if pre-submission checks pass.</p>
             </div>
-        </div>
+        </x-admin.form-section>
 
         {{-- Default Assignee --}}
-        <div class="card card-body space-y-5">
-            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Default Assignee</h2>
+        <x-admin.form-section title="Default assignee" help="Who new requests for this site go to.">
 
             <div>
                 <p class="field-help">New requests for this site will be automatically assigned to this user.</p>
@@ -90,13 +89,12 @@
                         </option>
                     @endforeach
                 </select>
-                @error('default_assignee_id') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                @error('default_assignee_id') <p class="field-error">{{ $message }}</p> @enderror
             </div>
-        </div>
+        </x-admin.form-section>
 
         {{-- Site Status --}}
-        <div class="card card-body space-y-5">
-            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wide">Site Status</h2>
+        <x-admin.form-section title="Availability" help="Whether this site can be chosen when making a request.">
 
             <div class="flex items-center">
                 <input type="hidden" name="is_active" value="0">
@@ -105,14 +103,12 @@
                 <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
             </div>
             <p class="text-xs text-gray-500 -mt-3 ml-6">Inactive sites won't appear in the public wizard.</p>
-        </div>
+        </x-admin.form-section>
 
-        <div class="flex items-center space-x-3">
-            <button type="submit" class="btn btn-primary">
-                {{ $site->exists ? 'Update' : 'Create' }}
-            </button>
-            <a href="{{ route('admin.sites.index') }}" class="text-sm text-gray-600 hover:text-gray-800">Cancel</a>
-        </div>
+        <x-admin.form-actions>
+            <button type="submit" class="btn btn-primary">{{ $site->exists ? 'Save changes' : 'Add site' }}</button>
+            <a href="{{ route('admin.sites.index') }}" class="btn btn-quiet">Cancel</a>
+        </x-admin.form-actions>
     </form>
 </div>
 <script>
