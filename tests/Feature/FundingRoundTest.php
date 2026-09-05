@@ -140,6 +140,66 @@ class FundingRoundTest extends TestCase
             ->assertSee('20.5');
     }
 
+    public function test_the_approver_sees_enough_to_decide(): void
+    {
+        $request = $this->content('scoped', '8');
+        $request->update(['content_brief' => [
+            'achieve' => 'Stop people ringing to ask what happens first.',
+            'audience' => ['patients', 'families'],
+            'know_or_do' => 'Know what to bring.',
+            'measure' => 'Fewer calls to the single point of access.',
+            'already_exists' => 'no',
+        ]]);
+
+        $this->loginAsAdmin();
+        $this->ask([$request], $this->approver());
+
+        // Somebody deciding whether to spend hours needs to know who it is for
+        // and how anyone will tell whether it worked, not just a headline.
+        $this->get(route('funding.show', FundingRound::firstOrFail()->token))
+            ->assertSuccessful()
+            ->assertSee('Stop people ringing to ask what happens first.')
+            ->assertSee('Patients &amp; service users, Families &amp; carers', false)
+            ->assertSee('Know what to bring.')
+            ->assertSee('Fewer calls to the single point of access.')
+            ->assertSee('HCRG');
+    }
+
+    public function test_the_approver_is_told_when_it_might_already_exist(): void
+    {
+        $request = $this->content('scoped', '8');
+        $request->update(['content_brief' => [
+            'achieve' => 'A thing.',
+            'already_exists' => 'yes',
+            'already_exists_detail' => 'There is a leaflet that covers some of this.',
+        ]]);
+
+        $this->loginAsAdmin();
+        $this->ask([$request], $this->approver());
+
+        // Being asked to pay for something that may already exist is the
+        // approver's business.
+        $this->get(route('funding.show', FundingRound::firstOrFail()->token))
+            ->assertSuccessful()
+            ->assertSee('Something similar may already exist')
+            ->assertSee('There is a leaflet that covers some of this.');
+    }
+
+    public function test_a_thin_brief_still_renders(): void
+    {
+        $request = $this->content('scoped', '8');
+        $request->update(['content_brief' => null]);
+
+        $this->loginAsAdmin();
+        $this->ask([$request], $this->approver());
+
+        // Content the team started itself may carry almost nothing.
+        $this->get(route('funding.show', FundingRound::firstOrFail()->token))
+            ->assertSuccessful()
+            ->assertSee($request->reference)
+            ->assertDontSee('Something similar may already exist');
+    }
+
     public function test_approving_releases_the_whole_batch(): void
     {
         $one = $this->content('scoped', '8');

@@ -11,32 +11,65 @@
     </p>
 </div>
 
-<div class="bg-white rounded-lg shadow overflow-hidden mb-6">
-    <table class="min-w-full divide-y divide-gray-200 text-sm">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Content</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">What it's for</th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Hours</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-            @foreach($round->items as $item)
-            <tr>
-                <td class="px-4 py-3 text-gray-900">
-                    {{ $item->changeRequest?->subjectDescription() ?? 'No longer in the system' }}
-                    <span class="block text-xs text-gray-400">{{ $item->changeRequest?->reference }}</span>
-                </td>
-                <td class="px-4 py-3 text-gray-600">{{ \Illuminate\Support\Str::limit($item->changeRequest?->content_brief['achieve'] ?? '', 140) ?: '—' }}</td>
-                <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ rtrim(rtrim(number_format((float) $item->estimated_hours, 1), '0'), '.') }}</td>
-            </tr>
-            @endforeach
-            <tr class="bg-gray-50">
-                <td colspan="2" class="px-4 py-3 font-bold text-gray-900">Total</td>
-                <td class="px-4 py-3 text-right font-bold text-hcrg-burgundy">{{ rtrim(rtrim(number_format((float) $round->total_hours, 1), '0'), '.') }}</td>
-            </tr>
-        </tbody>
-    </table>
+<div class="space-y-4 mb-6">
+    @foreach($round->items as $item)
+        @php
+            $cr = $item->changeRequest;
+            $brief = $cr?->content_brief ?? [];
+            $audiences = collect($brief['audience'] ?? [])
+                ->map(fn ($a) => config("content-audiences.{$a}", $a))
+                ->join(', ');
+        @endphp
+        <div class="bg-white rounded-lg shadow p-5">
+            <div class="flex flex-wrap justify-between items-start gap-3 mb-3">
+                <div>
+                    <h2 class="text-base font-bold text-gray-900">{{ $cr?->subjectDescription() ?? 'No longer in the system' }}</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {{ $cr?->reference }}
+                        @if($cr && $cr->allSites()->isNotEmpty())
+                            &middot; {{ $cr->allSites()->pluck('name')->join(', ') }}
+                        @endif
+                    </p>
+                </div>
+                <div class="text-right shrink-0">
+                    <span class="text-2xl font-bold text-hcrg-burgundy">{{ rtrim(rtrim(number_format((float) $item->estimated_hours, 1), '0'), '.') }}</span>
+                    <span class="block text-xs text-gray-400">hours</span>
+                </div>
+            </div>
+
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">What it's trying to achieve</dt>
+                    <dd class="text-gray-800 mt-0.5 whitespace-pre-wrap">{{ $brief['achieve'] ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Who it's for</dt>
+                    <dd class="text-gray-800 mt-0.5">{{ $audiences ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">What they should know or do</dt>
+                    <dd class="text-gray-800 mt-0.5 whitespace-pre-wrap">{{ $brief['know_or_do'] ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">How we'll know it worked</dt>
+                    <dd class="text-gray-800 mt-0.5 whitespace-pre-wrap">{{ ($brief['measure'] ?? null) ?: '—' }}</dd>
+                </div>
+                @if(($brief['already_exists'] ?? null) === 'yes')
+                {{-- Relevant to a decision about money: we are being asked to pay
+                     for something the requester thought might already exist. --}}
+                <div>
+                    <dt class="text-xs font-medium text-amber-700 uppercase tracking-wide">Something similar may already exist</dt>
+                    <dd class="text-amber-800 mt-0.5 whitespace-pre-wrap">{{ ($brief['already_exists_detail'] ?? null) ?: 'The person who asked was not sure.' }}</dd>
+                </div>
+                @endif
+            </dl>
+        </div>
+    @endforeach
+
+    <div class="bg-hcrg-grey-100 rounded-lg p-5 flex justify-between items-center">
+        <span class="font-bold text-gray-900">Total</span>
+        <span class="text-2xl font-bold text-hcrg-burgundy">{{ rtrim(rtrim(number_format((float) $round->total_hours, 1), '0'), '.') }} hours</span>
+    </div>
 </div>
 
 <div class="bg-white rounded-lg shadow p-6">
