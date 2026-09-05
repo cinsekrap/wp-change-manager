@@ -172,6 +172,7 @@ class EstimatedHoursTest extends TestCase
             new \App\Mail\ContentAwaitingFunding($request, null),
             new \App\Mail\ContentPublished($request, $watcher),
             new \App\Mail\ContentPublished($request, null),
+            new \App\Mail\ContentRevisionNeeded($request, $approver),
             new \App\Mail\ContentSuggestionReceived($request),
             new \App\Mail\GroupApprovalSatisfied($request, $approver, 'Someone'),
             new \App\Mail\NewRequestAlert($request),
@@ -236,7 +237,7 @@ class EstimatedHoursTest extends TestCase
         $covered = [
             'AccessGranted', 'ApprovalDeclined', 'ApprovalOverridden', 'ApprovalRequested',
             'ClarificationRequested', 'ClarificationResponded', 'ContentAwaitingFunding',
-            'ContentPublished', 'ContentSuggestionReceived', 'GroupApprovalSatisfied',
+            'ContentPublished', 'ContentRevisionNeeded', 'ContentSuggestionReceived', 'GroupApprovalSatisfied',
             'NewRequestAlert', 'RequestAssigned', 'RequestChase', 'RequestOnHold',
             'RequestStatusChanged', 'RequestSubmitted', 'ScheduledForActionToday',
             'TrainingConfirmed', 'TrainingRequested', 'WatchConfirmation',

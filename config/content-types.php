@@ -3,6 +3,9 @@
 /**
  * The kinds of job a piece of content does, and the page type each one lands on.
  *
+ * Which page type each kind is written into is set on the page type itself, under
+ * Configuration, because that is the half that changes.
+ *
  * These are deliberately phrased as the job the content does for the reader, not as
  * CMS templates — asking "what type of content is this?" is what the content lane
  * exists to get away from. Several jobs legitimately share one page type: our users

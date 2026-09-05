@@ -11,7 +11,7 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
-        'content_type', 'content_brief', 'estimated_hours', 'public_title', 'draft_content',
+        'content_type', 'content_brief', 'estimated_hours', 'public_title', 'draft_content', 'draft_fields',
         'published_url', 'published_title',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
         'clarification_message', 'clarification_requested_at',
@@ -28,6 +28,7 @@ class ChangeRequest extends Model
         return [
             'is_new_page' => 'boolean',
             'check_answers' => 'array',
+            'draft_fields' => 'array',
             'content_brief' => 'array',
             'deadline_date' => 'date',
             'scheduled_date' => 'date',
@@ -286,6 +287,99 @@ class ChangeRequest extends Model
         }
 
         return $this->page_title ?: $this->page_url;
+    }
+
+    /**
+     * The page type this content will become, if its kind has one.
+     */
+    public function contentCptType(): ?CptType
+    {
+        if (! $this->isContentRequest() || ! $this->content_type) {
+            return null;
+        }
+
+        return CptType::forContentKind($this->content_type);
+    }
+
+    /**
+     * The fields this content is written into.
+     *
+     * Empty when the kind has no page type, or the page type has no fields
+     * configured — in which case the copy is one box of text, as it was before.
+     */
+    public function contentFields(): array
+    {
+        return $this->contentCptType()?->form_config['content_areas'] ?? [];
+    }
+
+    public function hasStructuredDraft(): bool
+    {
+        return $this->contentFields() !== [];
+    }
+
+    /**
+     * The fields rendered as plain text.
+     *
+     * Clinical approval binds to a hash of draft_content and the reading-age
+     * check reads it, so structured copy is written down here as well. Field
+     * names are included because a heading changing is a change to the copy.
+     */
+    public static function renderDraftFields(array $fields, array $values): string
+    {
+        $out = [];
+
+        foreach ($fields as $field) {
+            $name = $field['name'] ?? '';
+            $entries = $values[$name] ?? null;
+
+            foreach (self::normaliseFieldValue($entries) as $entry) {
+                $body = is_array($entry)
+                    ? self::orderSubFields($entry, $field['sub_fields'] ?? [])
+                        ->map(fn ($v, $k) => trim("{$k}: {$v}"))->implode("\n")
+                    : trim((string) $entry);
+
+                if ($body !== '') {
+                    $out[] = trim($name."\n".$body);
+                }
+            }
+        }
+
+        return implode("\n\n", $out);
+    }
+
+    /**
+     * Sub-fields in the order they were configured, not the order they came back.
+     *
+     * A MySQL JSON column does not keep key order, so reading them out of the
+     * stored value puts them in an order nobody chose — and this text is what
+     * clinical approval is taken over.
+     */
+    public static function orderSubFields(array $entry, array $subFields): \Illuminate\Support\Collection
+    {
+        if ($subFields === []) {
+            return collect($entry)->filter(fn ($v) => filled($v));
+        }
+
+        return collect($subFields)
+            ->pluck('name')
+            ->mapWithKeys(fn ($name) => [$name => $entry[$name] ?? null])
+            ->filter(fn ($v) => filled($v));
+    }
+
+    /** A field holds one value, or several when it repeats. */
+    private static function normaliseFieldValue(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        // A repeatable field arrives as a list; a plain one as a string, and a
+        // group of sub-fields as a single associative array.
+        if (is_array($value) && array_is_list($value)) {
+            return $value;
+        }
+
+        return [$value];
     }
 
     public function isContentRequest(): bool

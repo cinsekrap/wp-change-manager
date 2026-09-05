@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\AccessGranted;
 use App\Mail\ApprovalDeclined;
+use App\Mail\ContentRevisionNeeded;
 use App\Mail\GroupApprovalSatisfied;
 use App\Mail\RequestStatusChanged;
 use App\Mail\TrainingRequested;
@@ -157,22 +158,46 @@ class ApprovalWorkflowService
         // awaiting_approval, not referred.
         $oldStatus = $changeRequest->status;
 
+        // A clinician turning down copy is saying it is not safe as written, not
+        // that the page should not exist. Content goes back to the designer who
+        // wrote it, keeping the brief, the funding and the hours already spent.
+        // Declining outright stays available as a deliberate status change.
+        $newStatus = $changeRequest->isContentRequest() ? 'in_progress' : 'declined';
+
         $changeRequest->update([
-            'status' => 'declined',
-            'rejection_reason' => $rejectionReason,
+            'status' => $newStatus,
+            // Only a decline carries a reason; revision feedback lives on the
+            // approver's row and in the note below.
+            'rejection_reason' => $newStatus === 'declined' ? $rejectionReason : null,
         ]);
 
         ChangeRequestStatusLog::create([
             'change_request_id' => $changeRequest->id,
             'user_id' => $userId,
             'old_status' => $oldStatus,
-            'new_status' => 'declined',
+            'new_status' => $newStatus,
         ]);
 
-        // Notify the requester
+        if ($changeRequest->isContentRequest()) {
+            $changeRequest->notes()->create([
+                'user_id' => $userId,
+                'note' => "Clinical approval not given by {$approver->name}".($notes ? ": {$notes}" : '.'),
+            ]);
+
+            // The designer wrote the copy and is the only person who can act on
+            // the feedback. Nobody was telling them.
+            EmailLog::dispatch(
+                $changeRequest->assignee?->email,
+                new ContentRevisionNeeded($changeRequest, $approver),
+                $changeRequest,
+            );
+        }
+
+        // Whoever asked for it, if anyone did — content the team started itself
+        // has no requester.
         EmailLog::dispatch(
             $changeRequest->requester_email,
-            new RequestStatusChanged($changeRequest, $oldStatus, 'declined'),
+            new RequestStatusChanged($changeRequest, $oldStatus, $newStatus),
             $changeRequest,
         );
 

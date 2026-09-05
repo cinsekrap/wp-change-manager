@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\ContentRevisionNeeded;
 use App\Mail\RequestStatusChanged;
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestApprover;
@@ -119,6 +120,19 @@ class ContentLaneWorkflowTest extends TestCase
         return $request->fresh();
     }
 
+    private function designerOn(ChangeRequest $request): \App\Models\User
+    {
+        $designer = \App\Models\User::factory()->create([
+            'name' => 'Sam Designer',
+            'email' => 'sam@example.com',
+        ]);
+
+        $request->updateQuietly(['assigned_to' => $designer->id]);
+        $request->refresh();
+
+        return $designer;
+    }
+
     public function test_approving_advances_a_content_request_out_of_approval(): void
     {
         $request = $this->contentAwaitingApproval();
@@ -129,24 +143,91 @@ class ContentLaneWorkflowTest extends TestCase
         $this->assertSame('approved', $request->fresh()->status);
     }
 
-    public function test_rejecting_declines_a_content_request_and_tells_the_requester(): void
+    public function test_rejecting_content_sends_it_back_to_the_designer_rather_than_declining_it(): void
     {
         $request = $this->contentAwaitingApproval();
+        $designer = $this->designerOn($request);
 
         $this->post(route('approval.respond', $request->approvers->first()->token), [
             'status' => 'rejected',
             'notes' => 'Clinically unsafe as written.',
+            'share_details' => '1',
         ]);
 
         $request->refresh();
 
-        // Previously swallowed entirely: recorded on the approver row and nowhere else.
-        $this->assertSame('declined', $request->status);
-        $this->assertNotNull($request->rejection_reason);
-        Mail::assertSent(RequestStatusChanged::class);
+        // A clinician saying "not as written" is asking for a rewrite, not for
+        // the page to be abandoned. The brief, funding and hours all survive.
+        $this->assertSame('in_progress', $request->status);
+        $this->assertNull($request->rejection_reason, 'A request still being written must not carry a decline reason.');
+
+        // The designer is the only person who can act on the feedback.
+        Mail::assertSent(ContentRevisionNeeded::class, fn ($mail) => $mail->hasTo($designer->email));
+        $this->assertStringContainsString('Clinically unsafe as written.', $request->notes->first()->note);
     }
 
-    public function test_a_decline_records_the_status_it_actually_came_from(): void
+    public function test_the_requester_is_told_the_copy_is_being_revised_not_that_it_was_declined(): void
+    {
+        $request = $this->contentAwaitingApproval();
+        $this->designerOn($request);
+
+        $this->post(route('approval.respond', $request->approvers->first()->token), [
+            'status' => 'rejected',
+            'notes' => 'Needs a safety-netting line.',
+        ]);
+
+        // Whoever asked for it still hears, but the status they are told is the
+        // one the request is actually in.
+        Mail::assertSent(RequestStatusChanged::class, fn ($mail) => $mail->hasTo('jane@example.com'));
+        $this->assertSame('in_progress', $request->fresh()->status);
+    }
+
+    public function test_content_the_team_started_itself_still_reaches_the_designer(): void
+    {
+        $request = $this->contentAwaitingApproval();
+        $designer = $this->designerOn($request);
+
+        // Designer-initiated content has nobody to email a status change to.
+        $request->updateQuietly(['requester_email' => null, 'requester_name' => null]);
+
+        $this->post(route('approval.respond', $request->fresh()->approvers->first()->token), [
+            'status' => 'rejected',
+            'notes' => 'Reads as advice rather than information.',
+        ]);
+
+        Mail::assertSent(ContentRevisionNeeded::class, fn ($mail) => $mail->hasTo($designer->email));
+        Mail::assertNotSent(RequestStatusChanged::class);
+    }
+
+    public function test_the_clinician_is_told_where_their_feedback_went(): void
+    {
+        $request = $this->contentAwaitingApproval();
+        $this->designerOn($request);
+
+        $this->post(route('approval.respond', $request->approvers->first()->token), [
+            'status' => 'rejected',
+            'notes' => 'Needs a safety-netting line.',
+        ])->assertSuccessful()
+            ->assertSee('Your notes have gone to the person writing this copy');
+    }
+
+    public function test_a_change_request_is_still_declined_when_an_approver_rejects_it(): void
+    {
+        $request = $this->contentAwaitingApproval();
+        $request->updateQuietly(['request_type' => 'change', 'status' => 'referred', 'page_url' => '/a-page']);
+
+        $this->post(route('approval.respond', $request->approvers->first()->token), [
+            'status' => 'rejected',
+            'notes' => 'No.',
+        ]);
+
+        // The change lane is unchanged: a rejection there ends the request.
+        $this->assertSame('declined', $request->fresh()->status);
+        $this->assertNotNull($request->fresh()->rejection_reason);
+        Mail::assertNotSent(ContentRevisionNeeded::class);
+    }
+
+    public function test_the_status_log_records_the_status_it_actually_came_from(): void
     {
         $request = $this->contentAwaitingApproval();
 
@@ -159,7 +240,7 @@ class ContentLaneWorkflowTest extends TestCase
         $this->assertDatabaseHas('change_request_status_log', [
             'change_request_id' => $request->id,
             'old_status' => 'awaiting_approval',
-            'new_status' => 'declined',
+            'new_status' => 'in_progress',
         ]);
     }
 

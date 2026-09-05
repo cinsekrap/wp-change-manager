@@ -41,10 +41,15 @@
             @if($changeRequest->hasBoundApproval())
                 <input type="hidden" name="void_approval" value="1">
             @endif
-            <textarea name="draft_content" id="draftContent" rows="10"
-                class="field-input">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
-            @error('draft_content') <p class="field-error">{{ $message }}</p> @enderror
-            @include('partials.reading-age', ['field' => 'draftContent'])
+            @if($changeRequest->hasStructuredDraft())
+                {{-- Written into the fields of the page type this becomes. --}}
+                @include('admin.requests.partials._draft-fields')
+            @else
+                <textarea name="draft_content" id="draftContent" rows="10"
+                    class="field-input">{{ old('draft_content', $changeRequest->draft_content) }}</textarea>
+                @error('draft_content') <p class="field-error">{{ $message }}</p> @enderror
+                @include('partials.reading-age', ['field' => 'draftContent'])
+            @endif
             <button type="submit" class="btn btn-primary mt-3">Save draft</button>
         </form>
     @endif

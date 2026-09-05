@@ -223,6 +223,7 @@ class EmailTemplateController extends Controller
             'training-confirmed' => new TrainingConfirmed($sample),
             'access-granted' => new AccessGranted($sample),
             'content-suggestion-received' => new \App\Mail\ContentSuggestionReceived($sample),
+            'content-revision-needed' => new \App\Mail\ContentRevisionNeeded($sample, $sampleApprover),
             'content-awaiting-funding' => new \App\Mail\ContentAwaitingFunding($sample),
             'content-published' => new \App\Mail\ContentPublished($sample),
             'watch-confirmation' => new \App\Mail\WatchConfirmation($sample, $sampleWatcher),

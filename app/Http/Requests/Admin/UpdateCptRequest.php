@@ -22,6 +22,8 @@ class UpdateCptRequest extends FormRequest
             'request_mode' => 'required|in:normal,blocked,self_service',
             'mode_message' => 'nullable|string|max:5000',
             'training_url' => 'nullable|url|max:2048',
+            'content_kinds' => 'nullable|array',
+            'content_kinds.*' => 'string|in:'.implode(',', array_keys(config('content-types'))),
             'content_areas' => 'nullable|array',
             'content_areas.*.name' => 'required|string|max:255',
             'content_areas.*.type' => 'required|in:text,textarea,select,checkbox,date,file,richtext,group',
@@ -87,6 +89,10 @@ class UpdateCptRequest extends FormRequest
 
         $data['form_config'] = !empty($contentAreas) ? ['content_areas' => $contentAreas] : null;
         unset($data['content_areas']);
+
+        // Unticking every kind means this page type claims none, which is not the
+        // same as leaving the field alone.
+        $data['content_kinds'] = $data['content_kinds'] ?? [];
 
         return $data;
     }

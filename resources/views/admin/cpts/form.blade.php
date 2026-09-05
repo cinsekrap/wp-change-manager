@@ -206,6 +206,40 @@
         </div>
 
         <div>
+            <label class="field-label">Used for new content</label>
+            <p class="field-help">
+                New content of these kinds is written into the fields below. A kind no page type
+                claims is written as one block of text instead.
+            </p>
+            @php
+                $claimed = old('content_kinds', $cpt->content_kinds ?? []);
+                // A kind belongs to one page type, so anything another has taken
+                // is shown as taken rather than silently moving.
+                $takenBy = \App\Models\CptType::whereNotNull('content_kinds')
+                    ->when($cpt->exists, fn ($q) => $q->where('id', '!=', $cpt->id))
+                    ->get()
+                    ->flatMap(fn ($t) => collect($t->content_kinds)->mapWithKeys(fn ($k) => [$k => $t->name]));
+            @endphp
+            <div class="space-y-2">
+                @foreach(config('content-types') as $key => $kind)
+                    @php $taken = $takenBy[$key] ?? null; @endphp
+                    <label class="flex items-start gap-2.5 p-2.5 border border-hcrg-grey-200 rounded-lg {{ $taken ? 'opacity-60' : 'cursor-pointer hover:border-hcrg-burgundy' }}">
+                        <input type="checkbox" name="content_kinds[]" value="{{ $key }}"
+                            @checked(in_array($key, (array) $claimed)) @disabled($taken)
+                            class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+                        <span class="text-sm text-gray-700">
+                            {{ $kind['label'] }}
+                            <span class="block text-xs text-hcrg-grey-400">
+                                {{ $taken ? 'Already used by '.$taken : $kind['help'] }}
+                            </span>
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            @error('content_kinds') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
+
+        <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Request mode</label>
             @php $currentMode = old('request_mode', $cpt->request_mode ?? 'normal'); @endphp
             <div class="space-y-2">
