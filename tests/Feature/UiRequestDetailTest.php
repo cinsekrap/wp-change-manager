@@ -266,4 +266,93 @@ class UiRequestDetailTest extends TestCase
 
         $this->assertSame('Chased the approver.', $request->notes()->latest()->first()->note);
     }
+
+    public function test_one_box_covers_both_a_note_and_a_question(): void
+    {
+        $request = $this->request('change');
+        $this->loginAsAdmin();
+
+        $work = $this->panelBody(
+            $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent(), 'work'
+        );
+
+        // Two textareas doing similar-looking things was the problem.
+        $this->assertStringContainsString('A note on the job', $work);
+        $this->assertStringContainsString('A question for Jane Doe', $work);
+        $this->assertStringContainsString('SLA clock stops', $work);
+    }
+
+    public function test_the_sidebar_no_longer_asks_for_clarification(): void
+    {
+        $request = $this->request('change');
+        $this->loginAsAdmin();
+
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+        $sidebar = substr($html, strrpos($html, '<div class="space-y-4">'));
+
+        $this->assertStringNotContainsString('clarification_message', $sidebar);
+    }
+
+    public function test_a_question_emails_the_requester_and_stops_the_clock(): void
+    {
+        $request = $this->request('change');
+        $this->loginAsAdmin();
+
+        $this->post(route('admin.requests.notes', $request), [
+            'note' => 'Which of the two phone numbers is correct?',
+            'kind' => 'question',
+        ])->assertRedirect();
+
+        $request->refresh();
+        $this->assertSame('awaiting_user', $request->status);
+        $this->assertSame('Which of the two phone numbers is correct?', $request->clarification_message);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\ClarificationRequested::class);
+    }
+
+    public function test_a_note_changes_nothing_and_sends_nothing(): void
+    {
+        $request = $this->request('change');
+        $this->loginAsAdmin();
+
+        $this->post(route('admin.requests.notes', $request), [
+            'note' => 'Chased the approver.',
+            'kind' => 'note',
+        ])->assertRedirect();
+
+        $this->assertSame('requested', $request->fresh()->status);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
+    public function test_nobody_can_be_asked_when_there_is_no_requester(): void
+    {
+        $request = $this->request('content', ['requester_name' => null, 'requester_email' => null]);
+        $this->loginAsAdmin();
+
+        // Content the team started itself has nobody to ask, and the request
+        // would sit at awaiting_user for an answer that never comes.
+        $work = $this->panelBody(
+            $this->get(route('admin.requests.show', $request))->getContent(), 'work'
+        );
+        $this->assertStringContainsString('no requester', $work);
+        $this->assertStringNotContainsString('A question for', $work);
+
+        $this->post(route('admin.requests.notes', $request), [
+            'note' => 'Anyone there?', 'kind' => 'question',
+        ])->assertSessionHas('error');
+
+        $this->assertSame('in_progress', $request->fresh()->status);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
+    public function test_a_closed_request_cannot_be_asked_about(): void
+    {
+        $request = $this->request('change', ['status' => 'done']);
+        $this->loginAsAdmin();
+
+        $this->post(route('admin.requests.notes', $request), [
+            'note' => 'Still fine?', 'kind' => 'question',
+        ])->assertSessionHas('error');
+
+        $this->assertSame('done', $request->fresh()->status);
+    }
 }

@@ -305,19 +305,34 @@ class ChangeRequestController extends Controller
 
     public function requestClarification(Request $request, ChangeRequest $changeRequest)
     {
-        $request->validate([
+        $validated = $request->validate([
             'clarification_message' => 'required|string|max:2000',
         ]);
 
+        return $this->askRequester($changeRequest, $validated['clarification_message']);
+    }
+
+    /**
+     * Put a question to the requester: emails them, and holds the request at
+     * awaiting_user so the SLA clock is not running while we wait.
+     */
+    private function askRequester(ChangeRequest $changeRequest, string $message)
+    {
         if (!$changeRequest->isActive()) {
-            return back()->with('error', 'Clarification cannot be requested on a closed request.');
+            return back()->with('error', 'This request is closed, so nobody can be asked anything about it.');
+        }
+
+        // Content the team started itself has no requester, so there is nobody
+        // to ask and nothing would ever come back.
+        if (blank($changeRequest->requester_email)) {
+            return back()->with('error', 'This has no requester to ask. Add it as a note instead.');
         }
 
         $oldStatus = $changeRequest->status;
 
         $changeRequest->update([
             'status' => 'awaiting_user',
-            'clarification_message' => $request->clarification_message,
+            'clarification_message' => $message,
             'clarification_requested_at' => now(),
         ]);
 
@@ -340,12 +355,12 @@ class ChangeRequestController extends Controller
 
         $changeRequest->notes()->create([
             'user_id' => auth()->id(),
-            'note' => 'Clarification requested: ' . $request->clarification_message,
+            'note' => 'Clarification requested: ' . $message,
         ]);
 
         EmailLog::dispatch($changeRequest->requester_email, new ClarificationRequested($changeRequest), $changeRequest);
 
-        return back()->with('success', 'Clarification requested — the requester has been emailed.');
+        return back()->with('success', 'Sent to '.$changeRequest->requester_name.'. This request is now waiting on their answer.');
     }
 
     public function sendTrainingEmail(ChangeRequest $changeRequest)
@@ -374,15 +389,28 @@ class ChangeRequestController extends Controller
         return back()->with('success', $resend ? 'Training email resent.' : 'Training email sent.');
     }
 
+    /**
+     * Something written down about a request.
+     *
+     * Two kinds, because writing them is the same act with very different
+     * consequences: a note is for whoever picks this up next and changes
+     * nothing, while a question goes to the requester and stops the clock until
+     * they answer.
+     */
     public function addNote(Request $request, ChangeRequest $changeRequest)
     {
-        $request->validate([
+        $validated = $request->validate([
             'note' => 'required|string|max:5000',
+            'kind' => 'nullable|in:note,question',
         ]);
+
+        if (($validated['kind'] ?? 'note') === 'question') {
+            return $this->askRequester($changeRequest, $validated['note']);
+        }
 
         $changeRequest->notes()->create([
             'user_id' => auth()->id(),
-            'note' => $request->note,
+            'note' => $validated['note'],
         ]);
 
         AuditService::log(
