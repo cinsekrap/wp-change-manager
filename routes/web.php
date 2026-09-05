@@ -126,6 +126,7 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
     Route::post('/whats-new/dismiss', [WhatsNewController::class, 'dismiss'])->name('admin.whats-new.dismiss');
 
     // Change requests
+    Route::get('/funding', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('admin.funding');
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
     Route::post('/requests/bulk/status', [BulkActionController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
     Route::post('/requests/bulk/assign', [BulkActionController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
