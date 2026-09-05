@@ -349,6 +349,13 @@ class UiRequestDetailTest extends TestCase
         $request = $this->request('change', ['status' => 'done']);
         $this->loginAsAdmin();
 
+        // The status badge already says it is closed; the form does not repeat it.
+        $work = $this->panelBody(
+            $this->get(route('admin.requests.show', $request))->getContent(), 'work'
+        );
+        $this->assertStringNotContainsString('closed', $work);
+        $this->assertStringNotContainsString('A question for', $work);
+
         $this->post(route('admin.requests.notes', $request), [
             'note' => 'Still fine?', 'kind' => 'question',
         ])->assertSessionHas('error');

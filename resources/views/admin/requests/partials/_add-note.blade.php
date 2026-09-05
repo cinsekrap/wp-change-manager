@@ -38,11 +38,11 @@
             </div>
         @else
             <input type="hidden" name="kind" value="note">
-            <p class="text-xs text-hcrg-grey-400 mb-3">
-                {{ $changeRequest->isActive()
-                    ? 'This has no requester, so there is nobody to put a question to.'
-                    : 'This request is closed, so nobody can be asked about it.' }}
-            </p>
+            @if($changeRequest->isActive())
+                {{-- Worth saying: an option is missing and the reason is not on
+                     the page. A closed request needs no note — the status is. --}}
+                <p class="text-xs text-hcrg-grey-400 mb-3">This has no requester, so there is nobody to put a question to.</p>
+            @endif
         @endif
 
         <button type="submit" id="noteSubmit" class="btn btn-primary">Add note</button>
