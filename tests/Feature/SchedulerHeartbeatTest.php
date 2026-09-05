@@ -28,7 +28,7 @@ class SchedulerHeartbeatTest extends TestCase
         $this->assertIsNumeric(Cache::get('scheduler_last_run'));
     }
 
-    public function test_dashboard_shows_running_when_heartbeat_is_fresh(): void
+    public function test_the_landing_page_shows_running_when_heartbeat_is_fresh(): void
     {
         $this->loginAsAdmin();
         Cache::put('scheduler_last_run', now()->subMinute()->timestamp);
@@ -39,7 +39,7 @@ class SchedulerHeartbeatTest extends TestCase
             ->assertDontSee('Scheduled tasks are not running.');
     }
 
-    public function test_dashboard_warns_when_heartbeat_is_stale(): void
+    public function test_the_landing_page_warns_when_heartbeat_is_stale(): void
     {
         $this->loginAsAdmin();
         Cache::put('scheduler_last_run', now()->subHours(2)->timestamp);
@@ -51,7 +51,7 @@ class SchedulerHeartbeatTest extends TestCase
             ->assertSee('2 hours ago');
     }
 
-    public function test_dashboard_warns_when_no_heartbeat_exists(): void
+    public function test_the_landing_page_warns_when_no_heartbeat_exists(): void
     {
         $this->loginAsAdmin();
 
@@ -61,7 +61,7 @@ class SchedulerHeartbeatTest extends TestCase
             ->assertSee('No heartbeat has ever been recorded.');
     }
 
-    public function test_dashboard_survives_a_legacy_object_heartbeat(): void
+    public function test_the_landing_page_survives_a_legacy_object_heartbeat(): void
     {
         // v1.8.1 cached a Carbon object; cache stores refuse to unserialize
         // non-allowlisted classes, which 500'd the dashboard. Any non-numeric

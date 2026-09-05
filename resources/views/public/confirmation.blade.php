@@ -26,7 +26,7 @@
     </div>
 
     <div class="text-sm text-gray-500 space-y-1 mb-8">
-        <p><strong>Site:</strong> {{ $changeRequest->site->name }}</p>
+        <p><strong>Site:</strong> {{ $changeRequest->site?->name ?? 'Not yet decided' }}</p>
         @if($changeRequest->isAccessRequest())
             <p><strong>Access to:</strong> {{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
             <p><strong>Access for:</strong> {{ $changeRequest->access_recipient_name }}</p>
@@ -50,6 +50,17 @@
     </p>
 
     <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-hcrg-burgundy hover:underline font-medium">track the status of your request</a> at any time.</p>
+
+    @if($changeRequest->isContentRequest())
+    {{-- The one moment someone cares that the queue exists. It does not appear
+         there until we have written a public title for it, so this promises a
+         list to look at, not that theirs is on it yet. --}}
+    <p class="text-sm text-gray-500 mb-6">
+        Once we've written it up it will appear on our
+        <a href="{{ route('suggestions') }}" class="text-hcrg-burgundy hover:underline font-medium">list of content suggestions</a>,
+        where you can follow its progress.
+    </p>
+    @endif
 
     <a href="{{ route('wizard') }}" class="inline-block bg-hcrg-burgundy text-white px-6 py-2 rounded-full hover:bg-[#9A1B4B] text-sm font-medium">
         Submit Another Request

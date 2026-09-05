@@ -14,7 +14,7 @@
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>
-                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site->name }}</p>
+                <p class="text-sm text-gray-800 font-semibold">{{ $changeRequest->site?->name ?? 'Not yet decided' }}</p>
             </div>
             @if($changeRequest->isAccessRequest())
             <div>
@@ -78,7 +78,14 @@
             </div>
         @endif
 
-        {{-- Reading-age guidance: shown when any change raises the reading age --}}
+        {{-- Reading-age guidance: shown when any change raises the reading age.
+
+             Deliberately items-only, so a content request never reaches the
+             "Yes, approve anyway" step. This fires on an INCREASE — someone made
+             existing copy worse — and content has no earlier version to compare
+             against. The designer writing it is already stopped by the gate on
+             the draft editor, and they are the one who can fix it; the clinician
+             is here to judge clinical safety, and gets the score to read. --}}
         @php
             $anyReadingAgeIncrease = $changeRequest->items->contains(fn($i) =>
                 $i->action_type === 'change'
@@ -106,6 +113,23 @@
             <h2 class="text-sm font-semibold text-gray-700 mb-2">The copy you are approving</h2>
             @if($changeRequest->draft_content)
                 <div class="p-4 bg-white border border-gray-200 rounded-lg text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{{ $changeRequest->draft_content }}</div>
+                {{-- The approver is the last person to read this before it publishes;
+                     they should see what the writer saw. --}}
+                @php $copyReadingAge = \App\Support\ReadingAge::grade($changeRequest->draft_content); @endphp
+                @if($copyReadingAge !== null)
+                    @php
+                        $raColour = $copyReadingAge <= 11 ? 'text-green-600' : ($copyReadingAge <= 13 ? 'text-amber-600' : 'text-red-600');
+                        $raDot = $copyReadingAge <= 11 ? 'bg-green-500' : ($copyReadingAge <= 13 ? 'bg-amber-500' : 'bg-red-500');
+                    @endphp
+                    <p class="mt-2 text-xs text-right {{ $raColour }} font-medium">
+                        <span class="w-2 h-2 rounded-full {{ $raDot }} inline-block align-middle mr-1"></span>Reading age: {{ $copyReadingAge }}
+                    </p>
+                    @if($copyReadingAge > 13)
+                        <div class="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                            This copy reads older than most of our audience can manage. The average reading age in the UK is 9&ndash;10.
+                        </div>
+                    @endif
+                @endif
                 <p class="mt-2 text-xs text-gray-500">Your approval is recorded against this exact wording. If it changes afterwards, the approval is withdrawn and you will be asked again.</p>
             @else
                 <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">

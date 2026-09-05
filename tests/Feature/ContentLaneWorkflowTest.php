@@ -53,6 +53,10 @@ class ContentLaneWorkflowTest extends TestCase
             'requester_name' => 'Jane Doe',
             'requester_email' => 'jane@example.com',
             'check_answers' => [],
+            // The wizard sends this key with an empty array rather than omitting
+            // it. Tests that left it out passed while every real submission was
+            // rejected, so the shape here has to match what the browser sends.
+            'items' => [],
         ];
     }
 

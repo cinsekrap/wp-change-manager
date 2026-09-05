@@ -207,8 +207,14 @@
         </div>
         @endif
 
-        {{-- Add approver form --}}
-        @if($changeRequest->isContentRequest())
+        {{-- Add approver form. Not offered on a closed request: nobody should be
+             asked to decide something that has already been decided. --}}
+        @if(in_array($changeRequest->status, \App\Models\ChangeRequest::TERMINAL_STATUSES))
+        <p class="border-t border-gray-100 pt-3 text-xs text-gray-500">
+            This request is {{ \App\Models\ChangeRequest::statusLabel($changeRequest->status) }}. Change its status to ask
+            someone for approval.
+        </p>
+        @elseif($changeRequest->isContentRequest())
         {{-- Clinical sign-off names someone from the managed list, not free text. --}}
         @php $clinicalApprovers = \App\Models\ClinicalApprover::active()->ordered()->get(); @endphp
         <form method="POST" action="{{ route('admin.requests.approvers.add', $changeRequest) }}" class="border-t border-gray-100 pt-3">

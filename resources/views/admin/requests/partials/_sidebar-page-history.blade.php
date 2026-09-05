@@ -9,7 +9,7 @@
                 <span class="text-sm font-medium text-hcrg-burgundy">{{ $prev->reference }}</span>
                 @include('partials.status-badge', ['status' => $prev->status])
             </div>
-            <p class="text-xs text-gray-500 mt-0.5">{{ $prev->requester_name }} &middot; {{ $prev->created_at->format('d M Y') }} ({{ $prev->created_at->diffForHumans() }})</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ $prev->requester_name ?: 'Content team' }} &middot; {{ $prev->created_at->format('d M Y') }} ({{ $prev->created_at->diffForHumans() }})</p>
         </a>
         @endforeach
     </div>

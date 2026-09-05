@@ -17,6 +17,14 @@ class ApproverController extends Controller
 {
     public function addApprover(Request $request, ChangeRequest $changeRequest)
     {
+        // A closed request is not waiting on anyone. Asking a named clinician to
+        // approve something that was already declined, cancelled or completed
+        // sends them a decision that has already been taken — and the link they
+        // follow tells them so. Reopen it first if it genuinely needs approval.
+        if (in_array($changeRequest->status, ChangeRequest::TERMINAL_STATUSES)) {
+            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status to ask someone for approval.');
+        }
+
         // A clinical sign-off has to name someone from the managed list. Free-text
         // name-and-email is fine for a wording change on a site; it is not a
         // defensible clinical record.
@@ -192,6 +200,14 @@ class ApproverController extends Controller
 
     public function sendForApproval(ChangeRequest $changeRequest)
     {
+        // A closed request is not waiting on anyone. Asking a named clinician to
+        // approve something that was already declined, cancelled or completed
+        // sends them a decision that has already been taken — and the link they
+        // follow tells them so. Reopen it first if it genuinely needs approval.
+        if (in_array($changeRequest->status, ChangeRequest::TERMINAL_STATUSES)) {
+            return back()->with('error', 'This request is '.ChangeRequest::statusLabel($changeRequest->status).'. Change its status to ask someone for approval.');
+        }
+
         // Content is not approved *for a site* — one clinical sign-off covers every
         // site it goes to — so borrowing the main home's approvers would be an
         // arbitrary choice among them. A clinical approver is named explicitly.

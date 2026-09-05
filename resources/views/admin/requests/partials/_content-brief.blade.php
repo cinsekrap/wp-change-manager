@@ -21,13 +21,7 @@
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Who it's for</dt>
             <dd class="text-sm text-hcrg-charcoal">
-                @php
-                    $audiences = [
-                        'patients' => 'Patients & service users', 'families' => 'Families & carers',
-                        'referrers' => 'Referrers & GPs', 'staff' => 'Our staff',
-                        'commissioners' => 'Commissioners', 'public' => 'General public',
-                    ];
-                @endphp
+                @php $audiences = config('content-audiences'); @endphp
                 {{ collect($brief['audience'] ?? [])->map(fn ($a) => $audiences[$a] ?? $a)->join(', ') ?: '—' }}
             </dd>
         </div>

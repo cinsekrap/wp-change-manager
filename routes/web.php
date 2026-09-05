@@ -4,9 +4,11 @@ use App\Http\Controllers\Admin\ApproverController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BulkActionController;
 use App\Http\Controllers\Admin\ChangeRequestController;
+use App\Http\Controllers\Admin\ContentRequestController;
 use App\Http\Controllers\Admin\CheckQuestionController;
 use App\Http\Controllers\Admin\CptController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\WhatsNewController;
 use App\Http\Controllers\Admin\ConfigController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\Admin\EmailLogController;
@@ -103,6 +105,11 @@ Route::post('/admin/forgot-password', [PasswordResetController::class, 'sendRese
 Route::get('/admin/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
 Route::post('/admin/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:3,1');
 
+// Funding decisions. No login: the budget holder holds a token, as approvers do.
+Route::get('/funding/{token}', [\App\Http\Controllers\PublicSite\FundingApprovalController::class, 'show'])->name('funding.show');
+Route::post('/funding/{token}', [\App\Http\Controllers\PublicSite\FundingApprovalController::class, 'respond'])
+    ->name('funding.respond')->middleware('throttle:5,1');
+
 // Microsoft Entra SSO
 Route::get('/auth/microsoft', [EntraController::class, 'redirect'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [EntraController::class, 'callback'])->name('auth.microsoft.callback');
@@ -117,20 +124,29 @@ Route::middleware('auth')->prefix('admin/mfa')->group(function () {
 
 // Admin routes (editor + super_admin)
 Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () {
+    // The dashboard absorbed the Reports v2 trial. /reports is kept as a redirect
+    // because that was its address throughout, and links to it exist.
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
-    Route::get('/reports', [\App\Http\Controllers\Admin\ReportsController::class, 'index'])->name('admin.reports');
-    Route::post('/whats-new/dismiss', [DashboardController::class, 'dismissWhatsNew'])->name('admin.whats-new.dismiss');
+    Route::get('/reports', fn () => redirect()->route('admin.dashboard', request()->query()));
+    Route::post('/whats-new/dismiss', [WhatsNewController::class, 'dismiss'])->name('admin.whats-new.dismiss');
 
     // Change requests
+    Route::get('/funding', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('admin.funding');
+    Route::post('/funding/rounds', [\App\Http\Controllers\Admin\FundingRoundController::class, 'store'])->name('admin.funding.rounds.store');
     Route::get('/requests/export', [ChangeRequestController::class, 'export'])->name('admin.requests.export');
     Route::post('/requests/bulk/status', [BulkActionController::class, 'bulkUpdateStatus'])->name('admin.requests.bulk.status');
     Route::post('/requests/bulk/assign', [BulkActionController::class, 'bulkAssign'])->name('admin.requests.bulk.assign');
     Route::get('/requests', [ChangeRequestController::class, 'index'])->name('admin.requests.index');
+    // Content the team starts itself. Both must stay above the {changeRequest}
+    // route or "create" is read as a reference and 404s.
+    Route::get('/requests/create-content', [ContentRequestController::class, 'create'])->name('admin.requests.content.create');
+    Route::post('/requests/create-content', [ContentRequestController::class, 'store'])->name('admin.requests.content.store');
     Route::get('/requests/{changeRequest}', [ChangeRequestController::class, 'show'])->name('admin.requests.show');
     Route::patch('/requests/{changeRequest}/status', [ChangeRequestController::class, 'updateStatus'])->name('admin.requests.status');
     Route::post('/requests/{changeRequest}/notes', [ChangeRequestController::class, 'addNote'])->name('admin.requests.notes');
     Route::delete('/requests/{changeRequest}/watchers/{watcher}', [ChangeRequestController::class, 'removeWatcher'])->name('admin.requests.watcher.remove');
     Route::patch('/requests/{changeRequest}/public-title', [ChangeRequestController::class, 'updatePublicTitle'])->name('admin.requests.public-title');
+    Route::patch('/requests/{changeRequest}/estimate', [ChangeRequestController::class, 'updateEstimate'])->name('admin.requests.estimate');
     Route::patch('/requests/{changeRequest}/draft', [ChangeRequestController::class, 'updateDraft'])->name('admin.requests.draft');
     Route::patch('/requests/{changeRequest}/published', [ChangeRequestController::class, 'updatePublished'])->name('admin.requests.published');
     Route::post('/requests/{changeRequest}/request-clarification', [ChangeRequestController::class, 'requestClarification'])->name('admin.requests.request-clarification');
@@ -163,6 +179,10 @@ Route::prefix('admin')->middleware(['auth', 'admin', 'mfa'])->group(function () 
         Route::resource('cpts', CptController::class)->names('admin.cpts');
 
         // Clinical approvers — the named people who may sign off content
+        Route::resource('funding-approvers', \App\Http\Controllers\Admin\FundingApproverController::class)
+            ->names('admin.funding-approvers')
+            ->parameters(['funding-approvers' => 'fundingApprover'])
+            ->except(['show']);
         Route::resource('clinical-approvers', \App\Http\Controllers\Admin\ClinicalApproverController::class)
             ->names('admin.clinical-approvers')
             ->parameters(['clinical-approvers' => 'clinicalApprover'])

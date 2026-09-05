@@ -1,7 +1,7 @@
 @if($changeRequest->status === 'requested')
     @php
         $allPassed = collect($changeRequest->check_answers ?? [])->every(fn($a) => !empty($a['pass']));
-        $siteRequiresApproval = $changeRequest->site->requires_approval ?? false;
+        $siteRequiresApproval = $changeRequest->site?->requires_approval ?? false;
     @endphp
     @if(!$allPassed)
         <div class="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl flex items-start space-x-3">

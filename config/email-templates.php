@@ -137,6 +137,14 @@ return [
         'placeholders' => ['reference', 'site_name', 'content_type'],
     ],
 
+    'funding_requested' => [
+        'name' => 'Funding Requested',
+        'description' => 'Sent to a funding approver when hours are submitted for approval. Lists every piece and the total.',
+        'subject' => 'Funding decision needed: {reference} — {total_hours} hours',
+        'body' => 'Content design hours need agreeing before writing starts. Each piece is listed below with its estimate.',
+        'placeholders' => ['reference', 'total_hours', 'item_count'],
+    ],
+
     'content_awaiting_funding' => [
         'name' => 'Content Awaiting Funding',
         'description' => 'Sent when a content suggestion has been agreed in principle and is waiting for the hours to be funded.',

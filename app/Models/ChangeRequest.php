@@ -11,7 +11,7 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'reference', 'request_type', 'site_id', 'page_url', 'page_title', 'cpt_slug',
-        'content_type', 'content_brief', 'public_title', 'draft_content',
+        'content_type', 'content_brief', 'estimated_hours', 'public_title', 'draft_content',
         'published_url', 'published_title',
         'is_new_page', 'status', 'previous_status', 'priority', 'rejection_reason', 'hold_reason',
         'clarification_message', 'clarification_requested_at',
@@ -49,6 +49,14 @@ class ChangeRequest extends Model
     public const ACCESS_ONLY_STATUSES = ['training', 'trained'];
 
     public const CHANGE_ONLY_STATUSES = ['scheduled'];
+
+    /**
+     * Intake and referral, shared by the change and access lanes. Content has its
+     * own equivalents — suggested for intake, awaiting_approval for sign-off, and
+     * a named clinical approver rather than a site's — so it never passes through
+     * any of these.
+     */
+    public const REFERRAL_STATUSES = ['requested', 'requires_referral', 'referred'];
 
     /**
      * The suggestion-and-funding half of the content lifecycle. Deliberately NOT in
@@ -270,7 +278,10 @@ class ChangeRequest extends Model
         }
 
         if ($this->isContentRequest()) {
+            // page_title is the working title on content the team started itself;
+            // without it there is only the generic type label to go on.
             return $this->public_title
+                ?: $this->page_title
                 ?: config("content-types.{$this->content_type}.label", 'New content');
         }
 
@@ -290,12 +301,20 @@ class ChangeRequest extends Model
     {
         $excluded = match (true) {
             $this->isAccessRequest() => array_merge(self::CHANGE_ONLY_STATUSES, self::CONTENT_ONLY_STATUSES),
-            // Content requests do get scheduled — they only skip the access training states.
-            $this->isContentRequest() => self::ACCESS_ONLY_STATUSES,
+            // Content requests do get scheduled — they skip the access training
+            // states, and the change lane's intake and referral path.
+            $this->isContentRequest() => array_merge(self::ACCESS_ONLY_STATUSES, self::REFERRAL_STATUSES),
             default => array_merge(self::ACCESS_ONLY_STATUSES, self::CONTENT_ONLY_STATUSES),
         };
 
-        return array_values(array_diff(self::STATUSES, $excluded));
+        // Whatever it is on right now stays in the list even when excluded. A
+        // request left in a status this lane no longer offers would otherwise
+        // show a different option as selected, and Update would move it without
+        // anyone meaning to.
+        return array_values(array_filter(
+            self::STATUSES,
+            fn ($status) => !in_array($status, $excluded) || $status === $this->status,
+        ));
     }
 
     public function site()
