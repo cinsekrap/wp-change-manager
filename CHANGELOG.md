@@ -7,6 +7,11 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.0.1
+
+### Improvements
+- Various dependency and maintenance updates.
+
 ## 2.0.0
 
 ACME Change now handles two kinds of ask: changing a page that already exists, and writing
