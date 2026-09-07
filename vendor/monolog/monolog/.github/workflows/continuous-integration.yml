@@ -10,6 +10,10 @@ permissions:
 env:
   COMPOSER_ROOT_VERSION: dev-main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     name: "CI (PHP ${{ matrix.php-version }}, ${{ matrix.dependencies }} deps)"
@@ -44,12 +48,14 @@ jobs:
             composer-options: "--ignore-platform-req=php+"
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run CouchDB
         timeout-minutes: 3
         continue-on-error: true
-        uses: cobot/couchdb-action@eaaa17cf8baf421e7fb07e2d869f5457bb6a4de5 # main
+        uses: cobot/couchdb-action@716f8ccff36d9ee08e27f094d842ff8955f83c66 # v5.0.1
         with:
           couchdb version: '2.3.1'
 
@@ -58,7 +64,7 @@ jobs:
         with:
           mongodb-version: 5.0
 
-      - uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # 2.36.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           coverage: "none"
           php-version: "${{ matrix.php-version }}"
@@ -73,18 +79,18 @@ jobs:
         run: |
           composer require --no-update --no-interaction --dev elasticsearch/elasticsearch:^7
 
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # 3.1.1
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           dependency-versions: "${{ matrix.dependencies }}"
           composer-options: "${{ matrix.composer-options }}"
 
       - name: "Run tests"
         if: "matrix.php-version >= '8.2'"
-        run: "composer exec phpunit -- --exclude-group Elasticsearch --exclude-group Elastica"
+        run: "composer exec phpunit -- --exclude-group Elasticsearch --exclude-group Elastica --exclude-group e2e"
 
       - name: "Run tests"
         if: "matrix.php-version == '8.1'"
-        run: "composer exec phpunit -- --exclude-group Elasticsearch,Elastica"
+        run: "composer exec phpunit -- --exclude-group Elasticsearch,Elastica,e2e"
 
   tests-es-7:
     name: "CI with ES ${{ matrix.es-version }} on PHP ${{ matrix.php-version }}"
@@ -112,7 +118,9 @@ jobs:
           - "7.17.0"
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # required for elasticsearch
       - name: Configure sysctl limits
@@ -124,11 +132,32 @@ jobs:
 
       - name: Run Elasticsearch
         timeout-minutes: 3
-        uses: elastic/elastic-github-actions/elasticsearch@dc110609b1cb3024477ead739ca23ab547b8b9ff # master
-        with:
-          stack-version: "${{ matrix.es-version }}"
+        env:
+          ES_VERSION: ${{ matrix.es-version }}
+        run: |
+          # ES's bundled JDK crashes on the runner's cgroup v2 with a NPE in
+          # CgroupV2Subsystem (the bundled JDK predates the cgroup v2 fix).
+          # Run ES against the runner's patched JDK 11 instead, which both
+          # ES 7.0 and 7.17 support (ES <7.12 only reads JAVA_HOME, not ES_JAVA_HOME).
+          export JAVA_HOME="$JAVA_HOME_11_X64"
+          export ES_JAVA_HOME="$JAVA_HOME_11_X64"
+          curl -sL "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}-linux-x86_64.tar.gz" | tar xz
+          ES_JAVA_OPTS="-Xms256m -Xmx512m" "elasticsearch-${ES_VERSION}/bin/elasticsearch" \
+            -E discovery.type=single-node \
+            -E xpack.security.enabled=false \
+            -d -p /tmp/es.pid
+          until curl -s http://127.0.0.1:9200 | grep -q '"tagline"'; do
+            if [ -f /tmp/es.pid ] && ! kill -0 "$(cat /tmp/es.pid)" 2>/dev/null; then
+              echo "Elasticsearch process died:"
+              cat "elasticsearch-${ES_VERSION}"/logs/*.log 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting for Elasticsearch..."
+            sleep 2
+          done
+          echo "Elasticsearch is up"
 
-      - uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # 2.36.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           coverage: "none"
           php-version: "${{ matrix.php-version }}"
@@ -137,9 +166,11 @@ jobs:
           ini-values: "memory_limit=-1"
 
       - name: "Change dependencies"
-        run: "composer require --no-update --no-interaction --dev elasticsearch/elasticsearch:^${{ matrix.es-version }}"
+        env:
+          ES_VERSION: ${{ matrix.es-version }}
+        run: "composer require --no-update --no-interaction --dev elasticsearch/elasticsearch:^$ES_VERSION"
 
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # 3.1.1
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           dependency-versions: "${{ matrix.dependencies }}"
 
@@ -181,7 +212,9 @@ jobs:
           - "8.2.0"
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # required for elasticsearch
       - name: Configure sysctl limits
@@ -193,11 +226,30 @@ jobs:
 
       - name: Run Elasticsearch
         timeout-minutes: 3
-        uses: elastic/elastic-github-actions/elasticsearch@dc110609b1cb3024477ead739ca23ab547b8b9ff # master
-        with:
-          stack-version: "${{ matrix.es-version }}"
+        env:
+          ES_VERSION: ${{ matrix.es-version }}
+        run: |
+          # ES 8's bundled JDK 17 crashes on the runner's cgroup v2 with a NPE
+          # in CgroupV2Subsystem (predates the cgroup v2 fix). Point ES at the
+          # runner's patched JDK 17 instead (ES 8 reads ES_JAVA_HOME).
+          export ES_JAVA_HOME="$JAVA_HOME_17_X64"
+          curl -sL "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}-linux-x86_64.tar.gz" | tar xz
+          ES_JAVA_OPTS="-Xms256m -Xmx512m" "elasticsearch-${ES_VERSION}/bin/elasticsearch" \
+            -E discovery.type=single-node \
+            -E xpack.security.enabled=false \
+            -d -p /tmp/es.pid
+          until curl -s http://127.0.0.1:9200 | grep -q '"tagline"'; do
+            if [ -f /tmp/es.pid ] && ! kill -0 "$(cat /tmp/es.pid)" 2>/dev/null; then
+              echo "Elasticsearch process died:"
+              cat "elasticsearch-${ES_VERSION}"/logs/*.log 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting for Elasticsearch..."
+            sleep 2
+          done
+          echo "Elasticsearch is up"
 
-      - uses: shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1 # 2.36.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           coverage: "none"
           php-version: "${{ matrix.php-version }}"
@@ -210,7 +262,7 @@ jobs:
           composer remove --no-update --dev graylog2/gelf-php ruflin/elastica elasticsearch/elasticsearch rollbar/rollbar
           composer require --no-update --no-interaction --dev elasticsearch/elasticsearch:^8 ruflin/elastica:^8
 
-      - uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # 3.1.1
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
         with:
           dependency-versions: "${{ matrix.dependencies }}"
 
