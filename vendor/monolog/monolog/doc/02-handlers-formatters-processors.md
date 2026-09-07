@@ -23,6 +23,7 @@
 - [_SyslogHandler_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Handler/SyslogHandler.php): Logs records to the syslog.
 - [_ErrorLogHandler_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Handler/ErrorLogHandler.php): Logs records to PHP's
   [`error_log()`](https://www.php.net/manual/en/function.error-log.php) function.
+- [_FrankenPhpHandler_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Handler/FrankenPhpHandler.php): Logs records using [FrankenPHP's `frankenphp_log()`](https://frankenphp.dev/docs/logging/#frankenphp_log) function. Requires running under the [FrankenPHP](https://frankenphp.dev/) SAPI.
 - [_ProcessHandler_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Handler/ProcessHandler.php): Logs records to the [STDIN](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_.28stdin.29) of any process, specified by a command.
 
 ### Send alerts and emails
@@ -136,6 +137,14 @@
   receives, up until a configured threshold of number of messages of a certain level is reached, after it will pass all
   log messages to the wrapped handler. Useful for applying in batch processing when you're only interested in significant
   failures instead of minor, single erroneous events.
+- [_LogMonsterHandler_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Handler/LogMonsterHandler.php): A dead-man's switch wrapper. It watches
+  log records go by and expects to be fed at least a given number (`$hunger`) of
+  them before the process ends. If it stays hungry until `close()` (and was not
+  manually fed via `feed()`), the monster gets angry and emits a complaint record
+  at the configured `$angerLevel` to the handler it wraps. This is useful to catch
+  cron jobs or workers that died before doing their expected work, or to make sure
+  every code path at least logs some records. Records carrying context can be made
+  to count as the only "real" food by enabling `$wantsContextChips`.
 
 ## Formatters
 
@@ -156,6 +165,7 @@
 - [_FluentdFormatter_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Formatter/FluentdFormatter.php): Used to format log records to [Fluentd](https://www.fluentd.org/) logs, only useful with the SocketHandler.
 - [_GoogleCloudLoggingFormatter_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Formatter/GoogleCloudLoggingFormatter.php): Used to format log records for Google Cloud Logging. It works like a JsonFormatter with some minor tweaks.
 - [_SyslogFormatter_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Formatter/SyslogFormatter.php): Used to format log records in RFC 5424 / syslog format. This can be used to output a syslog-style file that can then be consumed by tools like [lnav](https://lnav.org/).
+- [_RedactingFormatter_](https://github.com/Seldaek/monolog/blob/main/src/Monolog/Formatter/RedactingFormatter.php): Wraps another formatter to mask sensitive data. It masks the value of any context/extra key matching a configured name (e.g. `password`, `token`, `authorization`), removes the values of properties matching a `#[SensitiveParameter]` constructor parameter from the output, and runs configurable regex patterns over the wrapped formatter's output. Being a formatter, it runs after all processors, so it always sees the final record. Usage: `new RedactingFormatter(new LineFormatter(), patterns: [RedactingFormatter::TOKEN_PATTERN])`.
 
 ## Processors
 
