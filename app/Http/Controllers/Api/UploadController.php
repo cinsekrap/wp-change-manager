@@ -34,6 +34,9 @@ class UploadController extends Controller
                 'max:131072',
                 'mimetypes:' . implode(',', $this->allowedMimes),
             ],
+        ], [
+            'file.max' => 'That file is larger than 128MB.',
+            'file.mimetypes' => 'That type of file is not accepted. Images, PDFs, Office documents and video are.',
         ]);
 
         $file = $request->file('file');
