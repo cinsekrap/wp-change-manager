@@ -1436,12 +1436,18 @@
     // anything else worth reading first.
     let briefFiles = [];
 
+    let briefUploading = []; // names of files still in flight
+
     function renderBriefFiles() {
         const list = document.getElementById('briefFileList');
         list.innerHTML = briefFiles.map(f => `
             <div class="flex items-center justify-between bg-hcrg-grey-100 rounded-lg px-3 py-2" data-filename="${esc(f.filename)}">
                 <span class="text-sm text-hcrg-charcoal truncate mr-2">${esc(f.original_name)}</span>
                 <button type="button" class="brief-file-remove text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>
+            </div>`).join('') + briefUploading.map(name => `
+            <div class="flex items-center justify-between bg-hcrg-grey-100 rounded-lg px-3 py-2">
+                <span class="text-sm text-hcrg-charcoal truncate mr-2">${esc(name)}</span>
+                <span class="text-xs text-gray-500 flex-shrink-0">Uploading…</span>
             </div>`).join('');
         list.querySelectorAll('.brief-file-remove').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -1467,20 +1473,25 @@
 
             const formData = new FormData();
             formData.append('file', file);
+            briefUploading.push(file.name);
+            renderBriefFiles();
             try {
+                // Accept JSON so a validation failure comes back as a 422 with a
+                // reason, rather than an HTML redirect we can only call "failed".
                 const res = await fetch('{{ route("api.upload") }}', {
-                    method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken }, body: formData,
+                    method: 'POST', headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }, body: formData,
                 });
                 const data = await res.json();
                 if (data.success) {
                     briefFiles.push(data);
-                    renderBriefFiles();
                 } else {
                     briefFileError(data.message || `${file.name} could not be uploaded.`);
                 }
             } catch (e) {
                 briefFileError(`${file.name} could not be uploaded.`);
             }
+            briefUploading = briefUploading.filter(n => n !== file.name);
+            renderBriefFiles();
         }
     }
 
