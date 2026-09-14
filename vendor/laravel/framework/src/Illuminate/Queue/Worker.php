@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\Interruptible;
 use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobInterrupted;
 use Illuminate\Queue\Events\JobPopped;
 use Illuminate\Queue\Events\JobPopping;
 use Illuminate\Queue\Events\JobProcessed;
@@ -255,7 +256,7 @@ class Worker
             );
 
             if ($supportsAsyncSignals) {
-                $this->registerTimeoutHandler($job, $options);
+                $this->registerTimeoutHandler($connectionName, $queue, $job, $options);
             }
 
             // If the daemon should run (not in maintenance mode, etc.), then we can run
@@ -295,16 +296,18 @@ class Worker
     /**
      * Register the worker timeout handler.
      *
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
      * @param  \Illuminate\Contracts\Queue\Job|null  $job
      * @param  \Illuminate\Queue\WorkerOptions  $options
      * @return void
      */
-    protected function registerTimeoutHandler($job, WorkerOptions $options)
+    protected function registerTimeoutHandler($connectionName, $queue, $job, WorkerOptions $options)
     {
         // We will register a signal handler for the alarm signal so that we can kill this
         // process if it is running too long because it has frozen. This uses the async
         // signals supported in recent versions of PHP to accomplish it conveniently.
-        pcntl_signal(SIGALRM, function () use ($job, $options) {
+        pcntl_signal(SIGALRM, function () use ($job, $options, $connectionName, $queue) {
             if ($job) {
                 $this->markJobAsFailedIfWillExceedMaxAttempts(
                     $job->getConnectionName(), $job, (int) $options->maxTries, $e = $this->timeoutExceededException($job)
@@ -323,7 +326,10 @@ class Worker
                 ));
             }
 
-            $this->kill(static::$timedOutExitCode ?? static::EXIT_ERROR, $options, WorkerStopReason::TimedOut);
+            $this->kill(
+                static::$timedOutExitCode ?? static::EXIT_ERROR,
+                $options, WorkerStopReason::TimedOut, $connectionName, $queue
+            );
         }, true);
 
         pcntl_alarm(
@@ -972,6 +978,10 @@ class Worker
 
         if ($job instanceof Interruptible) {
             $job->interrupted($signal);
+
+            $this->events->dispatch(new JobInterrupted(
+                $this->currentJob->getConnectionName(), $this->currentJob, $signal
+            ));
         }
     }
 
@@ -1022,12 +1032,15 @@ class Worker
      * @param  int  $status
      * @param  \Illuminate\Queue\WorkerOptions|null  $options
      * @param  \Illuminate\Queue\WorkerStopReason|null  $reason
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
      * @return never
      */
-    public function kill($status = 0, $options = null, $reason = null)
+    public function kill($status = 0, $options = null, $reason = null, $connectionName = null, $queue = null)
     {
         $this->events->dispatch(new WorkerStopping(
-            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage()
+            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage(),
+            $connectionName, $queue
         ));
 
         if (extension_loaded('posix')) {
