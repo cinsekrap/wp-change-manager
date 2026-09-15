@@ -7,6 +7,13 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.0.3
+
+### Bug Fixes
+- **Attaching a file to a content brief now shows what is happening.** Each file shows
+  "Uploading…" until it lands, and a file the tool will not take says why — too large, or
+  a type that is not accepted — instead of a bare "could not be uploaded".
+
 ## 2.0.2
 
 ### Improvements
