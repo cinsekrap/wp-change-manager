@@ -16,11 +16,9 @@ use PHPUnit\Framework\TestCase;
  */
 class LimitStreamTest extends TestCase
 {
-    /** @var LimitStream */
-    private $body;
+    private LimitStream $body;
 
-    /** @var Stream */
-    private $decorated;
+    private Stream $decorated;
 
     protected function setUp(): void
     {
@@ -116,12 +114,153 @@ class LimitStreamTest extends TestCase
         $c->setOffset(2);
     }
 
+    public function testSkipsShortNonSeekableReadsUntilOffsetIsReached(): void
+    {
+        $position = 0;
+        $chunks = ['a', 'b', 'c', 'd'];
+        $stream = new FnStream([
+            'tell' => function () use (&$position): int {
+                return $position;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function () use (&$chunks): bool {
+                return $chunks === [];
+            },
+            'read' => function () use (&$chunks, &$position): string {
+                $chunk = array_shift($chunks) ?? '';
+                $position += strlen($chunk);
+
+                return $chunk;
+            },
+        ]);
+
+        $limited = new LimitStream($stream, -1, 3);
+
+        self::assertSame(0, $limited->tell());
+        self::assertSame('d', $limited->read(1));
+    }
+
+    public function testOffsetPastEndOfNonSeekableStreamStopsAtEnd(): void
+    {
+        $position = 0;
+        $chunks = ['a', 'b', 'c'];
+        $stream = new FnStream([
+            'tell' => function () use (&$position): int {
+                return $position;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function () use (&$chunks): bool {
+                return $chunks === [];
+            },
+            'read' => function () use (&$chunks, &$position): string {
+                $chunk = array_shift($chunks) ?? '';
+                $position += strlen($chunk);
+
+                return $chunk;
+            },
+            'getSize' => function (): int {
+                return 3;
+            },
+        ]);
+
+        $limited = new LimitStream($stream, -1, 4);
+
+        self::assertSame(0, $limited->tell());
+        self::assertSame(0, $limited->getSize());
+        self::assertSame('', $limited->read(1));
+    }
+
+    public function testThrowsWhenNonSeekableReadMakesNoProgressBeforeEnd(): void
+    {
+        $stream = new FnStream([
+            'tell' => function (): int {
+                return 0;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+            'read' => function (): string {
+                return '';
+            },
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Could not seek to stream offset 3');
+
+        new LimitStream($stream, -1, 3);
+    }
+
+    public function testRejectsNegativeOffset(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Offset must be a non-negative integer');
+
+        new LimitStream(Psr7\Utils::streamFor('foo'), -1, -1);
+    }
+
+    public function testRejectsInvalidLimit(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Limit must be -1 or a non-negative integer');
+
+        new LimitStream(Psr7\Utils::streamFor('foo'), -2);
+    }
+
     public function testCanGetContentsWithoutSeeking(): void
     {
         $a = Psr7\Utils::streamFor('foo_bar');
         $b = new NoSeekStream($a);
         $c = new LimitStream($b);
         self::assertSame('foo_bar', $c->getContents());
+    }
+
+    public function testCloseClosesDecoratedStream(): void
+    {
+        $handle = fopen('php://temp', 'r+');
+        $stream = new LimitStream(Psr7\Utils::streamFor($handle));
+
+        $stream->close();
+
+        self::assertFalse(is_resource($handle));
+    }
+
+    public function testReadRejectsNegativeLength(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $this->body->read(-1);
+    }
+
+    public function testReadThrowsWhenOffsetAndLimitOverflow(): void
+    {
+        $stream = new FnStream([
+            'tell' => static function (): int {
+                return 0;
+            },
+            'isSeekable' => static function (): bool {
+                return true;
+            },
+            'seek' => static function (int $offset, int $whence = SEEK_SET): void {
+            },
+            'eof' => static function (): bool {
+                return false;
+            },
+        ]);
+
+        $limited = new LimitStream($stream, 1, \PHP_INT_MAX);
+
+        $this->expectException(\OverflowException::class);
+        $this->expectExceptionMessage('Stream byte count exceeds the maximum integer size supported on this platform');
+
+        $limited->read(1);
     }
 
     public function testClaimsConsumedWhenReadLimitIsReached(): void

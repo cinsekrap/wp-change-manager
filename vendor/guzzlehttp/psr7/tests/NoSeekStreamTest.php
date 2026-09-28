@@ -35,4 +35,26 @@ class NoSeekStreamTest extends TestCase
 
         $wrapped->close();
     }
+
+    public function testDetachDelegatesToDecoratedStream(): void
+    {
+        $resource = fopen('php://temp', 'r+');
+        $wrapped = new NoSeekStream(\GuzzleHttp\Psr7\Utils::streamFor($resource));
+
+        self::assertFalse($wrapped->isSeekable());
+        self::assertSame($resource, $wrapped->detach());
+        self::assertNull($wrapped->detach());
+
+        fclose($resource);
+    }
+
+    public function testReadRejectsNegativeLength(): void
+    {
+        $wrapped = new NoSeekStream(\GuzzleHttp\Psr7\Utils::streamFor('foo'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $wrapped->read(-1);
+    }
 }

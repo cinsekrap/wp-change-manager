@@ -18,6 +18,7 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\InvalidOptionException;
+use Symfony\Component\Console\Exception\LogicException;
 use Symfony\Component\Console\Helper\FormatterHelper;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputDefinition;
@@ -28,6 +29,7 @@ use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Console\Tests\Fixtures\InvokableTestCommand;
+use Symfony\Component\Console\Tests\Fixtures\MethodBasedTestCommand;
 
 class CommandTest extends TestCase
 {
@@ -471,6 +473,38 @@ class CommandTest extends TestCase
         $this->assertEquals('interact called'.\PHP_EOL.'not bound'.\PHP_EOL, $tester->getDisplay());
     }
 
+    public function testMethodCommandNameIsPrefixedWithTheClassLevelName()
+    {
+        $command = new Command(code: new MethodBasedTestCommand()->cmd1(...));
+        $this->assertSame('app:cmd0:cmd1', $command->getName());
+
+        $command = new Command(code: new MethodBasedTestCommand());
+        $this->assertSame('app:cmd0', $command->getName());
+    }
+
+    public function testMethodCommandsOfAHiddenClassLevelNameAreHidden()
+    {
+        $command = new Command(code: new HiddenGroupCommands()->one(...));
+        $this->assertSame('hidden-group:one', $command->getName());
+        $this->assertTrue($command->isHidden());
+    }
+
+    public function testTheAttributeCannotBeOnBothTheClassAndItsInvokeMethod()
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The "Symfony\Component\Console\Tests\Command\AttributeOnBothCommand" class and its "__invoke()" method cannot both have the "Symfony\Component\Console\Attribute\AsCommand" attribute.');
+
+        new Command(code: new AttributeOnBothCommand());
+    }
+
+    public function testMethodCommandNameMustNotRepeatTheClassLevelName()
+    {
+        $this->expectException(LogicException::class);
+        $this->expectExceptionMessage('The name "group:one" of the command "Symfony\Component\Console\Tests\Command\RepeatedPrefixCommands::one()" repeats the class-level name "group": method-level names are relative to it, use "one" instead.');
+
+        new Command(code: new RepeatedPrefixCommands()->one(...));
+    }
+
     public function testCommandAttribute()
     {
         $command = new Php8Command();
@@ -515,6 +549,36 @@ function createClosure()
 #[AsCommand(name: 'foo', description: 'desc', usages: ['usage1', 'usage2'], hidden: true, aliases: ['f'], help: 'help')]
 class Php8Command extends Command
 {
+}
+
+#[AsCommand(name: 'hidden-group', hidden: true)]
+class HiddenGroupCommands
+{
+    #[AsCommand(name: 'one')]
+    public function one(): int
+    {
+        return Command::SUCCESS;
+    }
+}
+
+#[AsCommand(name: 'both')]
+class AttributeOnBothCommand
+{
+    #[AsCommand(name: 'both-invoke')]
+    public function __invoke(): int
+    {
+        return Command::SUCCESS;
+    }
+}
+
+#[AsCommand(name: 'group')]
+class RepeatedPrefixCommands
+{
+    #[AsCommand(name: 'group:one')]
+    public function one(): int
+    {
+        return Command::SUCCESS;
+    }
 }
 
 #[AsCommand(name: 'foo2', description: 'desc2', hidden: true)]

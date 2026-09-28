@@ -20,6 +20,14 @@ class BufferStreamTest extends TestCase
         self::assertSame([], $b->getMetadata());
     }
 
+    public function testRejectsNegativeHighWaterMark(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('High water mark must be a non-negative integer');
+
+        new BufferStream(-1);
+    }
+
     public function testRemovesReadDataFromBuffer(): void
     {
         $b = new BufferStream();
@@ -29,6 +37,16 @@ class BufferStreamTest extends TestCase
         self::assertSame('foo', $b->read(10));
         self::assertTrue($b->eof());
         self::assertSame('', $b->read(10));
+    }
+
+    public function testReadRejectsNegativeLength(): void
+    {
+        $b = new BufferStream();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $b->read(-1);
     }
 
     public function testCanCastToStringOrGetContents(): void
@@ -54,6 +72,19 @@ class BufferStreamTest extends TestCase
         self::assertSame('abc', $b->read(10));
     }
 
+    public function testCloseClearsBuffer(): void
+    {
+        $b = new BufferStream();
+        $b->write('foo');
+
+        $b->close();
+
+        self::assertTrue($b->eof());
+        self::assertSame(0, $b->getSize());
+        self::assertSame(3, $b->write('abc'));
+        self::assertSame('abc', $b->read(10));
+    }
+
     public function testExceedingHighwaterMarkReturnsFalseButStillBuffers(): void
     {
         $b = new BufferStream(5);
@@ -61,5 +92,12 @@ class BufferStreamTest extends TestCase
         self::assertSame(0, $b->write('hello'));
         self::assertSame('hi hello', (string) $b);
         self::assertSame(4, $b->write('test'));
+    }
+
+    public function testWriteReturnsZeroWhenBufferReachesHighWaterMark(): void
+    {
+        $b = new BufferStream(5);
+        self::assertSame(0, $b->write('hello'));
+        self::assertSame('hello', (string) $b);
     }
 }

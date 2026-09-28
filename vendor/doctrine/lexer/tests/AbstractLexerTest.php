@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Doctrine\Tests\Common\Lexer;
 
+use Doctrine\Common\Lexer\AbstractLexer;
 use Doctrine\Common\Lexer\Token;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -11,6 +12,8 @@ use PHPUnit\Framework\TestCase;
 use function array_map;
 use function assert;
 use function count;
+use function is_int;
+use function is_numeric;
 use function setlocale;
 
 use const LC_ALL;
@@ -29,7 +32,7 @@ class AbstractLexerTest extends TestCase
         setlocale(LC_ALL, null);
     }
 
-    /** @psalm-return list<array{string, list<Token<string, string|int>>}> */
+    /** @phpstan-return list<array{string, list<Token<string, string|int>>}> */
     public static function dataProvider(): array
     {
         return [
@@ -83,7 +86,7 @@ class AbstractLexerTest extends TestCase
         $this->assertEquals($expectedTokens[0], $this->concreteLexer->lookahead);
     }
 
-    /** @psalm-param list<Token<string, string|int>>  $expectedTokens */
+    /** @phpstan-param list<Token<string, string|int>>  $expectedTokens */
     #[DataProvider('dataProvider')]
     public function testMoveNext(string $input, array $expectedTokens): void
     {
@@ -124,7 +127,7 @@ class AbstractLexerTest extends TestCase
         );
     }
 
-    /** @psalm-param list<Token<string, string|int>> $expectedTokens */
+    /** @phpstan-param list<Token<string, string|int>> $expectedTokens */
     #[DataProvider('dataProvider')]
     public function testPeek(string $input, array $expectedTokens): void
     {
@@ -141,7 +144,7 @@ class AbstractLexerTest extends TestCase
         $this->assertNull($this->concreteLexer->peek());
     }
 
-    /** @psalm-param list<Token<string, string|int>> $expectedTokens */
+    /** @phpstan-param list<Token<string, string|int>> $expectedTokens */
     #[DataProvider('dataProvider')]
     public function testGlimpse(string $input, array $expectedTokens): void
     {
@@ -161,7 +164,7 @@ class AbstractLexerTest extends TestCase
         $this->assertNull($this->concreteLexer->peek());
     }
 
-    /** @psalm-return list<array{string, int, string}> */
+    /** @phpstan-return list<array{string, int, string}> */
     public static function inputUntilPositionDataProvider(): array
     {
         return [
@@ -180,7 +183,7 @@ class AbstractLexerTest extends TestCase
         $this->assertSame($expectedInput, $this->concreteLexer->getInputUntilPosition($position));
     }
 
-    /** @psalm-param list<Token<string, string|int>> $expectedTokens */
+    /** @phpstan-param list<Token<string, string|int>> $expectedTokens */
     #[DataProvider('dataProvider')]
     public function testIsNextToken(string $input, array $expectedTokens): void
     {
@@ -194,7 +197,7 @@ class AbstractLexerTest extends TestCase
         }
     }
 
-    /** @psalm-param list<Token<string, string|int>> $expectedTokens */
+    /** @phpstan-param list<Token<string, string|int>> $expectedTokens */
     #[DataProvider('dataProvider')]
     public function testIsNextTokenAny(string $input, array $expectedTokens): void
     {
@@ -278,5 +281,61 @@ class AbstractLexerTest extends TestCase
         self::assertNotNull($mutableLexer->token);
         self::assertEquals('@', $mutableLexer->token->value);
         self::assertEquals('ODM\Id', $mutableLexer->lookahead->value);
+    }
+
+    public function testCanTokenizeFloatValue(): void
+    {
+        $lexer = new /** @template-extends AbstractLexer<int, string|int|float|bool> */ class () extends AbstractLexer {
+            final public const T_NONE    = 1;
+            final public const T_INTEGER = 2;
+            final public const T_FLOAT   = 4;
+            final public const T_BOOL    = 8;
+
+            protected function getType(string|int|float|bool &$value): int
+            {
+                if ($value === 'y') {
+                    $value = true;
+
+                    return self::T_BOOL;
+                }
+
+                if (is_numeric($value)) {
+                    $value += 0;
+
+                    if (is_int($value)) {
+                        return self::T_INTEGER;
+                    }
+
+                    return self::T_FLOAT;
+                }
+
+                return self::T_NONE;
+            }
+
+            /** {@inheritDoc} */
+            protected function getCatchablePatterns(): array
+            {
+                return [
+                    '(?:[0-9]+)(?:[\.][0-9]+)?(?:e[+-]?[0-9]+)?',
+                    'y',
+                ];
+            }
+
+            /** {@inheritDoc} */
+            protected function getNonCatchablePatterns(): array
+            {
+                return ['\s+'];
+            }
+        };
+
+        $lexer->setInput('123.456');
+        $token = $lexer->peek();
+        assert($token !== null);
+        self::assertSame(123.456, $token->value, 'expect a real float, not a numerical string');
+
+        $lexer->setInput('y');
+        $token = $lexer->peek();
+        assert($token !== null);
+        self::assertTrue($token->value, 'expect a real bool, not a numerical string');
     }
 }

@@ -95,12 +95,35 @@ class ResponseTest extends TestCase
 
         $r = new Response(200, [], null, '1.1', '0');
         self::assertSame('0', $r->getReasonPhrase(), 'Falsey reason works');
+
+        $r = new Response(200, [], null, '1.1', "OK\tFine\x80");
+        self::assertSame("OK\tFine\x80", $r->getReasonPhrase());
     }
 
     public function testCanConstructWithProtocolVersion(): void
     {
         $r = new Response(200, [], null, '1000');
         self::assertSame('1000', $r->getProtocolVersion());
+    }
+
+    /**
+     * @dataProvider invalidProtocolVersionProvider
+     */
+    public function testConstructorRejectsInvalidProtocolVersion(string $version): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new Response(200, [], null, $version);
+    }
+
+    /**
+     * @dataProvider invalidReasonPhraseProvider
+     */
+    public function testConstructorRejectsInvalidReasonPhrase(string $reasonPhrase): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new Response(200, [], null, '1.1', $reasonPhrase);
     }
 
     public function testWithStatusCodeAndNoReason(): void
@@ -119,6 +142,10 @@ class ResponseTest extends TestCase
         $r = (new Response())->withStatus(201, '0');
         self::assertSame(201, $r->getStatusCode());
         self::assertSame('0', $r->getReasonPhrase(), 'Falsey reason works');
+
+        $r = (new Response())->withStatus(201, "Fine\t\x80");
+        self::assertSame(201, $r->getStatusCode());
+        self::assertSame("Fine\t\x80", $r->getReasonPhrase());
     }
 
     public function testWithProtocolVersion(): void
@@ -128,54 +155,51 @@ class ResponseTest extends TestCase
     }
 
     /**
-     * @dataProvider startLineSeparatorProvider
+     * @dataProvider invalidProtocolVersionProvider
      */
-    public function testConstructWithLineSeparatorsInProtocolVersion(string $lineSeparator): void
+    public function testWithProtocolVersionRejectsInvalidVersion(string $version): void
     {
+        $response = new Response();
+
         $this->expectException(\InvalidArgumentException::class);
 
-        new Response(200, [], null, '1.1'.$lineSeparator.'X-Injected: yes');
+        $response->withProtocolVersion($version);
     }
 
     /**
-     * @dataProvider startLineSeparatorProvider
+     * @dataProvider invalidReasonPhraseProvider
      */
-    public function testWithProtocolVersionRejectsLineSeparators(string $lineSeparator): void
+    public function testWithStatusRejectsInvalidReasonPhrase(string $reasonPhrase): void
     {
-        $r = new Response();
+        $response = new Response();
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $r->withProtocolVersion('1.1'.$lineSeparator.'X-Injected: yes');
+        $response->withStatus(200, $reasonPhrase);
     }
 
-    /**
-     * @dataProvider startLineSeparatorProvider
-     */
-    public function testConstructWithLineSeparatorsInReasonPhrase(string $lineSeparator): void
+    public static function invalidProtocolVersionProvider(): iterable
     {
-        $this->expectException(\InvalidArgumentException::class);
-
-        new Response(200, [], null, '1.1', 'OK'.$lineSeparator.'X-Injected: yes');
+        yield 'empty' => [''];
+        yield 'with prefix' => ['HTTP/1.1'];
+        yield 'trailing space' => ['1.1 '];
+        yield 'text suffix' => ['1.1foo'];
+        yield 'line feed' => ["1.1\nX-Injected: yes"];
+        yield 'carriage return' => ["1.1\rX-Injected: yes"];
+        yield 'newline' => ["1.1\r\nX-Injected: yes"];
+        yield 'missing minor' => ['1.'];
+        yield 'missing major' => ['.1'];
+        yield 'too many segments' => ['1.1.1'];
+        yield 'leading plus' => ['+1.1'];
     }
 
-    /**
-     * @dataProvider startLineSeparatorProvider
-     */
-    public function testWithStatusRejectsLineSeparatorsInReasonPhrase(string $lineSeparator): void
+    public static function invalidReasonPhraseProvider(): iterable
     {
-        $r = new Response();
-
-        $this->expectException(\InvalidArgumentException::class);
-
-        $r->withStatus(200, 'OK'.$lineSeparator.'X-Injected: yes');
-    }
-
-    public static function startLineSeparatorProvider(): iterable
-    {
-        yield 'line feed' => ["\n"];
-        yield 'carriage return' => ["\r"];
-        yield 'CRLF' => ["\r\n"];
+        yield 'newline' => ["OK\r\nX-Injected: yes"];
+        yield 'line feed' => ["OK\nX-Injected: yes"];
+        yield 'carriage return' => ["OK\rX-Injected: yes"];
+        yield 'nul' => ["OK\0"];
+        yield 'delete' => ["OK\x7F"];
     }
 
     public function testSameInstanceWhenSameProtocol(): void
@@ -290,10 +314,20 @@ class ResponseTest extends TestCase
         self::assertSame('bar', $r->getHeaderLine('123'));
     }
 
+    public function testConstructResponseEmptyListHeaderValueIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Header value must be a non-empty array or string.');
+
+        new Response(200, ['Foo' => []]);
+    }
+
     /**
      * @dataProvider invalidHeaderProvider
+     *
+     * @param mixed $headerValue
      */
-    public function testConstructResponseInvalidHeader($header, $headerValue, $expectedMessage): void
+    public function testConstructResponseInvalidHeader(string $header, $headerValue, string $expectedMessage): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage($expectedMessage);
@@ -303,15 +337,22 @@ class ResponseTest extends TestCase
     public static function invalidHeaderProvider(): iterable
     {
         return [
-            ['', '', '"" is not valid header name'],
-            ['foo', new \stdClass(),  'Header value must be scalar or null but stdClass provided.'],
+            ['', '', 'Invalid header name: '],
+            ['foo', [], 'Header value must be a non-empty array or string.'],
+            ['foo', false, 'Header value must be a string or array of strings but bool provided.'],
+            ['foo', new \stdClass(),  'Header value must be a string or array of strings but stdClass provided.'],
+            ['foo', 1, 'Header value must be a string or array of strings but int provided.'],
+            ['foo', null, 'Header value must be a string or array of strings but null provided.'],
+            ['foo', [1], 'Header value must be a string or array of strings but int provided.'],
         ];
     }
 
     /**
      * @dataProvider invalidWithHeaderProvider
+     *
+     * @param mixed $headerValue
      */
-    public function testWithInvalidHeader($header, $headerValue, $expectedMessage): void
+    public function testWithInvalidHeader(string $header, $headerValue, string $expectedMessage): void
     {
         $r = new Response();
         $this->expectException(\InvalidArgumentException::class);
@@ -322,18 +363,30 @@ class ResponseTest extends TestCase
     public static function invalidWithHeaderProvider(): iterable
     {
         yield from self::invalidHeaderProvider();
-        yield [[], 'foo', 'Header name must be a string but array provided.'];
-        yield [false, 'foo', 'Header name must be a string but boolean provided.'];
-        yield [new \stdClass(), 'foo', 'Header name must be a string but stdClass provided.'];
-        yield ['', 'foo', '"" is not valid header name.'];
-        yield ["Content-Type\r\n\r\n", 'foo', "\"Content-Type\r\n\r\n\" is not valid header name."];
-        yield ["Content-Type\r\n", 'foo', "\"Content-Type\r\n\" is not valid header name."];
-        yield ["Content-Type\n", 'foo', "\"Content-Type\n\" is not valid header name."];
-        yield ["\r\nContent-Type", 'foo', "\"\r\nContent-Type\" is not valid header name."];
-        yield ["\nContent-Type", 'foo', "\"\nContent-Type\" is not valid header name."];
-        yield ["\n", 'foo', "\"\n\" is not valid header name."];
-        yield ["\r\n", 'foo', "\"\r\n\" is not valid header name."];
-        yield ["\t", 'foo', "\"\t\" is not valid header name."];
+        yield ['', 'foo', 'Invalid header name: '];
+        yield ["Content-Type\r\n\r\n", 'foo', 'Invalid header name: Content-Type\\x0D\\x0A\\x0D\\x0A'];
+        yield ["Content-Type\r\n", 'foo', 'Invalid header name: Content-Type\\x0D\\x0A'];
+        yield ["Content-Type\n", 'foo', 'Invalid header name: Content-Type\\x0A'];
+        yield ["\r\nContent-Type", 'foo', 'Invalid header name: \\x0D\\x0AContent-Type'];
+        yield ["\nContent-Type", 'foo', 'Invalid header name: \\x0AContent-Type'];
+        yield ["\n", 'foo', 'Invalid header name: \\x0A'];
+        yield ["\r\n", 'foo', 'Invalid header name: \\x0D\\x0A'];
+        yield ["\t", 'foo', 'Invalid header name: \\x09'];
+        yield ["\xC2\x9B", 'foo', 'Invalid header name: \\x9B'];
+        yield ["\xFF", 'foo', 'Invalid header name: \\xFF'];
+    }
+
+    /**
+     * @dataProvider invalidWithHeaderProvider
+     *
+     * @param mixed $headerValue
+     */
+    public function testWithInvalidAddedHeader(string $header, $headerValue, string $expectedMessage): void
+    {
+        $r = new Response();
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($expectedMessage);
+        $r->withAddedHeader($header, $headerValue);
     }
 
     public function testHeaderValuesAreTrimmed(): void
@@ -359,45 +412,9 @@ class ResponseTest extends TestCase
     }
 
     /**
-     * @dataProvider nonIntegerStatusCodeProvider
-     *
-     * @param mixed $invalidValues
-     */
-    public function testConstructResponseWithNonIntegerStatusCode($invalidValues): void
-    {
-        $this->expectException(\TypeError::class);
-        new Response($invalidValues);
-    }
-
-    /**
-     * @dataProvider nonIntegerStatusCodeProvider
-     *
-     * @param mixed $invalidValues
-     */
-    public function testResponseChangeStatusCodeWithNonInteger($invalidValues): void
-    {
-        $response = new Response();
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Status code must be an integer value.');
-        $response->withStatus($invalidValues);
-    }
-
-    public static function nonIntegerStatusCodeProvider(): iterable
-    {
-        return [
-            ['whatever'],
-            ['1.01'],
-            [1.01],
-            [new \stdClass()],
-        ];
-    }
-
-    /**
      * @dataProvider invalidStatusCodeRangeProvider
-     *
-     * @param mixed $invalidValues
      */
-    public function testConstructResponseWithInvalidRangeStatusCode($invalidValues): void
+    public function testConstructResponseWithInvalidRangeStatusCode(int $invalidValues): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Status code must be an integer value between 1xx and 5xx.');
@@ -406,10 +423,8 @@ class ResponseTest extends TestCase
 
     /**
      * @dataProvider invalidStatusCodeRangeProvider
-     *
-     * @param mixed $invalidValues
      */
-    public function testResponseChangeStatusCodeWithWithInvalidRange($invalidValues): void
+    public function testResponseChangeStatusCodeWithWithInvalidRange(int $invalidValues): void
     {
         $response = new Response();
         $this->expectException(\InvalidArgumentException::class);

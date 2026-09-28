@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace GuzzleHttp\Tests\Psr7;
 
+use GuzzleHttp\Psr7\Exception\TimeoutException;
 use GuzzleHttp\Psr7\FnStream;
 use GuzzleHttp\Psr7\Stream;
 use GuzzleHttp\Psr7\StreamWrapper;
@@ -14,7 +15,10 @@ use PHPUnit\Framework\TestCase;
  */
 class StreamTest extends TestCase
 {
-    public static $isFReadError = false;
+    protected function tearDown(): void
+    {
+        PhpStreamMock::reset();
+    }
 
     public function testConstructorThrowsExceptionOnInvalidArgument(): void
     {
@@ -226,22 +230,9 @@ class StreamTest extends TestCase
             $stream->getContents();
         });
 
-        if (\PHP_VERSION_ID >= 70400) {
-            $throws(function () use ($stream): void {
-                (string) $stream;
-            });
-        } else {
-            $errors = [];
-            set_error_handler(function (int $errorNumber, string $errorMessage) use (&$errors): void {
-                $errors[] = ['message' => $errorMessage, 'number' => $errorNumber];
-            });
-            self::assertSame('', (string) $stream);
-            restore_error_handler();
-
-            self::assertCount(1, $errors);
-            self::assertStringStartsWith('GuzzleHttp\Psr7\Stream::__toString exception', $errors[0]['message']);
-            self::assertSame(E_USER_ERROR, $errors[0]['number']);
-        }
+        $throws(function () use ($stream): void {
+            (string) $stream;
+        });
     }
 
     public function testStreamReadingWithZeroLength(): void
@@ -273,7 +264,7 @@ class StreamTest extends TestCase
 
     public function testStreamReadingFreadFalse(): void
     {
-        self::$isFReadError = true;
+        PhpStreamMock::$isFReadError = true;
         $r = fopen('php://temp', 'r');
         $stream = new Stream($r);
         $this->expectException(\RuntimeException::class);
@@ -282,12 +273,12 @@ class StreamTest extends TestCase
         try {
             $stream->read(1);
         } catch (\Exception $e) {
-            self::$isFReadError = false;
+            PhpStreamMock::$isFReadError = false;
             $stream->close();
             throw $e;
         }
 
-        self::$isFReadError = false;
+        PhpStreamMock::$isFReadError = false;
         $stream->close();
     }
 
@@ -315,6 +306,254 @@ class StreamTest extends TestCase
         $stream->read(1);
     }
 
+    public function testStreamReadingFreadFalseWhenTimedOutThrowsTimeoutException(): void
+    {
+        PhpStreamMock::$isFReadError = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'r+');
+        $stream = new Stream($r);
+
+        $this->expectException(TimeoutException::class);
+        $this->expectExceptionMessage('Unable to read from stream: timed out');
+
+        try {
+            $stream->read(1);
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamReadingEmptyStringWhenTimedOutThrowsTimeoutException(): void
+    {
+        PhpStreamMock::$isFReadZero = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'r+');
+        $stream = new Stream($r);
+
+        $this->expectException(TimeoutException::class);
+        $this->expectExceptionMessage('Unable to read from stream: timed out');
+
+        try {
+            $stream->read(1);
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamReadingFreadExceptionWhenTimedOutThrowsTimeoutExceptionWithPrevious(): void
+    {
+        PhpStreamMock::$isFReadException = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'r+');
+        $stream = new Stream($r);
+
+        try {
+            $stream->read(1);
+            self::fail('Expected timeout exception');
+        } catch (TimeoutException $e) {
+            self::assertSame('Unable to read from stream: timed out', $e->getMessage());
+            self::assertInstanceOf(\ErrorException::class, $e->getPrevious());
+            self::assertSame('Some read error', $e->getPrevious()->getMessage());
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamReadingEmptyStringWithoutTimeoutReturnsEmptyString(): void
+    {
+        PhpStreamMock::$isFReadZero = true;
+        $r = fopen('php://temp', 'r+');
+        $stream = new Stream($r);
+
+        try {
+            self::assertSame('', $stream->read(1));
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamReadingFreadFalseWithoutTimeoutThrowsRuntimeException(): void
+    {
+        PhpStreamMock::$isFReadError = true;
+        $r = fopen('php://temp', 'r+');
+        $stream = new Stream($r);
+
+        try {
+            $stream->read(1);
+            self::fail('Expected runtime exception');
+        } catch (\RuntimeException $e) {
+            self::assertNotInstanceOf(TimeoutException::class, $e);
+            self::assertSame('Unable to read from stream', $e->getMessage());
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingFwriteFalseThrowsRuntimeException(): void
+    {
+        PhpStreamMock::$isFWriteError = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unable to write to stream');
+
+        try {
+            $stream->write('x');
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingFwriteFalseWhenTimedOutThrowsTimeoutException(): void
+    {
+        PhpStreamMock::$isFWriteError = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        $this->expectException(TimeoutException::class);
+        $this->expectExceptionMessage('Unable to write to stream: timed out');
+
+        try {
+            $stream->write('x');
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingZeroBytesWhenTimedOutThrowsTimeoutException(): void
+    {
+        PhpStreamMock::$isFWriteZero = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        $this->expectException(TimeoutException::class);
+        $this->expectExceptionMessage('Unable to write to stream: timed out');
+
+        try {
+            $stream->write('x');
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingZeroBytesWithoutTimeoutReturnsZero(): void
+    {
+        PhpStreamMock::$isFWriteZero = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        try {
+            self::assertSame(0, $stream->write('x'));
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingEmptyStringReturnsZeroWithoutWritingOrInvalidatingSize(): void
+    {
+        $r = fopen('php://temp', 'w+');
+        fwrite($r, 'data');
+        $stream = new Stream($r);
+        self::assertSame(4, $stream->getSize());
+
+        PhpStreamMock::$isFWriteException = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        PhpStreamMock::$isStreamMetadataError = true;
+
+        try {
+            self::assertSame(0, $stream->write(''));
+            self::assertSame(4, $stream->getSize());
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingEmptyStringStillRequiresWritableStream(): void
+    {
+        $r = fopen('php://input', 'r');
+        $stream = new Stream($r);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cannot write to a non-writable stream');
+
+        try {
+            $stream->write('');
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingPositiveBytesIgnoresStaleTimeoutMetadata(): void
+    {
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+        PhpStreamMock::$isStreamTimedOut = true;
+
+        try {
+            self::assertSame(3, $stream->write('foo'));
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingFwriteExceptionWhenTimedOutThrowsTimeoutExceptionWithPrevious(): void
+    {
+        PhpStreamMock::$isFWriteException = true;
+        PhpStreamMock::$isStreamTimedOut = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        try {
+            $stream->write('x');
+            self::fail('Expected timeout exception');
+        } catch (TimeoutException $e) {
+            self::assertSame('Unable to write to stream: timed out', $e->getMessage());
+            self::assertInstanceOf(\ErrorException::class, $e->getPrevious());
+            self::assertSame('Some write error', $e->getPrevious()->getMessage());
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingFwriteExceptionWithoutTimeoutThrowsRuntimeExceptionWithPrevious(): void
+    {
+        PhpStreamMock::$isFWriteException = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+
+        try {
+            $stream->write('x');
+            self::fail('Expected runtime exception');
+        } catch (\RuntimeException $e) {
+            self::assertNotInstanceOf(TimeoutException::class, $e);
+            self::assertSame('Unable to write to stream', $e->getMessage());
+            self::assertInstanceOf(\ErrorException::class, $e->getPrevious());
+            self::assertSame('Some write error', $e->getPrevious()->getMessage());
+        } finally {
+            $stream->close();
+        }
+    }
+
+    public function testStreamWritingFwriteFalseWhenMetadataProbeFailsPreservesGenericRuntimeException(): void
+    {
+        PhpStreamMock::$isFWriteError = true;
+        $r = fopen('php://temp', 'w+');
+        $stream = new Stream($r);
+        PhpStreamMock::$isStreamMetadataError = true;
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unable to write to stream');
+
+        try {
+            $stream->write('x');
+        } finally {
+            $stream->close();
+        }
+    }
+
     /**
      * @requires extension zlib
      *
@@ -336,6 +575,97 @@ class StreamTest extends TestCase
         return [
             ['mode' => 'rb9', 'readable' => true, 'writable' => false],
             ['mode' => 'wb2', 'readable' => false, 'writable' => true],
+            ['mode' => 'wb6f', 'readable' => false, 'writable' => true],
+            ['mode' => 'wb1h', 'readable' => false, 'writable' => true],
+            ['mode' => 'ab9', 'readable' => false, 'writable' => true],
+        ];
+    }
+
+    /**
+     * @dataProvider fileModeCapabilityProvider
+     */
+    public function testFileStreamModeCapabilities(string $mode, bool $readable, bool $writable): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'guzzle-psr7-mode-');
+        if ($path === false) {
+            self::fail('Unable to create temporary file');
+        }
+
+        try {
+            if (str_starts_with($mode, 'x')) {
+                if (!unlink($path)) {
+                    self::fail('Unable to remove temporary file before exclusive create test');
+                }
+            } else {
+                if (file_put_contents($path, 'data') === false) {
+                    self::fail('Unable to write temporary file');
+                }
+            }
+
+            $r = fopen($path, $mode);
+            if (!is_resource($r)) {
+                self::fail(sprintf('Unable to open temporary file using mode "%s"', $mode));
+            }
+
+            $stream = new Stream($r);
+
+            try {
+                self::assertSame($readable, $stream->isReadable());
+                self::assertSame($writable, $stream->isWritable());
+            } finally {
+                $stream->close();
+            }
+        } finally {
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    public static function fileModeCapabilityProvider(): iterable
+    {
+        return [
+            'r' => ['mode' => 'r', 'readable' => true, 'writable' => false],
+            'rb' => ['mode' => 'rb', 'readable' => true, 'writable' => false],
+            'rt' => ['mode' => 'rt', 'readable' => true, 'writable' => false],
+            'rw' => ['mode' => 'rw', 'readable' => true, 'writable' => false],
+            'r+' => ['mode' => 'r+', 'readable' => true, 'writable' => true],
+            'rb+' => ['mode' => 'rb+', 'readable' => true, 'writable' => true],
+            'r+b' => ['mode' => 'r+b', 'readable' => true, 'writable' => true],
+            'rt+' => ['mode' => 'rt+', 'readable' => true, 'writable' => true],
+            'r+t' => ['mode' => 'r+t', 'readable' => true, 'writable' => true],
+            'w' => ['mode' => 'w', 'readable' => false, 'writable' => true],
+            'wb' => ['mode' => 'wb', 'readable' => false, 'writable' => true],
+            'wt' => ['mode' => 'wt', 'readable' => false, 'writable' => true],
+            'w+' => ['mode' => 'w+', 'readable' => true, 'writable' => true],
+            'wb+' => ['mode' => 'wb+', 'readable' => true, 'writable' => true],
+            'w+b' => ['mode' => 'w+b', 'readable' => true, 'writable' => true],
+            'wt+' => ['mode' => 'wt+', 'readable' => true, 'writable' => true],
+            'w+t' => ['mode' => 'w+t', 'readable' => true, 'writable' => true],
+            'a' => ['mode' => 'a', 'readable' => false, 'writable' => true],
+            'ab' => ['mode' => 'ab', 'readable' => false, 'writable' => true],
+            'at' => ['mode' => 'at', 'readable' => false, 'writable' => true],
+            'a+' => ['mode' => 'a+', 'readable' => true, 'writable' => true],
+            'ab+' => ['mode' => 'ab+', 'readable' => true, 'writable' => true],
+            'a+b' => ['mode' => 'a+b', 'readable' => true, 'writable' => true],
+            'at+' => ['mode' => 'at+', 'readable' => true, 'writable' => true],
+            'a+t' => ['mode' => 'a+t', 'readable' => true, 'writable' => true],
+            'x' => ['mode' => 'x', 'readable' => false, 'writable' => true],
+            'xb' => ['mode' => 'xb', 'readable' => false, 'writable' => true],
+            'xt' => ['mode' => 'xt', 'readable' => false, 'writable' => true],
+            'x+' => ['mode' => 'x+', 'readable' => true, 'writable' => true],
+            'xb+' => ['mode' => 'xb+', 'readable' => true, 'writable' => true],
+            'x+b' => ['mode' => 'x+b', 'readable' => true, 'writable' => true],
+            'xt+' => ['mode' => 'xt+', 'readable' => true, 'writable' => true],
+            'x+t' => ['mode' => 'x+t', 'readable' => true, 'writable' => true],
+            'c' => ['mode' => 'c', 'readable' => false, 'writable' => true],
+            'cb' => ['mode' => 'cb', 'readable' => false, 'writable' => true],
+            'ct' => ['mode' => 'ct', 'readable' => false, 'writable' => true],
+            'c+' => ['mode' => 'c+', 'readable' => true, 'writable' => true],
+            'cb+' => ['mode' => 'cb+', 'readable' => true, 'writable' => true],
+            'c+b' => ['mode' => 'c+b', 'readable' => true, 'writable' => true],
+            'ct+' => ['mode' => 'ct+', 'readable' => true, 'writable' => true],
+            'c+t' => ['mode' => 'c+t', 'readable' => true, 'writable' => true],
         ];
     }
 
@@ -403,7 +733,6 @@ class StreamTest extends TestCase
         return [
             ['w'],
             ['w+'],
-            ['rw'],
             ['r+'],
             ['x+'],
             ['c+'],
@@ -449,13 +778,4 @@ class StreamTest extends TestCase
             $stream->close();
         }
     }
-}
-
-namespace GuzzleHttp\Psr7;
-
-use GuzzleHttp\Tests\Psr7\StreamTest;
-
-function fread($handle, $length)
-{
-    return StreamTest::$isFReadError ? false : \fread($handle, $length);
 }

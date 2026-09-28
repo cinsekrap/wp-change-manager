@@ -24,6 +24,7 @@ use Symfony\Component\Console\Attribute\MapDateTime;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Attribute\Reflection\ReflectionMember;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Command\SignalableCommandInterface;
 use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Completion\CompletionSuggestions;
 use Symfony\Component\Console\Completion\Suggestion;
@@ -240,6 +241,48 @@ class InvokableCommandTest extends TestCase
         self::expectExceptionMessage('The value "incorrect" is not valid for the "enum" option. Supported values are "image", "video".');
 
         $command->run(new ArrayInput(['--enum' => 'incorrect']), new NullOutput());
+    }
+
+    public function testNumericArgumentIsConvertedOrRejected()
+    {
+        $command = new Command('foo');
+        $command->setCode(static function (#[Argument] int $count, #[Argument] float $ratio = 1.0) use (&$received): int {
+            $received = [$count, $ratio];
+
+            return Command::SUCCESS;
+        });
+
+        $command->run(new ArrayInput(['count' => '3', 'ratio' => '1.5']), new NullOutput());
+
+        self::assertSame([3, 1.5], $received);
+
+        $command->run(new ArrayInput(['count' => '007', 'ratio' => '1e3']), new NullOutput());
+
+        self::assertSame([7, 1000.0], $received);
+
+        self::expectException(InvalidArgumentException::class);
+        self::expectExceptionMessage('The value "abc" is not valid for the "count" argument. Expected a value of type "int".');
+
+        $command->run(new ArrayInput(['count' => 'abc']), new NullOutput());
+    }
+
+    public function testNumericOptionIsConvertedOrRejected()
+    {
+        $command = new Command('foo');
+        $command->setCode(static function (#[Option] float $ratio = 1.0) use (&$received): int {
+            $received = $ratio;
+
+            return Command::SUCCESS;
+        });
+
+        $command->run(new ArrayInput(['--ratio' => '1.5']), new NullOutput());
+
+        self::assertSame(1.5, $received);
+
+        self::expectException(InvalidOptionException::class);
+        self::expectExceptionMessage('The value "half" is not valid for the "ratio" option. Expected a value of type "float".');
+
+        $command->run(new ArrayInput(['--ratio' => 'half']), new NullOutput());
     }
 
     public function testAskDefaultIsRejectedForArrayArgument()
@@ -741,6 +784,59 @@ class InvokableCommandTest extends TestCase
         self::assertStringContainsString('Enter a value:', $tester->getDisplay());
         self::assertStringContainsString('Value must be "valid"', $tester->getDisplay());
         self::assertStringContainsString('Value: valid', $tester->getDisplay());
+    }
+
+    public function testSignalsOfAnInvokableWrappedInAClosure()
+    {
+        $invokable = new class implements SignalableCommandInterface {
+            public array $handled = [];
+
+            public function __invoke(): int
+            {
+                return 0;
+            }
+
+            public function run(): int
+            {
+                return 0;
+            }
+
+            public function getSubscribedSignals(): array
+            {
+                return [1, 2];
+            }
+
+            public function handleSignal(int $signal, int|false $previousExitCode = 0): int|false
+            {
+                $this->handled[] = $signal;
+
+                return 3;
+            }
+        };
+
+        foreach ([\Closure::fromCallable($invokable), \Closure::fromCallable([$invokable, 'run']), $invokable->run(...)] as $code) {
+            $command = new Command('signal');
+            $command->setCode($code);
+
+            $this->assertSame([1, 2], $command->getSubscribedSignals());
+            $this->assertSame(3, $command->handleSignal(1));
+        }
+
+        $this->assertSame([1, 1, 1], $invokable->handled);
+    }
+
+    public function testAClosureBoundToTheCommandDoesNotHandleItsSignals()
+    {
+        $command = new class('signal') extends Command {
+            public function __construct(string $name)
+            {
+                parent::__construct($name);
+                $this->setCode(static fn () => 0);
+            }
+        };
+
+        $this->assertSame([], $command->getSubscribedSignals());
+        $this->assertFalse($command->handleSignal(1));
     }
 }
 

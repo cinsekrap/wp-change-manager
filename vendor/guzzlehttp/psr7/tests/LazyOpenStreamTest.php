@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 class LazyOpenStreamTest extends TestCase
 {
+    /** @var string|false */
     private $fname;
 
     protected function setUp(): void
@@ -55,6 +56,20 @@ class LazyOpenStreamTest extends TestCase
         $l->close();
     }
 
+    public function testReadRejectsNegativeLengthWithoutOpeningFile(): void
+    {
+        $l = new LazyOpenStream($this->fname, 'r');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        try {
+            $l->read(-1);
+        } finally {
+            self::assertFileDoesNotExist($this->fname);
+        }
+    }
+
     public function testDetachesUnderlyingStream(): void
     {
         file_put_contents($this->fname, 'foo');
@@ -64,5 +79,72 @@ class LazyOpenStreamTest extends TestCase
         fseek($r, 0);
         self::assertSame('foo', stream_get_contents($r));
         fclose($r);
+    }
+
+    public function testDoNotAllowUnserialization(): void
+    {
+        $class = LazyOpenStream::class;
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage($class.' should never be unserialized');
+        unserialize(sprintf('O:%d:"%s":0:{}', strlen($class), $class));
+    }
+
+    public function testUnserializationCannotOpenFileFromDestructor(): void
+    {
+        LazyOpenStreamUnserializeStringCastOnDestruct::$casts = [];
+        $payload = self::serializedObjectWithProperties(LazyOpenStreamUnserializeStringCastOnDestruct::class, [
+            'stream' => self::serializedObjectWithProperties(LazyOpenStream::class, [
+                self::privateProperty(LazyOpenStream::class, 'filename') => serialize($this->fname),
+                self::privateProperty(LazyOpenStream::class, 'mode') => serialize('w+'),
+            ]),
+        ]);
+
+        try {
+            unserialize($payload);
+            self::fail('Expected unserialization to fail.');
+        } catch (\LogicException $e) {
+            self::assertSame(LazyOpenStream::class.' should never be unserialized', $e->getMessage());
+        }
+
+        self::assertSame([''], LazyOpenStreamUnserializeStringCastOnDestruct::$casts);
+        self::assertFileDoesNotExist($this->fname);
+    }
+
+    private static function privateProperty(string $class, string $property): string
+    {
+        return "\0".$class."\0".$property;
+    }
+
+    /**
+     * @param array<string, string> $properties Serialized property values indexed by property name.
+     */
+    private static function serializedObjectWithProperties(string $class, array $properties): string
+    {
+        $body = '';
+        foreach ($properties as $name => $serializedValue) {
+            $body .= serialize($name).$serializedValue;
+        }
+
+        return sprintf('O:%d:"%s":%d:{%s}', strlen($class), $class, count($properties), $body);
+    }
+}
+
+final class LazyOpenStreamUnserializeStringCastOnDestruct
+{
+    /** @var mixed */
+    public $stream;
+
+    /** @var list<string> */
+    public static array $casts = [];
+
+    public function __destruct()
+    {
+        try {
+            if ($this->stream instanceof LazyOpenStream) {
+                self::$casts[] = (string) $this->stream;
+            }
+        } catch (\Throwable $e) {
+        }
     }
 }

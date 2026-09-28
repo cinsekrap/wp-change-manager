@@ -58,6 +58,23 @@ class FulfilledPromiseTest extends TestCase
         $this->assertSame('foo', $p->wait());
     }
 
+    public function testCanResolveNullFulfilledPromiseWithoutValue(): void
+    {
+        $p = new FulfilledPromise(null);
+        $p->resolve();
+
+        $this->assertNull($p->wait());
+    }
+
+    public function testCannotResolveNonNullFulfilledPromiseWithoutValue(): void
+    {
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Cannot resolve a fulfilled promise');
+
+        $p = new FulfilledPromise('foo');
+        $p->resolve();
+    }
+
     public function testCannotResolveWithPromise(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -75,7 +92,7 @@ class FulfilledPromiseTest extends TestCase
     {
         $p = new FulfilledPromise('a');
         $r = null;
-        $f = function ($d) use (&$r): void { $r = $d; };
+        $f = function (string $d) use (&$r): void { $r = $d; };
         $p2 = $p->then($f);
         $this->assertNotSame($p, $p2);
         $this->assertNull($r);
@@ -97,6 +114,23 @@ class FulfilledPromiseTest extends TestCase
         }
     }
 
+    public function testReturnsNewRejectedWhenOnFulfilledThrowsError(): void
+    {
+        $p = new FulfilledPromise('a');
+        $error = new \Error('b');
+        $p2 = $p->then(static function () use ($error): void {
+            throw $error;
+        });
+
+        $this->assertNotSame($p, $p2);
+        try {
+            $p2->wait();
+            $this->fail('Expected Error');
+        } catch (\Error $e) {
+            $this->assertSame($error, $e);
+        }
+    }
+
     public function testOtherwiseIsSugarForRejections(): void
     {
         $c = null;
@@ -108,7 +142,7 @@ class FulfilledPromiseTest extends TestCase
     public function testDoesNotTryToFulfillTwiceDuringTrampoline(): void
     {
         $fp = new FulfilledPromise('a');
-        $t1 = $fp->then(function ($v) { return $v.' b'; });
+        $t1 = $fp->then(function (string $v): string { return $v.' b'; });
         $t1->resolve('why!');
         $this->assertSame('why!', $t1->wait());
     }

@@ -12,6 +12,7 @@ use Brick\Math\Exception\IntegerOverflowException;
 use Brick\Math\Exception\InvalidArgumentException;
 use Brick\Math\Exception\NumberFormatException;
 use Brick\Math\Exception\RoundingNecessaryException;
+use Brick\Math\NumberSyntax;
 use Brick\Math\RoundingMode;
 use Generator;
 use LogicException;
@@ -86,7 +87,7 @@ class BigRationalTest extends AbstractTestCase
      * @param string $expected The expected rational result.
      */
     #[DataProvider('providerOf')]
-    public function testOfNullableWithValidInputBehavesLikeOf(string $string, string $expected): void
+    public function testOfNullableWithNonNullInput(string $string, string $expected): void
     {
         $result = BigRational::ofNullable($string);
 
@@ -130,7 +131,7 @@ class BigRationalTest extends AbstractTestCase
 
     public function testOfWithZeroDenominator(): void
     {
-        $this->expectException(DivisionByZeroException::class);
+        $this->expectException(NumberFormatException::class);
         $this->expectExceptionMessageExact('The denominator of a rational number must not be zero.');
 
         BigRational::of('2/0');
@@ -145,15 +146,16 @@ class BigRationalTest extends AbstractTestCase
     }
 
     /**
-     * @param string $string An invalid string representation.
+     * @param string      $value                  An invalid string representation.
+     * @param string|null $expectedValueInMessage The value as rendered in the message, if it differs from $value.
      */
     #[DataProvider('providerOfInvalidFormatThrowsException')]
-    public function testOfInvalidFormatThrowsException(string $string): void
+    public function testOfInvalidFormatThrowsException(string $value, ?string $expectedValueInMessage = null): void
     {
         $this->expectException(NumberFormatException::class);
-        $this->expectExceptionMessageExact(sprintf('Value "%s" does not represent a valid number.', $string));
+        $this->expectExceptionMessageExact(sprintf('Value "%s" does not represent a valid number.', $expectedValueInMessage ?? $value));
 
-        BigRational::of($string);
+        BigRational::of($value);
     }
 
     public static function providerOfInvalidFormatThrowsException(): array
@@ -165,13 +167,51 @@ class BigRationalTest extends AbstractTestCase
             ['1e2/3'],
             [' 1/2'],
             ['1/2 '],
-            ["\n2/3"],
-            ["2/3\n"],
-            ["1/0\n"],
+            ["\n2/3", '\n2/3'],
+            ["2/3\n", '2/3\n'],
+            ["1/0\n", '1/0\n'],
             ['+'],
             ['-'],
             ['/'],
         ];
+    }
+
+    public function testParse(): void
+    {
+        self::assertBigRationalEquals('3/2', BigRational::parse('1.5', NumberSyntax::DECIMAL, 2));
+    }
+
+    public function testParseConvertedValueExceedingMaxDigitsThrowsException(): void
+    {
+        $this->expectException(NumberFormatException::class);
+        $this->expectExceptionMessageExact('The number exceeds the maximum number of 3 digits.');
+
+        // 2 digits as parsed, but the converted result 37/10 has 4
+        BigRational::parse('3.7', allowedSyntax: NumberSyntax::DECIMAL, maxDigits: 3);
+    }
+
+    public function testParseDoesNotCountImplicitDenominator(): void
+    {
+        // 123/1 is written 123: the implicit denominator does not count
+        self::assertBigRationalEquals('123', BigRational::parse('123', NumberSyntax::INTEGER, 3));
+    }
+
+    public function testParseNullable(): void
+    {
+        // 2 digits as parsed, but the converted result has 4
+        $result = BigRational::parseNullable('3.7', NumberSyntax::DECIMAL, 4);
+
+        self::assertNotNull($result);
+        self::assertBigRationalEquals('37/10', $result);
+    }
+
+    public function testParseNullableConvertedValueExceedingMaxDigitsThrowsException(): void
+    {
+        $this->expectException(NumberFormatException::class);
+        $this->expectExceptionMessageExact('The number exceeds the maximum number of 3 digits.');
+
+        // 2 digits as parsed, but the converted result 37/10 has 4
+        BigRational::parseNullable('3.7', allowedSyntax: NumberSyntax::DECIMAL, maxDigits: 3);
     }
 
     public function testZero(): void
@@ -193,8 +233,8 @@ class BigRationalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to compare.
-     * @param string $min    The expected minimum value, in rational form.
+     * @param list<int|string> $values The values to compare.
+     * @param string           $min    The expected minimum value, in rational form.
      */
     #[DataProvider('providerMin')]
     public function testMin(array $values, string $min): void
@@ -213,8 +253,8 @@ class BigRationalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to compare.
-     * @param string $max    The expected maximum value, in rational form.
+     * @param list<int|string> $values The values to compare.
+     * @param string           $max    The expected maximum value, in rational form.
      */
     #[DataProvider('providerMax')]
     public function testMax(array $values, string $max): void
@@ -236,8 +276,8 @@ class BigRationalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to add.
-     * @param string $sum    The expected sum, in rational form.
+     * @param list<int|string> $values The values to add.
+     * @param string           $sum    The expected sum, in rational form.
      */
     #[DataProvider('providerSum')]
     public function testSum(array $values, string $sum): void
@@ -337,6 +377,9 @@ class BigRationalTest extends AbstractTestCase
     public static function providerMinus(): array
     {
         return [
+            ['123/456', '0', '41/152'],
+            ['0', '123/456', '-41/152'],
+            ['0', '0', '0'],
             ['123/456', '1', '-111/152'],
             ['234/567', '123/28', '-1003/252'],
             ['-1234567890123456789/497', '79394345/109859892', '-135629495075630868965196253/54600366324'],
@@ -359,6 +402,9 @@ class BigRationalTest extends AbstractTestCase
     public static function providerMultipliedBy(): array
     {
         return [
+            ['123/456', '0', '0'],
+            ['0', '123/456', '0'],
+            ['0', '0', '0'],
             ['123/456', '1', '41/152'],
             ['123/456', '2', '41/76'],
             ['123/456', '1/2', '41/304'],
@@ -933,6 +979,15 @@ class BigRationalTest extends AbstractTestCase
         }
     }
 
+    public function testToBigRational(): void
+    {
+        $number = BigRational::of('123/456');
+        self::assertSame($number, $number->toBigRational());
+    }
+
+    /**
+     * @param non-negative-int $scale
+     */
     #[DataProvider('providerToScale')]
     public function testToScale(string $number, int $scale, RoundingMode $roundingMode, string $expected): void
     {
@@ -963,6 +1018,7 @@ class BigRationalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The scale must not be negative.');
 
+        // @phpstan-ignore argument.type
         $number->toScale(-1);
     }
 
@@ -973,6 +1029,8 @@ class BigRationalTest extends AbstractTestCase
             ['1/16', 3, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['1/16', 3, RoundingMode::HalfDown, '0.062'],
             ['1/16', 3, RoundingMode::HalfUp, '0.063'],
+            ['1/16', 3, RoundingMode::HalfEven, '0.062'],
+            ['1/16', 3, RoundingMode::HalfOdd, '0.063'],
             ['1/9', 30, RoundingMode::Down, '0.111111111111111111111111111111'],
             ['1/9', 30, RoundingMode::Up, '0.111111111111111111111111111112'],
             ['1/9', 100, RoundingMode::Unnecessary, 'NON_EXACT'],
@@ -1205,7 +1263,10 @@ class BigRationalTest extends AbstractTestCase
 
         $rational = BigRational::ofFraction($numerator, $denominator);
 
-        self::assertBigRationalEquals("$numerator/$denominator", unserialize(serialize($rational)));
+        /** @var BigRational $deserialized */
+        $deserialized = unserialize(serialize($rational));
+
+        self::assertBigRationalEquals("$numerator/$denominator", $deserialized);
     }
 
     public function testDirectCallToUnserialize(): void
@@ -1215,6 +1276,7 @@ class BigRationalTest extends AbstractTestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessageExact('__unserialize() is an internal function, it must not be called directly.');
 
+        // @phpstan-ignore argument.type
         $number->__unserialize([]);
     }
 }

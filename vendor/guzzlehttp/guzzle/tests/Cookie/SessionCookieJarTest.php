@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests\Cookie;
 
 use GuzzleHttp\Cookie\SessionCookieJar;
@@ -11,7 +13,7 @@ use PHPUnit\Framework\TestCase;
  */
 class SessionCookieJarTest extends TestCase
 {
-    private $sessionVar;
+    private string $sessionVar;
 
     public function setUp(): void
     {
@@ -24,25 +26,38 @@ class SessionCookieJarTest extends TestCase
         unset($_SESSION[$this->sessionVar]);
     }
 
-    public function testValidatesCookieSession()
-    {
-        $_SESSION[$this->sessionVar] = 'true';
-
-        $this->expectException(\RuntimeException::class);
-        new SessionCookieJar($this->sessionVar);
-    }
-
     /**
      * @dataProvider invalidCookieSessionProvider
      *
      * @param mixed $sessionData
      */
-    public function testValidatesMalformedCookieSession($sessionData)
+    public function testRejectsInvalidCookieSession($sessionData): void
     {
         $_SESSION[$this->sessionVar] = $sessionData;
 
-        $this->expectException(\RuntimeException::class);
-        new SessionCookieJar($this->sessionVar);
+        try {
+            new SessionCookieJar($this->sessionVar);
+            self::fail('Expected RuntimeException was not thrown');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Invalid cookie data', $e->getMessage());
+        }
+
+        self::assertSame($sessionData, $_SESSION[$this->sessionVar]);
+    }
+
+    public function testRejectsMalformedCookieSessionWithJsonException(): void
+    {
+        $_SESSION[$this->sessionVar] = '[';
+
+        try {
+            new SessionCookieJar($this->sessionVar);
+            self::fail('Expected RuntimeException was not thrown');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Invalid cookie data', $e->getMessage());
+            self::assertInstanceOf(\JsonException::class, $e->getPrevious());
+        }
+
+        self::assertSame('[', $_SESSION[$this->sessionVar]);
     }
 
     public function testValidatesCookieSessionJsonEncoding(): void
@@ -60,23 +75,56 @@ class SessionCookieJarTest extends TestCase
             self::fail('Expected RuntimeException was not thrown');
         } catch (\RuntimeException $e) {
             self::assertSame('Unable to encode cookie data', $e->getMessage());
+            self::assertInstanceOf(\JsonException::class, $e->getPrevious());
         } finally {
             $jar->clear();
             unset($jar, $_SESSION[$this->sessionVar]);
         }
     }
 
-    public function testLoadsFromSession()
+    public function testLoadsWithoutSessionData(): void
     {
         $jar = new SessionCookieJar($this->sessionVar);
         self::assertSame([], $jar->getIterator()->getArrayCopy());
+        unset($jar, $_SESSION[$this->sessionVar]);
+    }
+
+    public function testLoadsNullSessionDataAsEmpty(): void
+    {
+        $_SESSION[$this->sessionVar] = null;
+
+        $jar = new SessionCookieJar($this->sessionVar);
+        self::assertSame([], $jar->getIterator()->getArrayCopy());
+        unset($jar, $_SESSION[$this->sessionVar]);
+    }
+
+    public function testLoadsEmptyJsonList(): void
+    {
+        $_SESSION[$this->sessionVar] = " \n[]";
+
+        $jar = new SessionCookieJar($this->sessionVar);
+        self::assertSame([], $jar->getIterator()->getArrayCopy());
+        unset($jar);
+
+        self::assertSame('[]', $_SESSION[$this->sessionVar]);
         unset($_SESSION[$this->sessionVar]);
+    }
+
+    public function testLoadsCookieRecordsUsingExistingValidation(): void
+    {
+        $_SESSION[$this->sessionVar] = '[{"HostOnly":false},{"Name":"loaded","Value":"cookie","Domain":"example.com","HostOnly":false}]';
+
+        $jar = new SessionCookieJar($this->sessionVar);
+
+        self::assertCount(1, $jar);
+        self::assertInstanceOf(SetCookie::class, $jar->getCookieByName('loaded'));
+        unset($jar, $_SESSION[$this->sessionVar]);
     }
 
     /**
      * @dataProvider providerPersistsToSessionParameters
      */
-    public function testPersistsToSession($testSaveSessionCookie = false)
+    public function testPersistsToSession(bool $testSaveSessionCookie = false): void
     {
         $jar = new SessionCookieJar($this->sessionVar, $testSaveSessionCookie);
         $jar->setCookie(new SetCookie([
@@ -154,12 +202,55 @@ class SessionCookieJarTest extends TestCase
         $cookie = $reloaded->getCookieByName('foo');
 
         self::assertInstanceOf(SetCookie::class, $cookie);
+        self::assertSame('example.com', $cookie->getDomain());
         self::assertTrue($cookie->getHostOnly());
 
         unset($jar, $reloaded, $_SESSION[$this->sessionVar]);
     }
 
-    public static function providerPersistsToSessionParameters()
+    public function testDoesNotSaveUnserializedJarOnDestruct(): void
+    {
+        SessionCookieJarStringableMarker::$calls = 0;
+        unset($_SESSION[$this->sessionVar]);
+
+        try {
+            \unserialize(self::serializedObjectWithProperties(SessionCookieJar::class, [
+                self::privateProperty(SessionCookieJar::class, 'sessionKey') => self::serializedObject(SessionCookieJarTestStringable::class),
+            ]), ['allowed_classes' => [SessionCookieJar::class, SessionCookieJarTestStringable::class]]);
+            self::fail('Expected unserialization to fail.');
+        } catch (\LogicException $e) {
+            self::assertSame(SessionCookieJarTestStringable::class.' blocked unserialization', $e->getMessage());
+        }
+
+        self::assertArrayNotHasKey($this->sessionVar, $_SESSION);
+        self::assertSame(0, SessionCookieJarStringableMarker::$calls);
+    }
+
+    public function testRejectsNativePhpUnserialization(): void
+    {
+        $class = SessionCookieJar::class;
+
+        try {
+            \unserialize(self::serializedObject($class), ['allowed_classes' => [$class]]);
+            self::fail('Expected unserialization to fail.');
+        } catch (\LogicException $e) {
+            self::assertSame($class.' should never be unserialized', $e->getMessage());
+        }
+    }
+
+    public function testRejectsNativePhpUnserializationWithRuntimeClassName(): void
+    {
+        $class = SessionCookieJarSerializationTestDouble::class;
+
+        try {
+            \unserialize(self::serializedObject($class), ['allowed_classes' => [$class]]);
+            self::fail('Expected unserialization to fail.');
+        } catch (\LogicException $e) {
+            self::assertSame($class.' should never be unserialized', $e->getMessage());
+        }
+    }
+
+    public static function providerPersistsToSessionParameters(): array
     {
         return [
             [false],
@@ -170,11 +261,61 @@ class SessionCookieJarTest extends TestCase
     public static function invalidCookieSessionProvider(): array
     {
         return [
-            [[]],
-            [new \stdClass()],
-            ['[1]'],
-            ['[{"Name":"foo"}]'],
-            ['[{"HostOnly":"false"}]'],
+            'native non-string data' => [[]],
+            'empty string' => [''],
+            'non-list JSON' => ['null'],
+            'numeric-keyed object root' => ['{"0":{"Name":"foo","Value":"bar"}}'],
+            'non-array record' => ['[1]'],
+            'missing HostOnly marker' => ['[{"Name":"foo","Value":"bar"}]'],
+            'invalid HostOnly marker' => ['[{"Name":"foo","Value":"bar","HostOnly":"false"}]'],
+            'invalid field type' => ['[{"Name":false,"Value":"bar","HostOnly":false}]'],
         ];
     }
+
+    private static function serializedObject(string $class): string
+    {
+        return sprintf('O:%d:"%s":0:{}', strlen($class), $class);
+    }
+
+    private static function privateProperty(string $class, string $property): string
+    {
+        return "\0".$class."\0".$property;
+    }
+
+    /**
+     * @param array<string, string> $properties Serialized property values indexed by property name.
+     */
+    private static function serializedObjectWithProperties(string $class, array $properties): string
+    {
+        $body = '';
+        foreach ($properties as $name => $serializedValue) {
+            $body .= \serialize($name).$serializedValue;
+        }
+
+        return sprintf('O:%d:"%s":%d:{%s}', strlen($class), $class, count($properties), $body);
+    }
+}
+
+final class SessionCookieJarTestStringable
+{
+    public function __unserialize(array $data): void
+    {
+        throw new \LogicException(self::class.' blocked unserialization');
+    }
+
+    public function __toString(): string
+    {
+        ++SessionCookieJarStringableMarker::$calls;
+
+        return 'blocked';
+    }
+}
+
+final class SessionCookieJarStringableMarker
+{
+    public static int $calls = 0;
+}
+
+final class SessionCookieJarSerializationTestDouble extends SessionCookieJar
+{
 }

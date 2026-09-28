@@ -10,6 +10,14 @@ use PHPUnit\Framework\TestCase;
 
 class DroppingStreamTest extends TestCase
 {
+    public function testRejectsNegativeMaximumLength(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Maximum length must be a non-negative integer');
+
+        new DroppingStream(new BufferStream(), -1);
+    }
+
     public function testBeginsDroppingWhenSizeExceeded(): void
     {
         $stream = new BufferStream();
@@ -26,5 +34,15 @@ class DroppingStreamTest extends TestCase
         self::assertSame(0, $drop->getSize());
         $drop->write('hello');
         self::assertSame(0, $drop->write('test'));
+    }
+
+    public function testReadRejectsNegativeLength(): void
+    {
+        $drop = new DroppingStream(new BufferStream(), 5);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $drop->read(-1);
     }
 }

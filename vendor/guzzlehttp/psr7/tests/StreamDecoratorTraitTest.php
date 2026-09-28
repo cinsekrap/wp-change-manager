@@ -13,8 +13,7 @@ class Str implements StreamInterface
 {
     use StreamDecoratorTrait;
 
-    /** @var StreamInterface */
-    private $stream;
+    private StreamInterface $stream;
 }
 
 /**
@@ -22,10 +21,8 @@ class Str implements StreamInterface
  */
 class StreamDecoratorTraitTest extends TestCase
 {
-    /** @var StreamInterface */
-    private $a;
-    /** @var StreamInterface */
-    private $b;
+    private StreamInterface $a;
+    private StreamInterface $b;
     /** @var resource */
     private $c;
 
@@ -38,22 +35,17 @@ class StreamDecoratorTraitTest extends TestCase
         $this->b = new Str($this->a);
     }
 
-    /**
-     * @requires PHP < 7.4
-     */
-    public function testCatchesExceptionsWhenCastingToString(): void
+    public function testThrowsExceptionsWhenCastingToString(): void
     {
         $s = $this->createMock(Str::class);
         $s->expects(self::once())
             ->method('read')
             ->willThrowException(new \RuntimeException('foo'));
-        $msg = '';
-        set_error_handler(function (int $errNo, string $str) use (&$msg): void {
-            $msg = $str;
-        });
-        echo new Str($s);
-        restore_error_handler();
-        self::assertStringContainsString('foo', $msg);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('foo');
+
+        (string) new Str($s);
     }
 
     public function testToString(): void

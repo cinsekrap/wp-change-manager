@@ -11,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \GuzzleHttp\Psr7\ServerRequest
+ * @covers \GuzzleHttp\Psr7\UploadedFileNormalizer
  */
 class ServerRequestTest extends TestCase
 {
@@ -27,8 +28,8 @@ class ServerRequestTest extends TestCase
                         'name' => 'MyFile.txt',
                         'type' => 'text/plain',
                         'tmp_name' => '/tmp/php/php1h4j1o',
-                        'error' => '0',
-                        'size' => '123',
+                        'error' => UPLOAD_ERR_OK,
+                        'size' => 123,
                     ],
                 ],
                 [
@@ -41,14 +42,30 @@ class ServerRequestTest extends TestCase
                     ),
                 ],
             ],
+            'Single file without optional metadata' => [
+                [
+                    'file' => [
+                        'tmp_name' => '/tmp/php/php1h4j1o',
+                        'error' => UPLOAD_ERR_OK,
+                        'size' => 123,
+                    ],
+                ],
+                [
+                    'file' => new UploadedFile(
+                        '/tmp/php/php1h4j1o',
+                        123,
+                        UPLOAD_ERR_OK
+                    ),
+                ],
+            ],
             'Empty file' => [
                 [
                     'image_file' => [
                         'name' => '',
                         'type' => '',
                         'tmp_name' => '',
-                        'error' => '4',
-                        'size' => '0',
+                        'error' => UPLOAD_ERR_NO_FILE,
+                        'size' => 0,
                     ],
                 ],
                 [
@@ -125,15 +142,15 @@ class ServerRequestTest extends TestCase
                         'name' => 'MyFile.txt',
                         'type' => 'text/plain',
                         'tmp_name' => '/tmp/php/php1h4j1o',
-                        'error' => '0',
-                        'size' => '123',
+                        'error' => UPLOAD_ERR_OK,
+                        'size' => 123,
                     ],
                     'image_file' => [
                         'name' => '',
                         'type' => '',
                         'tmp_name' => '',
-                        'error' => '4',
-                        'size' => '0',
+                        'error' => UPLOAD_ERR_NO_FILE,
+                        'size' => 0,
                     ],
                 ],
                 [
@@ -167,20 +184,14 @@ class ServerRequestTest extends TestCase
                         'tmp_name' => [
                             0 => '/tmp/php/hp9hskjhf',
                             1 => '/tmp/php/php1h4j1o',
-                            2 => '/tmp/php/w0ensl4ar',
                         ],
                         'error' => [
-                            0 => '0',
-                            1 => '0',
+                            0 => UPLOAD_ERR_OK,
+                            1 => UPLOAD_ERR_OK,
                         ],
                         'size' => [
-                            0 => '123',
-                            1 => '7349',
-                        ],
-                    ],
-                    'minimum_data' => [
-                        'tmp_name' => [
-                            0 => '/tmp/php/hp9hskjhf',
+                            0 => 123,
+                            1 => 7349,
                         ],
                     ],
                     'nested' => [
@@ -206,17 +217,17 @@ class ServerRequestTest extends TestCase
                             ],
                         ],
                         'error' => [
-                            'other' => '0',
+                            'other' => UPLOAD_ERR_OK,
                             'test' => [
-                                0 => '0',
-                                1 => '4',
+                                0 => UPLOAD_ERR_OK,
+                                1 => UPLOAD_ERR_NO_FILE,
                             ],
                         ],
                         'size' => [
-                            'other' => '421',
+                            'other' => 421,
                             'test' => [
-                                0 => '32',
-                                1 => '0',
+                                0 => 32,
+                                1 => 0,
                             ],
                         ],
                     ],
@@ -236,18 +247,6 @@ class ServerRequestTest extends TestCase
                             UPLOAD_ERR_OK,
                             'Image.png',
                             'image/png'
-                        ),
-                        2 => new UploadedFile(
-                            '/tmp/php/w0ensl4ar',
-                            null,
-                            UPLOAD_ERR_OK
-                        ),
-                    ],
-                    'minimum_data' => [
-                        0 => new UploadedFile(
-                            '/tmp/php/hp9hskjhf',
-                            0,
-                            UPLOAD_ERR_OK
                         ),
                     ],
                     'nested' => [
@@ -277,24 +276,171 @@ class ServerRequestTest extends TestCase
                     ],
                 ],
             ],
+            'Nested files without optional metadata' => [
+                [
+                    'file' => [
+                        'tmp_name' => [
+                            0 => '/tmp/php/hp9hskjhf',
+                        ],
+                        'error' => [
+                            0 => UPLOAD_ERR_OK,
+                        ],
+                        'size' => [
+                            0 => 123,
+                        ],
+                    ],
+                ],
+                [
+                    'file' => [
+                        0 => new UploadedFile(
+                            '/tmp/php/hp9hskjhf',
+                            123,
+                            UPLOAD_ERR_OK
+                        ),
+                    ],
+                ],
+            ],
+            'Nested files ignore metadata without a matching temporary file' => [
+                [
+                    'file' => [
+                        'tmp_name' => [0 => '/tmp/php/hp9hskjhf'],
+                        'error' => [0 => UPLOAD_ERR_OK, 1 => UPLOAD_ERR_NO_FILE],
+                        'size' => [0 => 123, 1 => 0],
+                        'name' => [0 => 'MyFile.txt', 1 => ''],
+                        'type' => [0 => 'text/plain', 1 => ''],
+                    ],
+                ],
+                [
+                    'file' => [
+                        0 => new UploadedFile(
+                            '/tmp/php/hp9hskjhf',
+                            123,
+                            UPLOAD_ERR_OK,
+                            'MyFile.txt',
+                            'text/plain'
+                        ),
+                    ],
+                ],
+            ],
         ];
     }
 
     /**
      * @dataProvider dataNormalizeFiles
      */
-    public function testNormalizeFiles($files, $expected): void
+    public function testNormalizeFiles(array $files, array $expected): void
     {
         $result = ServerRequest::normalizeFiles($files);
 
         self::assertEquals($expected, $result);
     }
 
-    public function testNormalizeFilesRaisesException(): void
+    /**
+     * @dataProvider invalidFileSpecifications
+     */
+    public function testNormalizeFilesRaisesException(array $files, string $expectedMessage): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid value in files specification');
-        ServerRequest::normalizeFiles(['test' => 'something']);
+        $this->expectExceptionMessage($expectedMessage);
+
+        ServerRequest::normalizeFiles($files);
+    }
+
+    public static function invalidFileSpecifications(): iterable
+    {
+        yield 'invalid scalar' => [
+            ['test' => 'something'],
+            'Invalid value in files specification',
+        ];
+
+        yield 'single file missing size' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'error' => UPLOAD_ERR_OK]],
+            'Invalid file specification',
+        ];
+
+        yield 'single file missing error' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'size' => 123]],
+            'Invalid file specification',
+        ];
+
+        yield 'single file string error' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'size' => 123, 'error' => '0']],
+            'Uploaded file error must be a non-negative integer',
+        ];
+
+        yield 'single file float error' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'size' => 123, 'error' => (float) \PHP_INT_MAX]],
+            'Uploaded file error must be a non-negative integer',
+        ];
+
+        yield 'single file string size' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'size' => '123', 'error' => UPLOAD_ERR_OK]],
+            'Uploaded file size must be a non-negative integer',
+        ];
+
+        yield 'single file negative size' => [
+            ['file' => ['tmp_name' => '/tmp/php123', 'size' => -1, 'error' => UPLOAD_ERR_OK]],
+            'Uploaded file size must be a non-negative integer',
+        ];
+
+        yield 'nested file missing size array' => [
+            ['file' => ['tmp_name' => [0 => '/tmp/php123'], 'error' => [0 => UPLOAD_ERR_OK]]],
+            'Invalid file specification',
+        ];
+
+        yield 'nested file missing error array' => [
+            ['file' => ['tmp_name' => [0 => '/tmp/php123'], 'size' => [0 => 123]]],
+            'Invalid file specification',
+        ];
+
+        yield 'nested file string size' => [
+            ['file' => ['tmp_name' => [0 => '/tmp/php123'], 'size' => [0 => '123'], 'error' => [0 => UPLOAD_ERR_OK]]],
+            'Uploaded file size must be a non-negative integer',
+        ];
+
+        yield 'nested file scalar size' => [
+            ['file' => ['tmp_name' => [0 => '/tmp/php123'], 'size' => 123, 'error' => [0 => UPLOAD_ERR_OK]]],
+            'Invalid nested file specification',
+        ];
+
+        yield 'nested file scalar error' => [
+            ['file' => ['tmp_name' => [0 => '/tmp/php123'], 'size' => [0 => 123], 'error' => UPLOAD_ERR_OK]],
+            'Invalid nested file specification',
+        ];
+
+        yield 'nested file missing size key' => [
+            [
+                'file' => [
+                    'tmp_name' => [0 => '/tmp/a', 1 => '/tmp/b'],
+                    'size' => [0 => 123],
+                    'error' => [0 => UPLOAD_ERR_OK, 1 => UPLOAD_ERR_OK],
+                ],
+            ],
+            'matching keys',
+        ];
+
+        yield 'nested file missing error key' => [
+            [
+                'file' => [
+                    'tmp_name' => [0 => '/tmp/a', 1 => '/tmp/b'],
+                    'size' => [0 => 123, 1 => 456],
+                    'error' => [0 => UPLOAD_ERR_OK],
+                ],
+            ],
+            'matching keys',
+        ];
+
+        yield 'nested file scalar name' => [
+            [
+                'file' => [
+                    'tmp_name' => [0 => '/tmp/a'],
+                    'size' => [0 => 123],
+                    'error' => [0 => UPLOAD_ERR_OK],
+                    'name' => 'a.txt',
+                ],
+            ],
+            'expected key "name" to be an array',
+        ];
     }
 
     public static function dataGetUriFromGlobals(): iterable
@@ -350,65 +496,101 @@ class ServerRequestTest extends TestCase
                 'https://www.example.org:8324/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'www.example.org:8324']),
             ],
+            'Host header with leading zero port' => [
+                'https://www.example.org:8324/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'www.example.org:008324']),
+            ],
+            'Host header with zero port falls back to SERVER_NAME' => [
+                'https://www.example.org/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'bad.example.org:0']),
+            ],
+            'Host header with zero padded zero port falls back to SERVER_NAME' => [
+                'https://www.example.org/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'bad.example.org:0000']),
+            ],
             'IPv6 local loopback address' => [
                 'https://[::1]:8000/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => '[::1]:8000']),
             ],
+            'IPv6 host with non-canonical spelling' => [
+                'https://[::1]:8000/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => '[::0:1]:8000']),
+            ],
             'Invalid host' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'a:b']),
             ],
+            'Host header with newline' => [
+                'https://www.example.org/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => "www.example.org\n.evil"]),
+            ],
             'Host header with userinfo delimiter' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'trusted.example@evil.example']),
             ],
             'Host header with path delimiter' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'example.com/path']),
             ],
             'Host header with query delimiter' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'example.com?x=1']),
             ],
             'Host header with fragment delimiter' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'example.com#frag']),
             ],
             'Host header with backslash delimiter' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'example.com\\evil']),
             ],
+            'Host header with percent-encoded delimiter' => [
+                'https://www.example.org/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'ex%2Fample.com']),
+            ],
             'Host header with space' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'bad host']),
             ],
             'Host header with multiple ports' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'www.example.org:443:8324']),
+            ],
+            'Host header with ambiguous ports' => [
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'example.com:80:90']),
             ],
             'Host header with invalid ip literal' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => '[bad]']),
             ],
             'Host header with unexpected opening bracket' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'foo[bar']),
             ],
             'Host header with unexpected closing bracket' => [
-                'https://localhost/blog/article.php?id=10&user=foo',
+                'https://www.example.org/blog/article.php?id=10&user=foo',
                 array_merge($server, ['HTTP_HOST' => 'foo]bar']),
+            ],
+            'Invalid HTTP_HOST and SERVER_NAME -> fallback to SERVER_ADDR' => [
+                'https://217.112.82.20/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'www.example.org:443:8324', 'SERVER_NAME' => 'bad host']),
             ],
             'Different port with SERVER_PORT' => [
                 'https://www.example.org:8324/blog/article.php?id=10&user=foo',
                 array_merge($server, ['SERVER_PORT' => '8324']),
             ],
-            'Invalid SERVER_PORT is ignored instead of coerced to zero' => [
-                'https://www.example.org/blog/article.php?id=10&user=foo',
-                array_merge($server, ['SERVER_PORT' => 'not-a-port']),
+            'SERVER_PORT with leading zeroes' => [
+                'https://www.example.org:8324/blog/article.php?id=10&user=foo',
+                array_merge($server, ['SERVER_PORT' => '008324']),
             ],
-            'SERVER_PORT with a trailing newline is ignored' => [
-                'https://www.example.org/blog/article.php?id=10&user=foo',
-                array_merge($server, ['SERVER_PORT' => "8324\n"]),
+            'SERVER_PORT with maximum valid port' => [
+                'https://www.example.org:65535/blog/article.php?id=10&user=foo',
+                array_merge($server, ['SERVER_PORT' => '65535']),
+            ],
+            'HTTP_HOST port takes precedence over malformed SERVER_PORT' => [
+                'https://www.example.org:8324/blog/article.php?id=10&user=foo',
+                array_merge($server, ['HTTP_HOST' => 'www.example.org:8324', 'SERVER_PORT' => '+443']),
             ],
             'Non-string SERVER_PORT is ignored' => [
                 'https://www.example.org/blog/article.php?id=10&user=foo',
@@ -444,20 +626,850 @@ class ServerRequestTest extends TestCase
     /**
      * @dataProvider dataGetUriFromGlobals
      */
-    public function testGetUriFromGlobals($expected, $serverParams): void
+    public function testGetUriFromGlobals(string $expected, array $serverParams): void
     {
         $_SERVER = $serverParams;
 
         self::assertEquals(new Uri($expected), ServerRequest::getUriFromGlobals());
     }
 
-    public function testGetUriFromGlobalsRejectsMalformedServerName(): void
+    public static function dataGetUriFromGlobalsRequestTargetForms(): iterable
     {
-        $_SERVER = ['HTTP_HOST' => null, 'SERVER_NAME' => 'good.com@evil.com'];
+        yield 'origin-form' => [
+            ['REQUEST_URI' => '/admin?x=1', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/admin?x=1',
+            'good.example',
+            null,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'slashless origin-form is recovered' => [
+            ['REQUEST_URI' => 'admin?x=1', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/admin?x=1',
+            'good.example',
+            null,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'query-only origin-form is recovered' => [
+            ['REQUEST_URI' => '?x=1', 'HTTP_HOST' => 'good.example'],
+            'http://good.example?x=1',
+            'good.example',
+            null,
+            '',
+            'x=1',
+        ];
+
+        yield 'absolute-form target supplies authority' => [
+            ['REQUEST_URI' => 'http://up.example:8080/admin?x=1', 'HTTP_HOST' => 'good.example'],
+            'http://up.example:8080/admin?x=1',
+            'up.example',
+            8080,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://up.example:8080/admin?x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:8080/admin?x=1',
+            'up.example',
+            8080,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form empty port target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://up.example:/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example/admin',
+            'up.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form zero port target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://up.example:0/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:0/admin',
+            'up.example',
+            0,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form zero padded zero port target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://up.example:0000/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:0/admin',
+            'up.example',
+            0,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form ipv6 target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://[::1]:8080/admin?x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://[::1]:8080/admin?x=1',
+            '[::1]',
+            8080,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form userinfo target is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://trusted.example@evil.example/admin', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'evil.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form target with percent-encoded host delimiter is treated as a path' => [
+            ['REQUEST_URI' => 'http://ex%2Fample.com/x', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/http://ex%2Fample.com/x',
+            'good.example',
+            null,
+            '/http://ex%2Fample.com/x',
+            '',
+        ];
+
+        yield 'absolute-form userinfo target with password is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://user:pass@evil.example/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'evil.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form empty userinfo target is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://@evil.example/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'evil.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form userinfo target uses query string fallback after normalization' => [
+            ['REQUEST_URI' => 'http://trusted.example@evil.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin?x=1',
+            'evil.example',
+            null,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form userinfo target keeps request uri query after normalization' => [
+            ['REQUEST_URI' => 'http://trusted.example@evil.example/admin?from_uri=1', 'QUERY_STRING' => 'from_query=1', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin?from_uri=1',
+            'evil.example',
+            null,
+            '/admin',
+            'from_uri=1',
+        ];
+
+        yield 'absolute-form userinfo target strips fragment after normalization' => [
+            ['REQUEST_URI' => 'http://trusted.example@evil.example/admin#frag', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'evil.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form userinfo empty port target is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://user@evil.example:/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'evil.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form userinfo zero port target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://user@evil.example:0/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example:0/admin',
+            'evil.example',
+            0,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form userinfo zero padded zero port target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://user@evil.example:0000/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example:0/admin',
+            'evil.example',
+            0,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form ipv6 userinfo target supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://user@[::1]:8080/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://[::1]:8080/admin',
+            '[::1]',
+            8080,
+            '/admin',
+            '',
+        ];
+
+        yield 'absolute-form uses QUERY_STRING when request uri has no query' => [
+            ['REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'good.example'],
+            'http://up.example/admin?x=1',
+            'up.example',
+            null,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form target uses QUERY_STRING before malformed SERVER_PORT' => [
+            ['REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example/admin?x=1',
+            'up.example',
+            null,
+            '/admin',
+            'x=1',
+        ];
+
+        yield 'absolute-form ignores empty QUERY_STRING when request uri has no query' => [
+            ['REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => '', 'HTTP_HOST' => 'good.example'],
+            'http://up.example/admin',
+            'up.example',
+            null,
+            '/admin',
+            '',
+        ];
+
+        yield 'asterisk-form has no uri path' => [
+            ['REQUEST_METHOD' => 'OPTIONS', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            'http://good.example',
+            'good.example',
+            null,
+            '',
+            '',
+        ];
+
+        yield 'asterisk-form lowercase method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'options', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            'http://good.example',
+            'good.example',
+            null,
+            '',
+            '',
+        ];
+
+        yield 'asterisk-form mixed-case method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'OpTiOnS', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            'http://good.example',
+            'good.example',
+            null,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form supplies authority' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'http://up.example:443',
+            'up.example',
+            443,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:443',
+            'up.example',
+            443,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form https default port is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443', 'HTTPS' => 'on'],
+            'https://up.example',
+            'up.example',
+            null,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form ipv6 supplies authority before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => '[::1]:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://[::1]:443',
+            '[::1]',
+            443,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form lowercase method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'connect', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'http://up.example:443',
+            'up.example',
+            443,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form mixed-case method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'CoNnEcT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'http://up.example:443',
+            'up.example',
+            443,
+            '',
+            '',
+        ];
+
+        yield 'connect authority-form with percent-encoded host delimiter is treated as a path' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'ex%2Fample.com:443', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/ex%2Fample.com:443',
+            'good.example',
+            null,
+            '/ex%2Fample.com:443',
+            '',
+        ];
+
+        yield 'request uri query wins over query string' => [
+            ['REQUEST_URI' => '/admin?from_uri=1', 'QUERY_STRING' => 'from_query=1', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/admin?from_uri=1',
+            'good.example',
+            null,
+            '/admin',
+            'from_uri=1',
+        ];
+
+        yield 'explicit empty request uri query wins over query string' => [
+            ['REQUEST_URI' => '/admin?', 'QUERY_STRING' => 'from_query=1', 'HTTP_HOST' => 'good.example'],
+            'http://good.example/admin',
+            'good.example',
+            null,
+            '/admin',
+            '',
+        ];
+    }
+
+    /**
+     * @dataProvider dataGetUriFromGlobalsRequestTargetForms
+     */
+    public function testGetUriFromGlobalsRequestTargetForms(
+        array $serverParams,
+        string $expectedUri,
+        string $expectedHost,
+        ?int $expectedPort,
+        string $expectedPath,
+        string $expectedQuery
+    ): void {
+        $_SERVER = $serverParams;
+
+        $uri = ServerRequest::getUriFromGlobals();
+
+        self::assertSame($expectedUri, (string) $uri);
+        self::assertSame($expectedHost, $uri->getHost());
+        self::assertSame($expectedPort, $uri->getPort());
+        self::assertSame($expectedPath, $uri->getPath());
+        self::assertSame($expectedQuery, $uri->getQuery());
+    }
+
+    public static function dataFromGlobalsRequestTargetForms(): iterable
+    {
+        yield 'slashless origin-form is normalized' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'admin?x=1', 'HTTP_HOST' => 'good.example'],
+            '/admin?x=1',
+            'http://good.example/admin?x=1',
+        ];
+
+        yield 'query-only origin-form is normalized' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '?x=1', 'HTTP_HOST' => 'good.example'],
+            '/?x=1',
+            'http://good.example?x=1',
+        ];
+
+        yield 'absolute-form target is preserved' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:8080/admin?x=1', 'HTTP_HOST' => 'good.example'],
+            'http://up.example:8080/admin?x=1',
+            'http://up.example:8080/admin?x=1',
+        ];
+
+        yield 'absolute-form target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:8080/admin?x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:8080/admin?x=1',
+            'http://up.example:8080/admin?x=1',
+        ];
+
+        yield 'absolute-form empty port target is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example/admin',
+            'http://up.example/admin',
+        ];
+
+        yield 'absolute-form zero port target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:0/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:0/admin',
+            'http://up.example:0/admin',
+        ];
+
+        yield 'absolute-form zero padded zero port target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:0000/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example:0000/admin',
+            'http://up.example:0/admin',
+        ];
+
+        yield 'absolute-form ipv6 target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://[::1]:8080/admin?x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://[::1]:8080/admin?x=1',
+            'http://[::1]:8080/admin?x=1',
+        ];
+
+        yield 'absolute-form userinfo target is stripped from request target before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://trusted.example@evil.example/admin', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form userinfo target with password is stripped from request target before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://user:pass@evil.example/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form empty userinfo target is stripped from request target before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://@evil.example/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form userinfo target uses query string fallback after normalization' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://trusted.example@evil.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin?x=1',
+            'http://evil.example/admin?x=1',
+        ];
+
+        yield 'absolute-form userinfo target keeps request uri query after normalization' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://trusted.example@evil.example/admin?from_uri=1', 'QUERY_STRING' => 'from_query=1', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin?from_uri=1',
+            'http://evil.example/admin?from_uri=1',
+        ];
+
+        yield 'absolute-form userinfo target strips fragment from request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://trusted.example@evil.example/admin#frag', 'HTTP_HOST' => 'trusted.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form userinfo zero padded zero port target preserves raw port in request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://user@evil.example:0000/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example:0000/admin',
+            'http://evil.example:0/admin',
+        ];
+
+        yield 'absolute-form userinfo default port target preserves raw port in request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://user@evil.example:80/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example:80/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form uppercase userinfo target preserves safe raw casing in request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'HTTP://user@EVIL.EXAMPLE/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'HTTP://EVIL.EXAMPLE/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form userinfo empty port target normalizes request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://user@evil.example:/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin',
+            'http://evil.example/admin',
+        ];
+
+        yield 'absolute-form ipv6 userinfo target preserves authority in request target' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://user@[::1]:8080/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://[::1]:8080/admin',
+            'http://[::1]:8080/admin',
+        ];
+
+        yield 'absolute-form at sign in path is preserved' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://evil.example/admin@user', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin@user',
+            'http://evil.example/admin@user',
+        ];
+
+        yield 'absolute-form at sign in query is preserved' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://evil.example/admin?email=user@example.com', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://evil.example/admin?email=user@example.com',
+            'http://evil.example/admin?email=user@example.com',
+        ];
+
+        yield 'absolute-form target uses query string fallback' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'good.example'],
+            'http://up.example/admin?x=1',
+            'http://up.example/admin?x=1',
+        ];
+
+        yield 'absolute-form target uses query string fallback before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'http://up.example/admin?x=1',
+            'http://up.example/admin?x=1',
+        ];
+
+        yield 'absolute-form target ignores empty query string fallback' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example/admin', 'QUERY_STRING' => '', 'HTTP_HOST' => 'good.example'],
+            'http://up.example/admin',
+            'http://up.example/admin',
+        ];
+
+        yield 'asterisk-form target is preserved' => [
+            ['REQUEST_METHOD' => 'OPTIONS', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            '*',
+            'http://good.example',
+        ];
+
+        yield 'asterisk-form target with lowercase method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'options', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            '*',
+            'http://good.example',
+        ];
+
+        yield 'asterisk-form target with mixed-case method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'OpTiOnS', 'REQUEST_URI' => '*', 'HTTP_HOST' => 'good.example'],
+            '*',
+            'http://good.example',
+        ];
+
+        yield 'connect authority-form target is preserved' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'up.example:443',
+            'http://up.example:443',
+        ];
+
+        yield 'connect authority-form target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            'up.example:443',
+            'http://up.example:443',
+        ];
+
+        yield 'connect authority-form https default port is normalized before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443', 'HTTPS' => 'on'],
+            'up.example:443',
+            'https://up.example',
+        ];
+
+        yield 'connect authority-form ipv6 target is preserved before malformed SERVER_PORT' => [
+            ['REQUEST_METHOD' => 'CONNECT', 'REQUEST_URI' => '[::1]:443', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
+            '[::1]:443',
+            'http://[::1]:443',
+        ];
+
+        yield 'connect authority-form target with lowercase method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'connect', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'up.example:443',
+            'http://up.example:443',
+        ];
+
+        yield 'connect authority-form target with mixed-case method is normalized from globals' => [
+            ['REQUEST_METHOD' => 'CoNnEcT', 'REQUEST_URI' => 'up.example:443', 'HTTP_HOST' => 'good.example'],
+            'up.example:443',
+            'http://up.example:443',
+        ];
+
+        yield 'query string is used when request uri is missing' => [
+            ['REQUEST_METHOD' => 'GET', 'QUERY_STRING' => 'x=1', 'HTTP_HOST' => 'good.example'],
+            '/?x=1',
+            'http://good.example?x=1',
+        ];
+    }
+
+    /**
+     * @dataProvider dataFromGlobalsRequestTargetForms
+     */
+    public function testFromGlobalsRequestTargetForms(array $serverParams, string $expectedRequestTarget, string $expectedUri): void
+    {
+        $_SERVER = $serverParams;
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame($expectedRequestTarget, $request->getRequestTarget());
+        self::assertSame($expectedUri, (string) $request->getUri());
+    }
+
+    public function testFromGlobalsKeepsValidHostHeaderWhenAbsoluteFormAuthorityDiffers(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_METHOD' => 'GET',
+            'REQUEST_URI' => 'http://up.example:8080/admin?x=1',
+            'HTTP_HOST' => 'good.example',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('up.example', $request->getUri()->getHost());
+        self::assertSame('good.example', $request->getHeaderLine('Host'));
+        self::assertSame('http://up.example:8080/admin?x=1', $request->getRequestTarget());
+    }
+
+    public function testFromGlobalsKeepsValidHostHeaderWhenConnectAuthorityDiffers(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_METHOD' => 'CONNECT',
+            'REQUEST_URI' => 'up.example:443',
+            'HTTP_HOST' => 'good.example',
+            'SERVER_PORT' => '+443',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('up.example', $request->getUri()->getHost());
+        self::assertSame('up.example:443', $request->getRequestTarget());
+        self::assertSame('good.example', $request->getHeaderLine('Host'));
+        self::assertSame('http://up.example:443', (string) $request->getUri());
+    }
+
+    public function testFromGlobalsNormalizesAbsoluteFormUserInfoWithoutSynthesizingAuthorization(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_METHOD' => 'GET',
+            'REQUEST_URI' => 'http://user:pass@evil.example/admin',
+            'HTTP_HOST' => 'good.example',
+            'SERVER_PORT' => '+443',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('http://evil.example/admin', (string) $request->getUri());
+        self::assertSame('http://evil.example/admin', $request->getRequestTarget());
+        self::assertSame('evil.example', $request->getUri()->getHost());
+        self::assertSame('', $request->getUri()->getUserInfo());
+        self::assertSame('good.example', $request->getHeaderLine('Host'));
+        self::assertSame('', $request->getHeaderLine('Authorization'));
+    }
+
+    public function testFromGlobalsNormalizesEmptyAbsoluteFormUserInfoInRequestTarget(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_METHOD' => 'GET',
+            'REQUEST_URI' => 'http://@evil.example/admin',
+            'HTTP_HOST' => 'good.example',
+            'SERVER_PORT' => '+443',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('http://evil.example/admin', (string) $request->getUri());
+        self::assertSame('http://evil.example/admin', $request->getRequestTarget());
+        self::assertSame('evil.example', $request->getUri()->getHost());
+        self::assertSame('', $request->getUri()->getUserInfo());
+    }
+
+    public function testFromGlobalsNormalizesAbsoluteFormRequestTargetWithControlCharacter(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_METHOD' => 'GET',
+            'REQUEST_URI' => "http://up.example/admin\x7Fpath",
+            'HTTP_HOST' => 'good.example',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('http://up.example/admin%7Fpath', (string) $request->getUri());
+        self::assertSame('http://up.example/admin%7Fpath', $request->getRequestTarget());
+    }
+
+    public static function dataInvalidServerPort(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'zero' => ['0'];
+        yield 'zero padded zero' => ['0000'];
+        yield 'negative' => ['-1'];
+        yield 'leading plus' => ['+443'];
+        yield 'out of range' => ['65536'];
+        yield 'too large' => ['999999'];
+        yield 'non numeric' => ['not-a-port'];
+        yield 'trailing junk' => ['443abc'];
+        yield 'leading whitespace' => [' 443'];
+        yield 'decimal' => ['4.5'];
+    }
+
+    /**
+     * @dataProvider dataInvalidServerPort
+     */
+    public function testGetUriFromGlobalsRejectsInvalidServerPort(string $serverPort): void
+    {
+        $_SERVER = [
+            'REQUEST_URI' => '/blog/article.php?id=10&user=foo',
+            'SERVER_PORT' => $serverPort,
+            'SERVER_ADDR' => '217.112.82.20',
+            'SERVER_NAME' => 'www.example.org',
+            'SERVER_PROTOCOL' => 'HTTP/1.1',
+            'REQUEST_METHOD' => 'POST',
+            'QUERY_STRING' => 'id=10&user=foo',
+            'HTTP_HOST' => 'www.example.org',
+            'HTTPS' => 'on',
+        ];
 
         $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
 
         ServerRequest::getUriFromGlobals();
+    }
+
+    public function testGetUriFromGlobalsRejectsInvalidServerPortForAsteriskForm(): void
+    {
+        $_SERVER = [
+            'REQUEST_METHOD' => 'OPTIONS',
+            'REQUEST_URI' => '*',
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
+
+        ServerRequest::getUriFromGlobals();
+    }
+
+    public function testGetUriFromGlobalsRejectsInvalidServerPortWhenRequestUriIsMissing(): void
+    {
+        $_SERVER = [
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
+
+        ServerRequest::getUriFromGlobals();
+    }
+
+    public function testGetUriFromGlobalsRejectsInvalidServerPortForMalformedAbsoluteFormFallback(): void
+    {
+        $_SERVER = [
+            'REQUEST_URI' => 'http://up.example:bad/admin',
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
+
+        ServerRequest::getUriFromGlobals();
+    }
+
+    public function testGetUriFromGlobalsAcceptsAbsoluteFormZeroPortBeforeMalformedServerPort(): void
+    {
+        $_SERVER = [
+            'REQUEST_URI' => 'http://up.example:0/admin',
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $uri = ServerRequest::getUriFromGlobals();
+
+        self::assertSame('http://up.example:0/admin', (string) $uri);
+        self::assertSame('up.example', $uri->getHost());
+        self::assertSame(0, $uri->getPort());
+        self::assertSame('/admin', $uri->getPath());
+    }
+
+    public function testGetUriFromGlobalsAcceptsAbsoluteFormZeroPaddedZeroPortBeforeMalformedServerPort(): void
+    {
+        $_SERVER = [
+            'REQUEST_URI' => 'http://up.example:0000/admin',
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $uri = ServerRequest::getUriFromGlobals();
+
+        self::assertSame('http://up.example:0/admin', (string) $uri);
+        self::assertSame('up.example', $uri->getHost());
+        self::assertSame(0, $uri->getPort());
+        self::assertSame('/admin', $uri->getPath());
+    }
+
+    public function testGetUriFromGlobalsRejectsInvalidServerPortForMalformedConnectFallback(): void
+    {
+        $_SERVER = [
+            'REQUEST_METHOD' => 'CONNECT',
+            'REQUEST_URI' => 'up.example:not-a-port',
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
+
+        ServerRequest::getUriFromGlobals();
+    }
+
+    /**
+     * @dataProvider dataFromGlobalsRejectsInvalidServerPortForRequestTargetFallback
+     */
+    public function testFromGlobalsRejectsInvalidServerPortForRequestTargetFallback(array $serverParams): void
+    {
+        $_SERVER = $serverParams + [
+            'HTTP_HOST' => 'www.example.org',
+            'SERVER_PORT' => '+443',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid SERVER_PORT');
+
+        ServerRequest::fromGlobals();
+    }
+
+    public static function dataFromGlobalsRejectsInvalidServerPortForRequestTargetFallback(): iterable
+    {
+        yield 'asterisk-form' => [
+            [
+                'REQUEST_METHOD' => 'OPTIONS',
+                'REQUEST_URI' => '*',
+            ],
+        ];
+
+        yield 'missing request uri' => [
+            [],
+        ];
+
+        yield 'malformed absolute-form port' => [
+            [
+                'REQUEST_URI' => 'http://up.example:bad/admin',
+            ],
+        ];
+
+        yield 'malformed connect port' => [
+            [
+                'REQUEST_METHOD' => 'CONNECT',
+                'REQUEST_URI' => 'up.example:not-a-port',
+            ],
+        ];
     }
 
     public function testFromGlobals(): void
@@ -472,6 +1484,8 @@ class ServerRequestTest extends TestCase
             'QUERY_STRING' => 'id=10&user=foo',
             'DOCUMENT_ROOT' => '/path/to/your/server/root/',
             'CONTENT_TYPE' => 'text/plain',
+            'CONTENT_LENGTH' => '123',
+            'CONTENT_MD5' => 'Q2hlY2sgSW50ZWdyaXR5IQ==',
             'HTTP_HOST' => 'www.example.org',
             'HTTP_ACCEPT' => 'text/html',
             'HTTP_REFERRER' => 'https://example.com',
@@ -514,6 +1528,8 @@ class ServerRequestTest extends TestCase
         self::assertEquals([
             'Host' => ['www.example.org'],
             'Content-Type' => ['text/plain'],
+            'Content-Length' => ['123'],
+            'Content-Md5' => ['Q2hlY2sgSW50ZWdyaXR5IQ=='],
             'Accept' => ['text/html'],
             'Referrer' => ['https://example.com'],
             'User-Agent' => ['My User Agent'],
@@ -574,38 +1590,411 @@ class ServerRequestTest extends TestCase
         self::assertEquals($expectedFiles, $server->getUploadedFiles());
     }
 
-    public function testFromGlobalsNormalizesUnexpectedHeaderValueTypes(): void
+    /**
+     * @dataProvider requestMethodFromGlobalsProvider
+     */
+    public function testFromGlobalsNormalizesRequestMethod(string $requestMethod, string $expectedMethod): void
     {
+        $_SERVER = [
+            'REQUEST_METHOD' => $requestMethod,
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame($expectedMethod, $server->getMethod());
+    }
+
+    public static function requestMethodFromGlobalsProvider(): iterable
+    {
+        yield 'lowercase' => ['post', 'POST'];
+        yield 'mixed case' => ['OpTiOnS', 'OPTIONS'];
+        yield 'custom method' => ['custom.method', 'CUSTOM.METHOD'];
+    }
+
+    public static function dataInvalidHostHeaderFromGlobals(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'userinfo delimiter' => ['trusted.example@evil.example'];
+        yield 'path delimiter' => ['example.com/path'];
+        yield 'query delimiter' => ['example.com?x=1'];
+        yield 'fragment delimiter' => ['example.com#frag'];
+        yield 'backslash delimiter' => ['example.com\\evil'];
+        yield 'space' => ['bad host'];
+        yield 'newline' => ["bad.example\r\nX-Evil: yes"];
+        yield 'empty port' => ['bad.example:'];
+        yield 'non numeric port' => ['bad.example:abc'];
+        yield 'leading plus port' => ['bad.example:+443'];
+        yield 'negative port' => ['bad.example:-1'];
+        yield 'out of range port' => ['bad.example:65536'];
+        yield 'multiple ports' => ['bad.example:443:8443'];
+        yield 'zero port' => ['bad.example:0'];
+        yield 'zero padded zero port' => ['bad.example:0000'];
+        yield 'ipv6 zero port' => ['[::1]:0'];
+        yield 'ipv6 zero padded zero port' => ['[::1]:0000'];
+        yield 'ipv6 non numeric port' => ['[::1]:abc'];
+        yield 'ipv6 out of range port' => ['[::1]:65536'];
+        yield 'unexpected bracket suffix' => ['[::1]x'];
+        yield 'invalid ip literal' => ['[bad]'];
+        yield 'unexpected opening bracket' => ['foo[bar'];
+        yield 'unexpected closing bracket' => ['foo]bar'];
+    }
+
+    /**
+     * @dataProvider dataInvalidHostHeaderFromGlobals
+     */
+    public function testFromGlobalsDropsInvalidHostHeaderWhenUriFallsBack(string $host): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => $host,
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('good.example', $request->getUri()->getHost());
+        self::assertSame('good.example', $request->getHeaderLine('Host'));
+    }
+
+    public function testFromGlobalsPreservesValidHostHeader(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org:8324',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('www.example.org', $request->getUri()->getHost());
+        self::assertSame(8324, $request->getUri()->getPort());
+        self::assertSame('www.example.org:8324', $request->getHeaderLine('Host'));
+    }
+
+    public function testFromGlobalsPreservesLeadingZeroHostHeaderPort(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org:008324',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('www.example.org', $request->getUri()->getHost());
+        self::assertSame(8324, $request->getUri()->getPort());
+        self::assertSame('www.example.org:008324', $request->getHeaderLine('Host'));
+    }
+
+    public function testFromGlobalsDerivesHostHeaderWhenHostHeaderMissing(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $request = ServerRequest::fromGlobals();
+
+        self::assertSame('good.example', $request->getUri()->getHost());
+        self::assertSame('good.example', $request->getHeaderLine('Host'));
+    }
+
+    public function testFromGlobalsBuildsHeadersFromServerWhenApacheRequestHeadersUnavailable(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
         $_SERVER = [
             'REQUEST_URI' => '/',
             'HTTP_HOST' => 'www.example.org',
-            'HTTP_X_INT' => 123,
-            'HTTP_X_FLOAT' => 1.5,
-            'HTTP_X_FALSE' => false,
-            'HTTP_X_TRUE' => true,
-            'HTTP_X_STRINGABLE' => new class {
-                public function __toString(): string
-                {
-                    return 'stringable';
-                }
-            },
-            'HTTP_X_ARRAY' => ['bad'],
-            'HTTP_X_OBJECT' => new \stdClass(),
-            'HTTP_123' => 'numeric header',
+            'HTTP_ACCEPT_LANGUAGE' => 'en-US',
+            'HTTP_CONTENT_TYPE' => 'ignored/content-type',
+            'HTTP_CONTENT_LENGTH' => '999',
+            'HTTP_CONTENT_MD5' => 'ignored-content-md5',
+            'CONTENT_TYPE' => 'application/json',
+            'CONTENT_LENGTH' => '14',
+            'CONTENT_MD5' => 'Q2hlY2sgSW50ZWdyaXR5IQ==',
+            'HTTP_X_EMPTY' => '',
         ];
 
         $_COOKIE = $_POST = $_GET = $_FILES = [];
 
         $server = ServerRequest::fromGlobals();
 
+        self::assertEquals([
+            'Host' => ['www.example.org'],
+            'Accept-Language' => ['en-US'],
+            'Content-Type' => ['application/json'],
+            'Content-Length' => ['14'],
+            'Content-Md5' => ['Q2hlY2sgSW50ZWdyaXR5IQ=='],
+            'X-Empty' => [''],
+        ], $server->getHeaders());
+    }
+
+    /**
+     * @dataProvider dataAuthorizationHeaderFromServer
+     */
+    public function testFromGlobalsBuildsAuthorizationHeaderFromServerFallback(array $serverParams, string $expected): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = array_merge([
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org',
+        ], $serverParams);
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame([$expected], $server->getHeader('Authorization'));
+    }
+
+    public static function dataAuthorizationHeaderFromServer(): iterable
+    {
+        return [
+            'HTTP_AUTHORIZATION has priority' => [
+                [
+                    'HTTP_AUTHORIZATION' => 'Bearer direct',
+                    'REDIRECT_HTTP_AUTHORIZATION' => 'Bearer redirect',
+                    'PHP_AUTH_USER' => 'user',
+                    'PHP_AUTH_PW' => 'pass',
+                    'PHP_AUTH_DIGEST' => 'Digest digest',
+                ],
+                'Bearer direct',
+            ],
+            'REDIRECT_HTTP_AUTHORIZATION fallback' => [
+                [
+                    'REDIRECT_HTTP_AUTHORIZATION' => 'Bearer redirect',
+                    'PHP_AUTH_USER' => 'user',
+                    'PHP_AUTH_PW' => 'pass',
+                    'PHP_AUTH_DIGEST' => 'Digest digest',
+                ],
+                'Bearer redirect',
+            ],
+            'PHP_AUTH_USER fallback' => [
+                [
+                    'PHP_AUTH_USER' => 'user',
+                    'PHP_AUTH_PW' => 'pass',
+                    'PHP_AUTH_DIGEST' => 'Digest digest',
+                ],
+                'Basic '.base64_encode('user:pass'),
+            ],
+            'PHP_AUTH_USER fallback without password' => [
+                [
+                    'PHP_AUTH_USER' => 'user',
+                ],
+                'Basic '.base64_encode('user:'),
+            ],
+            'PHP_AUTH_DIGEST fallback' => [
+                [
+                    'PHP_AUTH_DIGEST' => 'Digest digest',
+                ],
+                'Digest digest',
+            ],
+        ];
+    }
+
+    public function testFromGlobalsIgnoresNonStringServerHeaders(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org',
+            'HTTP_X_BAD' => ['not a string'],
+            'CONTENT_TYPE' => ['not a string'],
+            'HTTP_CONTENT_TYPE' => 'text/plain',
+            'REDIRECT_HTTP_AUTHORIZATION' => ['not a string'],
+            'PHP_AUTH_USER' => ['not a string'],
+            'PHP_AUTH_DIGEST' => ['not a string'],
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertFalse($server->hasHeader('X-Bad'));
+        self::assertFalse($server->hasHeader('Authorization'));
+        self::assertSame(['text/plain'], $server->getHeader('Content-Type'));
+    }
+
+    /**
+     * @runInSeparateProcess
+     *
+     * @preserveGlobalState disabled
+     */
+    public function testFromGlobalsPrefersApacheRequestHeadersWhenAvailable(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is already available.');
+        }
+
+        eval(<<<'PHP'
+function apache_request_headers(): array
+{
+    return [
+        'X-Native' => 'native',
+        'X-Int' => 123,
+        'X-False' => false,
+        'X-Stringable' => new class {
+            public function __toString(): string
+            {
+                return 'stringable';
+            }
+        },
+        'X-Array' => ['bad'],
+        'X-Object' => new \stdClass(),
+        123 => 'numeric header',
+    ];
+}
+PHP
+        );
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org',
+            'HTTP_X_FALLBACK' => 'fallback',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame(['native'], $server->getHeader('X-Native'));
         self::assertSame('123', $server->getHeaderLine('X-Int'));
-        self::assertSame('1.5', $server->getHeaderLine('X-Float'));
         self::assertSame([''], $server->getHeader('X-False'));
-        self::assertSame('1', $server->getHeaderLine('X-True'));
         self::assertSame('stringable', $server->getHeaderLine('X-Stringable'));
         self::assertSame('numeric header', $server->getHeaderLine('123'));
         self::assertFalse($server->hasHeader('X-Array'));
         self::assertFalse($server->hasHeader('X-Object'));
+        self::assertFalse($server->hasHeader('X-Fallback'));
+    }
+
+    /**
+     * @runInSeparateProcess
+     *
+     * @preserveGlobalState disabled
+     */
+    public function testFromGlobalsDropsInvalidApacheHostHeaderWhenUriFallsBack(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is already available.');
+        }
+
+        eval('function apache_request_headers(): array { return ["Host" => "bad.example:443:8443", "X-Native" => "native"]; }');
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'bad.example:443:8443',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame('good.example', $server->getUri()->getHost());
+        self::assertSame('good.example', $server->getHeaderLine('Host'));
+        self::assertSame(['native'], $server->getHeader('X-Native'));
+    }
+
+    /**
+     * @runInSeparateProcess
+     *
+     * @preserveGlobalState disabled
+     */
+    public function testFromGlobalsDropsZeroPortApacheHostHeaderWhenUriFallsBack(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is already available.');
+        }
+
+        eval('function apache_request_headers(): array { return ["Host" => "bad.example:0", "X-Native" => "native"]; }');
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'bad.example:0',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame('good.example', $server->getUri()->getHost());
+        self::assertSame('good.example', $server->getHeaderLine('Host'));
+        self::assertSame(['native'], $server->getHeader('X-Native'));
+    }
+
+    /**
+     * @runInSeparateProcess
+     *
+     * @preserveGlobalState disabled
+     */
+    public function testFromGlobalsFallsBackWhenApacheRequestHeadersReturnsFalse(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is already available.');
+        }
+
+        eval('function apache_request_headers() { return false; }');
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'www.example.org',
+            'HTTP_X_FALLBACK' => 'fallback',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $server = ServerRequest::fromGlobals();
+
+        self::assertSame(['fallback'], $server->getHeader('X-Fallback'));
     }
 
     public function testFromGlobalsDefaultsNonStringMethodAndProtocol(): void
@@ -626,41 +2015,55 @@ class ServerRequestTest extends TestCase
     }
 
     /**
-     * @dataProvider invalidHostHeaderFromGlobalsProvider
+     * @dataProvider invalidRequestMethodFromGlobalsProvider
      */
-    public function testFromGlobalsDropsInvalidHostHeaderWhenUriFallsBack(string $host): void
+    public function testFromGlobalsRejectsInvalidStringMethod(string $method): void
     {
-        if (!\function_exists('getallheaders')) {
-            self::markTestSkipped('getallheaders() is not available.');
-        }
-
         $_SERVER = [
+            'REQUEST_METHOD' => $method,
             'REQUEST_URI' => '/',
-            'HTTP_HOST' => $host,
-            'SERVER_PORT' => '443',
-            'HTTPS' => 'on',
+            'SERVER_PORT' => '80',
         ];
-
         $_COOKIE = $_POST = $_GET = $_FILES = [];
 
-        $request = ServerRequest::fromGlobals();
+        $this->expectException(\InvalidArgumentException::class);
 
-        self::assertSame('localhost', $request->getUri()->getHost());
-        self::assertSame('localhost', $request->getHeaderLine('Host'));
+        ServerRequest::fromGlobals();
     }
 
-    public static function invalidHostHeaderFromGlobalsProvider(): iterable
+    public static function invalidRequestMethodFromGlobalsProvider(): iterable
     {
-        yield 'userinfo delimiter' => ['trusted.example@evil.example'];
-        yield 'path delimiter' => ['example.com/path'];
-        yield 'query delimiter' => ['example.com?x=1'];
-        yield 'fragment delimiter' => ['example.com#frag'];
-        yield 'backslash delimiter' => ['example.com\\evil'];
-        yield 'space' => ['bad host'];
-        yield 'multiple ports' => ['example.com:80:90'];
-        yield 'invalid ip literal' => ['[bad]'];
-        yield 'unexpected opening bracket' => ['foo[bar'];
-        yield 'unexpected closing bracket' => ['foo]bar'];
+        yield 'empty' => [''];
+        yield 'space' => ['GET POST'];
+        yield 'newline' => ["GET\r\nX-Injected: yes"];
+        yield 'slash' => ['GET/'];
+    }
+
+    /**
+     * @dataProvider invalidServerProtocolFromGlobalsProvider
+     */
+    public function testFromGlobalsRejectsInvalidStringServerProtocol(string $serverProtocol): void
+    {
+        $_SERVER = [
+            'REQUEST_METHOD' => 'GET',
+            'SERVER_PROTOCOL' => $serverProtocol,
+            'REQUEST_URI' => '/',
+            'SERVER_PORT' => '80',
+        ];
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        ServerRequest::fromGlobals();
+    }
+
+    public static function invalidServerProtocolFromGlobalsProvider(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'text' => ['HTTP/foo'];
+        yield 'trailing space' => ['HTTP/1.1 '];
+        yield 'newline' => ["HTTP/1.1\r\nX-Injected: yes"];
+        yield 'repeated prefix' => ['HTTP/HTTP/1.1'];
     }
 
     public function testUploadedFiles(): void
@@ -676,6 +2079,59 @@ class ServerRequestTest extends TestCase
         self::assertNotSame($request2, $request1);
         self::assertSame([], $request1->getUploadedFiles());
         self::assertSame($files, $request2->getUploadedFiles());
+    }
+
+    /**
+     * @dataProvider validUploadedFilesProvider
+     */
+    public function testWithUploadedFilesAcceptsValidTrees(array $files): void
+    {
+        $request = new ServerRequest('GET', '/');
+
+        $new = $request->withUploadedFiles($files);
+
+        self::assertNotSame($request, $new);
+        self::assertSame([], $request->getUploadedFiles());
+        self::assertSame($files, $new->getUploadedFiles());
+    }
+
+    public static function validUploadedFilesProvider(): iterable
+    {
+        $file = new UploadedFile('test', 123, UPLOAD_ERR_OK);
+
+        yield 'empty tree' => [[]];
+        yield 'flat list' => [[$file, $file]];
+        yield 'nested named tree' => [['files' => ['a' => $file, 'b' => [$file, $file]]]];
+    }
+
+    /**
+     * @dataProvider invalidUploadedFilesProvider
+     */
+    public function testWithUploadedFilesRejectsInvalidTrees(array $files, string $expectedType): void
+    {
+        $original = ['file' => new UploadedFile('test', 123, UPLOAD_ERR_OK)];
+        $request = (new ServerRequest('GET', '/'))->withUploadedFiles($original);
+
+        try {
+            $request->withUploadedFiles($files);
+            self::fail('Uploaded file tree should have been rejected.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertSame(
+                sprintf('Invalid uploaded file tree; expected UploadedFileInterface instances but %s provided.', $expectedType),
+                $e->getMessage()
+            );
+            self::assertSame($original, $request->getUploadedFiles());
+        }
+    }
+
+    public static function invalidUploadedFilesProvider(): iterable
+    {
+        yield 'string leaf' => [['file' => 'not-a-file'], 'string'];
+        yield 'integer leaf' => [['file' => 1], 'int'];
+        yield 'null leaf' => [['file' => null], 'null'];
+        yield 'object leaf' => [['file' => new \stdClass()], 'stdClass'];
+        yield 'deeply nested invalid leaf' => [['files' => ['nested' => ['deep' => 'not-a-file']]], 'string'];
+        yield 'valid then invalid' => [['a' => new UploadedFile('test', 123, UPLOAD_ERR_OK), 'b' => 'not-a-file'], 'string'];
     }
 
     public function testServerParams(): void
@@ -723,6 +2179,56 @@ class ServerRequestTest extends TestCase
         self::assertNotSame($request2, $request1);
         self::assertEmpty($request1->getParsedBody());
         self::assertSame($params, $request2->getParsedBody());
+    }
+
+    /**
+     * @dataProvider validParsedBodyProvider
+     *
+     * @param array|object|null $value
+     */
+    public function testWithParsedBodyAcceptsValidValues($value): void
+    {
+        $request = new ServerRequest('GET', '/');
+
+        $new = $request->withParsedBody($value);
+
+        self::assertNotSame($request, $new);
+        self::assertNull($request->getParsedBody());
+        self::assertSame($value, $new->getParsedBody());
+    }
+
+    public static function validParsedBodyProvider(): iterable
+    {
+        yield 'null' => [null];
+        yield 'array' => [['name' => 'value']];
+        yield 'object' => [(object) ['name' => 'value']];
+    }
+
+    /**
+     * @dataProvider invalidParsedBodyProvider
+     *
+     * @param bool|float|int|string $value
+     */
+    public function testWithParsedBodyRejectsInvalidValues($value): void
+    {
+        $request = (new ServerRequest('GET', '/'))->withParsedBody(['original' => 'value']);
+
+        try {
+            $request->withParsedBody($value);
+            self::fail('Parsed body value should have been rejected.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertSame('Parsed body must be an array, object, or null.', $e->getMessage());
+            self::assertSame(['original' => 'value'], $request->getParsedBody());
+        }
+    }
+
+    public static function invalidParsedBodyProvider(): iterable
+    {
+        yield 'integer' => [1];
+        yield 'float' => [1.1];
+        yield 'string' => ['body'];
+        yield 'true' => [true];
+        yield 'false' => [false];
     }
 
     public function testAttributes(): void

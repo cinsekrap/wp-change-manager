@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests\Handler\Network;
 
 use GuzzleHttp\Client;
@@ -21,7 +23,7 @@ class StreamHandlerTest extends TestCase
         }
     }
 
-    public function testSslRequestWorks()
+    public function testSslRequestWorks(): void
     {
         $handler = new StreamHandler();
 
@@ -36,7 +38,7 @@ class StreamHandlerTest extends TestCase
         self::assertStringContainsString('<h1>Example Domain</h1>', (string) $response->getBody());
     }
 
-    public function testSslRequestWorksWithForceIpResolve()
+    public function testSslRequestWorksWithForceIpResolve(): void
     {
         $handler = new StreamHandler();
 
@@ -52,7 +54,7 @@ class StreamHandlerTest extends TestCase
         self::assertStringContainsString('<h1>Example Domain</h1>', (string) $response->getBody());
     }
 
-    public function testSslRequestWorksWithForceIpResolveAfterRedirect()
+    public function testSslRequestWorksWithForceIpResolveAfterRedirect(): void
     {
         $client = new Client(['handler' => HandlerStack::create(new StreamHandler())]);
 
