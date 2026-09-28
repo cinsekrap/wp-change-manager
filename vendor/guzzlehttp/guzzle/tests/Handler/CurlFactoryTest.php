@@ -1,10 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests\Handler;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\ConnectTimeoutException;
+use GuzzleHttp\Exception\InvalidArgumentException;
+use GuzzleHttp\Exception\NetworkException;
+use GuzzleHttp\Exception\NetworkTimeoutException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
+use GuzzleHttp\Exception\ResponseTimeoutException;
+use GuzzleHttp\Exception\ResponseTransferException;
 use GuzzleHttp\Handler;
 use GuzzleHttp\Handler\CurlFactory;
 use GuzzleHttp\Handler\CurlFactoryInterface;
@@ -19,6 +28,9 @@ use GuzzleHttp\Server\Server;
 use GuzzleHttp\TransferStats;
 use GuzzleHttp\TransportSharing;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Client\NetworkExceptionInterface;
+use Psr\Http\Client\RequestExceptionInterface;
+use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -38,7 +50,7 @@ class CurlFactoryTest extends TestCase
         unset($_SERVER['_curl'], $_SERVER['_curl_share'], $_SERVER['_curl_share_init_count'], $_SERVER['curl_test'], $_SERVER['curl_setopt_fail']);
     }
 
-    public function testCreatesCurlHandle()
+    public function testCreatesCurlHandle(): void
     {
         Server::flush();
         Server::enqueue([
@@ -83,14 +95,9 @@ class CurlFactoryTest extends TestCase
         self::assertSame('testing', $_SERVER['_curl'][\CURLOPT_POSTFIELDS]);
         self::assertEquals(0, $_SERVER['_curl'][\CURLOPT_RETURNTRANSFER]);
         self::assertEquals(0, $_SERVER['_curl'][\CURLOPT_HEADER]);
-        self::assertSame(300, $_SERVER['_curl'][\CURLOPT_CONNECTTIMEOUT]);
+        self::assertSame(60000, $_SERVER['_curl'][\CURLOPT_CONNECTTIMEOUT_MS]);
         self::assertInstanceOf('Closure', $_SERVER['_curl'][\CURLOPT_HEADERFUNCTION]);
-        if (\defined('CURLOPT_PROTOCOLS')) {
-            self::assertSame(
-                \CURLPROTO_HTTP | \CURLPROTO_HTTPS,
-                $_SERVER['_curl'][\CURLOPT_PROTOCOLS]
-            );
-        }
+        self::assertCurlProtocols(['http', 'https']);
         self::assertContains('Expect:', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
         self::assertContains('Accept:', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
         self::assertContains('Content-Type:', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
@@ -98,7 +105,173 @@ class CurlFactoryTest extends TestCase
         self::assertContains('Host: 127.0.0.1:8126', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
     }
 
-    public function testSendsHeadRequests()
+    public function testSuppressesProxyConnectHeadersForTunneledRequests(): void
+    {
+        if (!CurlVersion::supportsProxyTunneling()) {
+            self::markTestSkipped('CURLOPT_SUPPRESS_CONNECT_HEADERS is not supported by this cURL build.');
+        }
+
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => 'http://127.0.0.1:8125']);
+
+        $factory->release($easy);
+        self::assertTrue($_SERVER['_curl'][(int) \constant('CURLOPT_SUPPRESS_CONNECT_HEADERS')]);
+    }
+
+    public function testDoesNotSuppressConnectHeadersWithoutProxyTunnel(): void
+    {
+        if (!CurlVersion::supportsProxyTunneling()) {
+            self::markTestSkipped('CURLOPT_SUPPRESS_CONNECT_HEADERS is not supported by this cURL build.');
+        }
+
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', 'http://example.com'), ['proxy' => 'http://127.0.0.1:8125']);
+
+        $factory->release($easy);
+        self::assertArrayNotHasKey((int) \constant('CURLOPT_SUPPRESS_CONNECT_HEADERS'), $_SERVER['_curl']);
+    }
+
+    public function testRejectsTunneledProxyRequestsOnUnsupportedCurl(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.53.0',
+            'features' => \curl_version()['features'],
+        ]);
+
+        try {
+            (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => 'http://127.0.0.1:8125']);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame(
+                'Tunneling requests through an HTTP proxy is not supported by the installed libcurl; libcurl 7.54.0 or newer is required.',
+                $e->getMessage()
+            );
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testAllowsTunneledProxyAtLibcurl754(): void
+    {
+        if (!\defined('CURLOPT_SUPPRESS_CONNECT_HEADERS')) {
+            self::markTestSkipped('CURLOPT_SUPPRESS_CONNECT_HEADERS is not supported by this cURL build.');
+        }
+
+        $factory = new CurlFactory(3);
+        $easy = self::createOnFactory($factory, '7.54.0', 'https://example.com', ['proxy' => 'http://127.0.0.1:8125']);
+
+        $factory->release($easy);
+        self::assertSame('http://127.0.0.1:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+        self::assertTrue($_SERVER['_curl'][(int) \constant('CURLOPT_SUPPRESS_CONNECT_HEADERS')]);
+    }
+
+    public function testCloseClearsIdleHandles(): void
+    {
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+
+        $factory->release($easy);
+        self::assertCount(1, self::readIdleHandles($factory));
+
+        $factory->close();
+
+        self::assertSame([], self::readIdleHandles($factory));
+    }
+
+    public function testReleaseClearsCallbacksBeforeDiscardingHandle(): void
+    {
+        $factory = new CurlFactory(0);
+        $request = \defined('CURLOPT_SEEKFUNCTION')
+            ? new Psr7\Request('PUT', Server::$url, ['Content-Length' => '1000000'], \str_repeat('x', 1000000))
+            : new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, [
+            'progress' => static function (): void {
+            },
+        ]);
+
+        if (\defined('CURLOPT_SEEKFUNCTION')) {
+            self::assertArrayHasKey((int) \constant('CURLOPT_SEEKFUNCTION'), $_SERVER['_curl']);
+        }
+
+        $factory->release($easy);
+
+        self::assertArrayNotHasKey(\CURLOPT_HEADERFUNCTION, $_SERVER['_curl']);
+        self::assertArrayNotHasKey(\CURLOPT_READFUNCTION, $_SERVER['_curl']);
+        self::assertArrayNotHasKey(\CURLOPT_WRITEFUNCTION, $_SERVER['_curl']);
+        self::assertArrayNotHasKey(\CURLOPT_PROGRESSFUNCTION, $_SERVER['_curl']);
+        if (\defined('CURLOPT_XFERINFOFUNCTION')) {
+            self::assertArrayNotHasKey((int) \constant('CURLOPT_XFERINFOFUNCTION'), $_SERVER['_curl']);
+        }
+        if (\defined('CURLOPT_SEEKFUNCTION')) {
+            self::assertArrayNotHasKey((int) \constant('CURLOPT_SEEKFUNCTION'), $_SERVER['_curl']);
+        }
+        self::assertSame([], self::readIdleHandles($factory));
+    }
+
+    public function testStaleHandleCleanupDoesNotDropCapturedOptions(): void
+    {
+        $staleFactory = new CurlFactory(1);
+        $stale = $staleFactory->create(new Psr7\Request('GET', Server::$url), []);
+        $staleFactory->release($stale);
+
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+
+        try {
+            self::assertArrayHasKey(\CURLOPT_HEADERFUNCTION, $_SERVER['_curl']);
+
+            // Destroying the stale factory clears the callbacks on its pooled
+            // handle. The capture for the newer handle must survive that.
+            unset($staleFactory);
+
+            self::assertArrayHasKey(\CURLOPT_HEADERFUNCTION, $_SERVER['_curl']);
+        } finally {
+            $factory->release($easy);
+        }
+    }
+
+    public function testCloseIsIdempotent(): void
+    {
+        $factory = new CurlFactory(3);
+
+        $factory->close();
+        $factory->close();
+
+        self::assertSame([], self::readIdleHandles($factory));
+    }
+
+    public function testCreateAfterCloseThrows(): void
+    {
+        $factory = new CurlFactory(3);
+        $factory->close();
+
+        $this->expectException(\BadMethodCallException::class);
+        $this->expectExceptionMessage('Cannot use the cURL factory after it has been closed.');
+
+        $factory->create(new Psr7\Request('GET', Server::$url), []);
+    }
+
+    public function testReleaseAfterCloseThrows(): void
+    {
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+
+        try {
+            $factory->close();
+
+            $this->expectException(\BadMethodCallException::class);
+            $this->expectExceptionMessage('Cannot use the cURL factory after it has been closed.');
+
+            $factory->release($easy);
+        } finally {
+            if (isset($easy->handle) && \PHP_VERSION_ID < 80000) {
+                \curl_close($easy->handle);
+            }
+        }
+    }
+
+    public function testSendsHeadRequests(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -114,7 +287,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('HEAD', Server::received()[0]->getMethod());
     }
 
-    public function testHeadRequestsWithABodyDoNotWaitForAResponseBody()
+    public function testHeadRequestsWithABodyDoNotWaitForAResponseBody(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response(200, ['Content-Length' => '16'], 'Body of response')]);
@@ -135,7 +308,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame('', (string) $received->getBody());
     }
 
-    public function testHeadRequestsWithAnUnknownBodySizeUseNobody()
+    public function testHeadRequestsWithAnUnknownBodySizeUseNobody(): void
     {
         $body = new Psr7\PumpStream(static function () {
             return false;
@@ -159,7 +332,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testHeadRequestsPreserveZeroContentLength()
+    public function testHeadRequestsPreserveZeroContentLength(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -174,10 +347,10 @@ class CurlFactoryTest extends TestCase
         self::assertSame('', (string) $received->getBody());
     }
 
-    public function testHeadRequestsNeverProbeTheBodySize()
+    public function testHeadRequestsNeverProbeTheBodySize(): void
     {
         $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('hello'), [
-            'getSize' => static function () {
+            'getSize' => static function (): ?int {
                 throw new \RuntimeException('The body must not be probed for HEAD requests.');
             },
         ]);
@@ -196,7 +369,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testCanAddCustomCurlOptions()
+    public function testCanAddCustomCurlOptions(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -206,7 +379,23 @@ class CurlFactoryTest extends TestCase
         self::assertEquals(10, $_SERVER['_curl'][\CURLOPT_LOW_SPEED_LIMIT]);
     }
 
-    public function testCanAddPrereqFunctionCurlOption(): void
+    public function testAllowsCertinfoCurlOption(): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'curl' => [
+                \CURLOPT_CERTINFO => true,
+            ],
+        ]);
+
+        try {
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_CERTINFO]);
+        } finally {
+            $factory->release($easy);
+        }
+    }
+
+    public function testAllowsPrereqFunctionCurlOption(): void
     {
         if (!\defined('CURLOPT_PREREQFUNCTION')) {
             self::markTestSkipped('CURLOPT_PREREQFUNCTION is not available.');
@@ -222,105 +411,17 @@ class CurlFactoryTest extends TestCase
         };
 
         $factory = new CurlFactory(1);
-        $easy = null;
-
-        try {
-            $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-                'curl' => [
-                    $option => $callback,
-                ],
-            ]);
-
-            self::assertSame($callback, $_SERVER['_curl'][$option]);
-        } finally {
-            if ($easy !== null) {
-                $factory->release($easy);
-            }
-        }
-    }
-
-    public function testCertinfoIsInSupportedCurlOptionsAllowList(): void
-    {
-        $method = new \ReflectionMethod(CurlFactory::class, 'supportedCurlOptions');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-
-        /** @var array<int, true> $supported */
-        $supported = $method->invoke(null);
-
-        self::assertArrayHasKey(
-            \CURLOPT_CERTINFO,
-            $supported,
-            'CURLOPT_CERTINFO must be in the built-in cURL handlers\' allow-list so it no longer triggers the raw cURL option deprecation.'
-        );
-    }
-
-    public function testPrereqFunctionIsInSupportedCurlOptionsAllowList(): void
-    {
-        if (!\defined('CURLOPT_PREREQFUNCTION')) {
-            self::markTestSkipped('CURLOPT_PREREQFUNCTION is not available.');
-        }
-
-        $option = (int) \constant('CURLOPT_PREREQFUNCTION');
-        $method = new \ReflectionMethod(CurlFactory::class, 'supportedCurlOptions');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-
-        /** @var array<int, true> $supported */
-        $supported = $method->invoke(null);
-
-        self::assertArrayHasKey(
-            $option,
-            $supported,
-            'CURLOPT_PREREQFUNCTION must be in the built-in cURL handlers\' allow-list so it no longer triggers the raw cURL option deprecation.'
-        );
-    }
-
-    public function testPrereqFunctionIsClearedBeforeReusingCurlHandle(): void
-    {
-        if (!\defined('CURLOPT_PREREQFUNCTION')) {
-            self::markTestSkipped('CURLOPT_PREREQFUNCTION is not available.');
-        }
-        if (!\defined('CURL_PREREQFUNC_OK')) {
-            self::markTestSkipped('CURL_PREREQFUNC_OK is not available.');
-        }
-
-        $option = (int) \constant('CURLOPT_PREREQFUNCTION');
-        $ok = (int) \constant('CURL_PREREQFUNC_OK');
-
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(200),
-            new Psr7\Response(200),
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'curl' => [
+                $option => $callback,
+            ],
         ]);
 
-        $factory = new CurlFactory(1);
-        $handler = new Handler\CurlHandler(['handle_factory' => $factory]);
-        $called = 0;
-        $request = new Psr7\Request('GET', Server::$url);
-
-        $handler($request, [
-            'curl' => [
-                $option => static function () use (&$called, $ok): int {
-                    ++$called;
-
-                    return $ok;
-                },
-            ],
-        ])->wait();
-
-        $afterFirst = $called;
-        self::assertSame(1, $afterFirst);
-
-        $handler($request, [
-            'curl' => [
-                \CURLOPT_FRESH_CONNECT => true,
-            ],
-        ])->wait();
-
-        self::assertSame($afterFirst, $called);
+        try {
+            self::assertSame($callback, $_SERVER['_curl'][$option]);
+        } finally {
+            $factory->release($easy);
+        }
     }
 
     public function testPrereqFunctionAbortUsesExistingCurlErrorPath(): void
@@ -333,7 +434,6 @@ class CurlFactoryTest extends TestCase
         }
 
         $option = (int) \constant('CURLOPT_PREREQFUNCTION');
-        $abort = (int) \constant('CURL_PREREQFUNC_ABORT');
         $called = 0;
 
         Server::flush();
@@ -341,10 +441,10 @@ class CurlFactoryTest extends TestCase
         $handler = new Handler\CurlHandler(['handle_factory' => new CurlFactory(1)]);
         $promise = $handler(new Psr7\Request('GET', Server::$url), [
             'curl' => [
-                $option => static function () use (&$called, $abort): int {
+                $option => static function () use (&$called): int {
                     ++$called;
 
-                    return $abort;
+                    return (int) \constant('CURL_PREREQFUNC_ABORT');
                 },
             ],
         ]);
@@ -363,7 +463,7 @@ class CurlFactoryTest extends TestCase
         $proxyHeaderOption = self::proxyHeaderOption();
         $factory = new CurlFactory(3);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CURLOPT_PROXYHEADER');
 
         $factory->create(new Psr7\Request('GET', 'http://example.com'), [
@@ -377,7 +477,7 @@ class CurlFactoryTest extends TestCase
     {
         $conf = [\CURLOPT_HTTPHEADER => ["X-Decoy: v\r\nProxy-Authorization: Basic abc"]];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CURLOPT_HTTPHEADER');
 
         self::normalizeCurlHeaderOptions($conf);
@@ -407,32 +507,25 @@ class CurlFactoryTest extends TestCase
         self::assertNotSame($delegated, $literalHeader);
     }
 
-    public function testNormalizesScalarCurlHeaderEntries(): void
+    public function testNormalizesStringableCurlHeaderEntries(): void
     {
         $conf = [
             \CURLOPT_HTTPHEADER => [
-                'string' => 'X-String: value',
-                'int' => 123,
-                'float' => 1.5,
-                'true' => true,
-                'false' => false,
-                'nan' => \NAN,
-                'inf' => \INF,
-                '-inf' => -\INF,
+                'literal' => 'Accept: application/json',
+                'stringable' => new class {
+                    public function __toString(): string
+                    {
+                        return 'X-Test: value';
+                    }
+                },
             ],
         ];
 
         self::normalizeCurlHeaderOptions($conf);
 
         self::assertSame([
-            'string' => 'X-String: value',
-            'int' => '123',
-            'float' => '1.5',
-            'true' => '1',
-            'false' => '',
-            'nan' => 'NAN',
-            'inf' => 'INF',
-            '-inf' => '-INF',
+            'literal' => 'Accept: application/json',
+            'stringable' => 'X-Test: value',
         ], $conf[\CURLOPT_HTTPHEADER]);
     }
 
@@ -445,17 +538,24 @@ class CurlFactoryTest extends TestCase
     {
         $conf = [\CURLOPT_HTTPHEADER => [$entry]];
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('CURLOPT_HTTPHEADER entries must be strings, stringable objects, or scalar values.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_HTTPHEADER entries must be strings or stringable objects.');
 
         self::normalizeCurlHeaderOptions($conf);
     }
 
     public static function invalidCurlHeaderEntryProvider(): iterable
     {
+        yield 'int' => [123];
+        yield 'float' => [1.5];
+        yield 'true' => [true];
+        yield 'false' => [false];
         yield 'null' => [null];
         yield 'array' => [[]];
         yield 'non-stringable object' => [new \stdClass()];
+        yield 'nan' => [\NAN];
+        yield 'inf' => [\INF];
+        yield '-inf' => [-\INF];
     }
 
     public function testRejectsResourceCurlHeaderEntries(): void
@@ -466,8 +566,8 @@ class CurlFactoryTest extends TestCase
         try {
             $conf = [\CURLOPT_HTTPHEADER => [$resource]];
 
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_HTTPHEADER entries must be strings, stringable objects, or scalar values.');
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('CURLOPT_HTTPHEADER entries must be strings or stringable objects.');
 
             self::normalizeCurlHeaderOptions($conf);
         } finally {
@@ -486,7 +586,7 @@ class CurlFactoryTest extends TestCase
             }],
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('CURLOPT_HTTPHEADER entries must not contain a carriage return or line feed.');
 
         self::normalizeCurlHeaderOptions($conf);
@@ -495,10 +595,10 @@ class CurlFactoryTest extends TestCase
     public function testRejectsInvalidCurlProxyHeaderEntries(): void
     {
         $proxyHeaderOption = self::proxyHeaderOption();
-        $conf = [$proxyHeaderOption => [[]]];
+        $conf = [$proxyHeaderOption => [123]];
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('CURLOPT_PROXYHEADER entries must be strings, stringable objects, or scalar values.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXYHEADER entries must be strings or stringable objects.');
 
         self::normalizeCurlHeaderOptions($conf);
     }
@@ -533,15 +633,18 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testRejectsRequestLevelShareWhenConfiguredCurlShareHandleExists(): void
+    /**
+     * @dataProvider enabledShareModeProvider
+     */
+    public function testRejectsRequestLevelShareWhenConfiguredCurlShareHandleExists(string $shareMode): void
     {
         self::skipIfCurlShareIsUnavailable();
 
         $shareHandle = \curl_share_init();
-        self::assertNotFalse($shareHandle);
         $requestShareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
         self::assertNotFalse($requestShareHandle);
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+        $factory = new CurlFactory(3, $shareMode, $shareHandle);
 
         try {
             $this->expectException(\InvalidArgumentException::class);
@@ -560,389 +663,12 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testRejectsRequestLevelShareWithProxyUrlCredentials(): void
+    public static function enabledShareModeProvider(): iterable
     {
-        self::skipIfCurlShareIsUnavailable();
-
-        $conf = [\CURLOPT_PROXY => 'http://username:password@proxy.example.com:8080'];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testRejectsRequestLevelShareWithProxyUserPwd(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $conf = [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            \CURLOPT_PROXYUSERPWD => 'username:password',
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testRejectsRequestLevelShareWithProxyAuthorizationHeader(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-        $proxyHeaderOption = self::proxyHeaderOption();
-
-        $conf = [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            $proxyHeaderOption => ['Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testRejectsRequestLevelShareWithStringableProxyAuthorizationHeader(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-        $proxyHeaderOption = self::proxyHeaderOption();
-
-        $conf = [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            $proxyHeaderOption => [new class {
-                public function __toString(): string
-                {
-                    return 'Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=';
-                }
-            }],
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-        self::normalizeCurlHeaderOptions($conf);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testAllowsRequestLevelShareWithProxyAuthorizationHeaderWhenRawNoProxyDisablesProxy(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-        self::skipIfCurlNoProxyIsUnavailable();
-        $proxyHeaderOption = self::proxyHeaderOption();
-
-        $conf = [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            (int) \constant('CURLOPT_NOPROXY') => '*',
-            $proxyHeaderOption => ['Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-
-        self::assertNull($method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf));
-    }
-
-    public function testRejectsRequestLevelShareWithLegacyProxyAuthorizationHeader(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $conf = [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            \CURLOPT_HTTPHEADER => ['Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testRejectsRequestLevelShareWithProxyTlsCredential(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-        if (!\defined('CURLOPT_PROXY_SSLCERT')) {
-            self::markTestSkipped('CURLOPT_PROXY_SSLCERT is not available.');
-        }
-
-        $conf = [
-            \CURLOPT_PROXY => 'https://proxy.example.com:3128',
-            (int) \constant('CURLOPT_PROXY_SSLCERT') => '/path/to/proxy-client.pem',
-        ];
-        $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-        $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-        $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-    }
-
-    public function testRejectsRequestLevelShareWithSocksProxyUrlCredentials(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.69.0', 'features' => 0]);
-
-        try {
-            $conf = [\CURLOPT_PROXY => 'socks5://username:password@proxy.example.com:1080'];
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated SOCKS proxy configuration#');
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testRejectsRequestLevelShareWithSocksProxyUserPwd(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.69.0', 'features' => 0]);
-
-        try {
-            $conf = [
-                \CURLOPT_PROXY => 'socks5://proxy.example.com:1080',
-                \CURLOPT_PROXYUSERPWD => 'username:password',
-            ];
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated SOCKS proxy configuration#');
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testAllowsRequestLevelShareWithAnonymousSocksProxyOnFixedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.69.0', 'features' => 0]);
-
-        try {
-            $conf = [\CURLOPT_PROXY => 'socks5://proxy.example.com:1080'];
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-
-            self::assertNull($method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf));
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testRejectsRequestLevelShareWithAnonymousSocksProxyOnAffectedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.68.0', 'features' => 0]);
-
-        try {
-            $conf = [\CURLOPT_PROXY => 'socks5://proxy.example.com:1080'];
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*libcurl before 7.69.0#');
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public static function opaqueRequestLevelShareTunnelProvider(): iterable
-    {
-        yield 'https origin at the capability floor' => ['7.57.0', 'https://example.com', [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-        ]];
-        yield 'https origin on modern libcurl' => ['8.21.0', 'https://example.com', [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-        ]];
-        yield 'explicit tunnel option' => ['8.21.0', 'http://example.com', [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            \CURLOPT_HTTPPROXYTUNNEL => true,
-        ]];
-
-        if (\defined('CURLOPT_CONNECT_TO')) {
-            yield 'connect-to tunnel' => ['8.21.0', 'http://example.com', [
-                \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-                (int) \constant('CURLOPT_CONNECT_TO') => ['example.com:80:backend.example.com:8080'],
-            ]];
-        }
-    }
-
-    /**
-     * @dataProvider opaqueRequestLevelShareTunnelProvider
-     */
-    public function testRejectsRequestLevelShareWithAnonymousProxyTunnelOnCapableCurlVersion(string $version, string $uri, array $conf): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => $version, 'features' => 0]);
-
-        try {
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*HTTP/HTTPS proxy tunnel configuration on libcurl 7\.57\.0 or newer#');
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invoke(null, new Psr7\Request('GET', $uri), $options, $conf);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public static function allowedRequestLevelShareRouteProvider(): iterable
-    {
-        yield 'anonymous tunnel below the capability floor' => ['7.56.1', 'https://example.com', [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-        ]];
-        yield 'direct request' => ['8.21.0', 'https://example.com', []];
-        yield 'non-tunnel forward proxy' => ['8.21.0', 'http://example.com', [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-        ]];
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'wildcard no-proxy bypass' => ['8.21.0', 'https://example.com', [
-                \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-                (int) \constant('CURLOPT_NOPROXY') => '*',
-            ]];
-        }
-    }
-
-    /**
-     * @dataProvider allowedRequestLevelShareRouteProvider
-     */
-    public function testAllowsRequestLevelShareForRoutesOutsideTheOpaqueTunnelRule(string $version, string $uri, array $conf): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => $version, 'features' => 0]);
-
-        try {
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-
-            self::assertNull($method->invoke(null, new Psr7\Request('GET', $uri), $options, $conf));
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testRejectsRequestLevelShareWithAuthenticatedTunnelBelowTheCapabilityFloor(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.56.1', 'features' => 0]);
-
-        try {
-            $conf = [\CURLOPT_PROXY => 'http://username:password@proxy.example.com:8080'];
-            $options = ['curl' => [(int) \constant('CURLOPT_SHARE') => null]];
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessageMatches('#CURLOPT_SHARE.*authenticated HTTP/HTTPS proxy tunnel configuration#');
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'rejectRequestLevelShareWithProxyAuth');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invoke(null, new Psr7\Request('GET', 'https://example.com'), $options, $conf);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requestTransportSharingOptionProvider
-     *
-     * @param mixed $transportSharing
-     */
-    public function testIgnoresRequestLevelTransportSharingOption($transportSharing): void
-    {
-        unset($_SERVER['_curl']);
-
-        $easy = (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
-            'transport_sharing' => $transportSharing,
-        ]);
-
-        try {
-            if (\defined('CURLOPT_SHARE')) {
-                self::assertArrayNotHasKey(\CURLOPT_SHARE, $_SERVER['_curl']);
-            }
-        } finally {
-            if (PHP_VERSION_ID < 80000) {
-                \curl_close($easy->handle);
-            }
-        }
-    }
-
-    public static function requestTransportSharingOptionProvider(): iterable
-    {
-        yield 'null' => [null];
-        yield 'none' => [TransportSharing::NONE];
         yield 'handler prefer' => [TransportSharing::HANDLER_PREFER];
         yield 'handler require' => [TransportSharing::HANDLER_REQUIRE];
-        yield 'invalid' => ['invalid'];
+        yield 'persistent prefer' => [TransportSharing::PERSISTENT_PREFER];
+        yield 'persistent require' => [TransportSharing::PERSISTENT_REQUIRE];
     }
 
     public function testRejectsEnabledShareModeWithoutShareHandle(): void
@@ -980,29 +706,488 @@ class CurlFactoryTest extends TestCase
         new CurlFactory(3, TransportSharing::HANDLER_PREFER, false);
     }
 
-    public function testCanChangeCurlOptions()
+    public function testRejectsUnsupportedCurlOption(): void
     {
-        Server::flush();
-        Server::enqueue([new Psr7\Response()]);
-        $a = new Handler\CurlMultiHandler();
-        $req = new Psr7\Request('GET', Server::$url);
-        $a($req, ['curl' => [\CURLOPT_LOW_SPEED_TIME => 10]]);
-        self::assertEquals(10, $_SERVER['_curl'][\CURLOPT_LOW_SPEED_TIME]);
+        $option = 999999;
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage((string) $option);
+        $this->expectExceptionMessage('outside the built-in cURL handlers\' allow-list');
+
+        (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+            'curl' => [
+                $option => true,
+            ],
+        ]);
     }
 
-    public function testProtocolsOptionCanRestrictCurlProtocols()
+    public function testRejectsPrereqDataCurlOption(): void
     {
-        if (!\defined('CURLOPT_PROTOCOLS')) {
-            self::markTestSkipped('CURLOPT_PROTOCOLS is not available.');
+        if (!\defined('CURLOPT_PREREQDATA')) {
+            self::markTestSkipped('CURLOPT_PREREQDATA is not available.');
         }
 
+        $option = (int) \constant('CURLOPT_PREREQDATA');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage((string) $option);
+        $this->expectExceptionMessage('outside the built-in cURL handlers\' allow-list');
+
+        (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+            'curl' => [
+                $option => true,
+            ],
+        ]);
+    }
+
+    public function testPersistentRequireRejectsFreshConnect(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('CURLOPT_FRESH_CONNECT');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'curl' => [
+                    \CURLOPT_FRESH_CONNECT => true,
+                ],
+            ]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireRejectsForbidReuse(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('CURLOPT_FORBID_REUSE');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'curl' => [
+                    \CURLOPT_FORBID_REUSE => true,
+                ],
+            ]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireAllowsExplicitReuseOptionsSetToFalse(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+        $easy = $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+            'curl' => [
+                \CURLOPT_FRESH_CONNECT => false,
+                \CURLOPT_FORBID_REUSE => false,
+            ],
+        ]);
+
+        try {
+            self::assertFalse($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertFalse($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            $factory->release($easy);
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireRejectsRequestsThatRequireFreshProxyTunnelConnections(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $proxyHeaderOption = self::proxyHeaderOption();
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [
+                    $proxyHeaderOption => ['Proxy-Authorization: Basic abc'],
+                ],
+            ]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireRejectsStringableProxyAuthorizationHeaderThatRequiresFreshProxyTunnelConnection(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $proxyHeaderOption = self::proxyHeaderOption();
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [
+                    $proxyHeaderOption => [new class {
+                        public function __toString(): string
+                        {
+                            return 'Proxy-Authorization: Basic abc';
+                        }
+                    }],
+                ],
+            ]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    /**
+     * @dataProvider parsedProxyCredentialOptions
+     */
+    public function testPersistentRequireRejectsParsedProxyCredentialsBelowProxyCredentialFloor(string $version, array $options): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
+
+            self::createOnFactory($factory, $version, 'https://example.com', $options);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireAllowsParsedProxyCredentialsAtProxyCredentialFloor(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $easy = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
+                'proxy' => 'http://username:password@proxy.example.com:8080',
+            ]);
+
+            self::assertInstanceOf(EasyHandle::class, $easy);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentPreferForcesFreshAnonymousProxyTunnelsUnderOpaqueShares(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_PREFER, $shareHandle);
+
+        try {
+            self::createOnFactory($factory, '8.21.0', 'https://example.com', [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentRequireRejectsAnonymousProxyTunnelsUnderOpaqueShares(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testPersistentShareStateIsTreatedAsOpaqueByTheFactory(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+        if (!\function_exists('curl_share_init_persistent') || !\class_exists('CurlSharePersistentHandle')) {
+            self::markTestSkipped('Persistent cURL share handles are unavailable.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.21.0', 'features' => self::curlSslFeature()]);
+
+        try {
+            $state = CurlShareHandleState::fromOption(TransportSharing::PERSISTENT_REQUIRE);
+            self::assertNotNull($state);
+            $factory = new CurlFactory(3, $state->mode, $state);
+
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testPersistentPreferFallbackShareStateRemainsTrusted(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.21.0', 'features' => self::curlSslFeature()]);
+        $_SERVER['curl_share_init_persistent_fail'] = true;
+
+        try {
+            $state = CurlShareHandleState::fromOption(TransportSharing::PERSISTENT_PREFER);
+            self::assertNotNull($state);
+            self::assertSame(TransportSharing::HANDLER_PREFER, $state->mode);
+            $factory = new CurlFactory(3, $state->mode, $state);
+
+            self::createOnFactory($factory, '8.21.0', 'https://example.com', [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+
+            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
+        } finally {
+            unset($_SERVER['curl_share_init_persistent_fail']);
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public static function parsedProxyCredentialOptions(): array
+    {
+        return [
+            'proxy url userinfo, connection-sharing floor' => ['8.12.0', ['proxy' => 'http://username:password@proxy.example.com:8080']],
+            'proxy url userinfo, affected curl' => ['8.19.0', ['proxy' => 'http://username:password@proxy.example.com:8080']],
+            'curl proxy credentials, affected curl' => ['8.19.0', ['proxy' => 'http://proxy.example.com:8080', 'curl' => [\CURLOPT_PROXYUSERPWD => 'username:password']]],
+        ];
+    }
+
+    public function testCloseReleasesConfiguredCurlShareHandle(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        self::assertSame($shareHandle, self::readShareHandle($factory));
+
+        $factory->close();
+
+        self::assertNull(self::readShareHandle($factory));
+    }
+
+    public function testRejectsConflictingCurlOptions(): void
+    {
+        $a = new Handler\CurlMultiHandler();
+        $req = new Psr7\Request('GET', Server::$url);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_HTTP_VERSION');
+        $this->expectExceptionMessage('request protocol version');
+
+        $a($req, ['curl' => [\CURLOPT_HTTP_VERSION => \CURL_HTTP_VERSION_1_0]]);
+    }
+
+    /**
+     * @dataProvider additionalConflictingCurlOptionProvider
+     *
+     * @param mixed $value
+     */
+    public function testRejectsAdditionalConflictingCurlOptions(string $constant, int $option, $value, string $replacement): void
+    {
+        try {
+            (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+                'curl' => [
+                    $option => $value,
+                ],
+            ]);
+
+            self::fail('Expected InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString($constant, $e->getMessage());
+            self::assertStringContainsString($replacement, $e->getMessage());
+        }
+    }
+
+    public static function additionalConflictingCurlOptionProvider(): array
+    {
+        $cases = [
+            'cookie header' => ['CURLOPT_COOKIE', 'name=value', 'the "Cookie" request header or Guzzle cookie middleware'],
+            'pipewait' => ['CURLOPT_PIPEWAIT', true, 'the "multiplex" request option'],
+            'seek function' => ['CURLOPT_SEEKFUNCTION', static function (): int {
+                return 0;
+            }, 'the request body'],
+        ];
+
+        $available = [];
+        foreach ($cases as $name => $case) {
+            [$constant, $value, $replacement] = $case;
+            if (\defined($constant)) {
+                $available[$name] = [$constant, (int) \constant($constant), $value, $replacement];
+            }
+        }
+
+        return $available;
+    }
+
+    public function testRejectsRequestLevelCurlShareOption(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage('CURLOPT_SHARE');
+            $this->expectExceptionMessage('transport_sharing');
+
+            (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+                'curl' => [
+                    \CURLOPT_SHARE => $shareHandle,
+                ],
+            ]);
+        } finally {
+            if (PHP_VERSION_ID < 80000) {
+                \curl_share_close($shareHandle);
+            }
+        }
+    }
+
+    /**
+     * @dataProvider requestTransportSharingOptionProvider
+     *
+     * @param mixed $transportSharing
+     */
+    public function testIgnoresRequestLevelTransportSharingOption($transportSharing): void
+    {
+        unset($_SERVER['_curl']);
+
+        $easy = (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+            'transport_sharing' => $transportSharing,
+        ]);
+
+        try {
+            if (\defined('CURLOPT_SHARE')) {
+                self::assertArrayNotHasKey(\CURLOPT_SHARE, $_SERVER['_curl']);
+            }
+        } finally {
+            if (PHP_VERSION_ID < 80000) {
+                \curl_close($easy->handle);
+            }
+        }
+    }
+
+    public static function requestTransportSharingOptionProvider(): iterable
+    {
+        yield 'null' => [null];
+        yield 'none' => [TransportSharing::NONE];
+        yield 'handler prefer' => [TransportSharing::HANDLER_PREFER];
+        yield 'handler require' => [TransportSharing::HANDLER_REQUIRE];
+        yield 'persistent prefer' => [TransportSharing::PERSISTENT_PREFER];
+        yield 'persistent require' => [TransportSharing::PERSISTENT_REQUIRE];
+        yield 'invalid' => ['invalid'];
+    }
+
+    public function testRejectsStreamContextOption(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('stream_context');
+
+        (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+            'stream_context' => [],
+        ]);
+    }
+
+    public function testProtocolsOptionCanRestrictCurlProtocols(): void
+    {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', 'https://example.com'), ['protocols' => ['https']]);
 
-        self::assertSame(\CURLPROTO_HTTPS, $_SERVER['_curl'][\CURLOPT_PROTOCOLS]);
+        self::assertCurlProtocols(['https']);
     }
 
-    public function testProtocolsOptionRejectsDisallowedCurlScheme()
+    public function testProtocolsOptionFallsBackToCurlProtocolsWhenRuntimeDoesNotSupportProtocolsStr(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.84.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $f = new CurlFactory(3);
+            $f->create(new Psr7\Request('GET', 'https://example.com'), ['protocols' => ['https']]);
+
+            self::assertSame(\CURLPROTO_HTTPS, $_SERVER['_curl'][\CURLOPT_PROTOCOLS]);
+            if (\defined('CURLOPT_PROTOCOLS_STR')) {
+                self::assertArrayNotHasKey((int) \constant('CURLOPT_PROTOCOLS_STR'), $_SERVER['_curl']);
+            }
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testProtocolsOptionUsesProtocolsStrWhenRuntimeSupportsIt(): void
+    {
+        if (!\defined('CURLOPT_PROTOCOLS_STR')) {
+            self::markTestSkipped('CURLOPT_PROTOCOLS_STR is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.85.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $f = new CurlFactory(3);
+            $f->create(new Psr7\Request('GET', 'https://example.com'), ['protocols' => ['https']]);
+
+            self::assertSame('https', $_SERVER['_curl'][(int) \constant('CURLOPT_PROTOCOLS_STR')]);
+            self::assertArrayNotHasKey(\CURLOPT_PROTOCOLS, $_SERVER['_curl']);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testProtocolsOptionRejectsDisallowedCurlScheme(): void
     {
         $f = new CurlFactory(3);
 
@@ -1012,7 +1197,7 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', 'http://example.com'), ['protocols' => ['https']]);
     }
 
-    public function testRejectsUnsupportedScheme()
+    public function testRejectsUnsupportedScheme(): void
     {
         $f = new CurlFactory(3);
 
@@ -1022,7 +1207,7 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', 'ftp://example.com'), []);
     }
 
-    public function testRejectsUnsupportedSchemeBeforeMissingHost()
+    public function testRejectsUnsupportedSchemeBeforeMissingHost(): void
     {
         $f = new CurlFactory(3);
 
@@ -1032,7 +1217,7 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', 'file:///etc/passwd'), []);
     }
 
-    public function testProtocolsOptionRejectsBeforeMissingHost()
+    public function testProtocolsOptionRejectsBeforeMissingHost(): void
     {
         $f = new CurlFactory(3);
 
@@ -1045,7 +1230,7 @@ class CurlFactoryTest extends TestCase
     /**
      * @dataProvider uriMissingSchemeOrHostProvider
      */
-    public function testRejectsRequestUriMissingSchemeOrHost($uri)
+    public function testRejectsRequestUriMissingSchemeOrHost(string $uri): void
     {
         $f = new CurlFactory(3);
 
@@ -1069,7 +1254,7 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $protocols
      */
-    public function testProtocolsOptionRejectsInvalidValues($protocols)
+    public function testProtocolsOptionRejectsInvalidValues($protocols): void
     {
         $f = new CurlFactory(3);
 
@@ -1089,7 +1274,7 @@ class CurlFactoryTest extends TestCase
         ];
     }
 
-    public function testThrowsWhenCurlOptionCannotBeApplied()
+    public function testThrowsWhenCurlOptionCannotBeApplied(): void
     {
         $_SERVER['curl_setopt_fail'] = \CURLOPT_LOW_SPEED_LIMIT;
         $f = new CurlFactory(3);
@@ -1107,7 +1292,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testThrowsWhenCurlOptionNameIsInvalid()
+    public function testThrowsWhenCurlOptionNameIsInvalid(): void
     {
         $f = new CurlFactory(3);
 
@@ -1120,7 +1305,17 @@ class CurlFactoryTest extends TestCase
         );
     }
 
-    public function testValidatesVerify()
+    public function testRejectsNonCallableOnStats(): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('on_stats must be callable');
+
+        $f->create(new Psr7\Request('GET', 'http://example.com'), ['on_stats' => false]);
+    }
+
+    public function testValidatesVerify(): void
     {
         $f = new CurlFactory(3);
 
@@ -1129,7 +1324,7 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', Server::$url), ['verify' => '/does/not/exist']);
     }
 
-    public function testCanSetVerifyToFile()
+    public function testCanSetVerifyToFile(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', 'http://foo.com'), ['verify' => __FILE__]);
@@ -1138,7 +1333,7 @@ class CurlFactoryTest extends TestCase
         self::assertTrue($_SERVER['_curl'][\CURLOPT_SSL_VERIFYPEER]);
     }
 
-    public function testCanSetVerifyToDir()
+    public function testCanSetVerifyToDir(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', 'http://foo.com'), ['verify' => __DIR__]);
@@ -1147,7 +1342,7 @@ class CurlFactoryTest extends TestCase
         self::assertTrue($_SERVER['_curl'][\CURLOPT_SSL_VERIFYPEER]);
     }
 
-    public function testAddsVerifyAsTrue()
+    public function testAddsVerifyAsTrue(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['verify' => true]);
@@ -1156,7 +1351,7 @@ class CurlFactoryTest extends TestCase
         self::assertArrayNotHasKey(\CURLOPT_CAINFO, $_SERVER['_curl']);
     }
 
-    public function testCanDisableVerify()
+    public function testCanDisableVerify(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['verify' => false]);
@@ -1164,45 +1359,51 @@ class CurlFactoryTest extends TestCase
         self::assertFalse($_SERVER['_curl'][\CURLOPT_SSL_VERIFYPEER]);
     }
 
-    public function testAddsProxy()
+    public function testAddsProxy(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['proxy' => 'http://bar.com']);
         self::assertEquals('http://bar.com', $_SERVER['_curl'][\CURLOPT_PROXY]);
-        self::assertNoProxyOption('');
+        self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
     }
 
-    public function testAddsViaScheme()
+    public function testAddsViaScheme(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), [
             'proxy' => ['http' => 'http://bar.com', 'https' => 'https://t'],
         ]);
         self::assertEquals('http://bar.com', $_SERVER['_curl'][\CURLOPT_PROXY]);
-        $this->checkNoProxyForHost('http://test.test.com', 'test.test.com', false);
-        $this->checkNoProxyForHost('http://test.test.com', 'other.test.com, test.test.com', false);
-        $this->checkNoProxyForHost('http://test.test.com', ' other.test.com , test.test.com ', false);
-        $this->checkNoProxyForHost('http://test.test.com', 'test.test.com:80', false);
-        $this->checkNoProxyForHost('http://test.test.com', '*', false);
-        $this->checkNoProxyForHost('http://test.test.com', '', true);
-        $this->checkNoProxyForHost('http://test.test.com', null, true);
-        $this->checkNoProxyForHost('http://test.test.com', [' test.test.com ', new \stdClass()], false);
+        self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         $this->checkNoProxyForHost('http://test.test.com', ['test.test.com'], false);
+        $this->checkNoProxyForHost('http://example.com', ['EXAMPLE.com'], false);
+        $this->checkNoProxyForHost('http://foo.example.com', ['EXAMPLE.com'], false);
         $this->checkNoProxyForHost('http://test.test.com', ['.test.com'], false);
+        $this->checkNoProxyForHost('http://test.test.com', 'test.test.com,example.com', false);
+        $this->checkNoProxyForHost('http://example.com', ' EXAMPLE.com , other.com ', false);
+        $this->checkNoProxyForHost('http://test.test.com', '.example.com,example.org', true);
+        $this->checkNoProxyForHost('http://test.test.com', [], true);
+        $this->checkNoProxyForHost('http://test.test.com', '', true);
         $this->checkNoProxyForHost('http://test.test.com', ['test.test.com:80'], false);
         $this->checkNoProxyForHost('https://test.test.com', ['test.test.com:443'], false);
         $this->checkNoProxyForHost('http://test.test.com:8080', ['test.test.com:8080'], false);
         $this->checkNoProxyForHost('http://test.test.com:8081', ['test.test.com:8080'], true);
         $this->checkNoProxyForHost('http://foo.test.com:8080', ['.test.com:8080'], false);
-        $this->checkNoProxyForHost('http://test.com:8080', ['.test.com:8080'], true);
+        $this->checkNoProxyForHost('http://test.com:8080', ['.test.com:8080'], false);
         $this->checkNoProxyForHost('http://[::1]:8080', ['[::1]:8080'], false);
         $this->checkNoProxyForHost('http://[::1]:8081', ['[::1]:8080'], true);
+        $this->checkNoProxyForHost('http://[0:0:0:0:0:0:0:1]', ['::1'], false);
+        $this->checkNoProxyForHost('http://[::1]:8081', ['[0:0:0:0:0:0:0:1]:8080'], true);
         $this->checkNoProxyForHost('http://test.test.com', ['*.test.com'], true);
+        $this->checkNoProxyForHost('http://test.example.com', ['*.example.com'], true);
         $this->checkNoProxyForHost('http://test.test.com', ['*'], false);
+        $this->checkNoProxyForHost('http://example.com', ['*:80'], false);
+        $this->checkNoProxyForHost('https://example.com', ['*:80'], true);
         $this->checkNoProxyForHost('http://127.0.0.1', ['127.0.0.*'], true);
-        $this->checkNoProxyForHost('http://10.1.2.3', ['10.0.0.0/8'], false);
-        $this->checkNoProxyForHost('http://11.1.2.3', ['10.0.0.0/8'], true);
+        $this->checkNoProxyForHost('http://192.168.1.10', ['192.168.0.0/16'], false);
+        $this->checkNoProxyForHost('http://192.169.1.10', ['192.168.0.0/16'], true);
         $this->checkNoProxyForHost('http://[fd00::1]', ['fd00::/8'], false);
+        $this->checkNoProxyForHost('http://[fe80::1]', ['fd00::/8'], true);
     }
 
     public function testPinsProxyOptionsWhenNoProxyIsConfigured(): void
@@ -1212,7 +1413,7 @@ class CurlFactoryTest extends TestCase
             $f->create(new Psr7\Request('GET', Server::$url), []);
 
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1223,7 +1424,7 @@ class CurlFactoryTest extends TestCase
             $easy = $f->create(new Psr7\Request('GET', 'http://example.com'), []);
 
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
             self::assertSame('http://proxy.example.com:8125', $easy->effectiveProxy);
         });
     }
@@ -1235,7 +1436,7 @@ class CurlFactoryTest extends TestCase
             $f->create(new Psr7\Request('GET', 'https://example.com'), []);
 
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1251,7 +1452,7 @@ class CurlFactoryTest extends TestCase
             $f->create(new Psr7\Request('GET', 'https://example.com'), []);
 
             self::assertSame('http://lower.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1264,7 +1465,7 @@ class CurlFactoryTest extends TestCase
             $f->create(new Psr7\Request('GET', 'http://example.com'), []);
 
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1274,11 +1475,11 @@ class CurlFactoryTest extends TestCase
             $f = new CurlFactory(3);
             $f->create(new Psr7\Request('GET', 'http://example.com'), []);
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
             $f->create(new Psr7\Request('GET', 'https://example.com'), []);
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1292,7 +1493,7 @@ class CurlFactoryTest extends TestCase
             $f->create(new Psr7\Request('GET', 'https://example.com'), []);
 
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1306,16 +1507,16 @@ class CurlFactoryTest extends TestCase
 
             $easy = $f->create(new Psr7\Request('GET', 'https://example.com'), []);
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
             self::assertNull($easy->effectiveProxy);
 
             $f->create(new Psr7\Request('GET', 'https://10.1.2.3'), []);
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
             $f->create(new Psr7\Request('GET', 'https://foo.com'), []);
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1330,16 +1531,34 @@ class CurlFactoryTest extends TestCase
             // A leading dot is ignored, so the root domain is bypassed too.
             $f->create(new Psr7\Request('GET', 'https://internal.test'), []);
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
             // Blanks separate entries just like commas.
             $f->create(new Psr7\Request('GET', 'https://host2.test'), []);
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
             $f->create(new Psr7\Request('GET', 'https://other.test'), []);
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+        });
+    }
+
+    public function testMultiDotEnvironmentNoProxyEntriesAreInert(): void
+    {
+        self::withProxyEnvironment([
+            'https_proxy' => 'http://proxy.example.com:8125',
+            'NO_PROXY' => '..internal.test',
+        ], static function (): void {
+            $f = new CurlFactory(3);
+
+            $f->create(new Psr7\Request('GET', 'https://internal.test'), []);
+            self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+
+            $f->create(new Psr7\Request('GET', 'https://foo.internal.test'), []);
+            self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1356,11 +1575,11 @@ class CurlFactoryTest extends TestCase
 
             $f->create(new Psr7\Request('GET', 'https://lower.example.com'), []);
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
             $f->create(new Psr7\Request('GET', 'https://upper.example.com'), []);
             self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1376,7 +1595,7 @@ class CurlFactoryTest extends TestCase
             ]);
 
             self::assertSame('http://option.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1389,7 +1608,7 @@ class CurlFactoryTest extends TestCase
             ]);
 
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1405,7 +1624,7 @@ class CurlFactoryTest extends TestCase
             ]);
 
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
@@ -1418,49 +1637,67 @@ class CurlFactoryTest extends TestCase
             ]);
 
             self::assertSame('http://env.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
-    public function testRawCurlProxyOptionOverridesPinnedProxy(): void
+    public function testNoListWithoutSchemeKeyBeatsEnvironmentProxy(): void
     {
         self::withProxyEnvironment(['https_proxy' => 'http://env.example.com:8125'], static function (): void {
             $f = new CurlFactory(3);
-            $f->create(new Psr7\Request('GET', 'https://example.com'), [
-                'curl' => [\CURLOPT_PROXY => 'http://raw.example.com:8125'],
+
+            $f->create(new Psr7\Request('GET', 'https://internal.example.com'), [
+                'proxy' => ['no' => ['internal.example.com']],
             ]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
 
-            self::assertSame('http://raw.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            $f->create(new Psr7\Request('GET', 'https://example.com'), [
+                'proxy' => ['no' => ['internal.example.com']],
+            ]);
+            self::assertSame('http://env.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
-    public function testSectionsEnvironmentCredentialedProxyOnAffectedCurlVersion(): void
+    public function testClientMappedUppercaseNoProxyBeatsLowercaseEnvironmentProxy(): void
     {
-        self::withProxyEnvironment(['https_proxy' => 'http://username:password@proxy.example.com:8080'], static function (): void {
-            $factory = new CurlFactory(3);
-            $easy = self::createOnFactory($factory, '8.19.0', 'https://example.com', []);
+        self::skipIfWindows();
 
-            self::assertNotNull($easy->proxyTunnelSignature);
-        });
-    }
+        unset($_SERVER['HTTP_PROXY'], $_SERVER['HTTPS_PROXY'], $_SERVER['NO_PROXY']);
 
-    public function testDelegatesEnvironmentCredentialedProxyOnFixedCurlVersion(): void
-    {
-        self::withProxyEnvironment(['https_proxy' => 'http://username:password@proxy.example.com:8080'], static function (): void {
-            $factory = new CurlFactory(3);
-            $easy = self::createOnFactory($factory, '8.20.0', 'https://example.com', []);
+        self::withProxyEnvironment([
+            'https_proxy' => 'http://env.example.com:8125',
+            'NO_PROXY' => '.example.com internal.test other.test',
+        ], static function (): void {
+            // The Client maps uppercase NO_PROXY into the option's "no" list
+            // without a scheme key; the lowercase proxy variable is visible
+            // only to the handler-level environment fallback.
+            $proxy = (new Client())->getConfig()['proxy'];
+            self::assertSame(['no' => ['.example.com', 'internal.test', 'other.test']], $proxy);
 
-            self::assertNotNull($easy->proxyTunnelSignature);
+            $f = new CurlFactory(3);
+
+            foreach (['example.com', 'foo.example.com', 'internal.test', 'other.test'] as $host) {
+                $f->create(new Psr7\Request('GET', 'https://'.$host), ['proxy' => $proxy]);
+                self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
+                self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+            }
+
+            $f->create(new Psr7\Request('GET', 'https://unrelated.test'), ['proxy' => $proxy]);
+            self::assertSame('http://env.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         });
     }
 
     public static function unsupportedHttpsProxyCurlVersionProvider(): array
     {
         return [
-            ['7.21.2'],
+            ['7.34.0'],
             ['7.50.0'],
             ['7.51.0'],
             ['7.52.0'],
+            ['7.53.1'],
             ['7.61.0'],
         ];
     }
@@ -1470,11 +1707,11 @@ class CurlFactoryTest extends TestCase
      */
     public function testRejectsHttpsProxyWhenLibcurlLacksSupport(string $version): void
     {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => $version, 'features' => 0]);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => $version, 'features' => self::curlSslFeature()]);
 
         try {
             $this->expectException(RequestException::class);
-            $this->expectExceptionMessage('HTTPS proxies are not supported by the installed libcurl; libcurl 7.52.0 or newer built with HTTPS-proxy support is required.');
+            $this->expectExceptionMessage('HTTPS proxies are not supported by the installed libcurl; libcurl 7.54.0 or newer built with HTTPS-proxy support is required.');
 
             $f = new CurlFactory(3);
             $f->create(new Psr7\Request('GET', 'https://example.com'), [
@@ -1500,7 +1737,7 @@ class CurlFactoryTest extends TestCase
      */
     public function testRejectsHttpsProxyFormsWhenLibcurlLacksSupport($proxy): void
     {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => 0]);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => self::curlSslFeature()]);
 
         try {
             $this->expectException(RequestException::class);
@@ -1511,27 +1748,6 @@ class CurlFactoryTest extends TestCase
         } finally {
             self::setCurlVersionInfo($previousVersionInfo);
         }
-    }
-
-    public static function malformedProxyUrlProvider(): array
-    {
-        return [
-            [' https://proxy.example.com:3128'],        // leading space before the scheme
-            ["\u{00A0}https://proxy.example.com:3128"], // leading non-breaking space
-            ['ht tps://proxy.example.com:3128'],        // space inside the scheme prefix
-        ];
-    }
-
-    /**
-     * @dataProvider malformedProxyUrlProvider
-     */
-    public function testRejectsMalformedProxyUrls(string $proxy): void
-    {
-        $this->expectException(RequestException::class);
-        $this->expectExceptionMessage('The proxy URL is malformed.');
-
-        $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => $proxy]);
     }
 
     public static function rejectedHttpsProxyEnvironmentProvider(): array
@@ -1553,7 +1769,7 @@ class CurlFactoryTest extends TestCase
         $this->expectExceptionMessage('HTTPS proxies are not supported by the installed libcurl');
 
         self::withProxyEnvironment($env, static function (): void {
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => 0]);
+            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => self::curlSslFeature()]);
 
             try {
                 $f = new CurlFactory(3);
@@ -1570,7 +1786,6 @@ class CurlFactoryTest extends TestCase
             ['http://proxy.example.com:3128'],
             ['127.0.0.1:8125'],
             ['socks5://proxy.example.com:1080'],
-            [''],
         ];
     }
 
@@ -1579,11 +1794,13 @@ class CurlFactoryTest extends TestCase
      */
     public function testDoesNotRejectNonHttpsProxiesOnOldLibcurl(string $proxy): void
     {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => 0]);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => self::curlSslFeature()]);
 
         try {
             $f = new CurlFactory(3);
-            $f->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => $proxy]);
+            // An http target does not CONNECT, so only the HTTPS-proxy floor
+            // is in play, not the libcurl 7.54 tunneling requirement.
+            $f->create(new Psr7\Request('GET', 'http://example.com'), ['proxy' => $proxy]);
 
             self::assertSame($proxy, $_SERVER['_curl'][\CURLOPT_PROXY]);
         } finally {
@@ -1591,14 +1808,56 @@ class CurlFactoryTest extends TestCase
         }
     }
 
+    public static function rejectedCurlProxySchemeProvider(): array
+    {
+        return [
+            ['ftp://proxy.example.com:21'],
+            ['gopher://proxy.example.com:70'],
+            ['ws://proxy.example.com:80'],
+            ['tcp://proxy.example.com:8125'],
+            ['ssl://proxy.example.com:8125'],
+            ['tls://proxy.example.com:8125'],
+            ['socks6://proxy.example.com:1080'],
+            ['htps://proxy.example.com:3128'],
+            [['https' => 'ftp://proxy.example.com:21']],
+        ];
+    }
+
+    /**
+     * @dataProvider rejectedCurlProxySchemeProvider
+     *
+     * @param string|array $proxy
+     */
+    public function testRejectsUnsupportedCurlProxySchemes($proxy): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('proxy scheme is not supported by the cURL handler');
+
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => $proxy]);
+    }
+
+    public function testRejectsEnvironmentUnsupportedCurlProxyScheme(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('proxy scheme is not supported by the cURL handler');
+
+        self::withProxyEnvironment(['https_proxy' => 'ftp://proxy.example.com:21'], static function (): void {
+            $f = new CurlFactory(3);
+            $f->create(new Psr7\Request('GET', 'https://example.com'), []);
+        });
+    }
+
     public function testAllowsHttpsProxyWhenLibcurlSupportsIt(): void
     {
         $httpsProxyFeature = \defined('CURL_VERSION_HTTPS_PROXY') ? \CURL_VERSION_HTTPS_PROXY : (1 << 21);
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.52.0', 'features' => $httpsProxyFeature]);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.54.0', 'features' => self::curlSslFeature() | $httpsProxyFeature]);
 
         try {
             $f = new CurlFactory(3);
-            $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            // An http target does not CONNECT, so this pins the 7.54.0
+            // HTTPS-proxy floor positively, independent of the tunneling gate.
+            $f->create(new Psr7\Request('GET', 'http://example.com'), [
                 'proxy' => 'https://proxy.example.com:3128',
             ]);
 
@@ -1608,9 +1867,30 @@ class CurlFactoryTest extends TestCase
         }
     }
 
+    public function testRejectsHttpsProxyBelowLibcurl754EvenWithFeature(): void
+    {
+        $httpsProxyFeature = \defined('CURL_VERSION_HTTPS_PROXY') ? \CURL_VERSION_HTTPS_PROXY : (1 << 21);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.53.1', 'features' => self::curlSslFeature() | $httpsProxyFeature]);
+
+        try {
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('libcurl 7.54.0 or newer built with HTTPS-proxy support is required');
+
+            // The 7.52.0-7.53.1 HTTPS-proxy TLS code carried verification
+            // flaws (CVE-2017-2629, CVE-2017-7468), so the feature bit alone
+            // is not enough below 7.54.0.
+            $f = new CurlFactory(3);
+            $f->create(new Psr7\Request('GET', 'http://example.com'), [
+                'proxy' => 'https://proxy.example.com:3128',
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
     public function testDoesNotRejectBypassedHttpsProxyOnOldLibcurl(): void
     {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => 0]);
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => self::curlSslFeature()]);
 
         try {
             $f = new CurlFactory(3);
@@ -1622,7 +1902,7 @@ class CurlFactoryTest extends TestCase
             ]);
 
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         } finally {
             self::setCurlVersionInfo($previousVersionInfo);
         }
@@ -1634,67 +1914,114 @@ class CurlFactoryTest extends TestCase
             'https_proxy' => 'https://proxy.example.com:3128',
             'NO_PROXY' => 'example.com',
         ], static function (): void {
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => 0]);
+            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.50.0', 'features' => self::curlSslFeature()]);
 
             try {
                 $f = new CurlFactory(3);
                 $f->create(new Psr7\Request('GET', 'https://example.com'), []);
 
                 self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-                self::assertNoProxyOption('*');
+                self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
             } finally {
                 self::setCurlVersionInfo($previousVersionInfo);
             }
         });
     }
 
-    public function testRedactsProxyCredentialsInCurlErrorMessages(): void
+    public function testSectionsEnvironmentCredentialedProxyOnAffectedCurlVersion(): void
     {
-        $handler = new Handler\CurlHandler();
+        self::withProxyEnvironment(['https_proxy' => 'http://username:password@proxy.example.com:8080'], static function (): void {
+            $factory = new CurlFactory(3);
+            $easy = self::createOnFactory($factory, '8.19.0', 'https://example.com', []);
+
+            self::assertNotNull($easy->proxyTunnelSignature);
+        });
+    }
+
+    public function testDelegatesEnvironmentCredentialedProxyOnFixedCurlVersion(): void
+    {
+        self::withProxyEnvironment(['https_proxy' => 'http://username:password@proxy.example.com:8080'], static function (): void {
+            $factory = new CurlFactory(3);
+            $easy = self::createOnFactory($factory, '8.20.0', 'https://example.com', []);
+
+            self::assertNotNull($easy->proxyTunnelSignature);
+        });
+    }
+
+    public function testRejectingUnsupportedProxySchemeDoesNotLeakCredentials(): void
+    {
+        $f = new CurlFactory(3);
 
         try {
-            $handler(new Psr7\Request('GET', Server::$url), [
+            $f->create(new Psr7\Request('GET', 'https://example.com'), [
                 'proxy' => 'foo://user:secret@127.0.0.1:1',
-            ])->wait();
-            self::fail('Expected a transfer exception');
-        } catch (\GuzzleHttp\Exception\TransferException $e) {
+            ]);
+            self::fail('Expected an InvalidArgumentException');
+        } catch (\InvalidArgumentException $e) {
             self::assertStringNotContainsString('secret', $e->getMessage());
-            if (\strpos($e->getMessage(), 'foo://') !== false) {
-                self::assertStringContainsString('foo://user:***@127.0.0.1:1', $e->getMessage());
-            }
         }
     }
 
-    public function testRedactsProxyCredentialsWhenProxyDefeatsUrlParsing(): void
+    public function testRejectsMalformedProxyUrlWithoutLeakingCredentials(): void
     {
-        $handler = new Handler\CurlHandler();
+        $f = new CurlFactory(3);
 
         try {
-            $handler(new Psr7\Request('GET', Server::$url), [
+            $f->create(new Psr7\Request('GET', 'https://example.com'), [
                 'proxy' => 'http://user:secret@127.0.0.1:99999999',
-                'connect_timeout' => 1,
-            ])->wait();
-            self::fail('Expected a transfer exception');
-        } catch (\GuzzleHttp\Exception\TransferException $e) {
+            ]);
+            self::fail('Expected an InvalidArgumentException');
+        } catch (\InvalidArgumentException $e) {
             self::assertStringNotContainsString('secret', $e->getMessage());
-            if (\strpos($e->getMessage(), '127.0.0.1:99999999') !== false) {
-                self::assertStringContainsString('***@127.0.0.1:99999999', $e->getMessage());
-            }
         }
     }
 
-    public function testRedactsEnvironmentProxyCredentialsInCurlErrorMessages(): void
+    public function testRejectsMalformedEnvironmentProxyUrlWithoutLeakingCredentials(): void
     {
-        self::withProxyEnvironment(['http_proxy' => 'foo://user:secret@127.0.0.1:1'], static function (): void {
-            $handler = new Handler\CurlHandler();
+        self::withProxyEnvironment(['http_proxy' => 'http://user:secret@127.0.0.1:99999999'], static function (): void {
+            $f = new CurlFactory(3);
 
             try {
-                $handler(new Psr7\Request('GET', Server::$url), [])->wait();
-                self::fail('Expected a transfer exception');
-            } catch (\GuzzleHttp\Exception\TransferException $e) {
+                $f->create(new Psr7\Request('GET', 'http://example.com'), []);
+                self::fail('Expected an InvalidArgumentException');
+            } catch (\InvalidArgumentException $e) {
                 self::assertStringNotContainsString('secret', $e->getMessage());
             }
         });
+    }
+
+    public static function malformedProxyUrlProvider(): array
+    {
+        return [
+            ['http://exa mple.com:3128'],          // space in host
+            ['http://127.0.0.1:99999999'],         // port out of range
+            ['127.0.0.1:99999999'],                // scheme-less, port out of range
+            ["\u{00A0}https://proxy.example.com:3128"], // leading junk before the scheme
+            [' https://proxy.example.com:3128'],   // leading space before the scheme
+            [' 127.0.0.1:8125'],                   // leading space, scheme-less
+        ];
+    }
+
+    /**
+     * @dataProvider malformedProxyUrlProvider
+     */
+    public function testRejectsMalformedProxyUrls(string $proxy): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid proxy URL');
+
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'https://example.com'), ['proxy' => $proxy]);
+    }
+
+    public function testAcceptsSchemeLessProxyWithCredentials(): void
+    {
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'proxy' => 'user:pass@127.0.0.1:8125',
+        ]);
+
+        self::assertSame('user:pass@127.0.0.1:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
     }
 
     public function testRedactsParseableProxyCredentialsIndependentlyOfCurlErrorText(): void
@@ -1704,7 +2031,7 @@ class CurlFactoryTest extends TestCase
         $redacted = self::redactProxyUserInfo('Failed to connect via '.$proxy, $proxy);
 
         self::assertStringNotContainsString('secret', $redacted);
-        self::assertSame('Failed to connect via http://user:***@proxy.example.com:8125', $redacted);
+        self::assertSame('Failed to connect via http://***@proxy.example.com:8125', $redacted);
     }
 
     public function testRedactsProxyCredentialsContainingRawControlBytes(): void
@@ -1714,7 +2041,48 @@ class CurlFactoryTest extends TestCase
         $redacted = self::redactProxyUserInfo('Failed to connect via '.$proxy, $proxy);
 
         self::assertStringNotContainsString("se\x01cr\x7Fet", $redacted);
-        self::assertSame('Failed to connect via http://user:***@proxy.example.com:8125', $redacted);
+        self::assertSame('Failed to connect via http://***@proxy.example.com:8125', $redacted);
+    }
+
+    public function testEscapesCurlErrorsAfterRedactionWithoutChangingTimeoutClassification(): void
+    {
+        $proxy = "http://user:se\x01cr\x7Fet@proxy.example.com:8125";
+        $easy = new EasyHandle();
+        $easy->request = new Psr7\Request('GET', 'http://user:password@example.com/path?token=secret#private');
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $easy->effectiveProxy = $proxy;
+        $promise = $this->createCurlRejection($easy, [
+            'errno' => \CURLE_OPERATION_TIMEOUTED,
+            'error' => "Connection timeout via {$proxy}: transport \x1B\xFF",
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected ConnectTimeoutException');
+        } catch (ConnectTimeoutException $e) {
+            self::assertSame('cURL error 28: Connection timeout via http://***@proxy.example.com:8125: transport \\x1B\\xFF (see https://curl.se/libcurl/c/libcurl-errors.html) for http://***@example.com/path', $e->getMessage());
+            self::assertStringNotContainsString('se\\x01cr\\x7Fet', $e->getMessage());
+        }
+    }
+
+    public function testRedactsSensitiveRequestUriPartsFromCurlErrorText(): void
+    {
+        $request = new Psr7\Request('GET', 'https://user:password@example.com/path?token=secret#private');
+        $easy = new EasyHandle();
+        $easy->request = $request;
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $promise = $this->createCurlRejection($easy, [
+            'errno' => \CURLE_OPERATION_TIMEOUTED,
+            'error' => 'Connection timeout for '.$request->getUri(),
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected ConnectTimeoutException');
+        } catch (ConnectTimeoutException $e) {
+            self::assertSame('cURL error 28: Connection timeout for https://***@example.com/path (see https://curl.se/libcurl/c/libcurl-errors.html)', $e->getMessage());
+            self::assertSame($request, $e->getRequest());
+        }
     }
 
     public function testRedactsUnparsableProxyCredentialsIndependentlyOfCurlErrorText(): void
@@ -1786,79 +2154,6 @@ class CurlFactoryTest extends TestCase
         $error = 'Failed to connect to proxy.example.com:8125';
 
         self::assertSame($error, self::redactProxyUserInfo($error, 'http://proxy.example.com:8125'));
-    }
-
-    /**
-     * @dataProvider handlerContextErrorBranchProvider
-     */
-    public function testSanitizesNativeErrorInHandlerContext(string $expectedException, \Closure $configure): void
-    {
-        $proxy = 'http://user:secret@proxy.example.com:8125';
-        $factory = new CurlFactory(1);
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), ['proxy' => $proxy]);
-        $configure($easy);
-
-        $ctx = [
-            'errno' => $easy->errno,
-            'error' => "Unsupported proxy syntax in '".$proxy."'",
-            'total_time' => 1.5,
-        ];
-
-        $reason = self::rejectionReason($easy, $ctx);
-
-        self::assertInstanceOf($expectedException, $reason);
-        self::assertStringNotContainsString('secret', $reason->getMessage());
-
-        $context = $reason->getHandlerContext();
-        self::assertStringNotContainsString('secret', $context['error']);
-        self::assertSame("Unsupported proxy syntax in 'http://user:***@proxy.example.com:8125'", $context['error']);
-        self::assertSame(1.5, $context['total_time']);
-    }
-
-    public static function handlerContextErrorBranchProvider(): iterable
-    {
-        yield 'connect exception' => [ConnectException::class, static function (EasyHandle $easy): void {
-            $easy->errno = \CURLE_COULDNT_CONNECT;
-        }];
-        yield 'request exception' => [RequestException::class, static function (EasyHandle $easy): void {
-            $easy->errno = 18; // CURLE_PARTIAL_FILE
-        }];
-        yield 'response creation exception' => [RequestException::class, static function (EasyHandle $easy): void {
-            $easy->errno = 18;
-            $easy->createResponseException = new \RuntimeException('bad headers');
-        }];
-        yield 'on_headers exception' => [RequestException::class, static function (EasyHandle $easy): void {
-            $easy->errno = 18;
-            $easy->onHeadersException = new \RuntimeException('rejected');
-        }];
-    }
-
-    public function testLeavesUnrelatedHandlerContextErrorUnchanged(): void
-    {
-        $factory = new CurlFactory(1);
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
-        $easy->errno = \CURLE_COULDNT_CONNECT;
-
-        $reason = self::rejectionReason($easy, [
-            'errno' => $easy->errno,
-            'error' => 'Connection timed out after 1000 ms',
-        ]);
-
-        self::assertSame('Connection timed out after 1000 ms', $reason->getHandlerContext()['error']);
-    }
-
-    public function testLeavesEmptyHandlerContextErrorEmpty(): void
-    {
-        $factory = new CurlFactory(1);
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
-        $easy->errno = \CURLE_COULDNT_CONNECT;
-
-        $reason = self::rejectionReason($easy, [
-            'errno' => $easy->errno,
-            'error' => '',
-        ]);
-
-        self::assertSame('', $reason->getHandlerContext()['error']);
     }
 
     /**
@@ -2020,10 +2315,6 @@ class CurlFactoryTest extends TestCase
 
     public function testThrowingStringableProxyCredentialIsWrappedLikeOptionApplication(): void
     {
-        if (\PHP_VERSION_ID < 70400) {
-            self::markTestSkipped('A throwing __toString() requires PHP 7.4.');
-        }
-
         $factory = new CurlFactory(3);
 
         try {
@@ -2077,44 +2368,46 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testRawCurlNoProxyWildcardDisablesEffectiveProxy(): void
+    public function testRejectsRawCurlProxyUrl(): void
     {
-        self::skipIfCurlNoProxyIsUnavailable();
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXY');
 
-        self::assertNull(self::getEffectiveProxy([
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            (int) \constant('CURLOPT_NOPROXY') => '*',
-        ]));
+        (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
+            'curl' => [
+                \CURLOPT_PROXY => 'http://username:password@proxy.example.com:8080',
+            ],
+        ]);
     }
 
-    /**
-     * @dataProvider nonWildcardRawCurlNoProxyProvider
-     */
-    public function testRawCurlNoProxyWildcardMustMatchExactly(string $noProxy): void
+    public function testRejectsRawCurlProxyUrlWithCredentials(): void
     {
-        self::skipIfCurlNoProxyIsUnavailable();
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXY');
 
-        self::assertSame('http://proxy.example.com:8080', self::getEffectiveProxy([
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            (int) \constant('CURLOPT_NOPROXY') => $noProxy,
-        ]));
+        (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
+            'curl' => [
+                \CURLOPT_PROXY => 'http://proxy.example.com:8080',
+                \CURLOPT_PROXYUSERPWD => 'username:password',
+            ],
+        ]);
     }
 
-    public static function nonWildcardRawCurlNoProxyProvider(): array
+    public function testSectionsAuthenticatedHttpProxyTunnelOnAffectedCurlVersion(): void
     {
-        return [
-            'space padded wildcard' => [' * '],
-            'tab padded wildcard' => ["\t*\t"],
-            'nul-prefixed wildcard' => ["\0*"],
-            'host pattern' => ['example.com'],
-        ];
-    }
+        if (!\defined('CURLOPT_HTTPPROXYTUNNEL')) {
+            self::markTestSkipped('CURLOPT_HTTPPROXYTUNNEL is not available.');
+        }
 
-    public function testEffectiveProxyWithoutRawCurlNoProxyIsUnchanged(): void
-    {
-        self::assertSame('http://proxy.example.com:8080', self::getEffectiveProxy([
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-        ]));
+        $factory = new CurlFactory(3);
+        $easy = self::createOnFactory($factory, '8.19.0', 'http://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+            'curl' => [
+                \CURLOPT_HTTPPROXYTUNNEL => true,
+            ],
+        ]);
+
+        self::assertNotNull($easy->proxyTunnelSignature);
     }
 
     public function testSectionsProxyAuthorizationHeaderEvenOnFixedCurlVersion(): void
@@ -2157,25 +2450,6 @@ class CurlFactoryTest extends TestCase
         self::assertNotNull($easy->proxyTunnelSignature);
     }
 
-    public function testEmptyProxyAuthorizationHeaderUsesDelegatedOwnerOnFixedCurlVersion(): void
-    {
-        $proxyHeaderOption = self::proxyHeaderOption();
-
-        $factory = new CurlFactory(3);
-        $delegatedBaseline = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ])->proxyTunnelSignature;
-        $easy = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-            'curl' => [
-                $proxyHeaderOption => ['Proxy-Authorization:'],
-            ],
-        ]);
-
-        self::assertNotNull($easy->proxyTunnelSignature);
-        self::assertSame($delegatedBaseline, $easy->proxyTunnelSignature);
-    }
-
     public function testUnrelatedProxyHeaderUsesDelegatedOwnerOnFixedCurlVersion(): void
     {
         $proxyHeaderOption = self::proxyHeaderOption();
@@ -2188,6 +2462,25 @@ class CurlFactoryTest extends TestCase
             'proxy' => 'http://proxy.example.com:8080',
             'curl' => [
                 $proxyHeaderOption => ['X-Proxy-Header: value'],
+            ],
+        ]);
+
+        self::assertNotNull($easy->proxyTunnelSignature);
+        self::assertSame($delegatedBaseline, $easy->proxyTunnelSignature);
+    }
+
+    public function testEmptyProxyAuthorizationHeaderUsesDelegatedOwnerOnFixedCurlVersion(): void
+    {
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        $factory = new CurlFactory(3);
+        $delegatedBaseline = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ])->proxyTunnelSignature;
+        $easy = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+            'curl' => [
+                $proxyHeaderOption => ['Proxy-Authorization:'],
             ],
         ]);
 
@@ -2218,691 +2511,346 @@ class CurlFactoryTest extends TestCase
         self::assertNotSame($delegated, $literalHeader);
     }
 
-    public function testMigratesPsrProxyAuthorizationHeaderToProxyHeaderWhenSupported(): void
+    public function testManagedProxyAuthorizationUsesProxyOnlyChannelForHttpProxy(): void
     {
+        self::requireProxyHeaderSeparationConstants();
         $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
 
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
+        $factory = new CurlFactory(3);
+        self::createRequestOnFactory(
+            $factory,
+            '7.37.0',
+            new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+            ['proxy' => 'http://proxy.example.com:8080']
+        );
 
-        try {
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'http://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                ]),
-                ['proxy' => 'http://proxy.example.com:8080']
+        self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+        self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][$proxyHeaderOption]);
+        self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
+    }
+
+    public static function managedProxyAuthorizationRouteProvider(): array
+    {
+        return [
+            'direct' => [[], ['proxy' => '']],
+            'managed no bypass' => [[], ['proxy' => ['http' => 'http://proxy.example.com:8080', 'no' => ['example.com']]]],
+            'environment NO_PROXY bypass' => [['http_proxy' => 'http://proxy.example.com:8080', 'NO_PROXY' => 'example.com'], []],
+            'socks proxy' => [[], ['proxy' => 'socks5://proxy.example.com:1080']],
+        ];
+    }
+
+    /**
+     * @dataProvider managedProxyAuthorizationRouteProvider
+     */
+    public function testManagedProxyAuthorizationUsesProxyOnlyChannelOnEveryRoute(array $env, array $options): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        self::withProxyEnvironment($env, static function () use ($options, $proxyHeaderOption): void {
+            $factory = new CurlFactory(3);
+            self::createRequestOnFactory(
+                $factory,
+                '7.37.0',
+                new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+                $options
             );
 
+            // The credential never enters the origin header list, whatever
+            // route Guzzle predicts; it is configured in the separated
+            // proxy-only list, which libcurl uses only for HTTP requests it
+            // actually sends to a proxy.
             self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
             self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][$proxyHeaderOption]);
             self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
+        });
     }
 
-    public function testMigratedPsrProxyAuthorizationHeaderSectionsTunnelEvenOnFixedCurl(): void
+    public function testManagedProxyAuthorizationHeaderSectionsTunnelEvenOnFixedCurl(): void
     {
-        self::skipIfProxyHeaderSeparationUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.20.0', 'features' => 0]);
-
-        try {
-            $factory = new CurlFactory(3);
-            $first = $factory->create(
-                new Psr7\Request('GET', 'https://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcjE6cGFzczE=',
-                ]),
-                ['proxy' => 'http://proxy.example.com:8080']
-            );
-            $second = $factory->create(
-                new Psr7\Request('GET', 'https://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcjI6cGFzczI=',
-                ]),
-                ['proxy' => 'http://proxy.example.com:8080']
-            );
-
-            self::assertNotNull($first->proxyTunnelSignature);
-            self::assertNotNull($second->proxyTunnelSignature);
-            self::assertNotSame($first->proxyTunnelSignature, $second->proxyTunnelSignature);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testMigratedProxyAuthorizationAppendsToExistingProxyHeaders(): void
-    {
-        $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.42.1', 'features' => 0]);
-
-        try {
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'http://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                ]),
-                [
-                    'proxy' => 'http://proxy.example.com:8080',
-                    'curl' => [$proxyHeaderOption => ['X-Proxy-Trace: 1']],
-                ]
-            );
-
-            self::assertSame(
-                ['X-Proxy-Trace: 1', 'Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-                $_SERVER['_curl'][$proxyHeaderOption]
-            );
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testProxyHeaderSeparationIsSetWhenProxyHeaderAlreadyPresent(): void
-    {
-        $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
+        self::requireProxyHeaderSeparationConstants();
 
         $factory = new CurlFactory(3);
-        self::createOnFactory($factory, '7.42.1', 'http://example.com', [
+        $first = self::createRequestOnFactory(
+            $factory,
+            '8.20.0',
+            new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => 'Basic dXNlcjpvbmU=']),
+            ['proxy' => 'http://proxy.example.com:8080']
+        )->proxyTunnelSignature;
+        $second = self::createRequestOnFactory(
+            $factory,
+            '8.20.0',
+            new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => 'Basic dXNlcjp0d28=']),
+            ['proxy' => 'http://proxy.example.com:8080']
+        )->proxyTunnelSignature;
+
+        // libcurl cannot key connection reuse on a literal Proxy-Authorization
+        // header, so the managed credential sections the tunnel even on the
+        // fast-path version, and distinct credentials section distinctly.
+        self::assertNotNull($first);
+        self::assertNotNull($second);
+        self::assertNotSame($first, $second);
+    }
+
+    public function testProxyHeaderSeparationIsSetForExistingProxyHeader(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        $factory = new CurlFactory(3);
+        self::createOnFactory($factory, '7.37.0', 'http://example.com', [
             'proxy' => 'http://proxy.example.com:8080',
-            'curl' => [$proxyHeaderOption => ['X-Proxy-Trace: 1']],
+            'curl' => [
+                $proxyHeaderOption => ['X-Proxy-Header: value'],
+            ],
         ]);
 
+        // The raw CURLOPT_PROXYHEADER option remains allowed, and Guzzle sets
+        // CURLOPT_HEADEROPT internally so the proxy headers stay separate.
+        self::assertSame(['X-Proxy-Header: value'], $_SERVER['_curl'][$proxyHeaderOption]);
         self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
     }
 
     public function testProxyHeaderSeparationIsSetForConnectTunnelWithoutProxyHeader(): void
     {
-        self::skipIfProxyHeaderSeparationUnavailable();
+        self::requireProxyHeaderSeparationConstants();
 
         $factory = new CurlFactory(3);
-        self::createOnFactory($factory, '7.37.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ]);
+        self::createRequestOnFactory(
+            $factory,
+            '7.54.0',
+            new Psr7\Request('GET', 'https://example.com'),
+            ['proxy' => 'http://proxy.example.com:8080']
+        );
 
+        // The HTTPS target tunnels via CONNECT (which requires libcurl 7.54);
+        // even with no proxy header, usesProxyTunnel() is true, so Guzzle
+        // sets CURLHEADER_SEPARATE.
         self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
     }
 
-    /**
-     * @dataProvider managedProxyAuthorizationRouteProvider
-     *
-     * @param array<string, string>    $env
-     * @param array<int|string, mixed> $options
-     */
-    public function testManagedProxyAuthorizationIsDelegatedToProxyOnlyChannel(array $env, array $options): void
+    public function testManagedProxyAuthorizationAppendsAfterExistingProxyHeaders(): void
     {
-        self::withProxyEnvironment($env, static function () use ($options): void {
-            self::skipIfProxyHeaderSeparationUnavailable();
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
-
-            try {
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'http://example.com', [
-                        'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                    ]),
-                    $options
-                );
-
-                self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-                self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][self::proxyHeaderOption()]);
-                self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
-            } finally {
-                self::setCurlVersionInfo($previousVersionInfo);
-            }
-        });
-    }
-
-    public static function managedProxyAuthorizationRouteProvider(): iterable
-    {
-        yield 'direct' => [[], ['proxy' => '']];
-        yield 'managed no-proxy match' => [[], ['proxy' => ['http' => 'http://proxy.example.com:8125', 'no' => ['example.com']]]];
-        yield 'environment NO_PROXY match' => [['http_proxy' => 'http://proxy.example.com:8125', 'no_proxy' => 'example.com'], []];
-        yield 'socks proxy' => [[], ['proxy' => 'socks5://proxy.example.com:1080']];
-        yield 'raw socks proxy type' => [[], ['proxy' => 'proxy.example.com:1080', 'curl' => [\CURLOPT_PROXYTYPE => \CURLPROXY_SOCKS5]]];
-    }
-
-    /**
-     * @dataProvider legacySafeManagedProxyAuthorizationRouteProvider
-     *
-     * @param array<string, string>    $env
-     * @param array<int|string, mixed> $options
-     */
-    public function testLegacyCurlSafelyOmitsManagedProxyAuthorizationOnNonHttpProxyRoutes(array $env, array $options): void
-    {
-        self::withProxyEnvironment($env, static function () use ($options): void {
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
-
-            try {
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'http://example.com', [
-                        'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                    ]),
-                    $options
-                );
-
-                self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-                if (\defined('CURLOPT_PROXYHEADER')) {
-                    self::assertArrayNotHasKey((int) \constant('CURLOPT_PROXYHEADER'), $_SERVER['_curl']);
-                }
-            } finally {
-                self::setCurlVersionInfo($previousVersionInfo);
-            }
-        });
-    }
-
-    public static function legacySafeManagedProxyAuthorizationRouteProvider(): iterable
-    {
-        yield 'direct' => [[], ['proxy' => '']];
-        yield 'socks proxy' => [[], ['proxy' => 'socks5://proxy.example.com:1080']];
-        yield 'managed no-proxy match' => [[], ['proxy' => ['http' => 'http://proxy.example.com:8125', 'no' => ['example.com']]]];
-        yield 'environment NO_PROXY match' => [['http_proxy' => 'http://proxy.example.com:8125', 'no_proxy' => 'example.com'], []];
-        yield 'raw SOCKS proxy type' => [[], ['proxy' => 'proxy.example.com:1080', 'curl' => [\CURLOPT_PROXYTYPE => \CURLPROXY_SOCKS5]]];
-        yield 'HTTP URL with raw SOCKS proxy type' => [[], ['proxy' => 'http://proxy.example.com:1080', 'curl' => [\CURLOPT_PROXYTYPE => \CURLPROXY_SOCKS5]]];
-        yield 'raw direct route replaces managed HTTP proxy' => [[], [
-            'proxy' => 'http://proxy.example.com:8125',
-            'curl' => [\CURLOPT_PROXY => ''],
-        ]];
-        yield 'raw SOCKS proxy replaces managed HTTP proxy' => [[], [
-            'proxy' => 'http://proxy.example.com:8125',
-            'curl' => [\CURLOPT_PROXY => 'socks5://proxy.example.com:1080'],
-        ]];
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'exact raw no-proxy wildcard' => [[], [
-                'proxy' => 'http://proxy.example.com:8125',
-                'curl' => [(int) \constant('CURLOPT_NOPROXY') => '*'],
-            ]];
-        }
-    }
-
-    /**
-     * @dataProvider legacyHttpProxyRouteProvider
-     *
-     * @param array<int|string, mixed> $options
-     */
-    public function testRejectsManagedProxyAuthorizationForLegacyHttpProxyRoutes(array $options): void
-    {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
-
-        try {
-            $this->expectException(RequestException::class);
-            $this->expectExceptionMessage('Proxy-Authorization request headers through a possible HTTP or HTTPS proxy require libcurl 7.37.0 or newer built with proxy header separation support.');
-
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'http://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                ]),
-                $options
-            );
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public static function legacyHttpProxyRouteProvider(): iterable
-    {
-        yield 'HTTP proxy' => [['proxy' => 'http://proxy.example.com:8080']];
-        yield 'scheme-less HTTP proxy' => [['proxy' => 'proxy.example.com:8080']];
-        yield 'unrecognized proxy scheme' => [['proxy' => 'ftp://proxy.example.com:2121']];
-        yield 'raw HTTP proxy replaces managed SOCKS proxy' => [[
-            'proxy' => 'socks5://proxy.example.com:1080',
-            'curl' => [\CURLOPT_PROXY => 'http://proxy.example.com:8125'],
-        ]];
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'raw no-proxy match remains conservative' => [[
-                'proxy' => 'http://proxy.example.com:8080',
-                'curl' => [(int) \constant('CURLOPT_NOPROXY') => 'example.com'],
-            ]];
-        }
-    }
-
-    public function testNonArrayProxyHeaderThrowsWhenManagedHeaderWouldAppend(): void
-    {
+        self::requireProxyHeaderSeparationConstants();
         $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
 
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.42.1', 'features' => 0]);
+        $factory = new CurlFactory(3);
+        self::createRequestOnFactory(
+            $factory,
+            '7.37.0',
+            new Psr7\Request('GET', 'http://example.com', [
+                'Proxy-Authorization' => ['Basic dXNlcjpvbmU=', 'Basic dXNlcjp0d28='],
+            ]),
+            [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [
+                    $proxyHeaderOption => ['X-Proxy-Header: value'],
+                ],
+            ]
+        );
+
+        // The managed credentials are appended after the pre-existing proxy
+        // headers, preserving both the raw order and the header value order.
+        self::assertSame([
+            'X-Proxy-Header: value',
+            'Proxy-Authorization: Basic dXNlcjpvbmU=',
+            'Proxy-Authorization: Basic dXNlcjp0d28=',
+        ], $_SERVER['_curl'][$proxyHeaderOption]);
+    }
+
+    public function testMultipleManagedProxyAuthorizationValuesKeepOrderAndPreserveEmptyValues(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        $factory = new CurlFactory(3);
+        self::createRequestOnFactory(
+            $factory,
+            '7.37.0',
+            new Psr7\Request('GET', 'http://example.com', [
+                'Proxy-Authorization' => ['Basic dXNlcjpvbmU=', '', 'Basic dXNlcjp0d28='],
+            ]),
+            ['proxy' => 'http://proxy.example.com:8080']
+        );
+
+        // The values are configured line by line in their original order
+        // (comma-joining them would change the wire representation), and the
+        // empty value keeps cURL's header-control semicolon form.
+        self::assertSame([
+            'Proxy-Authorization: Basic dXNlcjpvbmU=',
+            'Proxy-Authorization;',
+            'Proxy-Authorization: Basic dXNlcjp0d28=',
+        ], $_SERVER['_curl'][$proxyHeaderOption]);
+        self::assertNotContains('Proxy-Authorization: Basic dXNlcjpvbmU=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+        self::assertNotContains('Proxy-Authorization: Basic dXNlcjp0d28=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+        self::assertNotContains('Proxy-Authorization;', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+    }
+
+    public function testRawProxyHeaderOptionIsSeparatedOnDirectRoute(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        self::withProxyEnvironment([], static function () use ($proxyHeaderOption): void {
+            $factory = new CurlFactory(3);
+            self::createRequestOnFactory(
+                $factory,
+                '7.37.0',
+                new Psr7\Request('GET', 'http://example.com'),
+                [
+                    'proxy' => '',
+                    'curl' => [
+                        $proxyHeaderOption => ['X-Proxy-Header: value'],
+                    ],
+                ]
+            );
+
+            // Any configured proxy-only list is paired with
+            // CURLHEADER_SEPARATE without consulting the route prediction;
+            // libcurl simply leaves the list unused on a direct transfer.
+            self::assertSame(['X-Proxy-Header: value'], $_SERVER['_curl'][$proxyHeaderOption]);
+            self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
+        });
+    }
+
+    public function testSupportedProxyAuthorizationConflictsWithPersistentRequireWhenRouted(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+        self::requireProxyHeaderSeparationConstants();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
 
         try {
             $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYHEADER must be an array when a Proxy-Authorization request header is routed to the proxy header channel.');
+            $this->expectExceptionMessage('fresh proxy tunnel connection');
 
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'http://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                ]),
-                [
-                    'proxy' => 'http://proxy.example.com:8080',
-                    'curl' => [$proxyHeaderOption => 'not-an-array'],
-                ]
+            // The HTTPS target tunnels through the http:// proxy (requiring
+            // libcurl 7.54); the managed header is configured in
+            // CURLOPT_PROXYHEADER before the configured-share
+            // fresh-connection logic observes it and rejects the reuse.
+            self::createRequestOnFactory(
+                $factory,
+                '7.54.0',
+                new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+                ['proxy' => 'http://proxy.example.com:8080']
             );
         } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
+            self::closeShareHandleOnPhp7($shareHandle);
         }
     }
 
-    public function testDeprecatesRawProxyHeaderWithoutSeparationSupport(): void
+    public function testSupportedProxyAuthorizationWithoutTunnelIsAcceptedUnderPersistentRequire(): void
     {
+        self::skipIfCurlShareIsUnavailable();
+        self::requireProxyHeaderSeparationConstants();
         $proxyHeaderOption = self::proxyHeaderOption();
-        $deprecation = null;
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
-        \set_error_handler(static function (int $severity, string $message) use (&$deprecation): bool {
-            $deprecation = $message;
 
-            return true;
-        }, \E_USER_DEPRECATED);
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::PERSISTENT_REQUIRE, $shareHandle);
 
         try {
-            $factory = new CurlFactory(3);
-            $easy = $factory->create(
-                new Psr7\Request('GET', 'http://example.com'),
-                ['proxy' => '', 'curl' => [$proxyHeaderOption => []]]
-            );
-            $factory->release($easy);
-        } finally {
-            \restore_error_handler();
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-
-        self::assertNotNull($deprecation, 'Expected a deprecation for raw CURLOPT_PROXYHEADER without separation support.');
-        self::assertStringContainsString('CURLOPT_PROXYHEADER', $deprecation);
-        self::assertStringContainsString('guzzlehttp/guzzle 8.0 will reject this configuration', $deprecation);
-        self::assertStringContainsString('libcurl 7.37.0 or newer built with proxy header separation support', $deprecation);
-    }
-
-    public function testDoesNotDeprecateRawProxyHeaderWithSeparationSupport(): void
-    {
-        $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
-        $deprecation = null;
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
-        \set_error_handler(static function (int $severity, string $message) use (&$deprecation): bool {
-            $deprecation = $message;
-
-            return true;
-        }, \E_USER_DEPRECATED);
-
-        try {
-            $factory = new CurlFactory(3);
-            $easy = $factory->create(
-                new Psr7\Request('GET', 'http://example.com'),
-                ['proxy' => '', 'curl' => [$proxyHeaderOption => []]]
-            );
-            $factory->release($easy);
-        } finally {
-            \restore_error_handler();
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-
-        self::assertNull($deprecation);
-    }
-
-    public function testRoutesEmptyProxyAuthorizationHeaderWithoutTreatingItAsCredential(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.20.0', 'features' => 0]);
-
-        try {
-            $easy = (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => '']),
+            // Supported separation + a NON-tunnel (plain http) target: the header
+            // is configured in CURLOPT_PROXYHEADER and the tunnel-gated
+            // fresh-connection logic never runs, so PERSISTENT_REQUIRE must
+            // ACCEPT the request.
+            $easy = self::createRequestOnFactory(
+                $factory,
+                '7.37.0',
+                new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
                 ['proxy' => 'http://proxy.example.com:8080']
             );
 
-            self::assertNotContains('Proxy-Authorization;', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-            self::assertSame(['Proxy-Authorization;'], $_SERVER['_curl'][self::proxyHeaderOption()]);
+            self::assertNull($easy->proxyTunnelSignature);
+            self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][$proxyHeaderOption]);
             self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
             self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-
-            $baseline = self::createOnFactory(new CurlFactory(3), '8.20.0', 'https://example.com', [
-                'proxy' => 'http://proxy.example.com:8080',
-            ]);
-            self::assertSame($baseline->proxyTunnelSignature, $easy->proxyTunnelSignature);
         } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
+            self::closeShareHandleOnPhp7($shareHandle);
         }
     }
 
-    public function testLegacyCurlRejectsEmptyProxyAuthorizationHeaderForHttpProxy(): void
+    public static function unsupportedProxyAuthorizationRouteProvider(): array
     {
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
+        return [
+            'direct' => [[], ['proxy' => '']],
+            'http proxy' => [[], ['proxy' => 'http://proxy.example.com:8080']],
+            'socks proxy' => [[], ['proxy' => 'socks5://proxy.example.com:1080']],
+            'managed no bypass' => [[], ['proxy' => ['http' => 'http://proxy.example.com:8080', 'no' => ['example.com']]]],
+            'environment NO_PROXY bypass' => [['http_proxy' => 'http://proxy.example.com:8080', 'NO_PROXY' => 'example.com'], []],
+        ];
+    }
 
-        try {
+    /**
+     * @dataProvider unsupportedProxyAuthorizationRouteProvider
+     */
+    public function testRejectsManagedProxyAuthorizationWithoutSeparationSupport(array $env, array $options): void
+    {
+        // Legacy libcurl cannot separate proxy headers, so a request carrying
+        // a non-empty Proxy-Authorization credential is rejected up front on
+        // every predicted route, matching the other build- and
+        // version-specific capability checks.
+        self::withProxyEnvironment($env, function () use ($options): void {
             $this->expectException(RequestException::class);
-            $this->expectExceptionMessage('Proxy-Authorization request headers through a possible HTTP or HTTPS proxy require libcurl 7.37.0 or newer built with proxy header separation support.');
+            $this->expectExceptionMessage('Proxy headers require libcurl 7.37.0 or newer built with proxy header separation support.');
 
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => '']),
-                ['proxy' => 'http://proxy.example.com:8080']
+            self::createRequestOnFactory(
+                new CurlFactory(3),
+                '7.36.0',
+                new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+                $options
             );
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testManagedProxyAuthorizationPreservesValueOrderIncludingEmptyValues(): void
-    {
-        self::withProxyEnvironment([], static function (): void {
-            self::skipIfProxyHeaderSeparationUnavailable();
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
-
-            try {
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'http://example.com', [
-                        'Proxy-Authorization' => ['Basic dXNlcjE6cGFzczE=', '', 'Basic dXNlcjI6cGFzczI='],
-                    ]),
-                    ['proxy' => '']
-                );
-
-                self::assertSame(
-                    [
-                        'Proxy-Authorization: Basic dXNlcjE6cGFzczE=',
-                        'Proxy-Authorization;',
-                        'Proxy-Authorization: Basic dXNlcjI6cGFzczI=',
-                    ],
-                    $_SERVER['_curl'][self::proxyHeaderOption()]
-                );
-                self::assertNotContains('Proxy-Authorization: Basic dXNlcjE6cGFzczE=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-                self::assertNotContains('Proxy-Authorization: Basic dXNlcjI6cGFzczI=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-                self::assertNotContains('Proxy-Authorization;', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-            } finally {
-                self::setCurlVersionInfo($previousVersionInfo);
-            }
         });
     }
 
-    public function testRawHttpHeaderReplacementSuppressesManagedProxyAuthorization(): void
-    {
-        self::withProxyEnvironment([], static function (): void {
-            $rawHeaders = ['Host: example.com', 'Accept: application/json'];
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
-
-            try {
-                // No capability error even on legacy libcurl: the deprecated
-                // raw replacement suppresses every generated header, the
-                // managed Proxy-Authorization value included, and the managed
-                // value is not resynthesized into either header list.
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'http://example.com', [
-                        'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                    ]),
-                    ['proxy' => '', 'curl' => [\CURLOPT_HTTPHEADER => $rawHeaders]]
-                );
-            } finally {
-                self::setCurlVersionInfo($previousVersionInfo);
-            }
-
-            self::assertSame($rawHeaders, $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-            if (\defined('CURLOPT_PROXYHEADER')) {
-                self::assertArrayNotHasKey((int) \constant('CURLOPT_PROXYHEADER'), $_SERVER['_curl']);
-            }
-        });
-    }
-
-    public function testManagedProxyAuthorizationOverwritesDeprecatedUnifiedHeaderOption(): void
-    {
-        self::withProxyEnvironment([], static function (): void {
-            self::skipIfProxyHeaderSeparationUnavailable();
-            if (!\defined('CURLHEADER_UNIFIED')) {
-                self::markTestSkipped('CURLHEADER_UNIFIED is not available.');
-            }
-
-            $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
-
-            try {
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'http://example.com', [
-                        'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                    ]),
-                    [
-                        'proxy' => '',
-                        'curl' => [(int) \constant('CURLOPT_HEADEROPT') => (int) \constant('CURLHEADER_UNIFIED')],
-                    ]
-                );
-
-                self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
-                self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][self::proxyHeaderOption()]);
-            } finally {
-                self::setCurlVersionInfo($previousVersionInfo);
-            }
-        });
-    }
-
-    public function testRejectsManagedProxyAuthorizationContainingNewlinesFromCustomRequest(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-
-        $request = $this->createMock(RequestInterface::class);
-        $request->method('getMethod')->willReturn('GET');
-        $request->method('getUri')->willReturn(new Psr7\Uri('http://example.com'));
-        $request->method('getProtocolVersion')->willReturn('1.1');
-        $request->method('getHeaders')->willReturn(['Host' => ['example.com']]);
-        $request->method('getHeader')->willReturn(["Basic dXNlcm5hbWU6cGFzc3dvcmQ=\r\nX-Injected: yes"]);
-        $request->method('hasHeader')->willReturn(false);
-        $request->method('getBody')->willReturn(Psr7\Utils::streamFor(''));
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.37.0', 'features' => 0]);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYHEADER entries must not contain a carriage return or line feed.');
-
-            (new CurlFactory(3))->create($request, ['proxy' => '']);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testLegacyCapabilityErrorWinsOverRequestLevelAuthenticatedShareRejection(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.36.0', 'features' => 0]);
-
-        try {
-            $this->expectException(RequestException::class);
-            $this->expectExceptionMessage('Proxy-Authorization request headers through a possible HTTP or HTTPS proxy require libcurl 7.37.0 or newer built with proxy header separation support.');
-
-            (new CurlFactory(3))->create(
-                new Psr7\Request('GET', 'https://example.com', [
-                    'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                ]),
-                [
-                    'proxy' => 'http://username:password@proxy.example.com:8080',
-                    'curl' => [(int) \constant('CURLOPT_SHARE') => null],
-                ]
-            );
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testManagedProxyAuthorizationTunnelIsSeenAsAuthenticatedByShareGuards(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-        self::skipIfProxyHeaderSeparationUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.21.0', 'features' => 0]);
-
-        try {
-            // The managed value routed to CURLOPT_PROXYHEADER keeps the
-            // tunnel classified as authenticated: the request-level share
-            // rejection names the authenticated tunnel rule, not the
-            // anonymous libcurl 7.57.0 rule.
-            try {
-                (new CurlFactory(3))->create(
-                    new Psr7\Request('GET', 'https://example.com', [
-                        'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-                    ]),
-                    [
-                        'proxy' => 'http://proxy.example.com:8080',
-                        'curl' => [(int) \constant('CURLOPT_SHARE') => null],
-                    ]
-                );
-                self::fail('Expected the request-level share to be rejected for the authenticated managed tunnel.');
-            } catch (\InvalidArgumentException $e) {
-                self::assertStringContainsString('authenticated HTTP/HTTPS proxy tunnel configuration', $e->getMessage());
-            }
-
-            // The opaque-share anonymous arm must not force-fresh the
-            // authenticated managed tunnel; it stays on the version-gated
-            // path.
-            $shareHandle = \curl_share_init();
-            $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-            $conf = [
-                \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-                self::proxyHeaderOption() => ['Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-            ];
-
-            $method = new \ReflectionMethod(CurlFactory::class, 'isolateOpaqueShareAnonymousProxyTunnel');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-            $method->invokeArgs($factory, [new Psr7\Request('GET', 'https://example.com'), &$conf]);
-
-            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $conf);
-            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $conf);
-
-            // Control: without the managed line the same tunnel is anonymous
-            // and the arm does force a fresh connection.
-            $anonymousConf = [\CURLOPT_PROXY => 'http://proxy.example.com:8080'];
-            $method->invokeArgs($factory, [new Psr7\Request('GET', 'https://example.com'), &$anonymousConf]);
-
-            self::assertTrue($anonymousConf[\CURLOPT_FRESH_CONNECT]);
-            self::assertTrue($anonymousConf[\CURLOPT_FORBID_REUSE]);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testDirectCurlRequestDoesNotSendProxyAuthorizationToOrigin(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-        if (!CurlVersion::supportsProxyHeaderSeparation()) {
-            self::markTestSkipped('The runtime libcurl does not support proxy header separation.');
-        }
-
-        Server::flush();
-        Server::enqueue([new Psr7\Response(200)]);
-
-        $handler = new Handler\CurlHandler();
-        $handler(
-            new Psr7\Request('GET', Server::$url, [
-                'Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=',
-            ]),
-            ['proxy' => '']
-        )->wait();
-
-        self::assertFalse(Server::received()[0]->hasHeader('Proxy-Authorization'));
-    }
-
-    public function testProxyReceivesClientDefaultProxyAuthorizationHeader(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-        if (!CurlVersion::supportsProxyHeaderSeparation()) {
-            self::markTestSkipped('The runtime libcurl does not support proxy header separation.');
-        }
-
-        Server::flush();
-        Server::enqueue([new Psr7\Response(200)]);
-
-        $client = new Client([
-            'handler' => HandlerStack::create(new Handler\CurlHandler()),
-            'headers' => ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-        ]);
-        $response = $client->request('GET', 'http://www.example.com', [
-            'proxy' => Server::$url,
-            'version' => '1.0',
-        ]);
-
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame('Basic dXNlcm5hbWU6cGFzc3dvcmQ=', Server::received()[0]->getHeaderLine('Proxy-Authorization'));
-    }
-
-    public function testEmptyProxyAuthorizationSuppressesProxyUrlUserinfoCredentials(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-        if (!CurlVersion::supportsProxyHeaderSeparation()) {
-            self::markTestSkipped('The runtime libcurl does not support proxy header separation.');
-        }
-
-        Server::flush();
-        Server::enqueue([new Psr7\Response(200)]);
-
-        $proxy = (new Psr7\Uri(Server::$url))->withUserInfo('username', 'password');
-        $handler = new Handler\CurlHandler();
-        $response = $handler(
-            new Psr7\Request('GET', 'http://www.example.com', ['Proxy-Authorization' => ''], null, '1.0'),
-            ['proxy' => (string) $proxy]
-        )->wait();
-
-        self::assertSame(200, $response->getStatusCode());
-        $received = Server::received()[0];
-        self::assertTrue($received->hasHeader('Proxy-Authorization'));
-        self::assertSame('', $received->getHeaderLine('Proxy-Authorization'));
-    }
-
-    public function testRedirectToDirectHopKeepsManagedProxyAuthorizationOutOfOriginHeaders(): void
-    {
-        self::skipIfProxyHeaderSeparationUnavailable();
-        if (!CurlVersion::supportsProxyHeaderSeparation()) {
-            self::markTestSkipped('The runtime libcurl does not support proxy header separation.');
-        }
-
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(301, ['Location' => Server::$url]),
-            new Psr7\Response(200),
-        ]);
-
-        $client = new Client(['handler' => HandlerStack::create(new Handler\CurlHandler())]);
-        $response = $client->request('GET', 'http://www.example.com', [
-            'headers' => ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
-            'proxy' => ['http' => Server::$url, 'no' => ['127.0.0.1']],
-            'version' => '1.0',
-        ]);
-
-        self::assertSame(200, $response->getStatusCode());
-
-        // The captured configuration is the redirected hop's, which was
-        // direct: its host matched the managed "no" list.
-        self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-        self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
-        self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][self::proxyHeaderOption()]);
-
-        $received = Server::received();
-        self::assertCount(2, $received);
-        // The proxied first hop delivered the credential to the proxy; the
-        // direct hop did not deliver it to the origin.
-        self::assertTrue($received[0]->hasHeader('Proxy-Authorization'));
-        self::assertFalse($received[1]->hasHeader('Proxy-Authorization'));
-    }
-
-    public function testMigratesRawHttpHeaderProxyAuthorizationWhenSupportedUsingHelper(): void
+    public function testRejectsRawOnlyProxyHeaderOptionWithoutSeparationSupport(): void
     {
         $proxyHeaderOption = self::proxyHeaderOption();
-        self::skipIfProxyHeaderSeparationUnavailable();
 
-        $conf = self::invokeProxyAuthorizationHeaderHandling('7.37.0', new Psr7\Request('GET', 'http://example.com'), [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            \CURLOPT_HTTPHEADER => ['Accept:', 'Proxy-Authorization: Basic raw'],
-        ]);
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('Proxy headers require libcurl 7.37.0 or newer built with proxy header separation support.');
 
-        self::assertSame(['Accept:'], $conf[\CURLOPT_HTTPHEADER]);
-        self::assertContains('Proxy-Authorization: Basic raw', $conf[$proxyHeaderOption]);
-        self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $conf[(int) \constant('CURLOPT_HEADEROPT')]);
+        // Unlike the 7.x branches, 8.0 also fails closed for a caller's
+        // raw-only CURLOPT_PROXYHEADER on legacy libcurl: a proxy-only header
+        // list cannot be represented safely without separation support.
+        self::createRequestOnFactory(
+            new CurlFactory(3),
+            '7.36.0',
+            new Psr7\Request('GET', 'http://example.com'),
+            [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [
+                    $proxyHeaderOption => ['X-Proxy-Header: value'],
+                ],
+            ]
+        );
     }
 
-    public function testLegacyCurlRawHttpHeaderProxyAuthorizationForcesFreshConnectionUsingHelper(): void
+    public function testRawHeaderOptIsRejected(): void
     {
-        $conf = self::invokeProxyAuthorizationHeaderHandling('7.36.0', new Psr7\Request('GET', 'http://example.com'), [
-            \CURLOPT_PROXY => 'http://proxy.example.com:8080',
-            \CURLOPT_HTTPHEADER => ['Proxy-Authorization: Basic raw'],
-        ]);
+        if (!\defined('CURLOPT_HEADEROPT')) {
+            self::markTestSkipped('CURLOPT_HEADEROPT is not available.');
+        }
 
-        self::assertContains('Proxy-Authorization: Basic raw', $conf[\CURLOPT_HTTPHEADER]);
-        self::assertTrue($conf[\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($conf[\CURLOPT_FORBID_REUSE]);
+        $headerOpt = (int) \constant('CURLOPT_HEADEROPT');
+        $separate = \defined('CURLHEADER_SEPARATE') ? (int) \constant('CURLHEADER_SEPARATE') : 1;
+
+        try {
+            (new CurlFactory(3))->create(new Psr7\Request('GET', Server::$url), [
+                'curl' => [
+                    $headerOpt => $separate,
+                ],
+            ]);
+
+            self::fail('Expected InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            // CURLOPT_HEADEROPT is owned internally by Guzzle and is not on the
+            // public allow-list, so passing it raw is rejected.
+            self::assertStringContainsString('CURLOPT_HEADEROPT', $e->getMessage());
+            self::assertStringContainsString("outside the built-in cURL handlers' allow-list", $e->getMessage());
+        }
     }
 
     public function testProxyAuthorizationHeaderOrderAffectsSignature(): void
@@ -2912,38 +2860,181 @@ class CurlFactoryTest extends TestCase
         $first = self::computeProxyTunnelSignature('8.20.0', 'https://example.com', [
             \CURLOPT_PROXY => 'http://proxy.example.com:8080',
             $proxyHeaderOption => [
-                'Proxy-Authorization: Basic dXNlcjE6cGFzczE=',
-                'Proxy-Authorization: Basic dXNlcjI6cGFzczI=',
+                'Proxy-Authorization: Basic dXNlcjpvbmU=',
+                'Proxy-Authorization: Basic dXNlcjp0d28=',
             ],
         ]);
         $second = self::computeProxyTunnelSignature('8.20.0', 'https://example.com', [
             \CURLOPT_PROXY => 'http://proxy.example.com:8080',
             $proxyHeaderOption => [
-                'Proxy-Authorization: Basic dXNlcjI6cGFzczI=',
-                'Proxy-Authorization: Basic dXNlcjE6cGFzczE=',
+                'Proxy-Authorization: Basic dXNlcjp0d28=',
+                'Proxy-Authorization: Basic dXNlcjpvbmU=',
             ],
         ]);
 
+        // With the sort() removed, the signature reflects wire order: the same
+        // credentials in a different order section separately.
         self::assertNotNull($first);
-        self::assertNotNull($second);
         self::assertNotSame($first, $second);
     }
 
-    public function testSectionsAuthenticatedHttpProxyTunnelOnAffectedCurlVersion(): void
+    public function testEmptyPsrProxyAuthorizationHeaderUsesProxyOnlyControlField(): void
     {
-        if (!\defined('CURLOPT_HTTPPROXYTUNNEL')) {
-            self::markTestSkipped('CURLOPT_HTTPPROXYTUNNEL is not available.');
-        }
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
 
         $factory = new CurlFactory(3);
-        $easy = self::createOnFactory($factory, '8.19.0', 'http://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
+        $easy = self::createRequestOnFactory(
+            $factory,
+            '8.20.0',
+            new Psr7\Request('GET', 'https://example.com', ['Proxy-Authorization' => '']),
+            ['proxy' => 'http://proxy.example.com:8080']
+        );
+
+        // An empty first-class value carries no credential, but its semicolon
+        // form remains in the proxy-only channel so it can suppress a proxy
+        // authorization field generated from URL userinfo.
+        self::assertNotContains('Proxy-Authorization;', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+        self::assertSame(['Proxy-Authorization;'], $_SERVER['_curl'][$proxyHeaderOption]);
+        self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $_SERVER['_curl'][(int) \constant('CURLOPT_HEADEROPT')]);
+        self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
+        self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
+
+        // The empty value carries no credential, so the tunnel is delegated to
+        // libcurl, the same owner as an unauthenticated proxy.
+        $unauthenticated = self::createOnFactory($factory, '8.20.0', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ])->proxyTunnelSignature;
+        self::assertSame($unauthenticated, $easy->proxyTunnelSignature);
+    }
+
+    public function testRejectsEmptyPsrProxyAuthorizationHeaderWithoutSeparationSupport(): void
+    {
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('Proxy headers require libcurl 7.37.0 or newer built with proxy header separation support.');
+
+        self::createRequestOnFactory(
+            new CurlFactory(3),
+            '7.36.0',
+            new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => '']),
+            ['proxy' => '']
+        );
+    }
+
+    public function testNonArrayProxyHeaderThrowsWhenManagedHeaderWouldAppend(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXYHEADER must be an array when a Proxy-Authorization request header is routed to the proxy header channel.');
+
+        // CURLOPT_PROXYHEADER is allow-listed but must be an array; a
+        // non-array value plus a PSR Proxy-Authorization header to route is
+        // rejected.
+        self::createRequestOnFactory(
+            new CurlFactory(3),
+            '7.37.0',
+            new Psr7\Request('GET', 'http://example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+            [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [
+                    $proxyHeaderOption => 'not-an-array',
+                ],
+            ]
+        );
+    }
+
+    public function testRejectsManagedProxyAuthorizationValueWithCrLfFromCustomRequest(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+
+        $request = new class('GET', 'http://example.com') extends Psr7\Request {
+            public function getHeader($header): array
+            {
+                if ($header === 'Proxy-Authorization') {
+                    return ["Basic dXNlcm5hbWU6cGFzc3dvcmQ=\r\nX-Injected: value"];
+                }
+
+                return parent::getHeader($header);
+            }
+        };
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXYHEADER entries must not contain a carriage return or line feed.');
+
+        // A conforming PSR-7 implementation rejects CR and LF in header
+        // values, but a custom RequestInterface can return them; the managed
+        // lines are re-validated by the normalization pass that runs after
+        // they are appended to CURLOPT_PROXYHEADER.
+        self::createRequestOnFactory(
+            new CurlFactory(3),
+            '7.37.0',
+            $request,
+            ['proxy' => 'http://proxy.example.com:8080']
+        );
+    }
+
+    public function testRejectsRawCurlSocksProxyTypeWithProxyUrl(): void
+    {
+        if (!\defined('CURLPROXY_SOCKS5')) {
+            self::markTestSkipped('CURLPROXY_SOCKS5 is not available.');
+        }
+
+        $proxyType = (int) \constant('CURLPROXY_SOCKS5');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXY');
+
+        (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
             'curl' => [
-                \CURLOPT_HTTPPROXYTUNNEL => true,
+                \CURLOPT_PROXY => 'proxy.example.com:1080',
+                \CURLOPT_PROXYTYPE => $proxyType,
+                \CURLOPT_PROXYUSERPWD => 'username:password',
             ],
         ]);
+    }
 
-        self::assertNotNull($easy->proxyTunnelSignature);
+    public function testRejectsRawCurlProxyTypeOption(): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXYTYPE');
+
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'curl' => [\CURLOPT_PROXYTYPE => \defined('CURLPROXY_HTTPS') ? \constant('CURLPROXY_HTTPS') : 2],
+        ]);
+    }
+
+    public function testRejectsRawCurlProxyOverride(): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXY');
+
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'proxy' => 'http://username:password@proxy-one.example.com:8080',
+            'curl' => [
+                \CURLOPT_PROXY => 'http://proxy-two.example.com:8080',
+            ],
+        ]);
+    }
+
+    public function testRejectsRawCurlProxyDisable(): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('CURLOPT_PROXY');
+
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+            'curl' => [
+                \CURLOPT_PROXY => '',
+            ],
+        ]);
     }
 
     public function testReusesIdleHandleForSameProxyTunnelSignature(): void
@@ -2958,6 +3049,324 @@ class CurlFactoryTest extends TestCase
         $second = self::createOnFactory($factory, '8.19.0', 'https://example.com', $options);
 
         self::assertSame($pooled, $second->handle);
+    }
+
+    public function testFirstProxyTunnelOwnerReusesPooledHandleWithoutPurging(): void
+    {
+        $factory = new CurlFactory(3);
+
+        $direct = self::createOnFactory($factory, '8.19.0', 'https://example.com', []);
+        $pooled = $direct->handle;
+        $factory->release($direct);
+
+        $tunnel = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+        ]);
+
+        self::assertSame($pooled, $tunnel->handle);
+    }
+
+    public function testPurgesIdleHandlesWhenProxyTunnelOwnerChanges(): void
+    {
+        $factory = new CurlFactory(3);
+
+        $first = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://user1:pass1@proxy.example.com:8080',
+        ]);
+        $factory->release($first);
+        self::assertCount(1, self::readIdleHandles($factory));
+
+        $second = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://user2:pass2@proxy.example.com:8080',
+        ]);
+        self::assertCount(0, self::readIdleHandles($factory));
+
+        $factory->release($second);
+        self::assertCount(1, self::readIdleHandles($factory));
+    }
+
+    public function testReleaseDropsHandleFromSupersededOwner(): void
+    {
+        $factory = new CurlFactory(3);
+
+        $a = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://a:a@proxy.example.com:8080',
+        ]);
+        $b = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://b:b@proxy.example.com:8080',
+        ]);
+
+        $factory->release($a);
+        self::assertCount(0, self::readIdleHandles($factory));
+
+        $factory->release($b);
+        self::assertCount(1, self::readIdleHandles($factory));
+    }
+
+    public function testShareHandleUsesBlanketForceFreshForAuthenticatedProxy(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            $easy = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+                'proxy' => 'http://username:password@proxy.example.com:8080',
+            ]);
+
+            self::assertNull($easy->proxyTunnelSignature);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testShareHandleUsesBlanketForceFreshForAuthenticatedSocksProxyOnAffectedCurlVersion(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            $easy = self::createOnFactory($factory, '7.68.0', 'http://example.com', [
+                'proxy' => 'socks5://username:password@proxy.example.com:1080',
+            ]);
+
+            self::assertNull($easy->proxyTunnelSignature);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testShareHandleUsesBlanketForceFreshForAnonymousSocksProxyOnAffectedCurlVersion(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            $easy = self::createOnFactory($factory, '7.68.0', 'https://example.com', [
+                'proxy' => 'socks5://proxy.example.com:1080',
+                'curl' => [
+                    \CURLOPT_FRESH_CONNECT => false,
+                    \CURLOPT_FORBID_REUSE => false,
+                ],
+            ]);
+
+            self::assertNull($easy->proxyTunnelSignature);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public function testShareHandleSkipsBlanketForceFreshForSocksProxyOnFixedCurlVersion(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            $easy = self::createOnFactory($factory, '7.69.0', 'https://example.com', [
+                'proxy' => 'socks5://username:password@proxy.example.com:1080',
+            ]);
+
+            self::assertNull($easy->proxyTunnelSignature);
+            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public static function opaqueShareAnonymousProxyTunnelProvider(): iterable
+    {
+        yield 'https origin at the capability floor' => ['7.57.0', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ]];
+        yield 'https origin on modern libcurl' => ['8.21.0', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ]];
+        yield 'explicit tunnel option' => ['8.21.0', 'http://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+            'curl' => [\CURLOPT_HTTPPROXYTUNNEL => true],
+        ]];
+
+        if (\defined('CURLOPT_CONNECT_TO')) {
+            yield 'connect-to tunnel' => ['8.21.0', 'http://example.com', [
+                'proxy' => 'http://proxy.example.com:8080',
+                'curl' => [(int) \constant('CURLOPT_CONNECT_TO') => ['example.com:80:backend.example.com:8080']],
+            ]];
+        }
+
+        yield 'authenticated tunnel below the credential floor' => ['7.56.1', 'https://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+        ]];
+    }
+
+    /**
+     * @dataProvider opaqueShareAnonymousProxyTunnelProvider
+     */
+    public function testOpaqueShareHandleForcesFreshProxyTunnels(string $version, string $uri, array $options): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            $options['curl'] = ($options['curl'] ?? []) + [
+                \CURLOPT_FRESH_CONNECT => false,
+                \CURLOPT_FORBID_REUSE => false,
+            ];
+            self::createOnFactory($factory, $version, $uri, $options);
+
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+            self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public static function opaqueShareUntouchedRouteProvider(): iterable
+    {
+        yield 'anonymous tunnel below the capability floor' => ['7.56.1', 'https://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ]];
+        yield 'direct request' => ['8.21.0', 'https://example.com', [
+            'proxy' => '',
+        ]];
+        yield 'non-tunnel forward proxy' => ['8.21.0', 'http://example.com', [
+            'proxy' => 'http://proxy.example.com:8080',
+        ]];
+        yield 'authenticated tunnel on credential-aware libcurl' => ['8.20.0', 'https://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+        ]];
+    }
+
+    /**
+     * @dataProvider opaqueShareUntouchedRouteProvider
+     */
+    public function testOpaqueShareHandleLeavesOtherRoutesUntouched(string $version, string $uri, array $options): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $shareHandle = \curl_share_init();
+        self::assertNotFalse($shareHandle);
+        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
+
+        try {
+            self::createOnFactory($factory, $version, $uri, $options);
+
+            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
+        } finally {
+            self::closeShareHandleOnPhp7($shareHandle);
+        }
+    }
+
+    public static function handlerShareModeProvider(): iterable
+    {
+        yield 'handler prefer' => [TransportSharing::HANDLER_PREFER];
+        yield 'handler require' => [TransportSharing::HANDLER_REQUIRE];
+    }
+
+    /**
+     * @dataProvider handlerShareModeProvider
+     */
+    public function testHandlerShareStateRetainsAnonymousProxyTunnelReuse(string $mode): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.21.0', 'features' => self::curlSslFeature()]);
+
+        try {
+            $state = CurlShareHandleState::fromOption($mode);
+            self::assertNotNull($state);
+            $factory = new CurlFactory(3, $state->mode, $state);
+
+            self::createOnFactory($factory, '8.21.0', 'https://example.com', [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+
+            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHandlerShareStateKeepsAuthenticatedProxyTunnelSafeguards(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
+        self::assertNotNull($state);
+        $factory = new CurlFactory(3, $state->mode, $state);
+
+        self::createOnFactory($factory, '8.19.0', 'https://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+        ]);
+
+        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+    }
+
+    public function testHandlerShareStateStillForcesFreshSocksProxyOnAffectedCurlVersion(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
+        self::assertNotNull($state);
+        $factory = new CurlFactory(3, $state->mode, $state);
+
+        self::createOnFactory($factory, '7.68.0', 'https://example.com', [
+            'proxy' => 'socks5://proxy.example.com:1080',
+        ]);
+
+        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
+    }
+
+    public function testRejectsShareHandleStateWithMismatchedSharingMode(): void
+    {
+        self::skipIfCurlShareIsUnavailable();
+
+        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
+        self::assertNotNull($state);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The cURL share handle state mode does not match the configured transport sharing mode.');
+
+        new CurlFactory(3, TransportSharing::HANDLER_REQUIRE, $state);
+    }
+
+    public function testAuthenticatedHttpsProxyReuseOptionsCanBeSetOnFixedCurlVersion(): void
+    {
+        $factory = new CurlFactory(3);
+        self::createOnFactory($factory, '8.20.0', 'https://example.com', [
+            'proxy' => 'http://username:password@proxy.example.com:8080',
+            'curl' => [
+                \CURLOPT_FRESH_CONNECT => false,
+                \CURLOPT_FORBID_REUSE => false,
+            ],
+        ]);
+
+        self::assertFalse($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
+        self::assertFalse($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
     }
 
     public function testProxyTlsAuthCredentialChangesProxyTunnelSignature(): void
@@ -3042,548 +3451,33 @@ class CurlFactoryTest extends TestCase
         self::assertFalse(self::computeRequiresFreshForAuthenticatedProxy('7.83.1', 'https://example.com', $conf));
     }
 
-    public function testFirstProxyTunnelOwnerReusesPooledHandleWithoutPurging(): void
-    {
-        $factory = new CurlFactory(3);
-
-        // Pool a direct (null-signature) handle.
-        $direct = self::createOnFactory($factory, '8.19.0', 'https://example.com', []);
-        $pooled = $direct->handle;
-        $factory->release($direct);
-
-        // The first in-domain request latches the owner without purging, so
-        // the pooled handle is reused rather than discarded.
-        $tunnel = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
-        ]);
-
-        self::assertSame($pooled, $tunnel->handle);
-    }
-
-    public function testPurgesIdleHandlesWhenProxyTunnelOwnerChanges(): void
-    {
-        $factory = new CurlFactory(3);
-
-        $first = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://user1:pass1@proxy.example.com:8080',
-        ]);
-        $factory->release($first);
-        self::assertCount(1, self::readIdleHandles($factory));
-
-        // A different owner purges the idle pool before the new handle is
-        // popped, so the foreign tunnel handle does not survive.
-        $second = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://user2:pass2@proxy.example.com:8080',
-        ]);
-        self::assertCount(0, self::readIdleHandles($factory));
-
-        $factory->release($second);
-        self::assertCount(1, self::readIdleHandles($factory));
-    }
-
-    public function testReleaseDropsHandleFromSupersededOwner(): void
-    {
-        $factory = new CurlFactory(3);
-
-        $a = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://a:a@proxy.example.com:8080',
-        ]);
-        // A second owner supersedes the first while the first is still in flight.
-        $b = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://b:b@proxy.example.com:8080',
-        ]);
-
-        $factory->release($a);
-        self::assertCount(0, self::readIdleHandles($factory));
-
-        $factory->release($b);
-        self::assertCount(1, self::readIdleHandles($factory));
-    }
-
-    public function testShareHandleUsesBlanketForceFreshForAuthenticatedProxy(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        $easy = self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
-        ]);
-
-        self::assertNull($easy->proxyTunnelSignature);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testShareHandleUsesBlanketForceFreshForAuthenticatedSocksProxyOnAffectedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        $easy = self::createOnFactory($factory, '7.68.0', 'http://example.com', [
-            'proxy' => 'socks5://username:password@proxy.example.com:1080',
-        ]);
-
-        self::assertNull($easy->proxyTunnelSignature);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testShareHandleUsesBlanketForceFreshForAnonymousSocksProxyOnAffectedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        $easy = self::createOnFactory($factory, '7.68.0', 'https://example.com', [
-            'proxy' => 'socks5://proxy.example.com:1080',
-            'curl' => [
-                \CURLOPT_FRESH_CONNECT => false,
-                \CURLOPT_FORBID_REUSE => false,
-            ],
-        ]);
-
-        self::assertNull($easy->proxyTunnelSignature);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testShareHandleSkipsBlanketForceFreshForSocksProxyOnFixedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        $easy = self::createOnFactory($factory, '7.69.0', 'https://example.com', [
-            'proxy' => 'socks5://username:password@proxy.example.com:1080',
-        ]);
-
-        self::assertNull($easy->proxyTunnelSignature);
-        self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
-        self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-    }
-
-    public static function opaqueShareAnonymousProxyTunnelProvider(): iterable
-    {
-        yield 'https origin at the capability floor' => ['7.57.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ]];
-        yield 'https origin on modern libcurl' => ['8.21.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ]];
-        yield 'explicit tunnel option' => ['8.21.0', 'http://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-            'curl' => [\CURLOPT_HTTPPROXYTUNNEL => true],
-        ]];
-
-        if (\defined('CURLOPT_CONNECT_TO')) {
-            yield 'connect-to tunnel' => ['8.21.0', 'http://example.com', [
-                'proxy' => 'http://proxy.example.com:8080',
-                'curl' => [(int) \constant('CURLOPT_CONNECT_TO') => ['example.com:80:backend.example.com:8080']],
-            ]];
-        }
-
-        yield 'authenticated tunnel below the credential floor' => ['7.56.1', 'https://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
-        ]];
-    }
-
     /**
-     * @dataProvider opaqueShareAnonymousProxyTunnelProvider
+     * @dataProvider invalidProxyOptionProvider
+     *
+     * @param mixed $proxy
      */
-    public function testOpaqueShareHandleForcesFreshProxyTunnels(string $version, string $uri, array $options): void
+    public function testValidatesProxyOption($proxy): void
     {
-        self::skipIfCurlShareIsUnavailable();
+        $f = new CurlFactory(3);
 
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        $options['curl'] = ($options['curl'] ?? []) + [
-            \CURLOPT_FRESH_CONNECT => false,
-            \CURLOPT_FORBID_REUSE => false,
+        $this->expectException(\InvalidArgumentException::class);
+        $f->create(new Psr7\Request('GET', Server::$url), ['proxy' => $proxy]);
+    }
+
+    public static function invalidProxyOptionProvider(): array
+    {
+        return [
+            [new \stdClass()],
+            [['http' => new \stdClass()]],
+            [['http' => 'http://bar.com', 'no' => new \stdClass()]],
+            [['http' => 'http://bar.com', 'no' => [new \stdClass()]]],
         ];
-        self::createOnFactory($factory, $version, $uri, $options);
-
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public static function opaqueShareUntouchedRouteProvider(): iterable
-    {
-        yield 'anonymous tunnel below the capability floor' => ['7.56.1', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ]];
-        yield 'direct request' => ['8.21.0', 'https://example.com', [
-            'proxy' => '',
-        ]];
-        yield 'non-tunnel forward proxy' => ['8.21.0', 'http://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-        ]];
-        yield 'authenticated tunnel on credential-aware libcurl' => ['8.20.0', 'https://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
-        ]];
-
-        if (\defined('CURLOPT_PROXY_SSLCERT')) {
-            yield 'proxy tls credential on credential-aware libcurl' => ['7.83.1', 'https://example.com', [
-                'proxy' => 'http://proxy.example.com:8080',
-                'curl' => [(int) \constant('CURLOPT_PROXY_SSLCERT') => '/path/client.pem'],
-            ]];
-        }
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'wildcard no-proxy bypass' => ['8.21.0', 'https://example.com', [
-                'proxy' => 'http://proxy.example.com:8080',
-                'curl' => [(int) \constant('CURLOPT_NOPROXY') => '*'],
-            ]];
-        }
     }
 
     /**
-     * @dataProvider opaqueShareUntouchedRouteProvider
+     * @param array<int, string>|string $noProxy
      */
-    public function testOpaqueShareHandleLeavesOtherRoutesUntouched(string $version, string $uri, array $options): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $shareHandle);
-        self::createOnFactory($factory, $version, $uri, $options);
-
-        self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
-        self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-    }
-
-    public static function handlerShareModeProvider(): iterable
-    {
-        yield 'handler prefer' => [TransportSharing::HANDLER_PREFER];
-        yield 'handler require' => [TransportSharing::HANDLER_REQUIRE];
-    }
-
-    /**
-     * @dataProvider handlerShareModeProvider
-     */
-    public function testHandlerShareStateRetainsAnonymousProxyTunnelReuse(string $mode): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $previousVersionInfo = self::setCurlVersionInfo(['version' => '8.21.0', 'features' => self::curlSslFeature()]);
-
-        try {
-            $state = CurlShareHandleState::fromOption($mode);
-            self::assertNotNull($state);
-            $factory = new CurlFactory(3, $state->mode, $state);
-
-            self::createOnFactory($factory, '8.21.0', 'https://example.com', [
-                'proxy' => 'http://proxy.example.com:8080',
-            ]);
-
-            self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
-            self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testHandlerShareStateKeepsAuthenticatedProxyTunnelSafeguards(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
-        self::assertNotNull($state);
-        $factory = new CurlFactory(3, $state->mode, $state);
-
-        self::createOnFactory($factory, '8.19.0', 'https://example.com', [
-            'proxy' => 'http://username:password@proxy.example.com:8080',
-        ]);
-
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testHandlerShareStateStillForcesFreshSocksProxyOnAffectedCurlVersion(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
-        self::assertNotNull($state);
-        $factory = new CurlFactory(3, $state->mode, $state);
-
-        self::createOnFactory($factory, '7.68.0', 'https://example.com', [
-            'proxy' => 'socks5://proxy.example.com:1080',
-        ]);
-
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testRejectsShareHandleStateWithMismatchedSharingMode(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $state = CurlShareHandleState::fromOption(TransportSharing::HANDLER_PREFER);
-        self::assertNotNull($state);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The cURL share handle state mode does not match the configured transport sharing mode.');
-
-        new CurlFactory(3, TransportSharing::HANDLER_REQUIRE, $state);
-    }
-
-    public function testIsolatesPreProxyOnAffectedCurlVersion(): void
-    {
-        if (!\defined('CURLOPT_PRE_PROXY')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY is not available.');
-        }
-
-        self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-            'curl' => [
-                (int) \constant('CURLOPT_PRE_PROXY') => 'socks5://username:password@pre-proxy.example.com:1080',
-                \CURLOPT_FRESH_CONNECT => false,
-                \CURLOPT_FORBID_REUSE => false,
-            ],
-        ]);
-
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testIsolatesAnonymousPreProxyOnAffectedCurlVersion(): void
-    {
-        if (!\defined('CURLOPT_PRE_PROXY')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY is not available.');
-        }
-
-        self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'curl' => [(int) \constant('CURLOPT_PRE_PROXY') => 'socks5://pre-proxy.example.com:1080'],
-        ]);
-
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testPreProxyIsolationPreservesPrimaryProxySignature(): void
-    {
-        if (!\defined('CURLOPT_PRE_PROXY')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY is not available.');
-        }
-
-        $proxy = 'http://username:password@proxy.example.com:8080';
-        $baseline = self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'proxy' => $proxy,
-        ])->proxyTunnelSignature;
-        $chained = self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'proxy' => $proxy,
-            'curl' => [(int) \constant('CURLOPT_PRE_PROXY') => 'socks5://pre-proxy.example.com:1080'],
-        ])->proxyTunnelSignature;
-
-        self::assertNotNull($baseline);
-        self::assertSame($baseline, $chained);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FRESH_CONNECT]);
-        self::assertTrue($_SERVER['_curl'][\CURLOPT_FORBID_REUSE]);
-    }
-
-    public function testDoesNotIsolatePreProxyOnFixedCurlVersion(): void
-    {
-        if (!\defined('CURLOPT_PRE_PROXY')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY is not available.');
-        }
-
-        self::createOnFactory(new CurlFactory(3), '7.69.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:8080',
-            'curl' => [(int) \constant('CURLOPT_PRE_PROXY') => 'socks5://pre-proxy.example.com:1080'],
-        ]);
-
-        self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
-        self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-    }
-
-    public function testDoesNotIsolateEmptyPreProxyOnAffectedCurlVersion(): void
-    {
-        if (!\defined('CURLOPT_PRE_PROXY')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY is not available.');
-        }
-
-        self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'curl' => [(int) \constant('CURLOPT_PRE_PROXY') => ''],
-        ]);
-
-        self::assertArrayNotHasKey(\CURLOPT_FRESH_CONNECT, $_SERVER['_curl']);
-        self::assertArrayNotHasKey(\CURLOPT_FORBID_REUSE, $_SERVER['_curl']);
-    }
-
-    public static function invalidFinalProxyOptionTypeProvider(): iterable
-    {
-        yield 'numeric string proxy type' => [[\CURLOPT_PROXYTYPE => (string) \CURLPROXY_HTTP], 'CURLOPT_PROXYTYPE'];
-        yield 'float proxy type' => [[\CURLOPT_PROXYTYPE => (float) \CURLPROXY_HTTP], 'CURLOPT_PROXYTYPE'];
-        yield 'fractional float proxy type' => [[\CURLOPT_PROXYTYPE => 4.5], 'CURLOPT_PROXYTYPE'];
-        yield 'null proxy type' => [[\CURLOPT_PROXYTYPE => null], 'CURLOPT_PROXYTYPE'];
-        yield 'boolean proxy type' => [[\CURLOPT_PROXYTYPE => false], 'CURLOPT_PROXYTYPE'];
-        yield 'array proxy type' => [[\CURLOPT_PROXYTYPE => [\CURLPROXY_HTTP]], 'CURLOPT_PROXYTYPE'];
-        yield 'object proxy type' => [[\CURLOPT_PROXYTYPE => new \stdClass()], 'CURLOPT_PROXYTYPE'];
-        yield 'integer proxy' => [[\CURLOPT_PROXY => 123], 'CURLOPT_PROXY'];
-        yield 'null proxy' => [[\CURLOPT_PROXY => null], 'CURLOPT_PROXY'];
-        yield 'stringable proxy' => [[\CURLOPT_PROXY => new class {
-            public function __toString(): string
-            {
-                return 'http://proxy.example.com:8080';
-            }
-        }], 'CURLOPT_PROXY'];
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'array no-proxy' => [[(int) \constant('CURLOPT_NOPROXY') => ['*']], 'CURLOPT_NOPROXY'];
-            yield 'null no-proxy' => [[(int) \constant('CURLOPT_NOPROXY') => null], 'CURLOPT_NOPROXY'];
-        }
-
-        if (\defined('CURLOPT_PRE_PROXY')) {
-            yield 'boolean pre-proxy' => [[(int) \constant('CURLOPT_PRE_PROXY') => false], 'CURLOPT_PRE_PROXY'];
-            yield 'integer pre-proxy' => [[(int) \constant('CURLOPT_PRE_PROXY') => 1080], 'CURLOPT_PRE_PROXY'];
-        }
-    }
-
-    /**
-     * @dataProvider invalidFinalProxyOptionTypeProvider
-     */
-    public function testRejectsInvalidFinalProxyOptionTypes(array $curlOptions, string $name): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage($name.' must be');
-
-        (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
-            'curl' => $curlOptions,
-        ]);
-    }
-
-    public function testRejectsResourceProxyType(): void
-    {
-        $resource = \fopen('php://temp', 'r');
-        self::assertIsResource($resource);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYTYPE must be an integer.');
-
-            (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
-                'curl' => [\CURLOPT_PROXYTYPE => $resource],
-            ]);
-        } finally {
-            \fclose($resource);
-        }
-    }
-
-    public function testRejectsNonStringProxyRequestOption(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('CURLOPT_PROXY must be a string.');
-
-        (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
-            'proxy' => false,
-        ]);
-    }
-
-    public function testRejectsInvalidProxyTypeBeforeRequestLevelShareInspection(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        self::assertNotFalse($shareHandle);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYTYPE must be an integer.');
-
-            (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
-                'proxy' => 'socks5://username:password@proxy.example.com:1080',
-                'curl' => [
-                    \CURLOPT_PROXYTYPE => (string) \CURLPROXY_SOCKS5,
-                    (int) \constant('CURLOPT_SHARE') => $shareHandle,
-                ],
-            ]);
-        } finally {
-            if (\PHP_VERSION_ID < 80000) {
-                \curl_share_close($shareHandle);
-            }
-        }
-    }
-
-    public function testRejectsInvalidProxyTypeBeforeConfiguredShareConflict(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $configuredShareHandle = \curl_share_init();
-        self::assertNotFalse($configuredShareHandle);
-        $requestShareHandle = \curl_share_init();
-        self::assertNotFalse($requestShareHandle);
-
-        try {
-            $factory = new CurlFactory(3, TransportSharing::HANDLER_PREFER, $configuredShareHandle);
-
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYTYPE must be an integer.');
-
-            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
-                'curl' => [
-                    \CURLOPT_PROXYTYPE => (string) \CURLPROXY_SOCKS5,
-                    (int) \constant('CURLOPT_SHARE') => $requestShareHandle,
-                ],
-            ]);
-        } finally {
-            if (\PHP_VERSION_ID < 80000) {
-                \curl_share_close($configuredShareHandle);
-                \curl_share_close($requestShareHandle);
-            }
-        }
-    }
-
-    public function testRejectsInvalidProxyTypeBeforeOpaqueShareTunnelRejection(): void
-    {
-        self::skipIfCurlShareIsUnavailable();
-
-        $shareHandle = \curl_share_init();
-        self::assertNotFalse($shareHandle);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('CURLOPT_PROXYTYPE must be an integer.');
-
-            (new CurlFactory(3))->create(new Psr7\Request('GET', 'https://example.com'), [
-                'proxy' => 'http://proxy.example.com:8080',
-                'curl' => [
-                    \CURLOPT_PROXYTYPE => (string) \CURLPROXY_HTTP,
-                    (int) \constant('CURLOPT_SHARE') => $shareHandle,
-                ],
-            ]);
-        } finally {
-            if (\PHP_VERSION_ID < 80000) {
-                \curl_share_close($shareHandle);
-            }
-        }
-    }
-
-    public static function integerSocksProxyTypeProvider(): iterable
-    {
-        foreach (['CURLPROXY_SOCKS4', 'CURLPROXY_SOCKS5', 'CURLPROXY_SOCKS4A', 'CURLPROXY_SOCKS5_HOSTNAME'] as $name) {
-            if (\defined($name)) {
-                yield $name => [(int) \constant($name)];
-            }
-        }
-    }
-
-    /**
-     * @dataProvider integerSocksProxyTypeProvider
-     */
-    public function testAcceptsIntegerSocksProxyTypes(int $proxyType): void
-    {
-        $easy = self::createOnFactory(new CurlFactory(3), '7.68.0', 'https://example.com', [
-            'proxy' => 'http://proxy.example.com:1080',
-            'curl' => [\CURLOPT_PROXYTYPE => $proxyType],
-        ]);
-
-        self::assertSame($proxyType, $_SERVER['_curl'][\CURLOPT_PROXYTYPE]);
-        self::assertNotNull($easy->proxyTunnelSignature);
-    }
-
-    private function checkNoProxyForHost($url, $noProxy, $assertUseProxy)
+    private function checkNoProxyForHost(string $url, $noProxy, bool $assertUseProxy): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', $url), [
@@ -3594,15 +3488,18 @@ class CurlFactoryTest extends TestCase
             ],
         ]);
         if ($assertUseProxy) {
-            self::assertSame('http://bar.com', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('');
+            self::assertSame(
+                \parse_url($url, \PHP_URL_SCHEME) === 'https' ? 'https://t' : 'http://bar.com',
+                $_SERVER['_curl'][\CURLOPT_PROXY]
+            );
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         } else {
             self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-            self::assertNoProxyOption('*');
+            self::assertSame('*', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
         }
     }
 
-    public function testUsesProxy()
+    public function testUsesProxy(): void
     {
         Server::flush();
         Server::enqueue([
@@ -3625,7 +3522,163 @@ class CurlFactoryTest extends TestCase
         self::assertSame('hi', (string) $response->getBody());
     }
 
-    public function testValidatesCryptoMethodInvalidMethod()
+    private static function skipIfProxyHeaderSeparationIsUnsupported(): void
+    {
+        self::requireProxyHeaderSeparationConstants();
+        if (!CurlVersion::supportsProxyHeaderSeparation()) {
+            self::markTestSkipped('The runtime libcurl does not support proxy header separation.');
+        }
+    }
+
+    public function testDirectCurlRequestDoesNotSendProxyAuthorizationToOrigin(): void
+    {
+        self::skipIfProxyHeaderSeparationIsUnsupported();
+
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200)]);
+
+        $handler = new Handler\CurlHandler();
+        $handler(
+            new Psr7\Request('GET', Server::$url, ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+            ['proxy' => '']
+        )->wait();
+
+        self::assertFalse(Server::received()[0]->hasHeader('Proxy-Authorization'));
+    }
+
+    public function testProxyAuthorizationIsSentToPlainHttpProxyOnTheWire(): void
+    {
+        self::skipIfProxyHeaderSeparationIsUnsupported();
+
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200)]);
+
+        // The test server stands in as a plain HTTP proxy receiving the
+        // absolute-form request, so the separated proxy-only header list is
+        // delivered to it.
+        $handler = new Handler\CurlHandler();
+        $handler(
+            new Psr7\Request('GET', 'http://www.example.com', ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=']),
+            ['proxy' => Server::$url]
+        )->wait();
+
+        self::assertSame('Basic dXNlcm5hbWU6cGFzc3dvcmQ=', Server::received()[0]->getHeaderLine('Proxy-Authorization'));
+    }
+
+    public function testEmptyProxyAuthorizationSuppressesProxyUrlCredentialsOnTheWire(): void
+    {
+        self::skipIfProxyHeaderSeparationIsUnsupported();
+
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200)]);
+
+        $proxy = (new Psr7\Uri(Server::$url))->withUserInfo('username', 'password');
+        $handler = new Handler\CurlHandler();
+        $handler(
+            new Psr7\Request('GET', 'http://www.example.com', ['Proxy-Authorization' => '']),
+            ['proxy' => (string) $proxy]
+        )->wait();
+
+        $received = Server::received()[0];
+        self::assertTrue($received->hasHeader('Proxy-Authorization'));
+        self::assertSame('', $received->getHeaderLine('Proxy-Authorization'));
+    }
+
+    public function testClientDefaultProxyAuthorizationHeaderIsNotSentToOrigin(): void
+    {
+        self::skipIfProxyHeaderSeparationIsUnsupported();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        self::withProxyEnvironment([], static function () use ($proxyHeaderOption): void {
+            Server::flush();
+            Server::enqueue([new Psr7\Response(200)]);
+
+            $client = new Client([
+                'handler' => new Handler\CurlHandler(),
+                'headers' => ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
+            ]);
+            $client->get(Server::$url, ['proxy' => '']);
+
+            // A client default header takes the same managed route as a
+            // directly constructed PSR-7 request header.
+            self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+            self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $_SERVER['_curl'][$proxyHeaderOption]);
+            self::assertFalse(Server::received()[0]->hasHeader('Proxy-Authorization'));
+        });
+    }
+
+    public function testRedirectFromProxyToDirectRouteDoesNotDiscloseProxyAuthorization(): void
+    {
+        self::skipIfProxyHeaderSeparationIsUnsupported();
+        $proxyHeaderOption = self::proxyHeaderOption();
+
+        self::withProxyEnvironment([], static function () use ($proxyHeaderOption): void {
+            Server::flush();
+            Server::enqueue([
+                new Psr7\Response(301, ['Location' => Server::$url]),
+                new Psr7\Response(200),
+            ]);
+
+            $client = new Client(['handler' => HandlerStack::create(new Handler\CurlHandler())]);
+            $client->get('http://www.example.com', [
+                'headers' => ['Proxy-Authorization' => 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='],
+                'proxy' => [
+                    'http' => Server::$url,
+                    'no' => ['127.0.0.1'],
+                ],
+            ]);
+
+            // Snapshot the direct hop's configuration before Server::received()
+            // issues its own request and overwrites the capture.
+            $directHopConf = $_SERVER['_curl'];
+
+            $received = Server::received();
+            self::assertCount(2, $received);
+            // The first hop reaches the test server as a plain HTTP proxy and
+            // receives the credential; the redirected direct hop does not.
+            self::assertSame('Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $received[0]->getHeaderLine('Proxy-Authorization'));
+            self::assertFalse($received[1]->hasHeader('Proxy-Authorization'));
+
+            // The direct hop still configures the credential only in the
+            // proxy-only channel.
+            self::assertNotContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $directHopConf[\CURLOPT_HTTPHEADER]);
+            self::assertContains('Proxy-Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=', $directHopConf[$proxyHeaderOption]);
+            self::assertSame((int) \constant('CURLHEADER_SEPARATE'), $directHopConf[(int) \constant('CURLOPT_HEADEROPT')]);
+        });
+    }
+
+    public function testDefaultsHttpsToTls12Minimum(): void
+    {
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'https://example.com'), []);
+
+        self::assertEquals(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testDoesNotSetDefaultTlsMinimumForHttp(): void
+    {
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'http://example.com'), []);
+
+        self::assertArrayNotHasKey(\CURLOPT_SSLVERSION, $_SERVER['_curl']);
+    }
+
+    public function testRejectsRawCurlSslVersionOption(): void
+    {
+        $f = new CurlFactory(3);
+
+        try {
+            $f->create(new Psr7\Request('GET', 'https://example.com'), [
+                'curl' => [\CURLOPT_SSLVERSION => \CURL_SSLVERSION_TLSv1_1],
+            ]);
+            self::fail('Expected an InvalidArgumentException for raw CURLOPT_SSLVERSION.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('CURLOPT_SSLVERSION', $e->getMessage());
+            self::assertStringContainsString('crypto_method_max', $e->getMessage());
+        }
+    }
+
+    public function testValidatesCryptoMethodInvalidMethod(): void
     {
         $f = new CurlFactory(3);
 
@@ -3634,168 +3687,146 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => 123]);
     }
 
-    public function testAddsCryptoMethodTls10()
+    public function testAddsCryptoMethodTls10(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT]);
         self::assertEquals(\CURL_SSLVERSION_TLSv1_0, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
     }
 
-    public function testAddsCryptoMethodTls11()
+    public function testAddsCryptoMethodTls11(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT]);
         self::assertEquals(\CURL_SSLVERSION_TLSv1_1, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
     }
 
-    public function testAddsCryptoMethodTls12()
+    public function testAddsCryptoMethodTls12(): void
     {
-        $previous = self::setCurlVersionInfo(['version' => '7.34.0', 'features' => self::curlSslFeature()]);
         $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT]);
+        self::assertEquals(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testAddsCryptoMethodTls13(): void
+    {
+        if (!CurlVersion::supportsTls13()) {
+            self::markTestSkipped('TLS 1.3 is not supported by this cURL installation.');
+        }
+
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT]);
+        self::assertEquals(\CURL_SSLVERSION_TLSv1_3, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testCryptoMethodTls13ThrowsRequestExceptionOnUnsupportedCurl(): void
+    {
+        if (!\defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
+            self::markTestSkipped('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT is not available.');
+        }
+
+        // TLS 1.3 missing from the linked libcurl is build-specific (a newer
+        // build runs the same request), so it is a RequestException.
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.50.0',
+            'features' => self::curlSslFeature(),
+        ]);
 
         try {
-            $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT]);
-            self::assertEquals(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+            $factory = new CurlFactory(3);
+            $factory->create(new Psr7\Request('GET', 'https://example.com'), [
+                'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+            ]);
+            self::fail('Expected a RequestException for unsupported TLS 1.3.');
+        } catch (RequestException $e) {
+            self::assertStringContainsString('TLS 1.3 not supported by your version of cURL', $e->getMessage());
         } finally {
-            self::setCurlVersionInfo($previous);
+            self::setCurlVersionInfo($previousVersionInfo);
         }
     }
 
-    /**
-     * @requires PHP >= 7.4
-     */
-    public function testAddsCryptoMethodTls13()
-    {
-        if (!\defined('CURL_SSLVERSION_TLSv1_3')) {
-            self::markTestSkipped('CURL_SSLVERSION_TLSv1_3 is unavailable.');
-        }
-
-        $previous = self::setCurlVersionInfo(['version' => '7.52.0', 'features' => self::curlSslFeature()]);
-        $f = new CurlFactory(3);
-
-        try {
-            $f->create(new Psr7\Request('GET', Server::$url), ['crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT]);
-            self::assertEquals(\CURL_SSLVERSION_TLSv1_3, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
-    }
-
-    public function testAddsCryptoMethodMaxTls12()
+    public function testAddsCryptoMethodMaxTls12WithDefaultHttpsMinimum(): void
     {
         if (!\defined('CURL_SSLVERSION_MAX_TLSv1_2')) {
             self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_2 is unavailable.');
         }
 
         $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', Server::$url), [
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
             'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
         ]);
 
-        self::assertEquals(
-            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_2,
+        self::assertSame(
+            \CURL_SSLVERSION_TLSv1_2 | \CURL_SSLVERSION_MAX_TLSv1_2,
             $_SERVER['_curl'][\CURLOPT_SSLVERSION]
         );
     }
 
-    public function testAddsExactCryptoMethodTls12Range()
+    public function testAddsCryptoMethodMaxTls13WithDefaultHttpsMinimum(): void
     {
-        if (!\defined('CURL_SSLVERSION_MAX_TLSv1_2')) {
-            self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_2 is unavailable.');
+        if (!CurlVersion::supportsTls13() || !\defined('CURL_SSLVERSION_MAX_TLSv1_3')) {
+            self::markTestSkipped('TLS 1.3 maximum is not supported by this cURL installation.');
         }
 
-        $previous = self::setCurlVersionInfo(['version' => '7.34.0', 'features' => self::curlSslFeature()]);
         $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+        ]);
 
-        try {
-            $f->create(new Psr7\Request('GET', Server::$url), [
-                'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
-                'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
-            ]);
-
-            self::assertEquals(
-                \CURL_SSLVERSION_TLSv1_2 | \CURL_SSLVERSION_MAX_TLSv1_2,
-                $_SERVER['_curl'][\CURLOPT_SSLVERSION]
-            );
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
+        self::assertSame(
+            \CURL_SSLVERSION_TLSv1_2 | \CURL_SSLVERSION_MAX_TLSv1_3,
+            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
+        );
     }
 
-    public function testRejectsCryptoMethodMaxLowerThanMin()
+    public function testRejectsDefaultHttpsMinWhenCryptoMethodMaxIsBelowTls12(): void
     {
-        if (!\defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT')) {
-            self::markTestSkipped('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT is unavailable.');
-        }
-
         $f = new CurlFactory(3);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('crypto_method_max');
 
-        $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
-            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
-        ]);
-    }
-
-    public function testRejectsHttp2CryptoMethodMaxBelowTls12()
-    {
-        $f = new CurlFactory(3);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('HTTP/2 requires TLS 1.2 or higher');
-
-        $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
             'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT,
         ]);
     }
 
-    public function testRejectsTls12CryptoMethodWhenCurlLacksTls12()
+    public function testAllowsExplicitLowerMinWithLowerCryptoMethodMax(): void
     {
-        $previous = self::setCurlVersionInfo(['version' => '7.34.0', 'features' => 0]);
+        if (!\defined('CURL_SSLVERSION_MAX_TLSv1_1')) {
+            self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_1 is unavailable.');
+        }
+
         $f = new CurlFactory(3);
-
-        try {
-            $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage('TLS 1.2 not supported by your version of cURL');
-
-            $f->create(new Psr7\Request('GET', Server::$url, [], null, '1.1'), [
-                'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
-            ]);
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
-    }
-
-    public function testPromotesHttp2WeakMinToTls12()
-    {
-        if (!\defined('CURL_SSLVERSION_TLSv1_2')) {
-            self::markTestSkipped('CURL_SSLVERSION_TLSv1_2 is unavailable.');
-        }
-
-        $http2Feature = \defined('CURL_VERSION_HTTP2') ? \CURL_VERSION_HTTP2 : (1 << 16);
-        $previous = self::setCurlVersionInfo([
-            'version' => '7.52.0',
-            'features' => self::curlSslFeature() | $http2Feature,
+        $f->create(new Psr7\Request('GET', 'https://example.com'), [
+            'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT,
         ]);
-        $f = new CurlFactory(3);
 
-        try {
-            $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
-            ]);
-
-            self::assertEquals(
-                \CURL_SSLVERSION_TLSv1_2,
-                $_SERVER['_curl'][\CURLOPT_SSLVERSION]
-            );
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
+        self::assertSame(
+            \CURL_SSLVERSION_TLSv1_0 | \CURL_SSLVERSION_MAX_TLSv1_1,
+            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
+        );
     }
 
-    public function testRejectsCryptoMethodMaxUnknownInteger()
+    public function testAllowsCryptoMethodMaxBelowTls12OnHttp11(): void
+    {
+        if (!\defined('CURL_SSLVERSION_MAX_TLSv1_0')) {
+            self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_0 is unavailable.');
+        }
+
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', 'http://example.com'), [
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
+        ]);
+
+        self::assertSame(
+            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_0,
+            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
+        );
+    }
+
+    public function testRejectsCryptoMethodMaxUnknownInteger(): void
     {
         $f = new CurlFactory(3);
 
@@ -3807,100 +3838,49 @@ class CurlFactoryTest extends TestCase
         ]);
     }
 
-    public function testRejectsNonIntCryptoMethodWithInvalidArgumentException()
+    public function testRejectsExplicitCryptoMethodMaxLowerThanMin(): void
     {
         $f = new CurlFactory(3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('unknown version provided');
+        $this->expectExceptionMessage('crypto_method_max');
 
         $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method' => 'foo',
+            'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
         ]);
     }
 
-    public function testRejectsNonIntCryptoMethodMaxWithInvalidArgumentException()
+    public function testRejectsHttp2CryptoMethodMaxBelowTls12(): void
     {
         $f = new CurlFactory(3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('unknown version provided');
+        $this->expectExceptionMessage('HTTP/2 and HTTP/3 require TLS 1.2 or higher');
 
-        $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method_max' => [],
-        ]);
-    }
-
-    public function testAddsCryptoMethodMaxTls10()
-    {
-        if (!\defined('CURL_SSLVERSION_MAX_TLSv1_0')) {
-            self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_0 is unavailable.');
-        }
-
-        $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
-        ]);
-
-        self::assertEquals(
-            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_0,
-            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
-        );
-    }
-
-    public function testAddsCryptoMethodMaxTls11()
-    {
-        if (!\defined('CURL_SSLVERSION_MAX_TLSv1_1')) {
-            self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_1 is unavailable.');
-        }
-
-        $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', Server::$url), [
+        $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
             'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT,
         ]);
-
-        self::assertEquals(
-            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_1,
-            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
-        );
     }
 
-    public function testAddsCryptoMethodMaxTls13()
-    {
-        if (!\defined('STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT') || !\defined('CURL_SSLVERSION_MAX_TLSv1_3')) {
-            self::markTestSkipped('TLS 1.3 maximum is unavailable.');
-        }
-
-        $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
-        ]);
-
-        self::assertEquals(
-            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_3,
-            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
-        );
-    }
-
-    public function testAddsCryptoMethodMinTls10MaxTls12()
+    public function testAllowsHttp2CryptoMethodMaxTls12(): void
     {
         if (!\defined('CURL_SSLVERSION_MAX_TLSv1_2')) {
             self::markTestSkipped('CURL_SSLVERSION_MAX_TLSv1_2 is unavailable.');
         }
 
         $f = new CurlFactory(3);
-        $f->create(new Psr7\Request('GET', Server::$url), [
-            'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
+        $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
             'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
         ]);
 
-        self::assertEquals(
-            \CURL_SSLVERSION_TLSv1_0 | \CURL_SSLVERSION_MAX_TLSv1_2,
+        self::assertSame(
+            \CURL_SSLVERSION_DEFAULT | \CURL_SSLVERSION_MAX_TLSv1_2,
             $_SERVER['_curl'][\CURLOPT_SSLVERSION]
         );
     }
 
-    public function testValidatesSslKey()
+    public function testValidatesSslKey(): void
     {
         $f = new CurlFactory(3);
 
@@ -3909,14 +3889,14 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', Server::$url), ['ssl_key' => '/does/not/exist']);
     }
 
-    public function testAddsSslKey()
+    public function testAddsSslKey(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['ssl_key' => __FILE__]);
         self::assertEquals(__FILE__, $_SERVER['_curl'][\CURLOPT_SSLKEY]);
     }
 
-    public function testAddsSslKeyWithPassword()
+    public function testAddsSslKeyWithPassword(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['ssl_key' => [__FILE__, 'test']]);
@@ -3924,7 +3904,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('test', $_SERVER['_curl'][\CURLOPT_SSLKEYPASSWD]);
     }
 
-    public function testAddsSslKeyWhenUsingArraySyntaxButNoPassword()
+    public function testAddsSslKeyWhenUsingArraySyntaxButNoPassword(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['ssl_key' => [__FILE__]]);
@@ -3932,7 +3912,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals(__FILE__, $_SERVER['_curl'][\CURLOPT_SSLKEY]);
     }
 
-    public function testAddsSslKeyType()
+    public function testAddsSslKeyType(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), [
@@ -3943,7 +3923,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame('PEM', $_SERVER['_curl'][\CURLOPT_SSLKEYTYPE]);
     }
 
-    public function testAllowsEngineSslKeyIdentifiers()
+    public function testAllowsEngineSslKeyIdentifiers(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), [
@@ -3960,7 +3940,7 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $sslKeyType
      */
-    public function testValidatesSslKeyType($sslKeyType)
+    public function testValidatesSslKeyType($sslKeyType): void
     {
         $f = new CurlFactory(3);
 
@@ -3983,7 +3963,7 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $sslKey
      */
-    public function testValidatesSslKeyOptionShape($sslKey)
+    public function testValidatesSslKeyOptionShape($sslKey): void
     {
         $f = new CurlFactory(3);
 
@@ -4003,7 +3983,7 @@ class CurlFactoryTest extends TestCase
         ];
     }
 
-    public function testValidatesCert()
+    public function testValidatesCert(): void
     {
         $f = new CurlFactory(3);
 
@@ -4012,14 +3992,14 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', Server::$url), ['cert' => '/does/not/exist']);
     }
 
-    public function testAddsCert()
+    public function testAddsCert(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['cert' => __FILE__]);
         self::assertEquals(__FILE__, $_SERVER['_curl'][\CURLOPT_SSLCERT]);
     }
 
-    public function testAddsCertWithPassword()
+    public function testAddsCertWithPassword(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), ['cert' => [__FILE__, 'test']]);
@@ -4027,7 +4007,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('test', $_SERVER['_curl'][\CURLOPT_SSLCERTPASSWD]);
     }
 
-    public function testAddsCertWithArrayPathOnly()
+    public function testAddsCertWithArrayPathOnly(): void
     {
         $f = new CurlFactory(3);
         $easy = $f->create(new Psr7\Request('GET', 'http://example.com'), ['cert' => [__FILE__]]);
@@ -4041,7 +4021,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testAddsCertType()
+    public function testAddsCertType(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), [
@@ -4057,7 +4037,7 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $certType
      */
-    public function testValidatesCertType($certType)
+    public function testValidatesCertType($certType): void
     {
         $f = new CurlFactory(3);
 
@@ -4080,7 +4060,7 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $cert
      */
-    public function testValidatesCertOptionShape($cert)
+    public function testValidatesCertOptionShape($cert): void
     {
         $f = new CurlFactory(3);
 
@@ -4100,7 +4080,7 @@ class CurlFactoryTest extends TestCase
         ];
     }
 
-    public function testAddsDerCert()
+    public function testAddsDerCert(): void
     {
         $certFile = tempnam(sys_get_temp_dir(), 'mock_test_cert');
         rename($certFile, $certFile .= '.der');
@@ -4114,7 +4094,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testExplicitCertTypeOverridesCertExtension()
+    public function testExplicitCertTypeOverridesCertExtension(): void
     {
         $certFile = tempnam(sys_get_temp_dir(), 'mock_test_cert');
         rename($certFile, $certFile .= '.der');
@@ -4130,7 +4110,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testAddsP12Cert()
+    public function testAddsP12Cert(): void
     {
         $certFile = tempnam(sys_get_temp_dir(), 'mock_test_cert');
         rename($certFile, $certFile .= '.p12');
@@ -4144,7 +4124,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testValidatesProgress()
+    public function testValidatesProgress(): void
     {
         $f = new CurlFactory(3);
 
@@ -4153,7 +4133,298 @@ class CurlFactoryTest extends TestCase
         $f->create(new Psr7\Request('GET', Server::$url), ['progress' => 'foo']);
     }
 
-    public function testEmitsDebugInfoToStream()
+    public function testUsesXferInfoFunctionForProgressWhenAvailable(): void
+    {
+        $f = new CurlFactory(3);
+        $easy = $f->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (): void {
+            },
+        ]);
+
+        try {
+            if (\defined('CURLOPT_XFERINFOFUNCTION')) {
+                self::assertArrayHasKey((int) \constant('CURLOPT_XFERINFOFUNCTION'), $_SERVER['_curl']);
+                self::assertArrayNotHasKey(\CURLOPT_PROGRESSFUNCTION, $_SERVER['_curl']);
+            } else {
+                self::assertArrayHasKey(\CURLOPT_PROGRESSFUNCTION, $_SERVER['_curl']);
+            }
+        } finally {
+            $f->release($easy);
+        }
+    }
+
+    public function testProgressReturnValueControlsCurlAbort(): void
+    {
+        $f = new CurlFactory(3);
+        $called = [];
+        $easy = $f->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (int $downloadTotal, int $downloadedBytes, int $uploadTotal, int $uploadedBytes) use (&$called): bool {
+                $called = [$downloadTotal, $downloadedBytes, $uploadTotal, $uploadedBytes];
+
+                return $downloadedBytes > 0;
+            },
+        ]);
+
+        try {
+            $callback = $_SERVER['_curl'][self::progressCallbackOption()];
+
+            self::assertSame(0, $callback($easy->handle, 10.0, 0.0, 2.0, 0.0));
+            self::assertFalse($easy->progressAborted);
+            self::assertNull($easy->progressException);
+            self::assertSame([10, 0, 2, 0], $called);
+
+            self::assertSame(1, $callback($easy->handle, 10.0, 1.0, 2.0, 0.0));
+            self::assertTrue($easy->progressAborted);
+            self::assertNull($easy->progressException);
+            self::assertSame([10, 1, 2, 0], $called);
+        } finally {
+            $f->release($easy);
+        }
+    }
+
+    public function testProgressOverflowValueAbortsCurlTransfer(): void
+    {
+        $f = new CurlFactory(3);
+        $easy = $f->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (): void {
+                self::fail('Progress callback should not receive overflowing values');
+            },
+        ]);
+
+        try {
+            $callback = $_SERVER['_curl'][self::progressCallbackOption()];
+
+            self::assertSame(1, $callback($easy->handle, \INF, 0.0, 0.0, 0.0));
+            self::assertFalse($easy->progressAborted);
+            self::assertInstanceOf(\OverflowException::class, $easy->progressException);
+        } finally {
+            $f->release($easy);
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testProgressTruthyReturnRejectsThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200, [], 'abc')]);
+        $handler = $handlerFactory();
+
+        try {
+            $handler(new Psr7\Request('GET', Server::$url), [
+                'progress' => static function (): bool {
+                    return true;
+                },
+            ])->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('The transfer was aborted by the progress callback', $e->getMessage());
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testProgressThrowableRejectsThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200, [], 'abc')]);
+        $handler = $handlerFactory();
+        $previous = new \Error('progress failed');
+
+        try {
+            $handler(new Psr7\Request('GET', Server::$url), [
+                'progress' => static function () use ($previous): void {
+                    throw $previous;
+                },
+            ])->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('An error was encountered during the progress event', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+    }
+
+    public function testProgressAbortRejectsWithRequestException(): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (): bool {
+                return true;
+            },
+        ]);
+
+        $callback = $_SERVER['_curl'][self::progressCallbackOption()];
+        self::assertSame(1, $callback($easy->handle, 0, 0, 0, 0));
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('The transfer was aborted by the progress callback', $e->getMessage());
+        }
+    }
+
+    public function testProgressThrowableRejectsWithRequestException(): void
+    {
+        $factory = new CurlFactory(1);
+        $previous = new \Error('boom');
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function () use ($previous): void {
+                throw $previous;
+            },
+        ]);
+
+        $callback = $_SERVER['_curl'][self::progressCallbackOption()];
+        self::assertSame(1, $callback($easy->handle, 0, 0, 0, 0));
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('An error was encountered during the progress event', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+    }
+
+    public function testProgressExceptionWinsOverAbortMarker(): void
+    {
+        $factory = new CurlFactory(1);
+        $previous = new \RuntimeException('boom');
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+        $easy->progressAborted = true;
+        $easy->progressException = $previous;
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('An error was encountered during the progress event', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+    }
+
+    public function testAbortedByCallbackWithoutProgressMarkerUsesGenericCurlError(): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertStringStartsWith('cURL error '.\CURLE_ABORTED_BY_CALLBACK.':', $e->getMessage());
+        }
+    }
+
+    public function testReleaseClearsXferInfoCallbackBeforeDiscardingHandle(): void
+    {
+        if (!\defined('CURLOPT_XFERINFOFUNCTION')) {
+            self::markTestSkipped('CURLOPT_XFERINFOFUNCTION is not available.');
+        }
+
+        $option = (int) \constant('CURLOPT_XFERINFOFUNCTION');
+        $curl = [];
+        $prereqOption = null;
+
+        if (\defined('CURLOPT_PREREQFUNCTION') && \defined('CURL_PREREQFUNC_OK')) {
+            $prereqOption = (int) \constant('CURLOPT_PREREQFUNCTION');
+            $ok = (int) \constant('CURL_PREREQFUNC_OK');
+            $curl[$prereqOption] = static function () use ($ok): int {
+                return $ok;
+            };
+        }
+
+        $factory = new CurlFactory(0);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (): void {
+            },
+            'curl' => $curl,
+        ]);
+
+        $factory->release($easy);
+
+        self::assertArrayNotHasKey($option, $_SERVER['_curl']);
+        if ($prereqOption !== null) {
+            self::assertArrayNotHasKey($prereqOption, $_SERVER['_curl']);
+        }
+        self::assertSame([], self::readIdleHandles($factory));
+    }
+
+    public function testReleaseClearsXferInfoCallbackBeforeReusingHandle(): void
+    {
+        if (!\defined('CURLOPT_XFERINFOFUNCTION')) {
+            self::markTestSkipped('CURLOPT_XFERINFOFUNCTION is not available.');
+        }
+
+        $option = (int) \constant('CURLOPT_XFERINFOFUNCTION');
+        $curl = [];
+        $prereqOption = null;
+
+        if (\defined('CURLOPT_PREREQFUNCTION') && \defined('CURL_PREREQFUNC_OK')) {
+            $prereqOption = (int) \constant('CURLOPT_PREREQFUNCTION');
+            $ok = (int) \constant('CURL_PREREQFUNC_OK');
+            $curl[$prereqOption] = static function () use ($ok): int {
+                return $ok;
+            };
+        }
+
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'progress' => static function (): void {
+            },
+            'curl' => $curl,
+        ]);
+
+        $factory->release($easy);
+
+        self::assertArrayNotHasKey($option, $_SERVER['_curl']);
+        if ($prereqOption !== null) {
+            self::assertArrayNotHasKey($prereqOption, $_SERVER['_curl']);
+        }
+        self::assertCount(1, self::readIdleHandles($factory));
+    }
+
+    public function testEmitsDebugInfoToStream(): void
     {
         $res = \fopen('php://temp', 'r+');
         Server::flush();
@@ -4168,7 +4439,7 @@ class CurlFactoryTest extends TestCase
         \fclose($res);
     }
 
-    public function testEmitsProgressToFunction()
+    public function testEmitsProgressToFunction(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -4176,7 +4447,7 @@ class CurlFactoryTest extends TestCase
         $called = [];
         $request = new Psr7\Request('HEAD', Server::$url);
         $response = $a($request, [
-            'progress' => static function (...$args) use (&$called) {
+            'progress' => static function (...$args) use (&$called): void {
                 $called[] = $args;
             },
         ]);
@@ -4187,7 +4458,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    private function addDecodeResponse($withEncoding = true)
+    private function addDecodeResponse(bool $withEncoding = true): string
     {
         $content = \gzencode('test');
         $headers = ['Content-Length' => (string) \strlen($content)];
@@ -4201,7 +4472,7 @@ class CurlFactoryTest extends TestCase
         return $content;
     }
 
-    public function testDecodesGzippedResponses()
+    public function testDecodesGzippedResponses(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4214,7 +4485,7 @@ class CurlFactoryTest extends TestCase
         self::assertFalse($sent->hasHeader('Accept-Encoding'));
     }
 
-    public function testReportsOriginalSizeAndContentEncodingAfterDecoding()
+    public function testReportsOriginalSizeAndContentEncodingAfterDecoding(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4231,7 +4502,7 @@ class CurlFactoryTest extends TestCase
         );
     }
 
-    public function testDecodesGzippedResponsesWithHeader()
+    public function testDecodesGzippedResponsesWithHeader(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4249,7 +4520,7 @@ class CurlFactoryTest extends TestCase
         );
     }
 
-    public function testDecodesGzippedResponsesWithZeroHeader()
+    public function testDecodesGzippedResponsesWithZeroHeader(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4265,7 +4536,7 @@ class CurlFactoryTest extends TestCase
     /**
      * https://github.com/guzzle/guzzle/issues/2799
      */
-    public function testDecodesGzippedResponsesWithHeaderForHeadRequest()
+    public function testDecodesGzippedResponsesWithHeaderForHeadRequest(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4283,7 +4554,7 @@ class CurlFactoryTest extends TestCase
         );
     }
 
-    public function testDoesNotForceDecode()
+    public function testDoesNotForceDecode(): void
     {
         $content = $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -4295,7 +4566,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals($content, (string) $response->getBody());
     }
 
-    public function testProtocolVersion()
+    public function testProtocolVersion(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -4305,98 +4576,172 @@ class CurlFactoryTest extends TestCase
         self::assertEquals(\CURL_HTTP_VERSION_1_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
     }
 
-    public function testEmptyProtocolVersionDefaultsToHttp11()
-    {
-        Server::flush();
-        Server::enqueue([new Psr7\Response()]);
-        $a = new Handler\CurlMultiHandler();
-        $request = new Psr7\Request('GET', Server::$url, [], null, '');
-        $a($request, []);
-        self::assertEquals(\CURL_HTTP_VERSION_1_1, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
-    }
-
-    public function testMultiplexWaitSetsPipewaitForHttp2Requests()
+    public function testSetsPipewaitForHttp2RequestsByDefault(): void
     {
         if (!CurlVersion::supportsHttp2() || !CurlVersion::supportsMultiplex()) {
             self::markTestSkipped('HTTP/2 or multiplex support is unavailable.');
         }
 
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), ['multiplex' => Multiplexing::WAIT]);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), []);
 
         try {
             self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
-            self::assertTrue($_SERVER['_curl'][\CURLOPT_PIPEWAIT]);
+            self::assertTrue($_SERVER['_curl'][(int) \constant('CURLOPT_PIPEWAIT')]);
         } finally {
-            $f->release($easy);
+            $factory->release($easy);
         }
     }
 
-    public static function multiplexDisabledProvider(): iterable
-    {
-        yield 'option absent' => [[]];
-        yield 'option eager' => [['multiplex' => Multiplexing::EAGER]];
-    }
-
-    /**
-     * @dataProvider multiplexDisabledProvider
-     */
-    public function testMultiplexIsOffByDefaultForHttp2Requests(array $options)
+    public function testMultiplexEagerDisablesPipewait(): void
     {
         if (!CurlVersion::supportsHttp2() || !CurlVersion::supportsMultiplex()) {
             self::markTestSkipped('HTTP/2 or multiplex support is unavailable.');
         }
 
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), $options);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
+            'multiplex' => Multiplexing::EAGER,
+        ]);
 
         try {
             self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
-            self::assertArrayNotHasKey(\CURLOPT_PIPEWAIT, $_SERVER['_curl']);
+            self::assertArrayNotHasKey((int) \constant('CURLOPT_PIPEWAIT'), $_SERVER['_curl']);
         } finally {
-            $f->release($easy);
+            $factory->release($easy);
         }
     }
 
-    public function testMultiplexIsIgnoredForHttp1Requests()
+    public function testMultiplexIsInertForHttp11Requests(): void
     {
-        if (!\defined('CURLOPT_PIPEWAIT')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT is unavailable.');
-        }
-
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '1.1'), ['multiplex' => Multiplexing::WAIT]);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), ['multiplex' => Multiplexing::WAIT]);
 
         try {
+            if (\defined('CURLOPT_PIPEWAIT')) {
+                self::assertArrayNotHasKey((int) \constant('CURLOPT_PIPEWAIT'), $_SERVER['_curl']);
+            }
             self::assertSame(\CURL_HTTP_VERSION_1_1, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
-            self::assertArrayNotHasKey(\CURLOPT_PIPEWAIT, $_SERVER['_curl']);
         } finally {
-            $f->release($easy);
+            $factory->release($easy);
         }
     }
 
-    public function testMultiplexIsIgnoredWhenLibcurlDoesNotMultiplexByDefault()
+    public function testHttp2RequiresMultiplexCapableLibcurl(): void
     {
         if (!\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
         }
 
-        $previous = self::setCurlVersionInfo([
-            'version' => '7.61.1',
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.65.1',
             'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
         ]);
 
         try {
-            $f = new CurlFactory(3);
-            $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), ['multiplex' => Multiplexing::WAIT]);
+            $factory = new CurlFactory(3);
 
             try {
-                self::assertArrayNotHasKey(\CURLOPT_PIPEWAIT, $_SERVER['_curl']);
+                $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), []);
+                self::fail('Expected a RequestException for unsupported HTTP/2.');
+            } catch (RequestException $e) {
+                self::assertSame('HTTP/2 is supported by the cURL handler, however libcurl 7.65.2 or newer built with HTTP/2 support is required.', $e->getMessage());
+            }
+
+            self::setCurlVersionInfo([
+                'version' => '7.65.2',
+                'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
+            ]);
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '2.0'),
+                []
+            );
+            self::assertTrue($conf[(int) \constant('CURLOPT_PIPEWAIT')]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testSetsPipewaitForHttp3Requests(): void
+    {
+        self::requireHttp3TestConstants();
+        if (!\defined('CURLOPT_PIPEWAIT')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                []
+            );
+
+            self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+            self::assertTrue($conf[(int) \constant('CURLOPT_PIPEWAIT')]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testDoesNotSetPipewaitWhenHttp3FallsBackToHttp11(): void
+    {
+        self::requireHttp3TestConstants();
+        if (!\defined('CURLOPT_PIPEWAIT')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(false),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $easy = $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+
+            try {
+                self::assertSame(\CURL_HTTP_VERSION_1_1, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+                self::assertArrayNotHasKey((int) \constant('CURLOPT_PIPEWAIT'), $_SERVER['_curl']);
             } finally {
-                $f->release($easy);
+                $factory->release($easy);
             }
         } finally {
-            self::setCurlVersionInfo($previous);
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testSetsPipewaitWhenProxiedHttp3ResolvesToHttp2(): void
+    {
+        self::requireHttp3TestConstants();
+        if (!\defined('CURLOPT_PIPEWAIT')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $easy = $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'proxy' => ['https' => 'http://proxy.example.com:8080'],
+            ]);
+
+            try {
+                self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+                self::assertTrue($_SERVER['_curl'][(int) \constant('CURLOPT_PIPEWAIT')]);
+            } finally {
+                $factory->release($easy);
+            }
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
         }
     }
 
@@ -4405,14 +4750,14 @@ class CurlFactoryTest extends TestCase
      *
      * @param mixed $value
      */
-    public function testRejectsInvalidMultiplexValues($value)
+    public function testRejectsInvalidMultiplexValues($value): void
     {
-        $f = new CurlFactory(3);
+        $factory = new CurlFactory(3);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('The "multiplex" option must be null or a GuzzleHttp\\Multiplexing::* constant');
 
-        $f->create(new Psr7\Request('GET', Server::$url), ['multiplex' => $value]);
+        $factory->create(new Psr7\Request('GET', Server::$url), ['multiplex' => $value]);
     }
 
     public static function invalidMultiplexProvider(): iterable
@@ -4423,18 +4768,18 @@ class CurlFactoryTest extends TestCase
         yield 'unknown string' => ['always'];
     }
 
-    public function testAllowsMultiplexNoneAsRequestOption()
+    public function testAllowsMultiplexNoneAsRequestOption(): void
     {
-        $f = new CurlFactory(3);
+        $factory = new CurlFactory(3);
 
         // Acceptance logic is handler-owned; the factory only validates the
         // value and never writes CURLOPT_PIPEWAIT for it.
-        $easy = $f->create(new Psr7\Request('GET', Server::$url), ['multiplex' => Multiplexing::NONE]);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), ['multiplex' => Multiplexing::NONE]);
 
         try {
             self::assertArrayNotHasKey(\CURLOPT_PIPEWAIT, $_SERVER['_curl']);
         } finally {
-            $f->release($easy);
+            $factory->release($easy);
         }
     }
 
@@ -4444,7 +4789,134 @@ class CurlFactoryTest extends TestCase
         yield 'require_wait' => [Multiplexing::REQUIRE_WAIT];
     }
 
-    public function testRequireWaitSetsPriorKnowledgeHttpVersion()
+    public function testRequireWaitSetsHttp3OnlyForHttp3Requests(): void
+    {
+        self::requireHttp3TestConstants();
+        if (!\defined('CURLOPT_PIPEWAIT')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.13.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                ['multiplex' => Multiplexing::REQUIRE_WAIT]
+            );
+
+            self::assertSame((int) \constant('CURL_HTTP_VERSION_3ONLY'), $conf[\CURLOPT_HTTP_VERSION]);
+            self::assertTrue($conf[(int) \constant('CURLOPT_PIPEWAIT')]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testRequireEagerSetsHttp3OnlyWithoutPipewait(): void
+    {
+        self::requireHttp3TestConstants();
+        if (!\defined('CURLOPT_PIPEWAIT')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT is not available.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.13.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                ['multiplex' => Multiplexing::REQUIRE_EAGER]
+            );
+
+            self::assertSame((int) \constant('CURL_HTTP_VERSION_3ONLY'), $conf[\CURLOPT_HTTP_VERSION]);
+            self::assertArrayNotHasKey((int) \constant('CURLOPT_PIPEWAIT'), $conf);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider requiredMultiplexProvider
+     */
+    public function testRequireRejectsProxiedHttp3Requests(string $multiplex): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.14.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for HTTP/3 requests sent through a proxy.');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'multiplex' => $multiplex,
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider requiredMultiplexProvider
+     */
+    public function testRequireRejectsUnsupportedHttp3Libcurl(string $multiplex): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('Required multiplexing for HTTP/3 needs libcurl 8.13.0 or newer built with HTTP/3 support.');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'multiplex' => $multiplex,
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider requiredMultiplexProvider
+     */
+    public function testRequireRejectsHttp3LibcurlBelowRequiredMultiplexFloor(string $multiplex): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.12.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('Required multiplexing for HTTP/3 needs libcurl 8.13.0 or newer built with HTTP/3 support.');
+
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'multiplex' => $multiplex,
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testRequireWaitSetsPriorKnowledgeHttpVersion(): void
     {
         if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
@@ -4457,8 +4929,8 @@ class CurlFactoryTest extends TestCase
 
         try {
             self::withProxyEnvironment([], static function (): void {
-                $f = new CurlFactory(3);
-                $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+                $factory = new CurlFactory(3);
+                $easy = $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
                     'multiplex' => Multiplexing::REQUIRE_WAIT,
                 ]);
 
@@ -4466,7 +4938,7 @@ class CurlFactoryTest extends TestCase
                     self::assertSame((int) \constant('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE'), $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
                     self::assertTrue($_SERVER['_curl'][(int) \constant('CURLOPT_PIPEWAIT')]);
                 } finally {
-                    $f->release($easy);
+                    $factory->release($easy);
                 }
             });
         } finally {
@@ -4474,7 +4946,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testRequireEagerSetsPriorKnowledgeWithoutPipewait()
+    public function testRequireEagerSetsPriorKnowledgeWithoutPipewait(): void
     {
         if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
@@ -4487,8 +4959,8 @@ class CurlFactoryTest extends TestCase
 
         try {
             self::withProxyEnvironment([], static function (): void {
-                $f = new CurlFactory(3);
-                $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+                $factory = new CurlFactory(3);
+                $easy = $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
                     'multiplex' => Multiplexing::REQUIRE_EAGER,
                 ]);
 
@@ -4496,468 +4968,7 @@ class CurlFactoryTest extends TestCase
                     self::assertSame((int) \constant('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE'), $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
                     self::assertArrayNotHasKey((int) \constant('CURLOPT_PIPEWAIT'), $_SERVER['_curl']);
                 } finally {
-                    $f->release($easy);
-                }
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsHttp11Requests(string $multiplex)
-    {
-        $f = new CurlFactory(3);
-
-        $this->expectException(ConnectException::class);
-        $this->expectExceptionMessage('The "multiplex" request option cannot be required for HTTP/1.1 requests; use protocol version 2.');
-
-        $f->create(new Psr7\Request('GET', Server::$url, [], null, '1.1'), [
-            'multiplex' => $multiplex,
-        ]);
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsUnsupportedLibcurl(string $multiplex)
-    {
-        if (!\defined('CURL_SSLVERSION_TLSv1_2') || !\defined('CURL_VERSION_HTTP2') || !\defined('CURL_VERSION_SSL')) {
-            self::markTestSkipped('HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previous = self::setCurlVersionInfo([
-            'version' => '8.13.0',
-            'features' => \CURL_VERSION_HTTP2 | \CURL_VERSION_SSL,
-        ]);
-
-        try {
-            $f = new CurlFactory(3);
-
-            $this->expectException(ConnectException::class);
-            $this->expectExceptionMessage('Required multiplexing needs libcurl 8.14.0 or newer built with HTTP/2 support.');
-
-            $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                'multiplex' => $multiplex,
-            ]);
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsLibcurlWithoutHttp2(string $multiplex)
-    {
-        if (!\defined('CURL_SSLVERSION_TLSv1_2') || !\defined('CURL_VERSION_SSL')) {
-            self::markTestSkipped('HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previous = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => \CURL_VERSION_SSL,
-        ]);
-
-        try {
-            $f = new CurlFactory(3);
-
-            $this->expectException(ConnectException::class);
-            $this->expectExceptionMessage('Required multiplexing needs libcurl 8.14.0 or newer built with HTTP/2 support.');
-
-            $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                'multiplex' => $multiplex,
-            ]);
-        } finally {
-            self::setCurlVersionInfo($previous);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsCleartextProxiedRequests(string $multiplex)
-    {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment(['http_proxy' => 'http://proxy.example.com:8125'], function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-
-                $this->expectException(ConnectException::class);
-                $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for cleartext requests sent through a proxy.');
-
-                $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public static function requiredMultiplexRawHttpVersionProvider(): iterable
-    {
-        yield 'require_eager with raw HTTP/1.1' => [Multiplexing::REQUIRE_EAGER, \CURL_HTTP_VERSION_1_1];
-        yield 'require_wait with raw HTTP/1.1' => [Multiplexing::REQUIRE_WAIT, \CURL_HTTP_VERSION_1_1];
-
-        if (\defined('CURL_HTTP_VERSION_2_0')) {
-            yield 'require_eager with raw negotiable HTTP/2' => [Multiplexing::REQUIRE_EAGER, (int) \constant('CURL_HTTP_VERSION_2_0')];
-        }
-
-        if (\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE')) {
-            yield 'require_eager with equivalent raw prior knowledge' => [Multiplexing::REQUIRE_EAGER, (int) \constant('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE')];
-            yield 'require_wait with equivalent raw prior knowledge' => [Multiplexing::REQUIRE_WAIT, (int) \constant('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE')];
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexRawHttpVersionProvider
-     */
-    public function testRequireRejectsRawHttpVersionOption(string $multiplex, int $rawVersion)
-    {
-        $f = new CurlFactory(3);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The "multiplex" request option cannot be required when the raw CURLOPT_HTTP_VERSION cURL option is set');
-
-        $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-            'multiplex' => $multiplex,
-            'curl' => [\CURLOPT_HTTP_VERSION => $rawVersion],
-        ]);
-    }
-
-    public function testRequireRejectsRawHttpVersionOptionBeforeProtocolVersionRejection()
-    {
-        $f = new CurlFactory(3);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The "multiplex" request option cannot be required when the raw CURLOPT_HTTP_VERSION cURL option is set');
-
-        $f->create(new Psr7\Request('GET', Server::$url, [], null, '1.1'), [
-            'multiplex' => Multiplexing::REQUIRE_EAGER,
-            'curl' => [\CURLOPT_HTTP_VERSION => \CURL_HTTP_VERSION_1_1],
-        ]);
-    }
-
-    public static function requiredMultiplexRawRouteOptionProvider(): iterable
-    {
-        yield 'require_eager with raw URL' => [Multiplexing::REQUIRE_EAGER, [\CURLOPT_URL => 'http://127.0.0.1:8126/'], 'CURLOPT_URL'];
-        yield 'require_wait with raw URL' => [Multiplexing::REQUIRE_WAIT, [\CURLOPT_URL => 'http://127.0.0.1:8126/'], 'CURLOPT_URL'];
-        yield 'require_eager with raw redirect following enabled' => [Multiplexing::REQUIRE_EAGER, [\CURLOPT_FOLLOWLOCATION => true], 'CURLOPT_FOLLOWLOCATION'];
-        yield 'require_wait with raw redirect following disabled' => [Multiplexing::REQUIRE_WAIT, [\CURLOPT_FOLLOWLOCATION => false], 'CURLOPT_FOLLOWLOCATION'];
-    }
-
-    /**
-     * @dataProvider requiredMultiplexRawRouteOptionProvider
-     */
-    public function testRequireRejectsRawRouteOptions(string $multiplex, array $curlOptions, string $name)
-    {
-        $f = new CurlFactory(3);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage(\sprintf('The "multiplex" request option cannot be required when the raw %s cURL option is set', $name));
-
-        $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-            'multiplex' => $multiplex,
-            'curl' => $curlOptions,
-        ]);
-    }
-
-    public function testRequireRejectsRawUrlForProxiedHttpsRequests()
-    {
-        $f = new CurlFactory(3);
-
-        // A raw URL could turn an allowed proxied HTTPS route into a
-        // cleartext one after the route check has read the request URI.
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('The "multiplex" request option cannot be required when the raw CURLOPT_URL cURL option is set');
-
-        $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
-            'multiplex' => Multiplexing::REQUIRE_EAGER,
-            'proxy' => 'http://proxy.example.com:8125',
-            'curl' => [\CURLOPT_URL => 'http://example.com/'],
-        ]);
-    }
-
-    public function testNonRequiredMultiplexPreservesRawRouteOptionPrecedence()
-    {
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url), [
-            'multiplex' => Multiplexing::EAGER,
-            'curl' => [\CURLOPT_FOLLOWLOCATION => true],
-        ]);
-
-        try {
-            self::assertTrue($_SERVER['_curl'][\CURLOPT_FOLLOWLOCATION]);
-        } finally {
-            $f->release($easy);
-        }
-    }
-
-    public static function nonRequiredMultiplexProvider(): iterable
-    {
-        yield 'option absent' => [[]];
-        yield 'option eager' => [['multiplex' => Multiplexing::EAGER]];
-        yield 'option wait' => [['multiplex' => Multiplexing::WAIT]];
-    }
-
-    /**
-     * @dataProvider nonRequiredMultiplexProvider
-     */
-    public function testNonRequiredMultiplexPreservesRawHttpVersionPrecedence(array $options)
-    {
-        if (!CurlVersion::supportsHttp2()) {
-            self::markTestSkipped('HTTP/2 support is unavailable.');
-        }
-
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), $options + [
-            'curl' => [\CURLOPT_HTTP_VERSION => \CURL_HTTP_VERSION_1_1],
-        ]);
-
-        try {
-            self::assertSame(\CURL_HTTP_VERSION_1_1, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
-        } finally {
-            $f->release($easy);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsRawProxyForCleartextRequests(string $multiplex)
-    {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-
-                $this->expectException(ConnectException::class);
-                $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for cleartext requests sent through a proxy.');
-
-                $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                    'curl' => [\CURLOPT_PROXY => 'http://proxy.example.com:8125'],
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireAcceptsRawEmptyProxyOverrideForCleartextRequests(string $multiplex)
-    {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], static function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-                $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                    'proxy' => 'http://proxy.example.com:8125',
-                    'curl' => [\CURLOPT_PROXY => ''],
-                ]);
-
-                try {
-                    self::assertSame('', $_SERVER['_curl'][\CURLOPT_PROXY]);
-                } finally {
-                    $f->release($easy);
-                }
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireAcceptsRawNoproxyWildcardForCleartextRequests(string $multiplex)
-    {
-        if (!\defined('CURLOPT_NOPROXY') || !\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_NOPROXY, CURLOPT_PIPEWAIT, or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], static function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-                $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                    'proxy' => 'http://proxy.example.com:8125',
-                    'curl' => [(int) \constant('CURLOPT_NOPROXY') => '*'],
-                ]);
-
-                try {
-                    self::assertSame('*', $_SERVER['_curl'][(int) \constant('CURLOPT_NOPROXY')]);
-                } finally {
-                    $f->release($easy);
-                }
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testRequireAcceptsRawNoproxyWildcardWithPreProxy()
-    {
-        if (!\defined('CURLOPT_NOPROXY') || !\defined('CURLOPT_PRE_PROXY') || !\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_NOPROXY, CURLOPT_PRE_PROXY, CURLOPT_PIPEWAIT, or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], static function (): void {
-                $f = new CurlFactory(3);
-
-                // libcurl's exact wildcard disables the primary proxy and the
-                // pre-proxy together, so the route is direct.
-                $easy = $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => Multiplexing::REQUIRE_EAGER,
-                    'proxy' => 'http://proxy.example.com:8125',
-                    'curl' => [
-                        (int) \constant('CURLOPT_NOPROXY') => '*',
-                        (int) \constant('CURLOPT_PRE_PROXY') => 'socks5h://proxy.example.com:1080',
-                    ],
-                ]);
-
-                try {
-                    self::assertSame('*', $_SERVER['_curl'][(int) \constant('CURLOPT_NOPROXY')]);
-                    self::assertSame('socks5h://proxy.example.com:1080', $_SERVER['_curl'][(int) \constant('CURLOPT_PRE_PROXY')]);
-                } finally {
-                    $f->release($easy);
-                }
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testRequireRejectsRawHostSpecificNoproxyPatternForCleartextRequests()
-    {
-        if (!\defined('CURLOPT_NOPROXY') || !\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_NOPROXY, CURLOPT_PIPEWAIT, or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], function (): void {
-                $f = new CurlFactory(3);
-
-                // Only the exact raw wildcard disables the proxy; host
-                // patterns would need libcurl's matcher and are treated
-                // conservatively as leaving the proxy active.
-                $this->expectException(ConnectException::class);
-                $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for cleartext requests sent through a proxy.');
-
-                $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => Multiplexing::REQUIRE_EAGER,
-                    'proxy' => 'http://proxy.example.com:8125',
-                    'curl' => [(int) \constant('CURLOPT_NOPROXY') => '127.0.0.1'],
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireRejectsRawPreProxyForCleartextRequests(string $multiplex)
-    {
-        if (!\defined('CURLOPT_PRE_PROXY') || !\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PRE_PROXY, CURLOPT_PIPEWAIT, or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-
-                $this->expectException(ConnectException::class);
-                $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for cleartext requests sent through a proxy.');
-
-                $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                    'curl' => [(int) \constant('CURLOPT_PRE_PROXY') => 'socks5h://proxy.example.com:1080'],
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    /**
-     * @dataProvider requiredMultiplexProvider
-     */
-    public function testRequireAllowsProxiedHttpsRequests(string $multiplex)
-    {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
-        }
-
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
-        ]);
-
-        try {
-            self::withProxyEnvironment([], static function () use ($multiplex): void {
-                $f = new CurlFactory(3);
-                $easy = $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
-                    'multiplex' => $multiplex,
-                    'proxy' => 'http://proxy.example.com:8125',
-                ]);
-
-                try {
-                    self::assertSame('http://proxy.example.com:8125', $_SERVER['_curl'][\CURLOPT_PROXY]);
-                } finally {
-                    $f->release($easy);
+                    $factory->release($easy);
                 }
             });
         } finally {
@@ -4977,7 +4988,7 @@ class CurlFactoryTest extends TestCase
     /**
      * @dataProvider requiredMultiplexNtlmAuthProvider
      */
-    public function testRequireRejectsNtlmAuthMasks(string $multiplex, int $auth)
+    public function testRequireRejectsNtlmAuthMasks(string $multiplex, int $auth): void
     {
         if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
@@ -4989,14 +5000,14 @@ class CurlFactoryTest extends TestCase
         ]);
 
         try {
-            $f = new CurlFactory(3);
+            $factory = new CurlFactory(3);
 
             // libcurl retries NTLM over HTTP/1.1 even on TLS routes, and the
             // server controls which scheme an offered mask ends up picking.
-            $this->expectException(\InvalidArgumentException::class);
+            $this->expectException(InvalidArgumentException::class);
             $this->expectExceptionMessage('The "multiplex" request option cannot be required when the final CURLOPT_HTTPAUTH cURL option value permits NTLM');
 
-            $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
                 'multiplex' => $multiplex,
                 'curl' => [\CURLOPT_HTTPAUTH => $auth],
             ]);
@@ -5014,7 +5025,7 @@ class CurlFactoryTest extends TestCase
     /**
      * @dataProvider requiredMultiplexAllowedAuthProvider
      */
-    public function testRequireAllowsNtlmFreeAuthMasks(int $auth)
+    public function testRequireAllowsNtlmFreeAuthMasks(int $auth): void
     {
         if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
@@ -5026,8 +5037,8 @@ class CurlFactoryTest extends TestCase
         ]);
 
         try {
-            $f = new CurlFactory(3);
-            $easy = $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
+            $factory = new CurlFactory(3);
+            $easy = $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
                 'multiplex' => Multiplexing::REQUIRE_EAGER,
                 'curl' => [\CURLOPT_HTTPAUTH => $auth],
             ]);
@@ -5035,14 +5046,14 @@ class CurlFactoryTest extends TestCase
             try {
                 self::assertSame($auth, $_SERVER['_curl'][\CURLOPT_HTTPAUTH]);
             } finally {
-                $f->release($easy);
+                $factory->release($easy);
             }
         } finally {
             self::setCurlVersionInfo($previousVersionInfo);
         }
     }
 
-    public function testRequireRejectsNonIntegerAuthMask()
+    public function testRequireRejectsNonIntegerAuthMask(): void
     {
         if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
             self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
@@ -5054,12 +5065,12 @@ class CurlFactoryTest extends TestCase
         ]);
 
         try {
-            $f = new CurlFactory(3);
+            $factory = new CurlFactory(3);
 
-            $this->expectException(\InvalidArgumentException::class);
+            $this->expectException(InvalidArgumentException::class);
             $this->expectExceptionMessage('The "multiplex" request option cannot be required when the final CURLOPT_HTTPAUTH cURL option value is not an integer.');
 
-            $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
                 'multiplex' => Multiplexing::REQUIRE_EAGER,
                 'curl' => [\CURLOPT_HTTPAUTH => [\CURLAUTH_NTLM]],
             ]);
@@ -5068,130 +5079,559 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testNonRequiredMultiplexAllowsRawNtlmAuth()
+    public function testNonRequiredMultiplexAllowsRawNtlmAuth(): void
     {
-        $f = new CurlFactory(3);
-        $easy = $f->create(new Psr7\Request('GET', Server::$url), [
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
             'curl' => [\CURLOPT_HTTPAUTH => \CURLAUTH_NTLM | \CURLAUTH_BASIC],
         ]);
 
         try {
             self::assertSame(\CURLAUTH_NTLM | \CURLAUTH_BASIC, $_SERVER['_curl'][\CURLOPT_HTTPAUTH]);
         } finally {
-            $f->release($easy);
-        }
-    }
-
-    public static function nonStringRawProxyOptionProvider(): iterable
-    {
-        yield 'integer proxy' => [[\CURLOPT_PROXY => 123], 'CURLOPT_PROXY'];
-        yield 'stringable proxy' => [[\CURLOPT_PROXY => new class {
-            public function __toString(): string
-            {
-                return 'http://proxy.example.com:8125';
-            }
-        }], 'CURLOPT_PROXY'];
-
-        if (\defined('CURLOPT_NOPROXY')) {
-            yield 'array no-proxy' => [[(int) \constant('CURLOPT_NOPROXY') => ['*']], 'CURLOPT_NOPROXY'];
-        }
-
-        if (\defined('CURLOPT_PRE_PROXY')) {
-            yield 'boolean pre-proxy' => [[(int) \constant('CURLOPT_PRE_PROXY') => false], 'CURLOPT_PRE_PROXY'];
+            $factory->release($easy);
         }
     }
 
     /**
-     * @dataProvider nonStringRawProxyOptionProvider
+     * @dataProvider requiredMultiplexProvider
      */
-    public function testRequireRejectsNonStringProxyOptionsForCleartextRequests(array $curlOptions, string $name)
+    public function testRequireRejectsHttp11Requests(string $multiplex): void
     {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
-        }
+        $factory = new CurlFactory(3);
 
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
-            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('The "multiplex" request option cannot be required for HTTP/1.1 requests; use protocol version 2 or 3.');
+
+        $factory->create(new Psr7\Request('GET', Server::$url, [], null, '1.1'), [
+            'multiplex' => $multiplex,
         ]);
-
-        try {
-            self::withProxyEnvironment([], function () use ($curlOptions, $name): void {
-                $f = new CurlFactory(3);
-
-                $this->expectException(\InvalidArgumentException::class);
-                $this->expectExceptionMessage(\sprintf('The "multiplex" request option cannot be required when the final %s cURL option value is not a string.', $name));
-
-                $f->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
-                    'multiplex' => Multiplexing::REQUIRE_EAGER,
-                    'curl' => $curlOptions,
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
     }
 
     /**
-     * @dataProvider nonStringRawProxyOptionProvider
+     * @dataProvider requiredMultiplexProvider
      */
-    public function testRequireRejectsNonStringProxyOptionsWithPlainMessageForHttpsRequests(array $curlOptions, string $name)
+    public function testRequireRejectsUnsupportedLibcurl(string $multiplex): void
     {
-        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
-            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
+        if (!\defined('CURL_VERSION_HTTP2')) {
+            self::markTestSkipped('HTTP/2 cURL constants are unavailable.');
         }
 
         $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => '8.14.0',
+            'version' => '8.13.0',
             'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
         ]);
 
         try {
-            self::withProxyEnvironment([], function () use ($curlOptions, $name): void {
-                $f = new CurlFactory(3);
+            $factory = new CurlFactory(3);
 
-                $this->expectException(\InvalidArgumentException::class);
-                $this->expectExceptionMessage($name.' must be a string.');
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('Required multiplexing needs libcurl 8.14.0 or newer built with HTTP/2 support.');
 
-                $f->create(new Psr7\Request('GET', 'https://example.com', [], null, '2.0'), [
-                    'multiplex' => Multiplexing::REQUIRE_EAGER,
-                    'curl' => $curlOptions,
-                ]);
-            });
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
-        }
-    }
-
-    public function testDeprecatesRawPipewaitCurlOption()
-    {
-        if (!CurlVersion::supportsMultiplex()) {
-            self::markTestSkipped('Multiplex support is unavailable.');
-        }
-
-        $deprecation = null;
-        \set_error_handler(static function (int $severity, string $message) use (&$deprecation): bool {
-            $deprecation = $message;
-
-            return true;
-        }, \E_USER_DEPRECATED);
-
-        try {
-            $f = new CurlFactory(3);
-            $easy = $f->create(new Psr7\Request('GET', Server::$url), [
-                'curl' => [\CURLOPT_PIPEWAIT => 1],
+            $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+                'multiplex' => $multiplex,
             ]);
-            $f->release($easy);
         } finally {
-            \restore_error_handler();
+            self::setCurlVersionInfo($previousVersionInfo);
         }
-
-        self::assertNotNull($deprecation, 'Expected a deprecation for the raw CURLOPT_PIPEWAIT option.');
-        self::assertStringContainsString('CURLOPT_PIPEWAIT', $deprecation);
-        self::assertStringContainsString('multiplex', $deprecation);
     }
 
-    public function testSavesToStream()
+    /**
+     * @dataProvider requiredMultiplexProvider
+     */
+    public function testRequireRejectsLibcurlWithoutHttp2(string $multiplex): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.14.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+
+            $this->expectException(RequestException::class);
+            $this->expectExceptionMessage('Required multiplexing needs libcurl 8.14.0 or newer built with HTTP/2 support.');
+
+            $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+                'multiplex' => $multiplex,
+            ]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider requiredMultiplexProvider
+     */
+    public function testRequireRejectsCleartextProxiedRequests(string $multiplex): void
+    {
+        if (!\defined('CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') || !\defined('CURLOPT_PIPEWAIT') || !\defined('CURL_VERSION_HTTP2')) {
+            self::markTestSkipped('CURLOPT_PIPEWAIT or HTTP/2 cURL constants are unavailable.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.14.0',
+            'features' => self::curlSslFeature() | \CURL_VERSION_HTTP2,
+        ]);
+
+        try {
+            self::withProxyEnvironment(['http_proxy' => 'http://proxy.example.com:8125'], function () use ($multiplex): void {
+                $factory = new CurlFactory(3);
+
+                $this->expectException(RequestException::class);
+                $this->expectExceptionMessage('Required multiplexing cannot be guaranteed for cleartext requests sent through a proxy.');
+
+                $factory->create(new Psr7\Request('GET', Server::$url, [], null, '2.0'), [
+                    'multiplex' => $multiplex,
+                ]);
+            });
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testRejectsEmptyProtocolVersion(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = self::requestWithProtocolVersion('');
+
+        try {
+            $factory->create($request, []);
+            self::fail('Expected request exception.');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertSame('HTTP protocol version must not be empty.', $e->getMessage());
+        }
+    }
+
+    public function testRejectsMalformedProtocolVersion(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = self::requestWithProtocolVersion('HTTP/1.1');
+
+        try {
+            $factory->create($request, []);
+            self::fail('Expected request exception.');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertSame('HTTP protocol version must be a valid HTTP version number.', $e->getMessage());
+        }
+    }
+
+    public function testThrowsWhenHttp2IsUnsupported(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $request = new Psr7\Request('GET', Server::$url, [], null, '2.0');
+
+            try {
+                $factory->create($request, []);
+                self::fail('Expected request exception.');
+            } catch (RequestException $e) {
+                self::assertSame($request, $e->getRequest());
+                self::assertStringContainsString('HTTP/2 is supported by the cURL handler', $e->getMessage());
+            }
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testThrowsWhenHttp3IsUnsupported(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $request = new Psr7\Request('GET', Server::$url, [], null, '3.0');
+
+            try {
+                $factory->create($request, []);
+                self::fail('Expected request exception.');
+            } catch (RequestException $e) {
+                self::assertSame($request, $e->getRequest());
+                self::assertStringContainsString('HTTP/3 is supported by the cURL handler', $e->getMessage());
+            }
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider http3ProtocolVersionProvider
+     */
+    public function testMapsHttp3ProtocolVersionToCurlOption(string $protocolVersion): void
+    {
+        if (!\defined('CURL_HTTP_VERSION_3')) {
+            self::markTestSkipped('HTTP/3 cURL constants are not available.');
+        }
+
+        $conf = self::getDefaultCurlConf(
+            new Psr7\Request('GET', 'https://example.com', [], null, $protocolVersion),
+            []
+        );
+
+        self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+    }
+
+    public function testHttp3WithEffectiveProxyFallsBackToHttp2WhenSupported(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'multiplex' => Multiplexing::EAGER,
+                'proxy' => ['https' => 'http://proxy.example.com:8080'],
+            ]);
+
+            self::assertSame('http://proxy.example.com:8080', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+            self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+            self::assertSame(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithStringProxyFallsBackToHttp2WhenSupported(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'multiplex' => Multiplexing::EAGER,
+                'proxy' => 'http://proxy.example.com:8080',
+            ]);
+
+            self::assertSame('http://proxy.example.com:8080', $_SERVER['_curl'][\CURLOPT_PROXY]);
+            self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+            self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithEnvironmentProxyFallsBackToHttp2WhenSupported(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            self::withProxyEnvironment(['https_proxy' => 'http://proxy.example.com:8080'], static function (): void {
+                $factory = new CurlFactory(3);
+                $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), ['multiplex' => Multiplexing::EAGER]);
+
+                self::assertSame('http://proxy.example.com:8080', $_SERVER['_curl'][\CURLOPT_PROXY]);
+                self::assertSame('', $_SERVER['_curl'][\CURLOPT_NOPROXY]);
+                self::assertSame(\CURL_HTTP_VERSION_2_0, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+            });
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3IsKeptWhenEnvironmentNoProxyExcludesTheTarget(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            self::withProxyEnvironment([
+                'https_proxy' => 'http://proxy.example.com:8080',
+                'NO_PROXY' => 'example.com',
+            ], static function (): void {
+                // Asserted on the default conf, like the other keep-HTTP/3
+                // tests: applying CURL_HTTP_VERSION_3 to a real handle fails
+                // on libcurl builds without HTTP/3 support.
+                $conf = self::getDefaultCurlConf(
+                    new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                    []
+                );
+
+                self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+            });
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithEffectiveProxyFallsBackToHttp11WhenHttp2IsUnsupported(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(false),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'proxy' => ['https' => 'http://proxy.example.com:8080'],
+            ]);
+
+            self::assertSame(\CURL_HTTP_VERSION_1_1, $_SERVER['_curl'][\CURLOPT_HTTP_VERSION]);
+            self::assertSame(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithMatchingNoProxyKeepsHttp3(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                [
+                    'proxy' => [
+                        'https' => 'http://proxy.example.com:8080',
+                        'no' => ['example.com'],
+                    ],
+                ]
+            );
+
+            self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithMatchingNoListWithoutSchemeKeyKeepsHttp3(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            // The environment proxy is what makes this discriminate: without
+            // it, no proxy applies either way and HTTP/3 is trivially kept.
+            self::withProxyEnvironment(['https_proxy' => 'http://proxy.example.com:8080'], static function (): void {
+                $conf = self::getDefaultCurlConf(
+                    new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                    ['proxy' => ['no' => ['example.com']]]
+                );
+
+                self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+            });
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithEmptyProxyOptionKeepsHttp3(): void
+    {
+        self::requireHttp3TestConstants();
+
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::http3FeatureMask(true),
+        ]);
+
+        try {
+            $conf = self::getDefaultCurlConf(
+                new Psr7\Request('GET', 'https://example.com', [], null, '3.0'),
+                ['proxy' => '']
+            );
+
+            self::assertSame((int) \constant('CURL_HTTP_VERSION_3'), $conf[\CURLOPT_HTTP_VERSION]);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testHttp3WithProxyStillRequiresHttp3SupportBeforeDowngrade(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '7.88.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            $factory = new CurlFactory(3);
+            $request = new Psr7\Request('GET', 'https://example.com', [], null, '3.0');
+
+            try {
+                $factory->create($request, [
+                    'proxy' => ['https' => 'http://proxy.example.com:8080'],
+                ]);
+                self::fail('Expected request exception.');
+            } catch (RequestException $e) {
+                self::assertSame($request, $e->getRequest());
+                self::assertStringContainsString('HTTP/3 is supported by the cURL handler', $e->getMessage());
+            }
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * @dataProvider http3WeakCryptoMethodProvider
+     */
+    public function testHttp3UpgradesWeakCryptoMethodToTls12Minimum(int $cryptoMethod): void
+    {
+        if (!CurlVersion::supportsHttp3()) {
+            self::markTestSkipped('HTTP/3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+            'crypto_method' => $cryptoMethod,
+        ]);
+
+        self::assertSame(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testHttp3PreservesExplicitTls13CryptoMethod(): void
+    {
+        if (!CurlVersion::supportsHttp3() || !CurlVersion::supportsTls13()) {
+            self::markTestSkipped('HTTP/3 with explicit TLS 1.3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+            'crypto_method' => \STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+        ]);
+
+        self::assertSame(\CURL_SSLVERSION_TLSv1_3, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testHttp3DefaultsHttpsToTls12Minimum(): void
+    {
+        if (!CurlVersion::supportsHttp3()) {
+            self::markTestSkipped('HTTP/3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), []);
+
+        self::assertSame(\CURL_SSLVERSION_TLSv1_2, $_SERVER['_curl'][\CURLOPT_SSLVERSION]);
+    }
+
+    public function testHttp3RejectsCryptoMethodMaxBelowTls12(): void
+    {
+        if (!CurlVersion::supportsHttp3()) {
+            self::markTestSkipped('HTTP/3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('HTTP/2 and HTTP/3 require TLS 1.2 or higher');
+
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT,
+        ]);
+    }
+
+    public function testHttp3AllowsCryptoMethodMaxTls12(): void
+    {
+        if (!CurlVersion::supportsHttp3() || !\defined('CURL_SSLVERSION_MAX_TLSv1_2')) {
+            self::markTestSkipped('HTTP/3 or TLS 1.2 maximum is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+            'crypto_method_max' => \STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
+        ]);
+
+        self::assertSame(
+            \CURL_SSLVERSION_TLSv1_2 | \CURL_SSLVERSION_MAX_TLSv1_2,
+            $_SERVER['_curl'][\CURLOPT_SSLVERSION]
+        );
+    }
+
+    public function testHttp3ValidatesCryptoMethodInvalidMethod(): void
+    {
+        if (!CurlVersion::supportsHttp3()) {
+            self::markTestSkipped('HTTP/3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid crypto_method request option: unknown version provided');
+
+        $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+            'crypto_method' => 123,
+        ]);
+    }
+
+    public function testHttp3RejectsRawCurlSslVersionOption(): void
+    {
+        if (!CurlVersion::supportsHttp3()) {
+            self::markTestSkipped('HTTP/3 is not supported by this cURL installation.');
+        }
+
+        $factory = new CurlFactory(3);
+
+        try {
+            $factory->create(new Psr7\Request('GET', 'https://example.com', [], null, '3.0'), [
+                'curl' => [\CURLOPT_SSLVERSION => \CURL_SSLVERSION_TLSv1_2],
+            ]);
+            self::fail('Expected an InvalidArgumentException for raw CURLOPT_SSLVERSION.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('CURLOPT_SSLVERSION', $e->getMessage());
+            self::assertStringContainsString('crypto_method_max', $e->getMessage());
+        }
+    }
+
+    public static function http3ProtocolVersionProvider(): array
+    {
+        return [
+            ['3'],
+            ['3.0'],
+        ];
+    }
+
+    public static function http3WeakCryptoMethodProvider(): array
+    {
+        return [
+            [\STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT],
+            [\STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT],
+            [\STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT],
+        ];
+    }
+
+    public function testSavesToStream(): void
     {
         $stream = \fopen('php://memory', 'r+');
         $this->addDecodeResponse();
@@ -5206,7 +5646,65 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('test', \stream_get_contents($stream));
     }
 
-    public function testSavesToGuzzleStream()
+    public function testDoesNotCloseResourceSinkWhenResponseIsDestroyed(): void
+    {
+        $stream = (function () {
+            $stream = \tmpfile();
+            self::assertIsResource($stream);
+
+            $this->addDecodeResponse();
+            $handler = new Handler\CurlHandler();
+            $request = new Psr7\Request('GET', Server::$url);
+            $response = $handler($request, [
+                'decode_content' => true,
+                'sink' => $stream,
+            ])->wait();
+
+            self::assertSame(200, $response->getStatusCode());
+
+            return $stream;
+        })();
+
+        \gc_collect_cycles();
+
+        try {
+            self::assertIsResource($stream);
+            \rewind($stream);
+            self::assertSame('test', \stream_get_contents($stream));
+        } finally {
+            if (\is_resource($stream)) {
+                \fclose($stream);
+            }
+        }
+    }
+
+    public function testDoesNotCloseResourceSinkWhenResponseBodyIsClosed(): void
+    {
+        $stream = \tmpfile();
+        self::assertIsResource($stream);
+
+        try {
+            $this->addDecodeResponse();
+            $handler = new Handler\CurlHandler();
+            $request = new Psr7\Request('GET', Server::$url);
+            $response = $handler($request, [
+                'decode_content' => true,
+                'sink' => $stream,
+            ])->wait();
+
+            $response->getBody()->close();
+
+            self::assertIsResource($stream);
+            \rewind($stream);
+            self::assertSame('test', \stream_get_contents($stream));
+        } finally {
+            if (\is_resource($stream)) {
+                \fclose($stream);
+            }
+        }
+    }
+
+    public function testSavesToGuzzleStream(): void
     {
         $stream = Psr7\Utils::streamFor();
         $this->addDecodeResponse();
@@ -5220,7 +5718,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('test', (string) $stream);
     }
 
-    public function testSavesToFileOnDisk()
+    public function testSavesToFileOnDisk(): void
     {
         $tmpfile = \tempnam(\sys_get_temp_dir(), 'testfile');
 
@@ -5239,7 +5737,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testDoesNotAddMultipleContentLengthHeaders()
+    public function testDoesNotAddMultipleContentLengthHeaders(): void
     {
         $this->addDecodeResponse();
         $handler = new Handler\CurlMultiHandler();
@@ -5252,7 +5750,7 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('foo', (string) $sent->getBody());
     }
 
-    public function testSendsPostWithNoBodyOrDefaultContentType()
+    public function testSendsPostWithNoBodyOrDefaultContentType(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response()]);
@@ -5266,14 +5764,14 @@ class CurlFactoryTest extends TestCase
         self::assertSame('0', $received->getHeaderLine('content-length'));
     }
 
-    public function testFailsWhenCannotRewindRetryAfterNoResponse()
+    public function testFailsWhenCannotRewindRetryAfterNoResponse(): void
     {
         $factory = new CurlFactory(1);
         $stream = Psr7\Utils::streamFor('abc');
         $stream->read(1);
         $stream = new Psr7\NoSeekStream($stream);
         $request = new Psr7\Request('PUT', Server::$url, [], $stream);
-        $fn = static function ($request, $options) use (&$fn, $factory) {
+        $fn = static function (RequestInterface $request, array $options) use (&$fn, $factory): P\PromiseInterface {
             $easy = $factory->create($request, $options);
 
             return CurlFactory::finish($fn, $easy, $factory);
@@ -5284,21 +5782,24 @@ class CurlFactoryTest extends TestCase
         $fn($request, [])->wait();
     }
 
-    public function testRetriesWhenBodyCanBeRewound()
+    public function testRetriesWhenBodyCanBeRewound(): void
     {
         $callHandler = $called = false;
 
-        $fn = static function ($r, $options) use (&$callHandler) {
+        $fn = static function (RequestInterface $r, array $options) use (&$callHandler): P\PromiseInterface {
             $callHandler = true;
 
             return P\Create::promiseFor(new Psr7\Response());
         };
 
         $bd = Psr7\FnStream::decorate(Psr7\Utils::streamFor('test'), [
-            'tell' => static function () {
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'tell' => static function (): int {
                 return 1;
             },
-            'rewind' => static function () use (&$called) {
+            'rewind' => static function () use (&$called): void {
                 $called = true;
             },
         ]);
@@ -5313,18 +5814,44 @@ class CurlFactoryTest extends TestCase
         self::assertEquals('200', $res->getStatusCode());
     }
 
-    public function testFailsWhenRetryMoreThanThreeTimes()
+    public function testHoldsTheEasyHandleOutOfThePoolUntilTheRetryIsDispatched(): void
+    {
+        $easy = null;
+        $handleHeldDuringRetry = null;
+
+        $fn = static function (RequestInterface $request, array $options) use (&$easy, &$handleHeldDuringRetry): P\PromiseInterface {
+            $handleHeldDuringRetry = isset($easy->handle);
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        $factory = new CurlFactory(1);
+        $req = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($req, []);
+        $res = CurlFactory::finish($fn, $easy, $factory)->wait();
+
+        self::assertTrue($handleHeldDuringRetry);
+        self::assertFalse(isset($easy->handle));
+        self::assertSame(200, $res->getStatusCode());
+    }
+
+    public function testFailsWhenRetryMoreThanThreeTimes(): void
     {
         $factory = new CurlFactory(1);
         $call = 0;
-        $fn = static function ($request, $options) use (&$mock, &$call, $factory) {
+        $fn = static function (RequestInterface $request, array $options) use (&$mock, &$call, $factory): P\PromiseInterface {
             ++$call;
             $easy = $factory->create($request, $options);
 
             return CurlFactory::finish($mock, $easy, $factory);
         };
         $mock = new Handler\MockHandler([$fn, $fn, $fn]);
-        $p = $mock(new Psr7\Request('PUT', Server::$url, [], 'test'), []);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('test'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $p = $mock(new Psr7\Request('PUT', Server::$url, [], $body), []);
         $p->wait(false);
         self::assertEquals(3, $call);
 
@@ -5333,7 +5860,415 @@ class CurlFactoryTest extends TestCase
         $p->wait(true);
     }
 
-    public function testHandles100Continue()
+    /**
+     * Regression coverage for the CURLE_SEND_FAIL_REWIND (errno 65) arm of
+     * shouldRetryFailedRewind()/retryFailedRewind(). libcurl returns errno 65
+     * when it must rewind an already-partially-sent upload body (after a
+     * redirect, multi-pass auth, or a dead reused connection) but cannot.
+     * PHP builds without CURLOPT_SEEKFUNCTION expose no seek callback for a
+     * streamed request body (https://bugs.php.net/bug.php?id=47204), and
+     * Guzzle works around this by rewinding the PSR-7 body itself and
+     * re-issuing the request when the transfer died without a response; a
+     * challenge-response rewind failure fails fast instead (see
+     * testDoesNotRetryFailedRewindWhenChallengeResponseWasReceived). On
+     * builds with CURLOPT_SEEKFUNCTION, applyBody() registers a seek
+     * callback so libcurl rewinds a seekable body natively and this retry
+     * remains the fallback for non-seekable bodies.
+     *
+     * This test and testFailsAfterThreeRetriesOnFailedRewindErrno may be
+     * removed once the minimum supported PHP exposes CURLOPT_SEEKFUNCTION (no
+     * released PHP does as of PHP 8.5) and the minimum supported libcurl
+     * always rewinds through the seek callback.
+     */
+    public function testRetriesWhenCurlReportsFailedRewindErrno(): void
+    {
+        $rewound = false;
+        $handlerCalled = false;
+
+        $handler = static function (RequestInterface $request, array $options) use (&$handlerCalled): P\PromiseInterface {
+            $handlerCalled = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('test'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'tell' => static function (): int {
+                return 1;
+            },
+            'rewind' => static function () use (&$rewound): void {
+                $rewound = true;
+            },
+        ]);
+
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $easy = $factory->create($request, []);
+        // Reset the flag so the assertion below observes the retry's rewind,
+        // not the rewind applyBody() performs while creating the handle.
+        $rewound = false;
+        // Simulate libcurl returning errno 65 (failed rewind) and no response.
+        $easy->errno = 65;
+        $easy->response = null;
+
+        $response = CurlFactory::finish($handler, $easy, $factory)->wait();
+
+        self::assertTrue($rewound, 'The request body should have been rewound before retrying');
+        self::assertTrue($handlerCalled, 'The request should have been retried');
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    /**
+     * Companion to testRetriesWhenCurlReportsFailedRewindErrno: when libcurl
+     * keeps reporting CURLE_SEND_FAIL_REWIND (errno 65) the retry is bounded to
+     * three attempts before giving up, mirroring
+     * testFailsWhenRetryMoreThanThreeTimes for the errno === 0 arm. See that
+     * test's docblock for the removal conditions that apply to both errno-65
+     * tests.
+     */
+    public function testFailsAfterThreeRetriesOnFailedRewindErrno(): void
+    {
+        $factory = new CurlFactory(1);
+        $calls = 0;
+        $handler = static function (RequestInterface $request, array $options) use (&$mock, &$calls, $factory): P\PromiseInterface {
+            ++$calls;
+            $easy = $factory->create($request, $options);
+            // Each attempt reports a failed rewind (errno 65) with no response.
+            $easy->errno = 65;
+            $easy->response = null;
+
+            return CurlFactory::finish($mock, $easy, $factory);
+        };
+        $mock = new Handler\MockHandler([$handler, $handler, $handler]);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('test'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $promise = $mock(new Psr7\Request('PUT', Server::$url, [], $body), []);
+        $promise->wait(false);
+        self::assertSame(3, $calls);
+
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('The cURL request was retried 3 times');
+        $promise->wait(true);
+    }
+
+    /**
+     * Companion boundary to the errno-65 retry tests: when the failed rewind
+     * was demanded by a challenge response, re-issuing the identical request
+     * replays the same challenge, so the transfer fails on the first attempt
+     * with the challenge response attached instead of being retried.
+     */
+    public function testDoesNotRetryFailedRewindWhenChallengeResponseWasReceived(): void
+    {
+        $factory = new CurlFactory(1);
+        $handlerCalled = false;
+        $handler = static function () use (&$handlerCalled): P\PromiseInterface {
+            $handlerCalled = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+        $response = new Psr7\Response(401, ['WWW-Authenticate' => 'Digest realm="fixture"']);
+        $easy = $factory->create(new Psr7\Request('PUT', Server::$url, [], 'test'), []);
+        // Simulate libcurl failing to rewind (errno 65) after receiving a
+        // challenge response.
+        $easy->errno = 65;
+        $easy->response = $response;
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($response, $e->getResponse());
+            self::assertStringContainsString('cURL error 65', $e->getMessage());
+            self::assertStringContainsString('The request was not retried because a retry replays the same challenge', $e->getMessage());
+        }
+
+        self::assertFalse($handlerCalled, 'The request must not be retried when a challenge response was received');
+    }
+
+    /**
+     * A response-bearing failed rewind is not always an authentication
+     * challenge: libcurl reports the same errno 65 shape when an
+     * Expect: 100-continue upload receives 417 and the body cannot be
+     * rewound for the automatic retry without the expectation.
+     */
+    public function testDoesNotRetryFailedRewindWhenExpectationFailedResponseWasReceived(): void
+    {
+        $factory = new CurlFactory(1);
+        $handlerCalled = false;
+        $handler = static function () use (&$handlerCalled): P\PromiseInterface {
+            $handlerCalled = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+        $response = new Psr7\Response(417);
+        $easy = $factory->create(new Psr7\Request('PUT', Server::$url, [], 'test'), []);
+        // Simulate libcurl failing to rewind (errno 65) after receiving a
+        // 417 response to an Expect: 100-continue upload.
+        $easy->errno = 65;
+        $easy->response = $response;
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($response, $e->getResponse());
+            self::assertStringContainsString('cURL error 65', $e->getMessage());
+            self::assertStringContainsString('The request was not retried because a retry replays the same response', $e->getMessage());
+            self::assertStringNotContainsString('authentication challenge', $e->getMessage());
+        }
+
+        self::assertFalse($handlerCalled, 'The request must not be retried when the response that triggered the rewind was received');
+    }
+
+    /**
+     * End-to-end companion to
+     * testDoesNotRetryFailedRewindWhenChallengeResponseWasReceived: a real
+     * transfer whose streamed body must be rewound to answer an
+     * authentication challenge fails on the first attempt with the challenge
+     * response attached, because libcurl has no way to rewind a streamed
+     * request body. The node server's digest firewall drains the body before
+     * challenging, then rejects the request until libcurl authenticates.
+     * Skipped on PHP builds exposing CURLOPT_SEEKFUNCTION, where the
+     * registered seek callback rewinds the body and the transfer succeeds
+     * (see testStreamedUploadAuthResendSucceedsThroughNativeSeek).
+     */
+    public function testStreamedUploadFailsFastOnChallengeRewind(): void
+    {
+        if (\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION lets libcurl rewind this body natively.');
+        }
+
+        Server::flush();
+        Server::enqueue([]);
+
+        $handler = new Handler\CurlHandler();
+
+        $payload = \str_repeat('a', 1000000);
+        $statsCalls = 0;
+        $request = new Psr7\Request('PUT', Server::$url.'secure/by-digest/qop-auth/echo', ['Content-Length' => (string) \strlen($payload)], Psr7\Utils::streamFor($payload));
+
+        try {
+            $handler($request, [
+                'curl' => [
+                    \CURLOPT_HTTPAUTH => \CURLAUTH_ANY,
+                    \CURLOPT_USERPWD => 'me:test',
+                ],
+                'on_stats' => static function () use (&$statsCalls): void {
+                    ++$statsCalls;
+                },
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame(401, $e->getResponse()->getStatusCode());
+            self::assertStringContainsString('The request was not retried because a retry replays the same challenge', $e->getMessage());
+        }
+
+        self::assertSame(1, $statsCalls, 'The transfer should have failed on the first attempt');
+        self::assertSame([], Server::received(), 'No request should have passed the digest firewall');
+    }
+
+    /**
+     * When PHP exposes CURLOPT_SEEKFUNCTION, a streamed upload that libcurl
+     * must resend after a negotiated auth challenge is rewound through the
+     * registered seek callback and completes within a single transfer, so
+     * the failed-rewind retry never fires and on_stats sees one transfer.
+     * Without the seek callback this request cannot complete at all and
+     * fails on the first attempt, because a failed-rewind retry would
+     * re-encounter the same in-transfer rewind
+     * (https://bugs.php.net/bug.php?id=80518).
+     */
+    public function testStreamedUploadAuthResendSucceedsThroughNativeSeek(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200, [], 'ok')]);
+
+        $handler = new Handler\CurlHandler();
+
+        $payload = \str_repeat('0123456789abcdef', 62500);
+        $seeks = [];
+        $inner = Psr7\Utils::streamFor($payload);
+        $body = Psr7\FnStream::decorate($inner, [
+            'seek' => static function (int $offset, int $whence = \SEEK_SET) use ($inner, &$seeks): void {
+                $seeks[] = $offset;
+                $inner->seek($offset, $whence);
+            },
+        ]);
+
+        $statsCalls = 0;
+        $request = new Psr7\Request('PUT', Server::$url.'secure/by-digest/qop-auth/echo', ['Content-Length' => (string) \strlen($payload)], $body);
+        $response = $handler($request, [
+            'curl' => [
+                \CURLOPT_HTTPAUTH => \CURLAUTH_ANY,
+                \CURLOPT_USERPWD => 'me:test',
+            ],
+            'on_stats' => static function () use (&$statsCalls): void {
+                ++$statsCalls;
+            },
+        ])->wait();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertContains(0, $seeks, 'libcurl should have rewound the body through the seek callback');
+        self::assertSame(1, $statsCalls, 'The transfer should not have been retried in userland');
+
+        $received = Server::received();
+        self::assertCount(1, $received, 'Only the authenticated resend passes the digest firewall');
+        self::assertStringStartsWith('Digest ', $received[0]->getHeaderLine('Authorization'));
+        self::assertSame($payload, (string) $received[0]->getBody(), 'The exact body should have been resent');
+    }
+
+    /**
+     * A seek callback failure is recorded on the easy handle, so the
+     * rejection carries the caller's exception instead of a bare cURL error
+     * 65 and the failed-rewind retry does not fire.
+     */
+    public function testStreamedUploadSeekFailureRejectsWithTheSeekException(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        Server::flush();
+        Server::enqueue([]);
+
+        $handler = new Handler\CurlHandler();
+
+        $payload = \str_repeat('a', 1000000);
+        $previous = new \RuntimeException('boom while seeking');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor($payload), [
+            'seek' => static function (int $offset, int $whence = \SEEK_SET) use ($previous): void {
+                throw $previous;
+            },
+        ]);
+
+        $statsCalls = 0;
+        $request = new Psr7\Request('PUT', Server::$url.'secure/by-digest/qop-auth/echo', ['Content-Length' => (string) \strlen($payload)], $body);
+
+        try {
+            $handler($request, [
+                'curl' => [
+                    \CURLOPT_HTTPAUTH => \CURLAUTH_ANY,
+                    \CURLOPT_USERPWD => 'me:test',
+                ],
+                'on_stats' => static function () use (&$statsCalls): void {
+                    ++$statsCalls;
+                },
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame('boom while seeking', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertSame(401, $e->getResponse()->getStatusCode());
+        }
+
+        self::assertSame(1, $statsCalls, 'The transfer should not have been retried in userland');
+    }
+
+    public function testStreamedUploadSeekTimeoutRejectsWithARewindMessage(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        Server::flush();
+        Server::enqueue([]);
+
+        $handler = new Handler\CurlHandler();
+
+        $payload = \str_repeat('a', 1000000);
+        $previous = new Psr7\Exception\TimeoutException('timed out while seeking');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor($payload), [
+            'seek' => static function (int $offset, int $whence = \SEEK_SET) use ($previous): void {
+                throw $previous;
+            },
+        ]);
+
+        $request = new Psr7\Request('PUT', Server::$url.'secure/by-digest/qop-auth/echo', ['Content-Length' => (string) \strlen($payload)], $body);
+
+        try {
+            $handler($request, [
+                'curl' => [
+                    \CURLOPT_HTTPAUTH => \CURLAUTH_ANY,
+                    \CURLOPT_USERPWD => 'me:test',
+                ],
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame('Timed out while rewinding the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertSame(401, $e->getResponse()->getStatusCode());
+        }
+    }
+
+    /**
+     * A non-seekable streamed body makes the seek callback report
+     * CURL_SEEKFUNC_CANTSEEK, so libcurl cannot satisfy a challenge resend
+     * and surfaces CURLE_SEND_FAIL_REWIND; the transfer fails on the first
+     * attempt with the challenge response attached instead of replaying the
+     * same challenge, matching PHP builds without CURLOPT_SEEKFUNCTION.
+     */
+    public function testStreamedUploadNonSeekableBodyFailsFastOnChallengeRewind(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        Server::flush();
+        Server::enqueue([]);
+
+        $handler = new Handler\CurlHandler();
+
+        $payload = \str_repeat('a', 1000000);
+        $inner = Psr7\Utils::streamFor($payload);
+        $rewinds = 0;
+        $body = Psr7\FnStream::decorate($inner, [
+            'isSeekable' => static function (): bool {
+                return false;
+            },
+            'rewind' => static function () use ($inner, &$rewinds): void {
+                ++$rewinds;
+                $inner->seek(0);
+            },
+        ]);
+
+        $statsCalls = 0;
+        $request = new Psr7\Request('PUT', Server::$url.'secure/by-digest/qop-auth/echo', ['Content-Length' => (string) \strlen($payload)], $body);
+
+        try {
+            $handler($request, [
+                'curl' => [
+                    \CURLOPT_HTTPAUTH => \CURLAUTH_ANY,
+                    \CURLOPT_USERPWD => 'me:test',
+                ],
+                'on_stats' => static function () use (&$statsCalls): void {
+                    ++$statsCalls;
+                },
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame(401, $e->getResponse()->getStatusCode());
+            self::assertStringContainsString('The request was not retried because a retry replays the same challenge', $e->getMessage());
+        }
+
+        self::assertSame(0, $rewinds, 'The failed-rewind retry should not have fired');
+        self::assertSame(1, $statsCalls, 'The transfer should have failed on the first attempt');
+    }
+
+    public function testHandles100Continue(): void
     {
         Server::flush();
         Server::enqueue([
@@ -5351,30 +6286,701 @@ class CurlFactoryTest extends TestCase
         self::assertSame('test', (string) $response->getBody());
     }
 
-    public function testCreatesConnectException()
+    public static function curlConnectionErrorProvider(): iterable
     {
-        $m = new \ReflectionMethod(CurlFactory::class, 'finishError');
+        yield 'resolve proxy' => [5];
+        yield 'resolve host' => [6];
+        yield 'connect' => [7];
+        yield 'ssl connect' => [35];
+        yield 'old peer verification' => [51];
+        yield 'ssl cacert / peer verification' => [60];
+        yield 'ssl issuer' => [83];
+        yield 'ssl pinned public key mismatch' => [90];
+        yield 'ssl invalid cert status' => [91];
+        yield 'quic connect' => [96];
+        yield 'proxy handshake' => [97];
+        yield 'ssl client cert' => [98];
+        yield 'ech required' => [101];
+    }
 
-        if (PHP_VERSION_ID < 80100) {
-            $m->setAccessible(true);
-        }
-
+    /**
+     * @dataProvider curlConnectionErrorProvider
+     */
+    public function testCreatesConnectExceptionForConnectionErrors(int $errno): void
+    {
         $factory = new CurlFactory(1);
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
-        $easy->errno = \CURLE_COULDNT_CONNECT;
-        $response = $m->invoke(
-            null,
-            static function () {
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->errno = $errno;
+        $response = CurlFactory::finish(
+            static function (): void {
             },
             $easy,
             $factory
         );
 
-        $this->expectException(ConnectException::class);
-        $response->wait();
+        try {
+            $response->wait();
+            self::fail('Expected ConnectException');
+        } catch (ConnectTimeoutException $e) {
+            self::fail('Expected non-timeout ConnectException');
+        } catch (ConnectException $e) {
+            self::assertSame($request, $e->getRequest());
+        }
     }
 
-    public function testAddsTimeouts()
+    public static function curlNetworkErrorWithoutResponseProvider(): iterable
+    {
+        yield 'http2 framing' => [16];
+        yield 'got nothing' => [52];
+        yield 'send' => [55];
+        yield 'receive' => [56];
+        yield 'http2 stream' => [92];
+        yield 'http3' => [95];
+    }
+
+    /**
+     * @dataProvider curlNetworkErrorWithoutResponseProvider
+     */
+    public function testCreatesNetworkExceptionForNetworkErrorsWithoutResponse(int $errno): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->errno = $errno;
+        $easy->response = null;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected NetworkException');
+        } catch (ConnectTimeoutException $e) {
+            self::fail('Expected non-timeout NetworkException');
+        } catch (NetworkTimeoutException $e) {
+            self::fail('Expected non-timeout NetworkException');
+        } catch (NetworkException $e) {
+            self::assertNotInstanceOf(ConnectException::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    public function testInterimResponseFollowedByEmptyReplyIsNetworkException(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->headers = ['HTTP/1.1 103 Early Hints', 'Link: </a.css>; rel=preload'];
+        $easy->createResponse();
+        self::assertNull($easy->response);
+        $easy->errno = \CURLE_GOT_NOTHING;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected NetworkException');
+        } catch (NetworkException $e) {
+            self::assertInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertNotInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    public function testInterimResponseFollowedByRecvErrorIsNetworkException(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->headers = ['HTTP/1.1 100 Continue'];
+        $easy->createResponse();
+        self::assertNull($easy->response);
+        $easy->errno = \CURLE_RECV_ERROR;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected NetworkException');
+        } catch (NetworkException $e) {
+            self::assertInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertNotInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    /**
+     * @dataProvider curlNetworkErrorWithoutResponseProvider
+     */
+    public function testNetworkErrorsWithResponseCreateResponseTransferExceptions(int $errno): void
+    {
+        $this->assertCurlErrorWithResponseCreatesResponseTransferException($errno);
+    }
+
+    /**
+     * @dataProvider curlConnectionErrorProvider
+     */
+    public function testConnectionErrorsWithResponseCreateResponseTransferExceptions(int $errno): void
+    {
+        $this->assertCurlErrorWithResponseCreatesResponseTransferException($errno);
+    }
+
+    private function assertCurlErrorWithResponseCreatesResponseTransferException(int $errno): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = $errno;
+        $easy->response = $response;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseTransferException');
+        } catch (ResponseTransferException $e) {
+            self::assertInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    /**
+     * @dataProvider curlResponseTransferErrorProvider
+     */
+    public function testResponseTransferCurlErrorsWithResponseCreateResponseTransferExceptions(int $errno): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = $errno;
+        $easy->response = $response;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseTransferException');
+        } catch (ResponseTransferException $e) {
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    /**
+     * @dataProvider unrepresentableResponseContentLengthProvider
+     */
+    public function testUnrepresentableResponseContentLengthCreatesResponseException(bool $decodeContent): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $stats = null;
+        $exception = null;
+        $options = [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ];
+        if ($decodeContent) {
+            $options['decode_content'] = true;
+        }
+
+        $easy = $factory->create($request, $options);
+        $overflow = ((string) \PHP_INT_MAX).'0';
+        $headers = [
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Length: {$overflow}\r\n",
+        ];
+        if ($decodeContent) {
+            $headers[] = "Content-Encoding: gzip\r\n";
+        }
+
+        $header = self::receiveCurlHeaders($easy, $headers);
+        self::assertSame(-1, $header($easy->handle, "\r\n"));
+        $easy->errno = \CURLE_WRITE_ERROR;
+
+        try {
+            self::finishEasy($easy, $factory);
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            $exception = $e;
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertSame('Content-Length exceeds the maximum integer size supported on this platform', $e->getMessage());
+            self::assertInstanceOf(\OverflowException::class, $e->getPrevious());
+        }
+
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame($exception, $stats->getHandlerErrorData());
+    }
+
+    public static function unrepresentableResponseContentLengthProvider(): iterable
+    {
+        yield 'identity' => [false];
+        yield 'decoded' => [true];
+    }
+
+    /**
+     * @dataProvider unrepresentableResponseContentLengthProvider
+     */
+    public function testUnrepresentableResponseContentLengthPreventsOnHeaders(bool $decodeContent): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $onHeadersCalled = false;
+        $options = [
+            'on_headers' => static function () use (&$onHeadersCalled): void {
+                $onHeadersCalled = true;
+            },
+        ];
+        if ($decodeContent) {
+            $options['decode_content'] = true;
+        }
+
+        $easy = $factory->create($request, $options);
+        $overflow = ((string) \PHP_INT_MAX).'0';
+        $headers = [
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Length: {$overflow}\r\n",
+        ];
+        if ($decodeContent) {
+            $headers[] = "Content-Encoding: gzip\r\n";
+        }
+
+        $header = self::receiveCurlHeaders($easy, $headers);
+        self::assertSame(-1, $header($easy->handle, "\r\n"));
+        $easy->errno = \CURLE_WRITE_ERROR;
+
+        try {
+            self::finishEasy($easy, $factory);
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame('Content-Length exceeds the maximum integer size supported on this platform', $e->getMessage());
+            self::assertInstanceOf(\OverflowException::class, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+        }
+
+        self::assertFalse($onHeadersCalled);
+    }
+
+    /**
+     * @dataProvider invalidResponseFramingProvider
+     *
+     * @param list<string> $headers
+     */
+    public function testRejectsInvalidResponseFramingBeforeOnHeaders(array $headers, string $expectedMessage): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $onHeadersCalled = false;
+        $stats = null;
+        $exception = null;
+        $easy = $factory->create($request, [
+            'decode_content' => true,
+            'on_headers' => static function () use (&$onHeadersCalled): void {
+                $onHeadersCalled = true;
+            },
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+
+        $header = self::receiveCurlHeaders($easy, $headers);
+        self::assertSame(-1, $header($easy->handle, "\r\n"));
+        self::assertInstanceOf(ResponseTransferException::class, $easy->responseHeaderException);
+        self::assertSame($expectedMessage, $easy->responseHeaderException->getMessage());
+        $easy->errno = \CURLE_WRITE_ERROR;
+
+        try {
+            self::finishEasy($easy, $factory);
+            self::fail('Expected ResponseTransferException');
+        } catch (ResponseTransferException $e) {
+            $exception = $e;
+            self::assertSame($easy->responseHeaderException, $e);
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertTrue($e->getResponse()->getBody()->isReadable());
+            self::assertSame('', $e->getResponse()->getBody()->getContents());
+        }
+
+        self::assertFalse($onHeadersCalled);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertInstanceOf(ResponseTransferException::class, $exception);
+        self::assertSame($exception, $stats->getHandlerErrorData());
+        self::assertSame($exception->getResponse(), $stats->getResponse());
+    }
+
+    public static function invalidResponseFramingProvider(): iterable
+    {
+        yield 'malformed content length' => [
+            ["HTTP/1.1 200 OK\r\n", "Content-Length: three\r\n"],
+            'Invalid Content-Length response header: value is not a non-negative decimal integer',
+        ];
+        yield 'conflicting mixed-case content length' => [
+            ["HTTP/1.1 200 OK\r\n", "Content-Length: 3\r\n", "content-length: 5\r\n"],
+            'Invalid Content-Length response header: values conflict',
+        ];
+        yield 'content length and transfer encoding' => [
+            [
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Encoding: gzip\r\n",
+                "Content-Length: 0\r\n",
+                "Transfer-Encoding: chunked\r\n",
+            ],
+            'A response must not contain both Content-Length and Transfer-Encoding',
+        ];
+    }
+
+    public function testResponseBodyByteCountOverflowCreatesResponseException(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $write = $_SERVER['_curl'][\CURLOPT_WRITEFUNCTION];
+        $easy->response = $response;
+        $easy->responseBodyBytes = \PHP_INT_MAX - 1;
+
+        self::assertSame(0, $write($easy->handle, 'ab'));
+        self::assertInstanceOf(\OverflowException::class, $easy->responseBodySizeException);
+
+        try {
+            self::finishEasy($easy, $factory);
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+            self::assertSame($easy->responseBodySizeException, $e->getPrevious());
+        }
+    }
+
+    /**
+     * @param list<string> $headers
+     */
+    private static function receiveCurlHeaders(EasyHandle $easy, array $headers): callable
+    {
+        $header = $_SERVER['_curl'][\CURLOPT_HEADERFUNCTION];
+
+        foreach ($headers as $line) {
+            self::assertSame(\strlen($line), $header($easy->handle, $line));
+        }
+
+        return $header;
+    }
+
+    private static function finishEasy(EasyHandle $easy, CurlFactory $factory): void
+    {
+        CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        )->wait();
+    }
+
+    /**
+     * @param array<int, string> $events
+     */
+    private static function recordingHandleFactory(array &$events): CurlFactoryInterface
+    {
+        return new class($events) implements CurlFactoryInterface {
+            /** @var array<int, string> */
+            private $events;
+
+            /** @var CurlFactory */
+            private $factory;
+
+            public function __construct(array &$events)
+            {
+                $this->events = &$events;
+                $this->factory = new CurlFactory(1);
+            }
+
+            public function create(RequestInterface $request, array $options): EasyHandle
+            {
+                return $this->factory->create($request, $options);
+            }
+
+            public function release(EasyHandle $easy): void
+            {
+                $this->events[] = 'release';
+                $this->factory->release($easy);
+            }
+        };
+    }
+
+    public static function curlResponseTransferErrorProvider(): iterable
+    {
+        yield 'partial file' => [18];
+        yield 'bad content encoding' => [61];
+    }
+
+    /**
+     * @dataProvider localCurlErrorWithResponseProvider
+     */
+    public function testLocalCurlErrorsWithResponseStayResponseExceptions(int $errno): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = $errno;
+        $easy->response = $response;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    public static function localCurlErrorWithResponseProvider(): iterable
+    {
+        yield 'write' => [23];
+        yield 'file size exceeded' => [63];
+    }
+
+    public function testCallbackAbortWithResponseStaysResponseException(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+        $easy->response = $response;
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    public function testCreatesNetworkTimeoutExceptionForNonConnectTimeout(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $response = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $response->wait();
+            self::fail('Expected NetworkTimeoutException');
+        } catch (ConnectTimeoutException $e) {
+            self::fail('Expected NetworkTimeoutException, not ConnectTimeoutException');
+        } catch (NetworkTimeoutException $e) {
+            self::assertInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ConnectException::class, $e);
+            self::assertNotInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    public function testCreatesConnectTimeoutExceptionForConnectTimeout(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $easy->response = null;
+        $promise = $this->createCurlRejection($easy, [
+            'errno' => \CURLE_OPERATION_TIMEOUTED,
+            'error' => 'Connection timeout after 5003 ms',
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected ConnectTimeoutException');
+        } catch (ConnectTimeoutException $e) {
+            self::assertInstanceOf(ConnectException::class, $e);
+            self::assertInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertNotInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    public function testCreatesNetworkTimeoutExceptionForGenericCurlTimeoutMessage(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $easy->response = null;
+        $promise = $this->createCurlRejection($easy, [
+            'errno' => \CURLE_OPERATION_TIMEOUTED,
+            'error' => 'Timeout was reached',
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected NetworkTimeoutException');
+        } catch (ConnectTimeoutException $e) {
+            self::fail('Expected NetworkTimeoutException, not ConnectTimeoutException');
+        } catch (NetworkTimeoutException $e) {
+            self::assertInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ConnectException::class, $e);
+            self::assertSame($request, $e->getRequest());
+        }
+    }
+
+    public function testClassifiesConnectTimeoutErrors(): void
+    {
+        self::assertTrue($this->matchesCurlConnectTimeoutError('Connection timed out after 5003 milliseconds'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('Connection timeout after 5003 ms'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('Connection time-out'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('Resolving timed out after 5000 milliseconds'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError("Failed to resolve 'example.com' with timeout after 1000 ms"));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('name lookup timed out'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('Proxy CONNECT aborted due to timeout'));
+        self::assertTrue($this->matchesCurlConnectTimeoutError('SSL connection timeout'));
+        self::assertFalse($this->matchesCurlConnectTimeoutError('Operation timed out after 30000 milliseconds with 0 bytes received'));
+        self::assertFalse($this->matchesCurlConnectTimeoutError('Operation too slow. Less than 10 bytes/sec transferred the last 30 seconds'));
+        self::assertFalse($this->matchesCurlConnectTimeoutError('Timeout was reached'));
+        self::assertFalse($this->matchesCurlConnectTimeoutError(''));
+    }
+
+    private function matchesCurlConnectTimeoutError(string $error): bool
+    {
+        $reflection = new \ReflectionMethod(CurlFactory::class, 'isConnectTimeoutError');
+        if (\PHP_VERSION_ID < 80100) {
+            $reflection->setAccessible(true);
+        }
+
+        return $reflection->invoke(null, $error) === true;
+    }
+
+    public function testCreatesResponseTimeoutExceptionWithResponse(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $easy->response = $response;
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseTimeoutException');
+        } catch (ResponseTimeoutException $e) {
+            self::assertInstanceOf(ResponseException::class, $e);
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    public function testResponseTimeoutWinsOverConnectTimeoutLookingCurlMessage(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200);
+        $easy = $factory->create($request, []);
+        $easy->errno = \CURLE_OPERATION_TIMEOUTED;
+        $easy->response = $response;
+        $promise = $this->createCurlRejection($easy, [
+            'errno' => \CURLE_OPERATION_TIMEOUTED,
+            'error' => 'Connection timed out after 5003 milliseconds',
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseTimeoutException');
+        } catch (ResponseTimeoutException $e) {
+            self::assertInstanceOf(ResponseException::class, $e);
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+        }
+    }
+
+    private function createCurlRejection(EasyHandle $easy, array $ctx)
+    {
+        $reflection = new \ReflectionMethod(CurlFactory::class, 'createRejection');
+        if (\PHP_VERSION_ID < 80100) {
+            $reflection->setAccessible(true);
+        }
+
+        return $reflection->invoke(null, $easy, $ctx);
+    }
+
+    private static function assertResponseInfoWasNotExposed(array $context): void
+    {
+        self::assertArrayNotHasKey('http_code', $context);
+        self::assertArrayNotHasKey('header_size', $context);
+        self::assertArrayNotHasKey('content_type', $context);
+    }
+
+    public function testAddsTimeouts(): void
     {
         $f = new CurlFactory(3);
         $f->create(new Psr7\Request('GET', Server::$url), [
@@ -5385,43 +6991,311 @@ class CurlFactoryTest extends TestCase
         self::assertEquals(200, $_SERVER['_curl'][\CURLOPT_CONNECTTIMEOUT_MS]);
     }
 
-    public function testAddsStreamingBody()
+    public function testAddsZeroTimeouts(): void
     {
         $f = new CurlFactory(3);
-        $bd = Psr7\FnStream::decorate(Psr7\Utils::streamFor('foo'), [
-            'getSize' => static function () {
+        $f->create(new Psr7\Request('GET', Server::$url), [
+            'timeout' => 0,
+            'connect_timeout' => 0,
+        ]);
+        self::assertSame(0, $_SERVER['_curl'][\CURLOPT_TIMEOUT_MS]);
+        self::assertSame(2147483647, $_SERVER['_curl'][\CURLOPT_CONNECTTIMEOUT_MS]);
+        self::assertArrayNotHasKey(\CURLOPT_NOSIGNAL, $_SERVER['_curl']);
+    }
+
+    public function testTruncatesTimeoutsToMilliseconds(): void
+    {
+        $f = new CurlFactory(3);
+        $f->create(new Psr7\Request('GET', Server::$url), [
+            'timeout' => 0.0015,
+            'connect_timeout' => 0.0025,
+        ]);
+        self::assertSame(1, $_SERVER['_curl'][\CURLOPT_TIMEOUT_MS]);
+        self::assertSame(2, $_SERVER['_curl'][\CURLOPT_CONNECTTIMEOUT_MS]);
+    }
+
+    /**
+     * @dataProvider invalidCurlTimeoutProvider
+     *
+     * @param mixed $value
+     */
+    public function testRejectsInvalidCurlTimeouts(string $option, $value): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage($option.' must be 0 or greater than or equal to 0.001 seconds');
+        $f->create(new Psr7\Request('GET', Server::$url), [$option => $value]);
+    }
+
+    public static function invalidCurlTimeoutProvider(): array
+    {
+        return [
+            ['timeout', 0.0001],
+            ['timeout', -1],
+            ['connect_timeout', 0.0001],
+            ['connect_timeout', -1],
+        ];
+    }
+
+    /**
+     * @dataProvider knownBodySizeProvider
+     */
+    public function testSelectsCurlBodyModeFromKnownBodySize(int $size, bool $streaming): void
+    {
+        $f = new CurlFactory(3);
+        $request = new Psr7\Request('PUT', Server::$url, [], \str_repeat('x', $size));
+        $f->create($request, []);
+
+        self::assertSame($streaming, isset($_SERVER['_curl'][\CURLOPT_UPLOAD]));
+        self::assertSame($streaming, isset($_SERVER['_curl'][\CURLOPT_READFUNCTION]));
+        self::assertSame(!$streaming, isset($_SERVER['_curl'][\CURLOPT_POSTFIELDS]));
+        if ($streaming) {
+            self::assertSame($size, $_SERVER['_curl'][self::curlInputSizeOption()]);
+        }
+    }
+
+    public static function knownBodySizeProvider(): iterable
+    {
+        yield 'below threshold' => [999999, false];
+        yield 'at threshold' => [1000000, true];
+        yield 'above threshold' => [1000001, true];
+    }
+
+    /**
+     * @dataProvider validCurlRequestContentLengthProvider
+     *
+     * @param string|string[] $contentLength
+     */
+    public function testUsesParsedRequestContentLengthForCurlUpload($contentLength): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('PUT', Server::$url, [
+            'Content-Length' => $contentLength,
+        ], Psr7\FnStream::decorate(Psr7\Utils::streamFor('foo'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]));
+
+        $factory->create($request, []);
+
+        self::assertTrue((bool) $_SERVER['_curl'][\CURLOPT_UPLOAD]);
+        self::assertSame(1000000, $_SERVER['_curl'][self::curlInputSizeOption()]);
+        self::assertArrayNotHasKey(\CURLOPT_POSTFIELDS, $_SERVER['_curl']);
+    }
+
+    public static function validCurlRequestContentLengthProvider(): iterable
+    {
+        return [
+            'plain' => ['1000000'],
+            'leading zeros' => ['001000000'],
+            'comma equivalent' => ['001000000, 1000000'],
+            'duplicate equivalent' => [['001000000', '1000000']],
+        ];
+    }
+
+    public function testUnknownBodyWithSmallContentLengthUsesStreamingCallback(): void
+    {
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('foo'), [
+            'getSize' => static function (): ?int {
                 return null;
             },
         ]);
-        $request = new Psr7\Request('PUT', Server::$url, [], $bd);
-        $f->create($request, []);
-        self::assertEquals(1, $_SERVER['_curl'][\CURLOPT_UPLOAD]);
+        $factory = new CurlFactory(3);
+
+        $factory->create(new Psr7\Request('PUT', Server::$url, ['Content-Length' => '3'], $body), []);
+
+        self::assertTrue((bool) $_SERVER['_curl'][\CURLOPT_UPLOAD]);
+        self::assertSame(3, $_SERVER['_curl'][self::curlInputSizeOption()]);
         self::assertIsCallable($_SERVER['_curl'][\CURLOPT_READFUNCTION]);
+        self::assertArrayNotHasKey(\CURLOPT_POSTFIELDS, $_SERVER['_curl']);
     }
 
-    public function testBoundsStreamingBodyReadsToDeclaredContentLength()
+    public function testUnknownBodyWithZeroContentLengthIsNotRead(): void
     {
-        $declaredLength = 1000000;
-        $body = Psr7\Utils::streamFor(\str_repeat('x', $declaredLength).'tail');
-        $factory = new CurlFactory(1);
-        $request = new Psr7\Request('PUT', Server::$url, ['Content-Length' => (string) $declaredLength], $body);
-        $easy = $factory->create($request, []);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'isSeekable' => static function (): bool {
+                self::fail('The zero-length body must not be inspected');
+            },
+            'read' => static function (): string {
+                self::fail('The zero-length body must not be read');
+            },
+        ]);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '0'],
+            $body
+        ), []);
 
         try {
-            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
-
-            self::assertSame(600000, \strlen($callback($easy->handle, null, 600000)));
-            self::assertSame(400000, \strlen($callback($easy->handle, null, 600000)));
-            self::assertSame($declaredLength, $body->tell());
-            self::assertSame('', $callback($easy->handle, null, 600000));
-            self::assertSame($declaredLength, $body->tell());
-            self::assertSame('tail', $body->getContents());
+            self::assertArrayNotHasKey(\CURLOPT_UPLOAD, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_READFUNCTION, $_SERVER['_curl']);
+            self::assertArrayNotHasKey(\CURLOPT_POSTFIELDS, $_SERVER['_curl']);
+            self::assertContains('Content-Length: 0', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
         } finally {
             $factory->release($easy);
         }
     }
 
-    public function testEnsuresDirExistsBeforeThrowingWarning()
+    public function testNormalizesEquivalentRequestContentLengthForCurlHeaders(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('GET', Server::$url, [
+            'Content-Length' => ['0000', '0'],
+        ]);
+
+        $factory->create($request, []);
+
+        self::assertContains('Content-Length: 0', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+        self::assertNotContains('Content-Length: 0000', $_SERVER['_curl'][\CURLOPT_HTTPHEADER]);
+    }
+
+    public function testRemovesProvisionalChunkedHeaderBeforeCurlSerialization(): void
+    {
+        $factory = new CurlFactory(3);
+
+        $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Transfer-Encoding' => 'ChUnKeD'],
+            'foo'
+        ), []);
+
+        self::assertSame('foo', $_SERVER['_curl'][\CURLOPT_POSTFIELDS]);
+        foreach ($_SERVER['_curl'][\CURLOPT_HTTPHEADER] as $line) {
+            self::assertFalse(Psr7\Utils::caselessContains($line, 'Transfer-Encoding:'));
+        }
+    }
+
+    public function testLetsCurlFrameUnknownHttp11Body(): void
+    {
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('foo'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Transfer-Encoding' => 'chunked'],
+            $body
+        ), []);
+
+        try {
+            self::assertTrue((bool) $_SERVER['_curl'][\CURLOPT_UPLOAD]);
+            self::assertIsCallable($_SERVER['_curl'][\CURLOPT_READFUNCTION]);
+            self::assertArrayNotHasKey(\CURLOPT_INFILESIZE, $_SERVER['_curl']);
+            if (\defined('CURLOPT_INFILESIZE_LARGE')) {
+                self::assertArrayNotHasKey((int) \constant('CURLOPT_INFILESIZE_LARGE'), $_SERVER['_curl']);
+            }
+            self::assertArrayNotHasKey(\CURLOPT_POSTFIELDS, $_SERVER['_curl']);
+
+            foreach ($_SERVER['_curl'][\CURLOPT_HTTPHEADER] as $header) {
+                self::assertFalse(Psr7\Utils::caselessContains($header, 'Content-Length:'));
+                self::assertFalse(Psr7\Utils::caselessContains($header, 'Transfer-Encoding:'));
+            }
+        } finally {
+            $factory->release($easy);
+        }
+    }
+
+    /**
+     * @dataProvider invalidCurlRequestContentLengthProvider
+     *
+     * @param string|string[] $contentLength
+     */
+    public function testRejectsInvalidCurlRequestContentLength($contentLength): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('PUT', Server::$url, [
+            'Content-Length' => $contentLength,
+        ], 'foo');
+
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('Invalid Content-Length request header');
+
+        $factory->create($request, []);
+    }
+
+    public static function invalidCurlRequestContentLengthProvider(): iterable
+    {
+        return [
+            'empty' => [''],
+            'empty comma member' => ['3,'],
+            'non digit' => ['abc'],
+            'partial numeric' => ['3abc'],
+            'signed' => ['-1'],
+            'decimal' => ['3.0'],
+            'conflicting comma' => ['3, 5'],
+            'conflicting duplicate' => [['3', '5']],
+        ];
+    }
+
+    public function testRejectsUnrepresentableRequestContentLengthForCurlUpload(): void
+    {
+        $factory = new CurlFactory(3);
+        $length = ((string) \PHP_INT_MAX).'0';
+        $request = new Psr7\Request('PUT', Server::$url, [
+            'Content-Length' => $length,
+        ], 'foo');
+
+        try {
+            $factory->create($request, []);
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame('Content-Length exceeds the maximum integer size supported on this platform', $e->getMessage());
+            self::assertSame($request, $e->getRequest());
+            self::assertInstanceOf(\OverflowException::class, $e->getPrevious());
+        }
+    }
+
+    public function testRejectsRequestContentLengthLargerThanCurlLongOnWindows(): void
+    {
+        if (\PHP_OS_FAMILY !== 'Windows' || \PHP_INT_SIZE !== 8 || \defined('CURLOPT_INFILESIZE_LARGE')) {
+            self::markTestSkipped('Requires 64-bit Windows without CURLOPT_INFILESIZE_LARGE.');
+        }
+
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor(''), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $factory = new CurlFactory(3);
+
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage(
+            'Content-Length exceeds the maximum cURL upload size supported by this PHP build'
+        );
+
+        $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '2147483648'],
+            $body
+        ), []);
+    }
+
+    public function testRejectsInvalidCurlRequestContentLengthWithEmptyBody(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('POST', Server::$url, [
+            'Content-Length' => 'abc',
+        ]);
+
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('Invalid Content-Length request header');
+
+        $factory->create($request, []);
+    }
+
+    public function testEnsuresDirExistsBeforeThrowingWarning(): void
     {
         $f = new CurlFactory(3);
 
@@ -5432,7 +7306,7 @@ class CurlFactoryTest extends TestCase
         ]);
     }
 
-    public function testClosesIdleHandles()
+    public function testClosesIdleHandles(): void
     {
         $f = new CurlFactory(3);
         $req = new Psr7\Request('GET', Server::$url);
@@ -5455,7 +7329,7 @@ class CurlFactoryTest extends TestCase
         self::assertCount(3, self::readIdleHandles($f));
     }
 
-    public function testRejectsPromiseWhenCreateResponseFails()
+    public function testRejectsPromiseWhenCreateResponseFails(): void
     {
         Server::flush();
         Server::enqueueRaw(999, 'Incorrect', ['X-Foo' => 'bar'], 'abc 123');
@@ -5463,9 +7337,13 @@ class CurlFactoryTest extends TestCase
         $req = new Psr7\Request('GET', Server::$url);
         $handler = new Handler\CurlHandler();
         $called = false;
+        $stats = null;
         $promise = $handler($req, [
             'on_headers' => static function () use (&$called): void {
                 $called = true;
+            },
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
             },
         ]);
 
@@ -5478,13 +7356,16 @@ class CurlFactoryTest extends TestCase
                 $e->getMessage()
             );
             self::assertFalse($called);
-            self::assertFalse($e->hasResponse());
-            self::assertNull($e->getResponse());
-            self::assertInstanceOf(\InvalidArgumentException::class, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertInstanceOf(TransferStats::class, $stats);
+            self::assertFalse($stats->hasResponse());
+            self::assertNull($stats->getResponse());
+            self::assertResponseInfoWasNotExposed($stats->getHandlerStats());
         }
     }
 
-    public function testCreateResponseFailureDoesNotExposeStaleCurlResponse()
+    public function testCreateResponseFailureDoesNotExposeStaleCurlResponse(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
@@ -5495,7 +7376,7 @@ class CurlFactoryTest extends TestCase
         );
 
         $promise = CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $easy,
             $factory
@@ -5509,13 +7390,12 @@ class CurlFactoryTest extends TestCase
                 'An error was encountered while creating the response',
                 $e->getMessage()
             );
-            self::assertFalse($e->hasResponse());
-            self::assertNull($e->getResponse());
+            self::assertNotInstanceOf(ResponseException::class, $e);
             self::assertSame($easy->createResponseException, $e->getPrevious());
         }
     }
 
-    public function testEnsuresOnHeadersIsCallable()
+    public function testEnsuresOnHeadersIsCallable(): void
     {
         $req = new Psr7\Request('GET', Server::$url);
         $handler = new Handler\CurlHandler();
@@ -5524,223 +7404,196 @@ class CurlFactoryTest extends TestCase
         $handler($req, ['on_headers' => 'error!']);
     }
 
-    public function testRejectsPromiseWhenOnHeadersFails()
-    {
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
-        ]);
-        $req = new Psr7\Request('GET', Server::$url);
-        $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'on_headers' => static function () {
-                throw new \Exception('test');
-            },
-        ]);
-
-        $this->expectException(RequestException::class);
-        $this->expectExceptionMessage('An error was encountered during the on_headers event');
-        $promise->wait();
-    }
-
-    public function testRejectsPromiseWhenOnHeadersThrowsThrowable()
-    {
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
-        ]);
-        $req = new Psr7\Request('GET', Server::$url);
-        $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'on_headers' => static function (): void {
-                throw new \Error('test');
-            },
-        ]);
-
-        try {
-            $promise->wait();
-            self::fail('Expected RequestException');
-        } catch (RequestException $e) {
-            self::assertStringContainsString(
-                'An error was encountered during the on_headers event',
-                $e->getMessage()
-            );
-            self::assertInstanceOf(\Error::class, $e->getPrevious());
-        }
-    }
-
-    public function testSuccessfullyCallsOnHeadersBeforeWritingToSink()
-    {
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
-        ]);
-        $req = new Psr7\Request('GET', Server::$url);
-        $got = null;
-
-        $stream = Psr7\Utils::streamFor();
-        $stream = Psr7\FnStream::decorate($stream, [
-            'write' => static function ($data) use ($stream, &$got) {
-                self::assertNotNull($got);
-
-                return $stream->write($data);
-            },
-        ]);
-
-        $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'sink' => $stream,
-            'on_headers' => static function (ResponseInterface $res) use (&$got) {
-                $got = $res;
-                self::assertEquals('bar', $res->getHeaderLine('X-Foo'));
-            },
-        ]);
-
-        $response = $promise->wait();
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame('bar', $response->getHeaderLine('X-Foo'));
-        self::assertSame('abc 123', (string) $response->getBody());
-    }
-
-    public static function trailerStatusLineProvider(): iterable
-    {
-        yield 'http/2' => ["HTTP/2 200 \r\n"];
-        yield 'http/1.1 chunked' => ["HTTP/1.1 200 OK\r\n"];
-    }
-
-    /**
-     * @dataProvider trailerStatusLineProvider
-     */
-    public function testPreservesHeadersWhenTrailersArrive(string $statusLine)
+    public function testIgnoresInterim1xxAndInvokesOnHeadersOnceForFinalResponse(): void
     {
         $factory = new CurlFactory(1);
         $statuses = [];
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_headers' => static function (ResponseInterface $response) use (&$statuses) {
+            'on_headers' => static function (ResponseInterface $response) use (&$statuses): void {
                 $statuses[] = $response->getStatusCode();
             },
         ]);
 
         try {
-            self::receiveCurlHeaders($easy, [
-                $statusLine,
-                "Content-Type: text/plain\r\n",
-                "\r\n",
-            ]);
+            /** @var callable $headerFn */
+            $headerFn = $_SERVER['_curl'][\CURLOPT_HEADERFUNCTION];
+
+            $headerFn($easy->handle, "HTTP/1.1 103 Early Hints\r\n");
+            $headerFn($easy->handle, "Link: </style.css>; rel=preload\r\n");
+            $headerFn($easy->handle, "\r\n");
+
+            self::assertNull($easy->response, 'interim 1xx is not stored');
+            self::assertSame([], $statuses, 'on_headers is not invoked for an interim 1xx');
+
+            $headerFn($easy->handle, "HTTP/1.1 200 OK\r\n");
+            $headerFn($easy->handle, "Content-Length: 0\r\n");
+            $headerFn($easy->handle, "\r\n");
 
             self::assertNotNull($easy->response);
-
-            self::receiveCurlHeaders($easy, [
-                "Foo: bar\r\n",
-                "X-Dup: 1\r\n",
-                "X-Dup: 2\r\n",
-                "X-Empty:\r\n",
-            ]);
-
-            self::assertSame(
-                [\trim($statusLine), 'Content-Type: text/plain'],
-                $easy->headers
-            );
             self::assertSame(200, $easy->response->getStatusCode());
-            self::assertSame([200], $statuses);
+            self::assertSame([200], $statuses, 'on_headers fires once, for the final response');
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    public function testIgnoresBlankLineAfterTrailers()
-    {
-        $factory = new CurlFactory(1);
-        $onHeadersCalls = 0;
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_headers' => static function () use (&$onHeadersCalls) {
-                ++$onHeadersCalls;
-            },
-        ]);
-
-        try {
-            self::receiveCurlHeaders($easy, [
-                "HTTP/1.1 200 OK\r\n",
-                "Content-Type: text/plain\r\n",
-                "\r\n",
-                "Foo: bar\r\n",
-                "\r\n",
-            ]);
-
-            self::assertNull($easy->createResponseException);
-            self::assertSame(1, $onHeadersCalls);
-            self::assertSame(
-                ['HTTP/1.1 200 OK', 'Content-Type: text/plain'],
-                $easy->headers
-            );
-        } finally {
-            $factory->release($easy);
-        }
-    }
-
-    public static function interimResponseProvider(): iterable
-    {
-        yield '100 continue' => [
-            ["HTTP/1.1 100 Continue\r\n", "\r\n"],
-            [100, 200],
-        ];
-        yield '103 early hints' => [
-            ["HTTP/1.1 103 Early Hints\r\n", "Link: </style.css>; rel=preload\r\n", "\r\n"],
-            [103, 200],
-        ];
-        yield 'connect established' => [
-            ["HTTP/1.1 200 Connection established\r\n", "\r\n"],
-            [200, 200],
-        ];
-    }
-
-    /**
-     * @dataProvider interimResponseProvider
-     *
-     * @param list<string> $interimLines
-     * @param list<int>    $expectedStatuses
-     */
-    public function testReplacesInterimResponseBlocksWithFinalResponse(array $interimLines, array $expectedStatuses)
+    public function testKeeps101AndInvokesOnHeaders(): void
     {
         $factory = new CurlFactory(1);
         $statuses = [];
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_headers' => static function (ResponseInterface $response) use (&$statuses) {
+            'on_headers' => static function (ResponseInterface $response) use (&$statuses): void {
                 $statuses[] = $response->getStatusCode();
             },
         ]);
 
         try {
-            self::receiveCurlHeaders($easy, $interimLines);
-            self::receiveCurlHeaders($easy, [
+            /** @var callable $headerFn */
+            $headerFn = $_SERVER['_curl'][\CURLOPT_HEADERFUNCTION];
+
+            $headerFn($easy->handle, "HTTP/1.1 101 Switching Protocols\r\n");
+            $headerFn($easy->handle, "Upgrade: websocket\r\n");
+            $headerFn($easy->handle, "\r\n");
+
+            self::assertNotNull($easy->response, '101 is kept as a response');
+            self::assertSame(101, $easy->response->getStatusCode());
+            self::assertSame([101], $statuses, 'on_headers fires for a 101 response');
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    /**
+     * @dataProvider trailerResponseHeaderLinesProvider
+     *
+     * @param list<string> $lines
+     * @param list<string> $expectedHeaders
+     */
+    public function testPreservesHeadersWhenTrailerFieldsArrive(array $lines, array $expectedHeaders): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
+
+        try {
+            self::receiveCurlHeaders($easy, $lines);
+
+            self::assertNotNull($easy->response);
+            self::assertSame(200, $easy->response->getStatusCode());
+            self::assertSame($expectedHeaders, $easy->headers, 'received headers are not replaced by trailer fields');
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public static function trailerResponseHeaderLinesProvider(): iterable
+    {
+        $trailers = [
+            "X-Mixed-Case: Foo\r\n",
+            "x-empty:\r\n",
+            "x-dup: 1\r\n",
+            "x-dup: 2\r\n",
+        ];
+
+        yield 'HTTP/2 trailer fields' => [
+            \array_merge([
+                "HTTP/2 200 \r\n",
+                "content-type: text/plain\r\n",
+                "\r\n",
+            ], $trailers),
+            ['HTTP/2 200', 'content-type: text/plain'],
+        ];
+
+        yield 'HTTP/1.1 chunked trailer fields' => [
+            \array_merge([
+                "HTTP/1.1 200 OK\r\n",
+                "Transfer-Encoding: chunked\r\n",
+                "\r\n",
+            ], $trailers),
+            ['HTTP/1.1 200 OK', 'Transfer-Encoding: chunked'],
+        ];
+    }
+
+    public function testBlankLineAfterTrailerFieldsIsANoOp(): void
+    {
+        $factory = new CurlFactory(1);
+        $invocations = 0;
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_headers' => static function () use (&$invocations): void {
+                ++$invocations;
+            },
+        ]);
+
+        try {
+            $headerFn = self::receiveCurlHeaders($easy, [
                 "HTTP/1.1 200 OK\r\n",
                 "Content-Length: 0\r\n",
                 "\r\n",
+                "x-checksum: abc\r\n",
             ]);
+            $created = $easy->response;
+            self::assertNotNull($created);
 
-            self::assertSame(
-                ['HTTP/1.1 200 OK', 'Content-Length: 0'],
-                $easy->headers
-            );
-            self::assertNotNull($easy->response);
-            self::assertSame(200, $easy->response->getStatusCode());
-            self::assertSame($expectedStatuses, $statuses);
+            self::assertSame(2, $headerFn($easy->handle, "\r\n"));
 
-            self::receiveCurlHeaders($easy, [
-                "Foo: bar\r\n",
-            ]);
+            self::assertSame($created, $easy->response, 'a blank line ending a trailer section does not recreate the response');
+            self::assertNull($easy->createResponseException);
+            self::assertSame(1, $invocations, 'on_headers fires exactly once');
 
-            self::assertSame(
-                ['HTTP/1.1 200 OK', 'Content-Length: 0'],
-                $easy->headers
-            );
+            $response = CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::assertSame(200, $response->getStatusCode());
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    public function testStartsFreshHeaderBlockAfterIntermediateTrailerFields()
+    public function testClassifiesTrailerFieldsAfterInterim1xxResponse(): void
     {
+        $factory = new CurlFactory(1);
+        $statuses = [];
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_headers' => static function (ResponseInterface $response) use (&$statuses): void {
+                $statuses[] = $response->getStatusCode();
+            },
+        ]);
+
+        try {
+            self::receiveCurlHeaders($easy, [
+                "HTTP/1.1 103 Early Hints\r\n",
+                "Link: </style.css>; rel=preload\r\n",
+                "\r\n",
+                "HTTP/1.1 200 OK\r\n",
+                "Content-Length: 0\r\n",
+                "\r\n",
+                "x-checksum: abc\r\n",
+            ]);
+
+            self::assertSame([200], $statuses, 'on_headers fires once, for the final response');
+            self::assertSame(['HTTP/1.1 200 OK', 'Content-Length: 0'], $easy->headers);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testDiscardsIntermediateResponseStateWhenANewHeaderBlockStarts(): void
+    {
+        // Mirrors a connection-cached authentication round or a CONNECT
+        // response: an intermediate response block, possibly followed by its
+        // own trailer fields, is superseded by the next status line.
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
 
@@ -5749,28 +7602,29 @@ class CurlFactoryTest extends TestCase
                 "HTTP/1.1 401 Unauthorized\r\n",
                 "WWW-Authenticate: Negotiate\r\n",
                 "\r\n",
-                "X-Challenge-Trailer: 1\r\n",
-            ]);
-
-            self::receiveCurlHeaders($easy, [
+                "x-early: 1\r\n",
                 "HTTP/1.1 200 OK\r\n",
+                "Content-Length: 0\r\n",
                 "\r\n",
-                "Foo: bar\r\n",
+                "x-checksum: abc\r\n",
             ]);
 
-            self::assertSame(['HTTP/1.1 200 OK'], $easy->headers);
+            self::assertNotNull($easy->response);
             self::assertSame(200, $easy->response->getStatusCode());
+            self::assertSame(['HTTP/1.1 200 OK', 'Content-Length: 0'], $easy->headers);
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    public function testDoesNotStartFreshHeaderBlockForMalformedHttpTrailerLine()
+    public function testDoesNotStartFreshHeaderBlockForMalformedHttpTrailerLine(): void
     {
         $factory = new CurlFactory(1);
         $onHeadersCalls = 0;
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_headers' => static function () use (&$onHeadersCalls) {
+            'on_headers' => static function () use (&$onHeadersCalls): void {
                 ++$onHeadersCalls;
             },
             'on_trailers' => static function (): void {
@@ -5801,14 +7655,13 @@ class CurlFactoryTest extends TestCase
             self::assertSame(200, $easy->response->getStatusCode());
             self::assertSame(['Foo: bar'], $easy->trailers);
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    /**
-     * @dataProvider trailerStatusLineProvider
-     */
-    public function testCollectsTrailersAfterResponseBody(string $statusLine)
+    public function testCollectsTrailerFieldsInWireOrder(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
@@ -5818,31 +7671,33 @@ class CurlFactoryTest extends TestCase
 
         try {
             self::receiveCurlHeaders($easy, [
-                $statusLine,
-                "Content-Type: text/plain\r\n",
+                "HTTP/2 200 \r\n",
+                "content-type: text/plain\r\n",
                 "\r\n",
             ]);
 
             self::assertSame([], $easy->trailers);
 
             self::receiveCurlHeaders($easy, [
-                "Foo: bar\r\n",
-                "X-Dup: 1\r\n",
-                "X-Dup: 2\r\n",
-                "X-Empty:\r\n",
+                "X-Mixed-Case: Foo\r\n",
+                "x-empty:\r\n",
+                "x-dup: 1\r\n",
+                "x-dup: 2\r\n",
                 "\r\n",
             ]);
 
             self::assertSame(
-                ['Foo: bar', 'X-Dup: 1', 'X-Dup: 2', 'X-Empty:'],
+                ['X-Mixed-Case: Foo', 'x-empty:', 'x-dup: 1', 'x-dup: 2'],
                 $easy->trailers
             );
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    public function testDiscardsMalformedTrailerLines()
+    public function testDiscardsMalformedTrailerLines(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
@@ -5881,7 +7736,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testDiscardsIntermediateTrailersWhenNewHeaderBlockStarts()
+    public function testDiscardsIntermediateTrailerFieldsWhenANewHeaderBlockStarts(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
@@ -5894,63 +7749,239 @@ class CurlFactoryTest extends TestCase
                 "HTTP/1.1 401 Unauthorized\r\n",
                 "WWW-Authenticate: Negotiate\r\n",
                 "\r\n",
-                "X-Challenge-Trailer: 1\r\n",
-            ]);
-
-            self::assertSame(['X-Challenge-Trailer: 1'], $easy->trailers);
-
-            self::receiveCurlHeaders($easy, [
+                "x-early: 1\r\n",
                 "HTTP/1.1 200 OK\r\n",
+                "Content-Length: 0\r\n",
                 "\r\n",
-                "Foo: bar\r\n",
+                "x-checksum: abc\r\n",
             ]);
 
-            self::assertSame(['Foo: bar'], $easy->trailers);
+            self::assertSame(
+                ['x-checksum: abc'],
+                $easy->trailers,
+                'trailer fields of the intermediate response are discarded'
+            );
         } finally {
-            $factory->release($easy);
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
         }
     }
 
-    public function testInvokesOnTrailersWithParsedTrailers()
+    public function testTrailersStayEmptyForResponsesWithoutTrailerFields(): void
+    {
+        // A response whose fields all arrive in the initial header block has
+        // no trailer fields; every field is an ordinary response header.
+        $factory = new CurlFactory(1);
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_trailers' => static function (): void {
+            },
+        ]);
+
+        try {
+            self::receiveCurlHeaders($easy, [
+                "HTTP/2 200 \r\n",
+                "x-status: 12\r\n",
+                "\r\n",
+            ]);
+
+            self::assertNotNull($easy->response);
+            self::assertSame('12', $easy->response->getHeaderLine('x-status'));
+            self::assertSame([], $easy->trailers);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testRejectsPromiseWhenOnHeadersFails(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+        ]);
+        $req = new Psr7\Request('GET', Server::$url);
+        $handler = new Handler\CurlHandler();
+        $promise = $handler($req, [
+            'on_headers' => static function (): void {
+                throw new \Exception('test');
+            },
+        ]);
+
+        $this->expectException(RequestException::class);
+        $this->expectExceptionMessage('An error was encountered during the on_headers event');
+        $promise->wait();
+    }
+
+    public function testRejectsPromiseWhenOnHeadersThrowsThrowable(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+        ]);
+        $req = new Psr7\Request('GET', Server::$url);
+        $handler = new Handler\CurlHandler();
+        $promise = $handler($req, [
+            'on_headers' => static function (): void {
+                throw new \Error('test');
+            },
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertStringContainsString(
+                'An error was encountered during the on_headers event',
+                $e->getMessage()
+            );
+            self::assertInstanceOf(\Error::class, $e->getPrevious());
+        }
+    }
+
+    public function testInvokesOnStatsWhenOnHeadersFails(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+        ]);
+        $req = new Psr7\Request('GET', Server::$url);
+        $gotStats = null;
+        $handler = new Handler\CurlHandler();
+        $promise = $handler($req, [
+            'on_headers' => static function (): void {
+                throw new \RuntimeException('test');
+            },
+            'on_stats' => static function (TransferStats $stats) use (&$gotStats): void {
+                $gotStats = $stats;
+            },
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertStringContainsString('An error was encountered during the on_headers event', $e->getMessage());
+            self::assertInstanceOf(TransferStats::class, $gotStats);
+            self::assertTrue($gotStats->hasResponse());
+            self::assertSame(200, $gotStats->getResponse()->getStatusCode());
+            self::assertSame($req, $gotStats->getRequest());
+            self::assertSame(Server::$url, (string) $gotStats->getEffectiveUri());
+            self::assertIsInt($gotStats->getHandlerErrorData());
+        }
+    }
+
+    public function testSuccessfullyCallsOnHeadersBeforeWritingToSink(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+        ]);
+        $req = new Psr7\Request('GET', Server::$url);
+        $got = null;
+        $gotRequest = null;
+
+        $stream = Psr7\Utils::streamFor();
+        $stream = Psr7\FnStream::decorate($stream, [
+            'write' => static function (string $data) use ($stream, &$got): int {
+                self::assertNotNull($got);
+
+                return $stream->write($data);
+            },
+        ]);
+
+        $handler = new Handler\CurlHandler();
+        $promise = $handler($req, [
+            'sink' => $stream,
+            'on_headers' => static function (
+                ResponseInterface $res,
+                RequestInterface $request
+            ) use (&$got, &$gotRequest, $req): void {
+                $got = $res;
+                $gotRequest = $request;
+                self::assertSame($req, $request);
+                self::assertEquals('bar', $res->getHeaderLine('X-Foo'));
+            },
+        ]);
+
+        $response = $promise->wait();
+        self::assertSame($req, $gotRequest);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('bar', $response->getHeaderLine('X-Foo'));
+        self::assertSame('abc 123', (string) $response->getBody());
+    }
+
+    public function testRejectsNonCallableOnTrailers(): void
+    {
+        $f = new CurlFactory(3);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('on_trailers must be callable');
+
+        $f->create(new Psr7\Request('GET', 'http://example.com'), ['on_trailers' => false]);
+    }
+
+    public function testEnsuresOnTrailersIsCallable(): void
+    {
+        $req = new Psr7\Request('GET', Server::$url);
+        $handler = new Handler\CurlHandler();
+
+        $this->expectException(\InvalidArgumentException::class);
+        $handler($req, ['on_trailers' => 'error!']);
+    }
+
+    public function testInvokesOnTrailersWithParsedTrailerFields(): void
     {
         $factory = new CurlFactory(1);
-        $gotTrailers = null;
-        $gotResponse = null;
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_trailers' => static function (array $trailers, ResponseInterface $response) use (&$gotTrailers, &$gotResponse) {
-                $gotTrailers = $trailers;
-                $gotResponse = $response;
+        $received = null;
+        $receivedResponse = null;
+        $receivedRequest = null;
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, [
+            'on_trailers' => static function (array $trailers, ResponseInterface $response, RequestInterface $request) use (&$received, &$receivedResponse, &$receivedRequest): void {
+                $received = $trailers;
+                $receivedResponse = $response;
+                $receivedRequest = $request;
             },
         ]);
 
         self::receiveCurlHeaders($easy, [
-            "HTTP/2 200 \r\n",
-            "content-type: text/plain\r\n",
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Length: 0\r\n",
             "\r\n",
-            "x-status: 0\r\n",
             "x-dup: 1\r\n",
+            "X-Mixed-Case: Foo\r\n",
             "x-dup: 2\r\n",
+            "x-empty:\r\n",
         ]);
 
         $response = CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $easy,
             $factory
         )->wait();
 
-        self::assertSame(['x-status' => ['0'], 'x-dup' => ['1', '2']], $gotTrailers);
-        self::assertSame($response, $gotResponse);
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame('text/plain', $response->getHeaderLine('content-type'));
+        self::assertSame([
+            'x-dup' => ['1', '2'],
+            'x-mixed-case' => ['Foo'],
+            'x-empty' => [''],
+        ], $received);
+        self::assertSame($response, $receivedResponse);
+        self::assertSame($request, $receivedRequest);
     }
 
-    public function testOnTrailersDoesNotExposeMalformedTrailerFields()
+    public function testOnTrailersDoesNotExposeMalformedTrailerFields(): void
     {
         $factory = new CurlFactory(1);
         $gotTrailers = null;
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_trailers' => static function (array $trailers, ResponseInterface $response) use (&$gotTrailers): void {
+            'on_trailers' => static function (
+                array $trailers,
+                ResponseInterface $response,
+                RequestInterface $request
+            ) use (&$gotTrailers): void {
                 $gotTrailers = $trailers;
             },
         ]);
@@ -5966,7 +7997,7 @@ class CurlFactoryTest extends TestCase
         ]);
 
         CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $easy,
             $factory
@@ -5975,7 +8006,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame(['x-valid' => ['ok']], $gotTrailers);
     }
 
-    public function testGroupsTrailerFieldNamesCaseInsensitively()
+    public function testGroupsTrailerFieldNamesCaseInsensitively(): void
     {
         $factory = new CurlFactory(1);
         $gotTrailers = null;
@@ -5998,7 +8029,7 @@ class CurlFactoryTest extends TestCase
         ]);
 
         CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $easy,
             $factory
@@ -6007,7 +8038,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame(['x-a' => ['1', '2', '3'], 'x-b' => ['only'], 'x-empty' => ['']], $gotTrailers);
     }
 
-    public function testDoesNotRetainTrailersWithoutOnTrailersCallback()
+    public function testDoesNotRetainTrailersWithoutOnTrailersCallback(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), []);
@@ -6030,7 +8061,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testTreatsNullOnTrailersAsAbsent()
+    public function testTreatsNullOnTrailersAsAbsent(): void
     {
         $factory = new CurlFactory(1);
         $easy = $factory->create(new Psr7\Request('GET', Server::$url), ['on_trailers' => null]);
@@ -6049,17 +8080,7 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    public function testRejectsNonCallableOnTrailers()
-    {
-        $factory = new CurlFactory(1);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('on_trailers must be callable');
-
-        $factory->create(new Psr7\Request('GET', Server::$url), ['on_trailers' => 'not-a-function']);
-    }
-
-    public function testReusedHandleDoesNotCarryTrailersIntoNextTransfer()
+    public function testReusedHandleDoesNotCarryTrailersIntoNextTransfer(): void
     {
         $factory = new CurlFactory(1);
         $received = [];
@@ -6075,7 +8096,7 @@ class CurlFactoryTest extends TestCase
             "\r\n",
         ]);
         CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $first,
             $factory
@@ -6087,7 +8108,7 @@ class CurlFactoryTest extends TestCase
             "\r\n",
         ]);
         CurlFactory::finish(
-            static function () {
+            static function (): void {
             },
             $second,
             $factory
@@ -6096,120 +8117,103 @@ class CurlFactoryTest extends TestCase
         self::assertSame([['foo' => ['bar']], []], $received);
     }
 
-    public function testReleasesHandleBeforeInvokingOnTrailers()
+    public function testOnTrailersReceivesRewoundResponseBody(): void
     {
         Server::flush();
         Server::enqueue([
             new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
         ]);
-        $events = [];
-        $handler = new Handler\CurlHandler(['handle_factory' => self::recordingHandleFactory($events)]);
-
-        $handler(new Psr7\Request('GET', Server::$url), [
-            'on_trailers' => static function () use (&$events) {
-                $events[] = 'on_trailers';
-            },
-        ])->wait();
-
-        self::assertSame(['release', 'on_trailers'], $events);
-    }
-
-    public function testOnTrailersReceivesRewoundResponseBody()
-    {
-        Server::flush();
-        Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
-        ]);
-        $req = new Psr7\Request('GET', Server::$url);
         $bodyPosition = null;
         $bodyContents = null;
         $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'on_trailers' => static function (array $trailers, ResponseInterface $response) use (&$bodyPosition, &$bodyContents) {
+        $response = $handler(new Psr7\Request('GET', Server::$url), [
+            'on_trailers' => static function (array $trailers, ResponseInterface $response, RequestInterface $request) use (&$bodyPosition, &$bodyContents): void {
                 $bodyPosition = $response->getBody()->tell();
                 $bodyContents = (string) $response->getBody();
             },
-        ]);
+        ])->wait();
 
-        $response = $promise->wait();
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(0, $bodyPosition);
         self::assertSame('abc 123', $bodyContents);
     }
 
-    public function testInvokesOnTrailersWithEmptyArrayAfterOnStats()
+    public function testInvokesOnTrailersOnceWithEmptyArrayWhenNoTrailerFields(): void
     {
         Server::flush();
         Server::enqueue([
             new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
         ]);
-        $req = new Psr7\Request('GET', Server::$url);
-        $order = [];
-        $gotTrailers = null;
+        $calls = [];
         $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'on_stats' => static function (TransferStats $stats) use (&$order) {
+        $response = $handler(new Psr7\Request('GET', Server::$url), [
+            'on_trailers' => static function (array $trailers) use (&$calls): void {
+                $calls[] = $trailers;
+            },
+        ])->wait();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame([[]], $calls);
+    }
+
+    public function testInvokesOnTrailersAfterOnHeadersAndBeforeOnStats(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'abc 123'),
+        ]);
+        $order = [];
+        $handler = new Handler\CurlHandler();
+        $handler(new Psr7\Request('GET', Server::$url), [
+            'on_headers' => static function () use (&$order): void {
+                $order[] = 'on_headers';
+            },
+            'on_trailers' => static function () use (&$order): void {
+                $order[] = 'on_trailers';
+            },
+            'on_stats' => static function () use (&$order): void {
                 $order[] = 'on_stats';
             },
-            'on_trailers' => static function (array $trailers, ResponseInterface $response) use (&$order, &$gotTrailers) {
-                $order[] = 'on_trailers';
-                $gotTrailers = $trailers;
-            },
-        ]);
+        ])->wait();
 
-        $response = $promise->wait();
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame([], $gotTrailers);
-        self::assertSame(['on_stats', 'on_trailers'], $order);
+        self::assertSame(['on_headers', 'on_trailers', 'on_stats'], $order);
     }
 
-    public function testRejectsPromiseWhenOnTrailersThrows()
+    public function testReleasesHandleBeforeOnTrailersAndOnStatsOnSuccess(): void
     {
         Server::flush();
         Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+            new Psr7\Response(200, [], 'abc 123'),
         ]);
-        $req = new Psr7\Request('GET', Server::$url);
-        $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'on_trailers' => static function (): void {
-                throw new \Error('test');
+        $events = [];
+        $handler = new Handler\CurlHandler(['handle_factory' => self::recordingHandleFactory($events)]);
+        $handler(new Psr7\Request('GET', Server::$url), [
+            'on_trailers' => static function () use (&$events): void {
+                $events[] = 'on_trailers';
             },
-        ]);
+            'on_stats' => static function () use (&$events): void {
+                $events[] = 'on_stats';
+            },
+        ])->wait();
 
-        try {
-            $promise->wait();
-            self::fail('Expected RequestException');
-        } catch (RequestException $e) {
-            self::assertStringContainsString(
-                'An error was encountered during the on_trailers event',
-                $e->getMessage()
-            );
-            self::assertInstanceOf(\Error::class, $e->getPrevious());
-            self::assertTrue($e->hasResponse());
-            self::assertSame(200, $e->getResponse()->getStatusCode());
-        }
+        self::assertSame(['release', 'on_trailers', 'on_stats'], $events);
     }
 
-    public function testReleasesHandleWhenOnStatsThrowsOnSuccessfulTransfer()
+    public function testReleasesHandleWhenOnStatsThrowsOnSuccessfulTransfer(): void
     {
         Server::flush();
         Server::enqueue([
-            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+            new Psr7\Response(200, [], 'abc 123'),
         ]);
         $events = [];
         $sentinel = new \RuntimeException('stats failed');
-        $trailersCalled = false;
         $handler = new Handler\CurlHandler(['handle_factory' => self::recordingHandleFactory($events)]);
 
         try {
             $handler(new Psr7\Request('GET', Server::$url), [
-                'on_stats' => static function () use (&$events, $sentinel) {
+                'on_stats' => static function () use (&$events, $sentinel): void {
                     $events[] = 'on_stats';
                     throw $sentinel;
-                },
-                'on_trailers' => static function () use (&$trailersCalled) {
-                    $trailersCalled = true;
                 },
             ]);
             self::fail('Expected RuntimeException');
@@ -6217,138 +8221,1587 @@ class CurlFactoryTest extends TestCase
             self::assertSame($sentinel, $e);
         }
 
-        self::assertSame(['on_stats', 'release'], $events);
-        self::assertFalse($trailersCalled);
+        self::assertSame(['release', 'on_stats'], $events);
     }
 
-    public function testReleasesHandleWhenOnStatsThrowsOnErrorTransfer()
+    public function testReleasesHandleWhenOnStatsThrowsOnErrorTransfer(): void
     {
         $events = [];
         $sentinel = new \RuntimeException('stats failed');
         $recording = self::recordingHandleFactory($events);
         $easy = $recording->create(new Psr7\Request('GET', Server::$url), [
-            'on_stats' => static function () use (&$events, $sentinel) {
+            'on_stats' => static function () use (&$events, $sentinel): void {
                 $events[] = 'on_stats';
                 throw $sentinel;
             },
         ]);
-        $easy->errno = 7; // CURLE_COULDNT_CONNECT
-        $handler = static function (): void {
-            self::fail('The handler must not be re-invoked');
-        };
+        self::receiveCurlHeaders($easy, [
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Length: 3\r\n",
+            "\r\n",
+        ]);
+        $easy->errno = 18; // CURLE_PARTIAL_FILE
 
         try {
-            CurlFactory::finish($handler, $easy, $recording);
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $recording
+            );
             self::fail('Expected RuntimeException');
         } catch (\RuntimeException $e) {
             self::assertSame($sentinel, $e);
         }
 
-        self::assertSame(['on_stats', 'release'], $events);
+        self::assertSame(['release', 'on_stats'], $events);
     }
 
-    public function testReleasesHandleBetweenOnStatsAndOnTrailersOnSuccess()
+    public function testRejectsPromiseWhenOnTrailersThrowsThrowable(): void
     {
         Server::flush();
         Server::enqueue([
             new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
         ]);
-        $events = [];
-        $handler = new Handler\CurlHandler(['handle_factory' => self::recordingHandleFactory($events)]);
+        $handler = new Handler\CurlHandler();
         $promise = $handler(new Psr7\Request('GET', Server::$url), [
-            'on_stats' => static function () use (&$events) {
-                $events[] = 'on_stats';
-            },
-            'on_trailers' => static function () use (&$events) {
-                $events[] = 'on_trailers';
+            'on_trailers' => static function (): void {
+                throw new \Error('test');
             },
         ]);
-
-        $response = $promise->wait();
-        self::assertSame(200, $response->getStatusCode());
-        self::assertSame(['on_stats', 'release', 'on_trailers'], $events);
-    }
-
-    public function testPreservesOnStatsThrowableWhenReleaseFailsDuringCleanup()
-    {
-        $sentinel = new \RuntimeException('stats failed');
-        $factory = new CurlFactory(1);
-        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
-            'on_stats' => static function () use ($sentinel) {
-                throw $sentinel;
-            },
-        ]);
-        $throwingFactory = new class implements CurlFactoryInterface {
-            public function create(RequestInterface $request, array $options): EasyHandle
-            {
-                throw new \LogicException('The factory must not create handles');
-            }
-
-            public function release(EasyHandle $easy): void
-            {
-                throw new \LogicException('release failed');
-            }
-        };
-        $handler = static function (): void {
-            self::fail('The handler must not be re-invoked');
-        };
 
         try {
-            CurlFactory::finish($handler, $easy, $throwingFactory);
-            self::fail('Expected RuntimeException');
-        } catch (\RuntimeException $e) {
-            self::assertSame($sentinel, $e);
+            $promise->wait();
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertStringContainsString(
+                'An error was encountered during the on_trailers event',
+                $e->getMessage()
+            );
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertInstanceOf(\Error::class, $e->getPrevious());
         }
     }
 
-    public function testDoesNotInvokeOnTrailersOnTransferError()
-    {
-        $req = new Psr7\Request('GET', 'http://127.0.0.1:123');
-        $called = false;
-        $handler = new Handler\CurlHandler();
-        $promise = $handler($req, [
-            'connect_timeout' => 0.001,
-            'timeout' => 0.001,
-            'on_trailers' => static function () use (&$called) {
-                $called = true;
-            },
-        ]);
-
-        $promise->wait(false);
-        self::assertFalse($called);
-    }
-
-    public function testDoesNotInvokeOnTrailersWhenOnHeadersFails()
+    public function testInvokesOnStatsWithReasonWhenOnTrailersFails(): void
     {
         Server::flush();
         Server::enqueue([
             new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
         ]);
         $req = new Psr7\Request('GET', Server::$url);
-        $called = false;
+        $gotStats = null;
         $handler = new Handler\CurlHandler();
         $promise = $handler($req, [
+            'on_trailers' => static function (): void {
+                throw new \RuntimeException('test');
+            },
+            'on_stats' => static function (TransferStats $stats) use (&$gotStats): void {
+                $gotStats = $stats;
+            },
+        ]);
+
+        try {
+            $promise->wait();
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertInstanceOf(TransferStats::class, $gotStats);
+            self::assertTrue($gotStats->hasResponse());
+            self::assertSame($req, $gotStats->getRequest());
+            self::assertInstanceOf(ResponseException::class, $gotStats->getHandlerErrorData());
+        }
+    }
+
+    public function testDoesNotInvokeOnTrailersOnTransferError(): void
+    {
+        $factory = new CurlFactory(1);
+        $called = false;
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_trailers' => static function () use (&$called): void {
+                $called = true;
+            },
+        ]);
+        self::receiveCurlHeaders($easy, [
+            "HTTP/1.1 200 OK\r\n",
+            "Content-Length: 3\r\n",
+            "\r\n",
+        ]);
+        $easy->errno = 18; // CURLE_PARTIAL_FILE
+
+        try {
+            self::finishEasy($easy, $factory);
+            self::fail('Expected ResponseTransferException');
+        } catch (ResponseTransferException $e) {
+            self::assertFalse($called, 'on_trailers must not fire for failed transfers');
+        }
+    }
+
+    public function testDoesNotInvokeOnTrailersWhenOnHeadersFails(): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['X-Foo' => 'bar'], 'abc 123'),
+        ]);
+        $called = false;
+        $handler = new Handler\CurlHandler();
+        $promise = $handler(new Psr7\Request('GET', Server::$url), [
             'on_headers' => static function (): void {
                 throw new \Exception('test');
             },
-            'on_trailers' => static function () use (&$called) {
+            'on_trailers' => static function () use (&$called): void {
                 $called = true;
             },
         ]);
 
         try {
             $promise->wait();
-            self::fail('Expected RequestException');
-        } catch (RequestException $e) {
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
             self::assertStringContainsString(
                 'An error was encountered during the on_headers event',
                 $e->getMessage()
             );
-            self::assertFalse($called);
+            self::assertFalse($called, 'on_trailers must not fire when on_headers fails');
         }
     }
 
-    public function testInvokesOnStatsOnSuccess()
+    public function testStreamingRequestBodyReadPsr7TimeoutAbortsReadCallback(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+        $readCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (int $length) use (&$readCalled, $previous): string {
+                $readCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $easy = $factory->create($request, []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+
+            self::assertSame(0x10000000, $callback($easy->handle, null, 8192));
+            self::assertTrue($readCalled);
+            self::assertSame($previous, $easy->bodyReadTimeoutException);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodyReadFailureAbortsReadCallback(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Error('boom while reading');
+        $readCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (int $length) use (&$readCalled, $previous): string {
+                $readCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $easy = $factory->create($request, []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+
+            self::assertSame(0x10000000, $callback($easy->handle, null, 8192));
+            self::assertTrue($readCalled);
+            self::assertSame($previous, $easy->bodyReadException);
+            self::assertNull($easy->bodyReadTimeoutException);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodyStopsAtContentLengthBoundary(): void
+    {
+        $factory = new CurlFactory(3);
+        $source = Psr7\Utils::streamFor('abcdef');
+        $reads = 0;
+        $body = Psr7\FnStream::decorate($source, [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (int $length) use ($source, &$reads): string {
+                ++$reads;
+
+                return $source->read($length);
+            },
+        ]);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '3'],
+            $body
+        ), []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+
+            self::assertSame('ab', $callback($easy->handle, null, 2));
+            self::assertSame('c', $callback($easy->handle, null, 8192));
+            self::assertSame('', $callback($easy->handle, null, 8192));
+            self::assertSame(2, $reads);
+            self::assertSame('def', $source->getContents());
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodySeekRestoresContentLengthBoundary(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        $payload = \str_repeat('0123456789abcdef', 62500);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => (string) \strlen($payload)],
+            $payload
+        ), []);
+
+        try {
+            $read = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+            $seek = $_SERVER['_curl'][(int) \constant('CURLOPT_SEEKFUNCTION')];
+
+            self::assertSame(\substr($payload, 0, 400000), $read($easy->handle, null, 400000));
+            self::assertSame(0, $seek($easy->handle, 250000, \SEEK_SET));
+            self::assertSame(\substr($payload, 250000), $read($easy->handle, null, \strlen($payload)));
+            self::assertSame('', $read($easy->handle, null, 1));
+
+            self::assertSame(0, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertSame($payload, $read($easy->handle, null, \strlen($payload)));
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodySeekRejectsInvalidOffsets(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        $payload = \str_repeat('x', 1000000);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => (string) \strlen($payload)],
+            $payload
+        ), []);
+
+        try {
+            $seek = $_SERVER['_curl'][(int) \constant('CURLOPT_SEEKFUNCTION')];
+
+            self::assertSame(2, $seek($easy->handle, 0, \SEEK_CUR));
+            self::assertNull($easy->bodyRewindException);
+
+            self::assertSame(1, $seek($easy->handle, -1, \SEEK_SET));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyRewindException);
+            self::assertSame('Request body seek offset is outside the declared Content-Length', $easy->bodyRewindException->getMessage());
+
+            $easy->bodyRewindException = null;
+            self::assertSame(1, $seek($easy->handle, \strlen($payload) + 1, \SEEK_SET));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyRewindException);
+            self::assertSame('Request body seek offset is outside the declared Content-Length', $easy->bodyRewindException->getMessage());
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodySeekRecordsSeekabilityFailure(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        $inner = Psr7\Utils::streamFor(\str_repeat('x', 1000000));
+        $failNextSeekabilityCheck = false;
+        $previous = new \Error('boom while checking seekability');
+        $body = Psr7\FnStream::decorate($inner, [
+            'isSeekable' => static function () use (&$failNextSeekabilityCheck, $previous): bool {
+                if ($failNextSeekabilityCheck) {
+                    $failNextSeekabilityCheck = false;
+
+                    throw $previous;
+                }
+
+                return true;
+            },
+        ]);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '1000000'],
+            $body
+        ), []);
+
+        try {
+            $seek = $_SERVER['_curl'][(int) \constant('CURLOPT_SEEKFUNCTION')];
+            $failNextSeekabilityCheck = true;
+
+            self::assertSame(1, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertSame($previous, $easy->bodyRewindException);
+            self::assertNull($easy->bodyRewindTimeoutException);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodySeekFailureUsesRewindFallbackMessageWhenMessageEmpty(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        $factory = new CurlFactory(1);
+        $handlerCalled = false;
+        $handler = static function () use (&$handlerCalled): P\PromiseInterface {
+            $handlerCalled = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+        $previous = new \RuntimeException('');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor(\str_repeat('x', 1000000)), [
+            'seek' => static function () use ($previous): void {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, ['Content-Length' => '1000000'], $body);
+        $easy = $factory->create($request, []);
+
+        $seek = $_SERVER['_curl'][(int) \constant('CURLOPT_SEEKFUNCTION')];
+        self::assertSame(1, $seek($easy->handle, 0, \SEEK_SET));
+        self::assertSame($previous, $easy->bodyRewindException);
+        // Simulate libcurl surfacing the failed rewind (errno 65).
+        $easy->errno = 65;
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($easy->request, $e->getRequest());
+            self::assertSame('Failed to rewind the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+
+        self::assertFalse($handlerCalled, 'The failed local rewind must not be retried');
+    }
+
+    public function testStreamingRequestBodySeekBoundsNativeReplays(): void
+    {
+        if (!\defined('CURLOPT_SEEKFUNCTION')) {
+            self::markTestSkipped('CURLOPT_SEEKFUNCTION is not available.');
+        }
+
+        $payload = \str_repeat('x', 1000000);
+        $factory = new CurlFactory(3);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => (string) \strlen($payload)],
+            $payload
+        ), []);
+
+        try {
+            $seek = $_SERVER['_curl'][(int) \constant('CURLOPT_SEEKFUNCTION')];
+
+            self::assertSame(0, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertSame(0, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertSame(0, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertSame(1, $seek($easy->handle, 0, \SEEK_SET));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyRewindException);
+            self::assertSame('Request body cannot be replayed more than 3 times', $easy->bodyRewindException->getMessage());
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodyRejectsPrematureEndAndAbortsProgress(): void
+    {
+        $factory = new CurlFactory(3);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('ab'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '3'],
+            $body
+        ), []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+            self::assertSame('ab', $callback($easy->handle, null, 8192));
+            self::assertSame(0x10000000, $callback($easy->handle, null, 8192));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyReadException);
+            self::assertSame(
+                'Request body ended before the declared Content-Length was reached',
+                $easy->bodyReadException->getMessage()
+            );
+
+            $progress = $_SERVER['_curl'][self::progressCallbackOption()];
+            self::assertSame(1, $progress($easy->handle, 0, 0, 0, 0));
+            self::assertFalse($easy->progressAborted);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingRequestBodyRejectsMoreBytesThanRequested(): void
+    {
+        $factory = new CurlFactory(3);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (): string {
+                return 'abcd';
+            },
+        ]);
+        $easy = $factory->create(new Psr7\Request(
+            'PUT',
+            Server::$url,
+            ['Content-Length' => '3'],
+            $body
+        ), []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+
+            self::assertSame(0x10000000, $callback($easy->handle, null, 8192));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyReadException);
+            self::assertSame(
+                'Request body stream returned more bytes than requested',
+                $easy->bodyReadException->getMessage()
+            );
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingUnknownRequestBodyRejectsMoreBytesThanRequested(): void
+    {
+        $factory = new CurlFactory(3);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (int $length): string {
+                return \str_repeat('x', $length + 1);
+            },
+        ]);
+        $easy = $factory->create(new Psr7\Request('PUT', Server::$url, [], $body), []);
+
+        try {
+            $callback = $_SERVER['_curl'][\CURLOPT_READFUNCTION];
+
+            self::assertSame(0x10000000, $callback($easy->handle, null, 3));
+            self::assertInstanceOf(\RuntimeException::class, $easy->bodyReadException);
+            self::assertSame(
+                'Request body stream returned more bytes than requested',
+                $easy->bodyReadException->getMessage()
+            );
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingUploadInstallsProgressAbortForBodyReadTimeout(): void
+    {
+        $factory = new CurlFactory(3);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $easy = $factory->create($request, []);
+
+        try {
+            // A progress callback is installed for streaming uploads even when
+            // the "progress" option is absent, so the upload can be aborted on a
+            // body read timeout on PHP versions where the read callback's abort
+            // return value is ignored (< 8.1.17 / < 8.2.4).
+            self::assertArrayHasKey(self::progressCallbackOption(), $_SERVER['_curl']);
+            $progress = $_SERVER['_curl'][self::progressCallbackOption()];
+
+            self::assertSame(0, $progress($easy->handle, 0, 0, 0, 0));
+
+            $easy->bodyReadTimeoutException = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+            self::assertSame(1, $progress($easy->handle, 0, 0, 0, 0));
+            self::assertFalse($easy->progressAborted);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    public function testStreamingUploadInstallsProgressAbortForBodyReadFailure(): void
+    {
+        $factory = new CurlFactory(3);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $easy = $factory->create($request, []);
+
+        try {
+            self::assertArrayHasKey(self::progressCallbackOption(), $_SERVER['_curl']);
+            $progress = $_SERVER['_curl'][self::progressCallbackOption()];
+
+            self::assertSame(0, $progress($easy->handle, 0, 0, 0, 0));
+
+            $easy->bodyReadException = new \RuntimeException('boom while reading');
+            self::assertSame(1, $progress($easy->handle, 0, 0, 0, 0));
+            self::assertFalse($easy->progressAborted);
+        } finally {
+            if (\array_key_exists('handle', \get_object_vars($easy))) {
+                $factory->release($easy);
+            }
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testStreamingRequestBodyReadTimeoutAbortsTransferThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'hi'),
+        ]);
+        $handler = $handlerFactory();
+        $previous = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+        $readCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'read' => static function (int $length) use (&$readCalled, $previous): string {
+                $readCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $handler($request, [])->wait();
+
+            self::fail('Expected the upload read timeout to reject the transfer');
+        } catch (ResponseException $e) {
+            // PHP versions without read-callback abort support (< 8.1.17, and
+            // 8.2.0-8.2.3 since the fix shipped in 8.1.17 and 8.2.4) ignore the
+            // read callback's abort return, so the transfer is aborted by the
+            // progress callback, possibly after an early response is observed.
+            // It is still a timeout, never a silent success.
+            self::assertTrue(\PHP_VERSION_ID < 80117 || (\PHP_VERSION_ID >= 80200 && \PHP_VERSION_ID < 80204));
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while reading the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTimeoutException::class, $e);
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        } catch (RequestException $e) {
+            // On PHP >= 8.1.17 / 8.2.4 the read callback aborts synchronously
+            // (and on older PHP the progress callback may abort before a
+            // response arrives), so no usable response is received.
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while reading the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertTrue($readCalled);
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testShortStreamingRequestBodyFailsThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200)]);
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('ab'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, ['Content-Length' => '3'], $body);
+        $handler = $handlerFactory();
+
+        try {
+            $handler($request, [])->wait();
+            self::fail('Expected the short upload to fail');
+        } catch (RequestException $e) {
+            self::assertSame('Request body ended before the declared Content-Length was reached', $e->getMessage());
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+    }
+
+    public function testShortStreamingRequestBodyDoesNotPoisonNextCurlTransfer(): void
+    {
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200)]);
+        $handler = new Handler\CurlHandler();
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('ab'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+
+        try {
+            $handler(new Psr7\Request('PUT', Server::$url, ['Content-Length' => '3'], $body), [])->wait();
+            self::fail('Expected the short upload to fail');
+        } catch (RequestException $e) {
+            self::assertSame('Request body ended before the declared Content-Length was reached', $e->getMessage());
+        }
+
+        Server::flush();
+        Server::enqueue([new Psr7\Response(200, [], 'next')]);
+
+        try {
+            $response = $handler(new Psr7\Request('GET', Server::$url), [])->wait();
+            self::assertSame('next', (string) $response->getBody());
+        } finally {
+            $handler->close();
+        }
+    }
+
+    public function testStreamingRequestBodyReadPsr7TimeoutRejectsAsRequestExceptionWithoutResponse(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+        $stats = null;
+        $request = new Psr7\Request('PUT', Server::$url, [], 'payload');
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+        $framedRequest = $easy->request;
+        $easy->bodyReadTimeoutException = $previous;
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+        $handler = static function (RequestInterface $request, array $options) {
+            self::fail('Did not expect timeout failure to be retried');
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($framedRequest, $e->getRequest());
+            self::assertSame('Timed out while reading the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertFalse($stats->hasResponse());
+        self::assertNull($stats->getResponse());
+        self::assertSame($framedRequest, $stats->getRequest());
+        self::assertSame(\CURLE_ABORTED_BY_CALLBACK, $stats->getHandlerErrorData());
+    }
+
+    public function testRequestBodyGetSizeTimeoutRejectsAsRequestException(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to determine stream size: timed out');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function () use ($previous): ?int {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while determining the request body size', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+    }
+
+    public function testRequestBodyGetSizeFailureUsesFallbackMessageWhenMessageEmpty(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \RuntimeException('');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function () use ($previous): ?int {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Failed to determine the request body size', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+    }
+
+    public function testRequestBodyReadFailureRejectsAsRequestExceptionWithoutResponseAndWithoutRetry(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Exception('boom while reading');
+        $stats = null;
+        $request = new Psr7\Request('PUT', Server::$url, [], 'payload');
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+        $framedRequest = $easy->request;
+        $easy->bodyReadException = $previous;
+        $easy->errno = 0;
+        $retried = false;
+        $handler = static function () use (&$retried): P\PromiseInterface {
+            $retried = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($framedRequest, $e->getRequest());
+            self::assertSame('boom while reading', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertFalse($retried);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertFalse($stats->hasResponse());
+        self::assertNull($stats->getResponse());
+        self::assertSame($framedRequest, $stats->getRequest());
+        self::assertSame(0, $stats->getHandlerErrorData());
+    }
+
+    public function testStreamingRequestBodyReadPsr7TimeoutRejectsAsResponseExceptionWithResponse(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+        $stats = null;
+        $request = new Psr7\Request('PUT', Server::$url, [], 'payload');
+        $response = new Psr7\Response(200, [], 'early');
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+        $framedRequest = $easy->request;
+        $easy->response = $response;
+        $easy->bodyReadTimeoutException = $previous;
+        $easy->errno = \CURLE_ABORTED_BY_CALLBACK;
+        $handler = static function (RequestInterface $request, array $options) {
+            self::fail('Did not expect timeout failure to be retried');
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($framedRequest, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+            self::assertSame('Timed out while reading the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTimeoutException::class, $e);
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame($response, $stats->getResponse());
+        self::assertSame($framedRequest, $stats->getRequest());
+        self::assertSame(\CURLE_ABORTED_BY_CALLBACK, $stats->getHandlerErrorData());
+    }
+
+    public function testRequestBodyReadFailureRejectsAsResponseExceptionWithResponseAndErrnoZero(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Exception('boom while reading');
+        $stats = null;
+        $request = new Psr7\Request('PUT', Server::$url, [], 'payload');
+        $response = new Psr7\Response(200, [], 'early');
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+        $framedRequest = $easy->request;
+        $easy->response = $response;
+        $easy->bodyReadException = $previous;
+        $easy->errno = 0;
+        $retried = false;
+        $handler = static function () use (&$retried): P\PromiseInterface {
+            $retried = true;
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($framedRequest, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+            self::assertSame('boom while reading', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertFalse($retried);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame($response, $stats->getResponse());
+        self::assertSame($framedRequest, $stats->getRequest());
+        self::assertSame(0, $stats->getHandlerErrorData());
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testBodyAsStringRequestBodyReadPsr7TimeoutRejectsAsRequestExceptionThroughCurlHandlers(callable $handlerFactory): void
+    {
+        $previous = new Psr7\Exception\TimeoutException('Unable to read from stream: timed out');
+        $castCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            '__toString' => static function () use (&$castCalled, $previous): string {
+                $castCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+        $handler = $handlerFactory();
+
+        try {
+            $handler($request, [
+                'curl' => ['body_as_string' => true],
+            ])->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while reading the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        } finally {
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertTrue($castCalled);
+    }
+
+    public function testBodyAsStringHonorsExplicitContentLengthBoundary(): void
+    {
+        $source = Psr7\Utils::streamFor('abcdef');
+        $body = Psr7\FnStream::decorate($source, [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $factory = new CurlFactory(3);
+
+        $factory->create(new Psr7\Request('PUT', Server::$url, ['Content-Length' => '3'], $body), [
+            'curl' => ['body_as_string' => true],
+        ]);
+
+        self::assertSame('abc', $_SERVER['_curl'][\CURLOPT_POSTFIELDS]);
+        self::assertSame('def', $source->getContents());
+    }
+
+    public function testBodyAsStringRequestBodyReadFailureUsesFallbackMessageWhenMessageEmpty(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \RuntimeException('');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            '__toString' => static function () use ($previous): string {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, [
+                'curl' => ['body_as_string' => true],
+            ]);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Failed to read the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+    }
+
+    public function testBodyAsStringRequestBodyReadFailureRejectsAsRequestException(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Exception('boom while reading');
+        $castCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            '__toString' => static function () use (&$castCalled, $previous): string {
+                $castCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, [
+                'curl' => ['body_as_string' => true],
+            ]);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('boom while reading', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertTrue($castCalled);
+    }
+
+    public function testBodyAsStringRequestBodyReadErrorPropagates(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Error('boom while reading');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            '__toString' => static function () use ($previous): string {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, [
+                'curl' => ['body_as_string' => true],
+            ]);
+            self::fail('Expected Error');
+        } catch (\Error $e) {
+            self::assertSame($previous, $e);
+        }
+    }
+
+    public function testStreamingRequestBodyRewindFailureRejectsAsRequestException(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Exception('boom while rewinding');
+        $rewindCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'rewind' => static function () use (&$rewindCalled, $previous): void {
+                $rewindCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('boom while rewinding', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertTrue($rewindCalled);
+    }
+
+    public function testStreamingRequestBodyRewindErrorPropagates(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \Error('boom while rewinding');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'rewind' => static function () use ($previous): void {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+            self::fail('Expected Error');
+        } catch (\Error $e) {
+            self::assertSame($previous, $e);
+        }
+    }
+
+    public function testStreamingRequestBodyRewindTimeoutRejectsAsRequestException(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to rewind stream: timed out');
+        $rewindCalled = false;
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'rewind' => static function () use (&$rewindCalled, $previous): void {
+                $rewindCalled = true;
+
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while rewinding the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertTrue($rewindCalled);
+    }
+
+    public function testStreamingRequestBodyRewindFailureUsesFallbackMessageWhenMessageEmpty(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new \RuntimeException('');
+        $body = Psr7\FnStream::decorate(Psr7\Utils::streamFor('payload'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+            'rewind' => static function () use ($previous): void {
+                throw $previous;
+            },
+        ]);
+        $request = new Psr7\Request('PUT', Server::$url, [], $body);
+
+        try {
+            $factory->create($request, []);
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Failed to rewind the request body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testSinkWritePsr7TimeoutRejectsAsResponseExceptionThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'abc'),
+        ]);
+        $request = new Psr7\Request('GET', Server::$url);
+        $handler = $handlerFactory();
+        $previous = new Psr7\Exception\TimeoutException('Unable to write to stream: timed out');
+        $stats = null;
+        $writeCalled = false;
+        $sink = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'write' => static function (string $data) use (&$writeCalled, $previous): int {
+                $writeCalled = true;
+
+                throw $previous;
+            },
+        ]);
+
+        try {
+            $handler($request, [
+                'sink' => $sink,
+                'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                    $stats = $transferStats;
+                },
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertSame('Timed out while writing the response body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTimeoutException::class, $e);
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertTrue($writeCalled);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame(200, $stats->getResponse()->getStatusCode());
+        self::assertSame(\CURLE_WRITE_ERROR, $stats->getHandlerErrorData());
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testGenericSinkWriteFailureRejectsAsResponseExceptionThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'abc'),
+        ]);
+        $request = new Psr7\Request('GET', Server::$url);
+        $handler = $handlerFactory();
+        $previous = new \RuntimeException("sink \x1B\xFF failed");
+        $stats = null;
+        $writeCalled = false;
+        $sink = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'write' => static function (string $data) use (&$writeCalled, $previous): int {
+                $writeCalled = true;
+
+                throw $previous;
+            },
+        ]);
+
+        try {
+            $handler($request, [
+                'sink' => $sink,
+                'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                    $stats = $transferStats;
+                },
+            ])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertSame("sink \x1B\xFF failed", $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTimeoutException::class, $e);
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertTrue($writeCalled);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame(200, $stats->getResponse()->getStatusCode());
+        self::assertSame(\CURLE_WRITE_ERROR, $stats->getHandlerErrorData());
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testSinkWriteErrorRejectsAsResponseExceptionThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'abc'),
+        ]);
+        $request = new Psr7\Request('GET', Server::$url);
+        $handler = $handlerFactory();
+        $previous = new \Error('sink fatal');
+        $writeCalled = false;
+        $sink = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'write' => static function (string $data) use (&$writeCalled, $previous): int {
+                $writeCalled = true;
+
+                throw $previous;
+            },
+        ]);
+
+        try {
+            $handler($request, ['sink' => $sink])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame(200, $e->getResponse()->getStatusCode());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertTrue($writeCalled);
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testSinkWriteFailureUsesFallbackMessageWhenThrowableMessageEmpty(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, [], 'abc'),
+        ]);
+        $request = new Psr7\Request('GET', Server::$url);
+        $handler = $handlerFactory();
+        $sink = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+            'write' => static function (string $data): int {
+                throw new \RuntimeException('');
+            },
+        ]);
+
+        try {
+            $handler($request, ['sink' => $sink])->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame('Failed to write the response body', $e->getMessage());
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testSinkWriteReturningTooFewBytesRejectsAsResponseExceptionWithoutPrevious(callable $handlerFactory): void
+    {
+        $body = \str_repeat('x', 1024);
+        $scenarios = [
+            'return zero' => false,
+            'short positive' => true,
+        ];
+
+        foreach ($scenarios as $label => $positiveShort) {
+            Server::flush();
+            Server::enqueue([
+                new Psr7\Response(200, [], $body),
+            ]);
+            $request = new Psr7\Request('GET', Server::$url);
+            $handler = $handlerFactory();
+            $callbackRan = false;
+            $sawPositiveShort = false;
+            $sink = Psr7\FnStream::decorate(Psr7\Utils::streamFor(), [
+                'write' => static function (string $data) use ($positiveShort, &$callbackRan, &$sawPositiveShort): int {
+                    $callbackRan = true;
+                    $written = $positiveShort ? \strlen($data) - 1 : 0;
+                    if ($written > 0 && $written < \strlen($data)) {
+                        $sawPositiveShort = true;
+                    }
+
+                    return $written;
+                },
+            ]);
+
+            try {
+                $handler($request, ['sink' => $sink])->wait();
+
+                self::fail("Expected ResponseException ({$label})");
+            } catch (ResponseException $e) {
+                self::assertSame(200, $e->getResponse()->getStatusCode(), $label);
+                self::assertSame('Unable to write to stream', $e->getMessage(), $label);
+                self::assertNull($e->getPrevious(), $label);
+                self::assertNotInstanceOf(ResponseTransferException::class, $e, $label);
+            } finally {
+                Server::flush();
+
+                if (\method_exists($handler, 'close')) {
+                    $handler->close();
+                }
+            }
+
+            self::assertTrue($callbackRan, "the short-write callback must run ({$label})");
+            if ($positiveShort) {
+                self::assertTrue($sawPositiveShort, "expected a genuinely positive short write ({$label})");
+            }
+        }
+    }
+
+    /**
+     * @dataProvider curlHandlerProvider
+     */
+    public function testNonSeekableSinkSucceedsWithoutRewindThroughCurlHandlers(callable $handlerFactory): void
+    {
+        Server::flush();
+        Server::enqueue([
+            new Psr7\Response(200, ['Content-Length' => '3'], 'abc'),
+        ]);
+        $request = new Psr7\Request('GET', Server::$url);
+        $handler = $handlerFactory();
+        $underlying = Psr7\Utils::streamFor();
+        $stats = null;
+        $statsCalled = 0;
+        $rewindCalled = false;
+        $seekCalled = false;
+        $sink = Psr7\FnStream::decorate($underlying, [
+            'isSeekable' => static function (): bool {
+                return false;
+            },
+            'rewind' => static function () use (&$rewindCalled): void {
+                $rewindCalled = true;
+
+                throw new \RuntimeException('must not rewind a non-seekable sink');
+            },
+            'seek' => static function ($offset, $whence = \SEEK_SET) use (&$seekCalled): void {
+                $seekCalled = true;
+
+                throw new \RuntimeException('must not seek a non-seekable sink');
+            },
+        ]);
+
+        try {
+            $response = $handler($request, [
+                'sink' => $sink,
+                'on_stats' => static function (TransferStats $transferStats) use (&$stats, &$statsCalled): void {
+                    ++$statsCalled;
+                    $stats = $transferStats;
+                },
+            ])->wait();
+
+            self::assertSame(200, $response->getStatusCode());
+            self::assertSame($sink, $response->getBody());
+        } finally {
+            Server::flush();
+
+            if (\method_exists($handler, 'close')) {
+                $handler->close();
+            }
+        }
+
+        self::assertFalse($rewindCalled);
+        self::assertFalse($seekCalled);
+        $underlying->rewind();
+        self::assertSame('abc', $underlying->getContents());
+        self::assertSame(1, $statsCalled);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame($response, $stats->getResponse());
+        self::assertSame(0, $stats->getHandlerErrorData());
+    }
+
+    public function testSinkWritePsr7TimeoutRejectsAsRequestExceptionWithoutResponse(): void
+    {
+        $factory = new CurlFactory(3);
+        $previous = new Psr7\Exception\TimeoutException('Unable to write to stream: timed out');
+        $stats = null;
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$stats): void {
+                $stats = $transferStats;
+            },
+        ]);
+        $easy->sinkWriteTimeoutException = $previous;
+        $easy->errno = \CURLE_WRITE_ERROR;
+        $handler = static function (RequestInterface $request, array $options) {
+            self::fail('Did not expect timeout failure to be retried');
+
+            return P\Create::promiseFor(new Psr7\Response());
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('Timed out while writing the response body', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertInstanceOf(RequestExceptionInterface::class, $e);
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertFalse($stats->hasResponse());
+        self::assertNull($stats->getResponse());
+        self::assertSame($request, $stats->getRequest());
+        self::assertSame(\CURLE_WRITE_ERROR, $stats->getHandlerErrorData());
+    }
+
+    public function testGenericSinkWriteFailureWithoutResponseRejectsAsRequestExceptionWithoutRetry(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('GET', Server::$url);
+        $easy = $factory->create($request, []);
+        $previous = new \RuntimeException('sink failed');
+        $easy->sinkWriteException = $previous;
+        $retried = false;
+        $handler = static function () use (&$retried): P\PromiseInterface {
+            $retried = true;
+
+            return P\Create::promiseFor(new Psr7\Response(200));
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected RequestException');
+        } catch (RequestException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame('sink failed', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertNotInstanceOf(NetworkException::class, $e);
+        }
+
+        self::assertFalse($retried, 'A sink write failure must never trigger a request-body rewind retry');
+    }
+
+    public function testGenericSinkWriteFailureWithResponseRejectsWithoutRetryWhenErrnoIsZero(): void
+    {
+        $factory = new CurlFactory(3);
+        $request = new Psr7\Request('GET', Server::$url);
+        $response = new Psr7\Response(200, [], 'abc');
+        $easy = $factory->create($request, []);
+        $previous = new \RuntimeException('sink failed');
+        $easy->response = $response;
+        $easy->sinkWriteException = $previous;
+        $retried = false;
+        $handler = static function () use (&$retried): P\PromiseInterface {
+            $retried = true;
+
+            return P\Create::promiseFor(new Psr7\Response(200));
+        };
+
+        try {
+            CurlFactory::finish($handler, $easy, $factory)->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+            self::assertSame('sink failed', $e->getMessage());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+        }
+
+        self::assertFalse($retried, 'A sink write failure must never trigger a request-body rewind retry');
+    }
+
+    public function testInvokesOnStatsOnSuccess(): void
     {
         Server::flush();
         Server::enqueue([new Psr7\Response(200)]);
@@ -6356,7 +9809,7 @@ class CurlFactoryTest extends TestCase
         $gotStats = null;
         $handler = new Handler\CurlHandler();
         $promise = $handler($req, [
-            'on_stats' => static function (TransferStats $stats) use (&$gotStats) {
+            'on_stats' => static function (TransferStats $stats) use (&$gotStats): void {
                 $gotStats = $stats;
             },
         ]);
@@ -6375,7 +9828,7 @@ class CurlFactoryTest extends TestCase
         self::assertArrayHasKey('appconnect_time', $gotStats->getHandlerStats());
     }
 
-    public function testInvokesOnStatsOnError()
+    public function testInvokesOnStatsOnError(): void
     {
         $req = new Psr7\Request('GET', 'http://127.0.0.1:123');
         $gotStats = null;
@@ -6383,7 +9836,7 @@ class CurlFactoryTest extends TestCase
         $promise = $handler($req, [
             'connect_timeout' => 0.001,
             'timeout' => 0.001,
-            'on_stats' => static function (TransferStats $stats) use (&$gotStats) {
+            'on_stats' => static function (TransferStats $stats) use (&$gotStats): void {
                 $gotStats = $stats;
             },
         ]);
@@ -6402,7 +9855,236 @@ class CurlFactoryTest extends TestCase
         self::assertArrayHasKey('appconnect_time', $gotStats->getHandlerStats());
     }
 
-    public function testRewindsBodyIfPossible()
+    public function testInvokesOnStatsAfterSuccessHandleRelease(): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = null;
+        $called = false;
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_stats' => static function (TransferStats $stats) use (&$easy, $factory, &$called): void {
+                $called = true;
+                self::assertInstanceOf(EasyHandle::class, $easy);
+                self::assertTrue($stats->hasResponse());
+                self::assertArrayNotHasKey('handle', \get_object_vars($easy));
+                self::assertCount(1, self::readIdleHandles($factory));
+            },
+        ]);
+        $easy->response = new Psr7\Response(200);
+
+        $promise = CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        );
+
+        self::assertTrue($called);
+        self::assertSame(200, $promise->wait()->getStatusCode());
+    }
+
+    public function testSurfacesSeekableBodyRewindFailureAsResponseException(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $previous = new \Exception('rewind failed');
+        $response = new Psr7\Response(
+            200,
+            [],
+            Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+                'isSeekable' => static function (): bool {
+                    return true;
+                },
+                'rewind' => static function () use ($previous): void {
+                    throw $previous;
+                },
+            ])
+        );
+        $easy = null;
+        $exception = null;
+        $stats = null;
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $transferStats) use (&$easy, $factory, &$stats): void {
+                $stats = $transferStats;
+                self::assertInstanceOf(EasyHandle::class, $easy);
+                self::assertArrayNotHasKey('handle', \get_object_vars($easy));
+                self::assertCount(1, self::readIdleHandles($factory));
+            },
+        ]);
+        $easy->response = $response;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+
+            self::fail('Expected ResponseException');
+        } catch (ResponseException $e) {
+            $exception = $e;
+            self::assertSame($request, $e->getRequest());
+            self::assertSame($response, $e->getResponse());
+            self::assertSame($previous, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseTransferException::class, $e);
+            self::assertNotInstanceOf(ResponseTimeoutException::class, $e);
+            self::assertNotInstanceOf(NetworkExceptionInterface::class, $e);
+        }
+
+        self::assertInstanceOf(ResponseException::class, $exception);
+        self::assertInstanceOf(TransferStats::class, $stats);
+        self::assertTrue($stats->hasResponse());
+        self::assertSame($response, $stats->getResponse());
+        self::assertSame($exception, $stats->getHandlerErrorData());
+    }
+
+    public function testSeekableBodyRewindErrorPropagates(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $previous = new \Error('rewind failed');
+        $response = new Psr7\Response(
+            200,
+            [],
+            Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+                'isSeekable' => static function (): bool {
+                    return true;
+                },
+                'rewind' => static function () use ($previous): void {
+                    throw $previous;
+                },
+            ])
+        );
+        $easy = $factory->create($request, []);
+        $easy->response = $response;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            )->wait();
+            self::fail('Expected Error');
+        } catch (\Error $e) {
+            self::assertSame($previous, $e);
+        }
+    }
+
+    public function testOnStatsExceptionEscapesOnSeekableBodyRewindFailureAfterHandleRelease(): void
+    {
+        $factory = new CurlFactory(1);
+        $request = new Psr7\Request('GET', Server::$url);
+        $rewindFailure = new \RuntimeException('rewind failed');
+        $statsFailure = new \RuntimeException('stats failed');
+        $response = new Psr7\Response(
+            200,
+            [],
+            Psr7\FnStream::decorate(Psr7\Utils::streamFor('abc'), [
+                'isSeekable' => static function (): bool {
+                    return true;
+                },
+                'rewind' => static function () use ($rewindFailure): void {
+                    throw $rewindFailure;
+                },
+            ])
+        );
+        $easy = null;
+        $called = false;
+        $easy = $factory->create($request, [
+            'on_stats' => static function (TransferStats $stats) use (&$easy, $factory, &$called, $response, $rewindFailure, $statsFailure): void {
+                $called = true;
+                self::assertInstanceOf(EasyHandle::class, $easy);
+                self::assertTrue($stats->hasResponse());
+                self::assertSame($response, $stats->getResponse());
+                self::assertArrayNotHasKey('handle', \get_object_vars($easy));
+                self::assertCount(1, self::readIdleHandles($factory));
+
+                $error = $stats->getHandlerErrorData();
+                self::assertInstanceOf(ResponseException::class, $error);
+                self::assertSame($rewindFailure, $error->getPrevious());
+                self::assertNotInstanceOf(ResponseTransferException::class, $error);
+                self::assertNotInstanceOf(ResponseTimeoutException::class, $error);
+                self::assertNotInstanceOf(NetworkExceptionInterface::class, $error);
+
+                throw $statsFailure;
+            },
+        ]);
+        $easy->response = $response;
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            );
+
+            self::fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            self::assertSame($statsFailure, $e);
+        }
+
+        self::assertTrue($called);
+    }
+
+    public function testInvokesOnStatsAfterErrorHandleRelease(): void
+    {
+        $factory = new CurlFactory(1);
+        $easy = null;
+        $called = false;
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_stats' => static function (TransferStats $stats) use (&$easy, $factory, &$called): void {
+                $called = true;
+                self::assertInstanceOf(EasyHandle::class, $easy);
+                self::assertFalse($stats->hasResponse());
+                self::assertSame(\CURLE_COULDNT_CONNECT, $stats->getHandlerErrorData());
+                self::assertArrayNotHasKey('handle', \get_object_vars($easy));
+                self::assertCount(1, self::readIdleHandles($factory));
+            },
+        ]);
+        $easy->errno = \CURLE_COULDNT_CONNECT;
+
+        CurlFactory::finish(
+            static function (): void {
+            },
+            $easy,
+            $factory
+        )->wait(false);
+
+        self::assertTrue($called);
+    }
+
+    public function testOnStatsExceptionEscapesAfterHandleRelease(): void
+    {
+        $factory = new CurlFactory(1);
+        $previous = new \RuntimeException('stats failed');
+        $easy = null;
+        $easy = $factory->create(new Psr7\Request('GET', Server::$url), [
+            'on_stats' => static function () use (&$easy, $factory, $previous): void {
+                self::assertInstanceOf(EasyHandle::class, $easy);
+                self::assertArrayNotHasKey('handle', \get_object_vars($easy));
+                self::assertCount(1, self::readIdleHandles($factory));
+
+                throw $previous;
+            },
+        ]);
+        $easy->response = new Psr7\Response(200);
+
+        try {
+            CurlFactory::finish(
+                static function (): void {
+                },
+                $easy,
+                $factory
+            );
+            self::fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            self::assertSame($previous, $e);
+        }
+    }
+
+    public function testRewindsBodyIfPossible(): void
     {
         $body = Psr7\Utils::streamFor(\str_repeat('x', 1024 * 1024 * 2));
         $body->seek(1024 * 1024);
@@ -6417,7 +10099,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame(0, $body->tell());
     }
 
-    public function testDoesNotRewindUnseekableBody()
+    public function testDoesNotRewindUnseekableBody(): void
     {
         $body = Psr7\Utils::streamFor(\str_repeat('x', 1024 * 1024 * 2));
         $body->seek(1024 * 1024);
@@ -6433,7 +10115,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame(1024 * 1024, $body->tell());
     }
 
-    public function testRelease()
+    public function testRelease(): void
     {
         $factory = new CurlFactory(1);
         $easyHandle = new EasyHandle();
@@ -6445,7 +10127,7 @@ class CurlFactoryTest extends TestCase
     /**
      * https://github.com/guzzle/guzzle/issues/2735
      */
-    public function testBodyEofOnWindows()
+    public function testBodyEofOnWindows(): void
     {
         $expectedLength = 4097;
 
@@ -6470,7 +10152,7 @@ class CurlFactoryTest extends TestCase
         self::assertSame($expectedLength, $actualLength);
     }
 
-    public function testHandlesGarbageHttpServerGracefully()
+    public function testHandlesGarbageHttpServerGracefully(): void
     {
         $a = new Handler\CurlMultiHandler();
 
@@ -6480,7 +10162,7 @@ class CurlFactoryTest extends TestCase
         $a(new Psr7\Request('GET', Server::$url.'guzzle-server/garbage'), [])->wait();
     }
 
-    public function testHandlesInvalidStatusCodeGracefully()
+    public function testHandlesInvalidStatusCodeGracefully(): void
     {
         $a = new Handler\CurlMultiHandler();
 
@@ -6492,28 +10174,9 @@ class CurlFactoryTest extends TestCase
                 'An error was encountered while creating the response',
                 $e->getMessage()
             );
-            self::assertFalse($e->hasResponse());
-            self::assertNull($e->getResponse());
-            self::assertInstanceOf(\InvalidArgumentException::class, $e->getPrevious());
+            self::assertNotInstanceOf(ResponseException::class, $e);
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
         }
-    }
-
-    private static function readIdleHandles(CurlFactory $factory): array
-    {
-        $readHandles = \Closure::bind(static function (CurlFactory $factory): array {
-            return $factory->handles;
-        }, null, CurlFactory::class);
-
-        return $readHandles($factory);
-    }
-
-    private static function assertNoProxyOption(string $expected): void
-    {
-        if (!\defined('CURLOPT_NOPROXY')) {
-            return;
-        }
-
-        self::assertSame($expected, $_SERVER['_curl'][(int) \constant('CURLOPT_NOPROXY')]);
     }
 
     private static function skipIfWindows(): void
@@ -6556,19 +10219,84 @@ class CurlFactoryTest extends TestCase
     }
 
     /**
+     * @param string[] $expectedProtocols
+     */
+    private static function assertCurlProtocols(array $expectedProtocols): void
+    {
+        if (CurlVersion::supportsProtocolsStr()) {
+            self::assertSame(
+                \implode(',', $expectedProtocols),
+                $_SERVER['_curl'][(int) \constant('CURLOPT_PROTOCOLS_STR')]
+            );
+            self::assertArrayNotHasKey(\CURLOPT_PROTOCOLS, $_SERVER['_curl']);
+
+            return;
+        }
+
+        self::assertSame(self::curlProtocolMask($expectedProtocols), $_SERVER['_curl'][\CURLOPT_PROTOCOLS]);
+    }
+
+    /**
+     * @param string[] $protocols
+     */
+    private static function curlProtocolMask(array $protocols): int
+    {
+        $mask = 0;
+
+        if (\in_array('http', $protocols, true)) {
+            $mask |= \CURLPROTO_HTTP;
+        }
+
+        if (\in_array('https', $protocols, true)) {
+            $mask |= \CURLPROTO_HTTPS;
+        }
+
+        return $mask;
+    }
+
+    /**
      * @param array<int|string, mixed> $options
      */
     private static function createOnFactory(CurlFactory $factory, string $version, string $uri, array $options): EasyHandle
     {
         $previousVersionInfo = self::setCurlVersionInfo([
             'version' => $version,
-            'features' => 0,
+            'features' => self::curlSslFeature(),
         ]);
 
         try {
             return $factory->create(new Psr7\Request('GET', $uri), $options);
         } finally {
             self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    /**
+     * Mirrors createOnFactory() but drives a caller-supplied request so a PSR
+     * Proxy-Authorization header can be exercised.
+     *
+     * @param array<int|string, mixed> $options
+     */
+    private static function createRequestOnFactory(CurlFactory $factory, string $version, RequestInterface $request, array $options): EasyHandle
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => $version,
+            'features' => self::curlSslFeature(),
+        ]);
+
+        try {
+            return $factory->create($request, $options);
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    private static function requireProxyHeaderSeparationConstants(): void
+    {
+        foreach (['CURLOPT_PROXYHEADER', 'CURLOPT_HEADEROPT', 'CURLHEADER_SEPARATE'] as $constant) {
+            if (!\defined($constant)) {
+                self::markTestSkipped($constant.' is not available.');
+            }
         }
     }
 
@@ -6579,26 +10307,6 @@ class CurlFactoryTest extends TestCase
         }
 
         return (int) \constant('CURLOPT_PROXYHEADER');
-    }
-
-    private static function skipIfCurlNoProxyIsUnavailable(): void
-    {
-        if (!\defined('CURLOPT_NOPROXY')) {
-            self::markTestSkipped('CURLOPT_NOPROXY is not available.');
-        }
-    }
-
-    /**
-     * @param array<int|string, mixed> $conf
-     */
-    private static function getEffectiveProxy(array $conf): ?string
-    {
-        $method = new \ReflectionMethod(CurlFactory::class, 'getEffectiveProxy');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-
-        return $method->invoke(null, $conf);
     }
 
     /**
@@ -6614,41 +10322,24 @@ class CurlFactoryTest extends TestCase
         $method->invokeArgs(null, [&$conf]);
     }
 
-    private static function skipIfProxyHeaderSeparationUnavailable(): void
-    {
-        if (
-            !\defined('CURLOPT_PROXYHEADER')
-            || !\defined('CURLOPT_HEADEROPT')
-            || !\defined('CURLHEADER_SEPARATE')
-        ) {
-            self::markTestSkipped('Proxy header separation cURL constants are unavailable.');
-        }
-    }
-
     /**
-     * @param array<int|string, mixed> $conf
+     * @param array<int|string, mixed> $options
      *
      * @return array<int|string, mixed>
      */
-    private static function invokeProxyAuthorizationHeaderHandling(string $version, RequestInterface $request, array $conf): array
+    private static function getDefaultCurlConf(RequestInterface $request, array $options): array
     {
-        $previousVersionInfo = self::setCurlVersionInfo([
-            'version' => $version,
-            'features' => 0,
-        ]);
+        $factory = new CurlFactory(3);
+        $easy = new EasyHandle();
+        $easy->request = $request;
+        $easy->options = $options;
 
-        try {
-            $method = new \ReflectionMethod(CurlFactory::class, 'applyProxyAuthorizationHeaderHandling');
-            if (\PHP_VERSION_ID < 80100) {
-                $method->setAccessible(true);
-            }
-
-            $method->invokeArgs(null, [$request, &$conf]);
-
-            return $conf;
-        } finally {
-            self::setCurlVersionInfo($previousVersionInfo);
+        $method = new \ReflectionMethod(CurlFactory::class, 'getDefaultConf');
+        if (\PHP_VERSION_ID < 80100) {
+            $method->setAccessible(true);
         }
+
+        return $method->invoke($factory, $easy);
     }
 
     private static function redactProxyUserInfo(string $error, ?string $proxy): string
@@ -6659,56 +10350,6 @@ class CurlFactoryTest extends TestCase
         }
 
         return $method->invoke(null, $error, $proxy);
-    }
-
-    /**
-     * @param array<string, mixed> $ctx
-     */
-    private static function rejectionReason(EasyHandle $easy, array $ctx): \Throwable
-    {
-        $method = new \ReflectionMethod(CurlFactory::class, 'createRejection');
-        if (\PHP_VERSION_ID < 80100) {
-            $method->setAccessible(true);
-        }
-
-        try {
-            $method->invoke(null, $easy, $ctx)->wait();
-        } catch (\Throwable $e) {
-            return $e;
-        }
-
-        self::fail('Expected createRejection to produce a rejected promise.');
-    }
-
-    /**
-     * @param array<int, string> $events
-     */
-    private static function recordingHandleFactory(array &$events): CurlFactoryInterface
-    {
-        return new class($events) implements CurlFactoryInterface {
-            /** @var array<int, string> */
-            private $events;
-
-            /** @var CurlFactory */
-            private $factory;
-
-            public function __construct(array &$events)
-            {
-                $this->events = &$events;
-                $this->factory = new CurlFactory(1);
-            }
-
-            public function create(RequestInterface $request, array $options): EasyHandle
-            {
-                return $this->factory->create($request, $options);
-            }
-
-            public function release(EasyHandle $easy): void
-            {
-                $this->events[] = 'release';
-                $this->factory->release($easy);
-            }
-        };
     }
 
     /**
@@ -6752,34 +10393,59 @@ class CurlFactoryTest extends TestCase
         }
     }
 
-    private static function skipIfCurlShareIsUnavailable(): void
+    private static function requireHttp3TestConstants(): void
     {
-        if (!\function_exists('curl_share_init') || !\defined('CURLOPT_SHARE')) {
-            self::markTestSkipped('cURL share handles are unavailable.');
+        foreach (['CURL_VERSION_HTTP3', 'CURL_HTTP_VERSION_3', 'CURL_HTTP_VERSION_3ONLY'] as $constant) {
+            if (!\defined($constant)) {
+                self::markTestSkipped($constant.' is not available.');
+            }
         }
+    }
+
+    private static function http3FeatureMask(bool $withHttp2): int
+    {
+        self::requireHttp3TestConstants();
+
+        $features = (int) \constant('CURL_VERSION_HTTP3') | self::curlSslFeature();
+        if ($withHttp2) {
+            if (!\defined('CURL_VERSION_HTTP2')) {
+                self::markTestSkipped('CURL_VERSION_HTTP2 is not available.');
+            }
+
+            $features |= (int) \constant('CURL_VERSION_HTTP2');
+        }
+
+        return $features;
     }
 
     private static function curlSslFeature(): int
     {
         if (!\defined('CURL_VERSION_SSL')) {
-            self::markTestSkipped('CURL_VERSION_SSL is unavailable.');
+            self::markTestSkipped('CURL_VERSION_SSL is not available.');
         }
 
         return \CURL_VERSION_SSL;
     }
 
-    /**
-     * @param list<string> $headers
-     */
-    private static function receiveCurlHeaders(EasyHandle $easy, array $headers): callable
+    public static function curlHandlerProvider(): array
     {
-        $header = $_SERVER['_curl'][\CURLOPT_HEADERFUNCTION];
+        return [
+            'curl' => [static function (): callable {
+                return new Handler\CurlHandler();
+            }],
+            'curl_multi' => [static function (): callable {
+                return new Handler\CurlMultiHandler();
+            }],
+        ];
+    }
 
-        foreach ($headers as $line) {
-            self::assertSame(\strlen($line), $header($easy->handle, $line));
+    private static function progressCallbackOption(): int
+    {
+        if (\defined('CURLOPT_XFERINFOFUNCTION')) {
+            return (int) \constant('CURLOPT_XFERINFOFUNCTION');
         }
 
-        return $header;
+        return \CURLOPT_PROGRESSFUNCTION;
     }
 
     /**
@@ -6795,8 +10461,99 @@ class CurlFactoryTest extends TestCase
         }
 
         $previousVersionInfo = $property->getValue();
+
         $property->setValue(null, $versionInfo);
 
         return $previousVersionInfo;
+    }
+
+    private static function readIdleHandles(CurlFactory $factory): array
+    {
+        $readHandles = \Closure::bind(static function (CurlFactory $factory): array {
+            return $factory->handles;
+        }, null, CurlFactory::class);
+
+        return $readHandles($factory);
+    }
+
+    private static function readShareHandle(CurlFactory $factory)
+    {
+        $readShareHandle = \Closure::bind(static function (CurlFactory $factory) {
+            return $factory->shareHandle;
+        }, null, CurlFactory::class);
+
+        return $readShareHandle($factory);
+    }
+
+    private static function requestWithProtocolVersion(string $protocolVersion): RequestInterface
+    {
+        return new class($protocolVersion) extends Psr7\Request {
+            /** @var string */
+            private $protocolVersion;
+
+            public function __construct(string $protocolVersion)
+            {
+                parent::__construct('GET', Server::$url);
+
+                $this->protocolVersion = $protocolVersion;
+            }
+
+            public function getProtocolVersion(): string
+            {
+                return $this->protocolVersion;
+            }
+
+            public function withProtocolVersion(string $version): MessageInterface
+            {
+                if ($this->protocolVersion === $version) {
+                    return $this;
+                }
+
+                $new = clone $this;
+                $new->protocolVersion = $version;
+
+                return $new;
+            }
+        };
+    }
+
+    private static function curlInputSizeOption(): int
+    {
+        return \defined('CURLOPT_INFILESIZE_LARGE')
+            ? (int) \constant('CURLOPT_INFILESIZE_LARGE')
+            : \CURLOPT_INFILESIZE;
+    }
+
+    private static function skipIfCurlShareIsUnavailable(): void
+    {
+        if (
+            !\function_exists('curl_share_init')
+            || !\function_exists('curl_share_setopt')
+            || !\defined('CURLOPT_SHARE')
+        ) {
+            self::markTestSkipped('cURL share handles are unavailable.');
+        }
+    }
+
+    /**
+     * @param resource|\CurlShareHandle $shareHandle
+     */
+    private static function closeShareHandleOnPhp7($shareHandle): void
+    {
+        if (PHP_VERSION_ID < 80000 && \is_resource($shareHandle)) {
+            \curl_share_close($shareHandle);
+        }
+    }
+
+    public function testRejectsNativePhpUnserialization(): void
+    {
+        $class = CurlFactory::class;
+
+        try {
+            \unserialize(\sprintf('O:%d:"%s":0:{}', \strlen($class), $class), ['allowed_classes' => [$class]]);
+            self::fail('Expected unserialization to fail.');
+        } catch (\LogicException $e) {
+            self::assertSame($class.' should never be unserialized', $e->getMessage());
+        }
     }
 }

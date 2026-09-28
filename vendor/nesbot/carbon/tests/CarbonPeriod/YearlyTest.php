@@ -17,7 +17,11 @@ use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Carbon\OverflowMode;
+use DateTime;
+use DateTimeImmutable;
+use DateTimeInterface;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\AbstractTestCase;
 
 class YearlyTest extends AbstractTestCase
@@ -168,9 +172,9 @@ class YearlyTest extends AbstractTestCase
         $this->assertSame(0, $period->getOptions());
         $this->assertSame([
             '2019-12-31 09:52:46.321654',
-            '2020-01-31 09:52:46.321654',
-            '2020-03-02 09:52:46.321654',
-            '2020-04-02 09:52:46.321654',
+            '2020-12-31 09:52:46.321654',
+            '2021-12-31 09:52:46.321654',
+            '2022-12-31 09:52:46.321654',
         ], $this->getDates($period, expectedDateClass: Carbon::class));
     }
 
@@ -197,11 +201,25 @@ class YearlyTest extends AbstractTestCase
         ], $this->getDates($period, expectedDateClass: CarbonImmutable::class));
     }
 
-    public function testYearlyWithStrings()
-    {
+    #[TestWith([
+        '2020-02-29 09:52:46.321654 UTC',
+        '2026-02-28 09:52:46.321654 UTC',
+    ])]
+    #[TestWith([
+        1582969966.321654,
+        1772272366.321654,
+    ])]
+    #[TestWith([
+        new DateTimeImmutable('2020-02-29 09:52:46.321654 UTC'),
+        new DateTime('2026-02-28 09:52:46.321654 UTC'),
+    ])]
+    public function testYearlyWithOtherDateRepresentations(
+        DateTimeInterface|string|float $start,
+        DateTimeInterface|string|float $end,
+    ) {
         $period = CarbonPeriod::yearly(
-            start: '2020-02-29 09:52:46.321654 UTC',
-            end: '2026-02-28 09:52:46.321654 UTC',
+            start: $start,
+            end: $end,
         );
 
         $this->assertEquals(CarbonImmutable::parse('2026-02-28T09:52:46.321654 UTC'), $period->getEndDate());
@@ -217,6 +235,26 @@ class YearlyTest extends AbstractTestCase
             '2024-02-29 09:52:46.321654',
             '2025-02-28 09:52:46.321654',
             '2026-02-28 09:52:46.321654',
+        ], $this->getDates($period, expectedDateClass: CarbonImmutable::class));
+    }
+
+    public function testYearlyWithOverflow()
+    {
+        $period = CarbonPeriod::yearly(
+            '2020-02-29',
+            recurrences: 3,
+            mode: OverflowMode::Overflow,
+        );
+
+        $this->assertNull($period->getEndDate());
+        $this->assertTrue($period->isEndIncluded());
+        $this->assertFalse($period->isEndExcluded());
+        $this->assertSame(3, $period->getRecurrences());
+        $this->assertSame(CarbonPeriod::IMMUTABLE, $period->getOptions());
+        $this->assertSame([
+            '2020-02-29 00:00:00.000000',
+            '2021-03-01 00:00:00.000000',
+            '2022-03-01 00:00:00.000000',
         ], $this->getDates($period, expectedDateClass: CarbonImmutable::class));
     }
 

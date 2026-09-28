@@ -11,6 +11,7 @@ use Brick\Math\Exception\InvalidArgumentException;
 use Brick\Math\Exception\NegativeNumberException;
 use Brick\Math\Exception\NumberFormatException;
 use Brick\Math\Exception\RoundingNecessaryException;
+use Brick\Math\NumberSyntax;
 use Brick\Math\RoundingMode;
 use Generator;
 use LogicException;
@@ -55,7 +56,7 @@ class BigDecimalTest extends AbstractTestCase
      * @param string     $expected The expected decimal value.
      */
     #[DataProvider('providerOf')]
-    public function testOfNullableWithValidInputBehavesLikeOf(int|string $value, string $expected): void
+    public function testOfNullableWithNonNullInput(int|string $value, string $expected): void
     {
         $result = BigDecimal::ofNullable($value);
 
@@ -226,11 +227,15 @@ class BigDecimalTest extends AbstractTestCase
         BigDecimal::of('');
     }
 
+    /**
+     * @param string      $value                  The invalid value.
+     * @param string|null $expectedValueInMessage The value as rendered in the message, if it differs from $value.
+     */
     #[DataProvider('providerOfInvalidFormatThrowsException')]
-    public function testOfInvalidFormatThrowsException(string $value): void
+    public function testOfInvalidFormatThrowsException(string $value, ?string $expectedValueInMessage = null): void
     {
         $this->expectException(NumberFormatException::class);
-        $this->expectExceptionMessageExact(sprintf('Value "%s" does not represent a valid number.', $value));
+        $this->expectExceptionMessageExact(sprintf('Value "%s" does not represent a valid number.', $expectedValueInMessage ?? $value));
 
         BigDecimal::of($value);
     }
@@ -241,9 +246,9 @@ class BigDecimalTest extends AbstractTestCase
             ['a'],
             [' 1'],
             ['1 '],
-            ["\n1.2"],
-            ["1.2\n"],
-            ["1e2\n"],
+            ["\n1.2", '\n1.2'],
+            ["1.2\n", '1.2\n'],
+            ["1e2\n", '1e2\n'],
             ['..1'],
             ['1..'],
             ['.1.'],
@@ -291,6 +296,55 @@ class BigDecimalTest extends AbstractTestCase
         $decimal = BigDecimal::of(123);
 
         self::assertSame($decimal, BigDecimal::of($decimal));
+    }
+
+    public function testParseConvertibleValue(): void
+    {
+        // 2 digits as parsed, but the converted result has 3
+        self::assertBigDecimalEquals('0.25', BigDecimal::parse('1/4', NumberSyntax::RATIONAL, 3));
+    }
+
+    public function testParseConvertedValueExceedingMaxDigitsThrowsException(): void
+    {
+        $this->expectException(NumberFormatException::class);
+        $this->expectExceptionMessageExact('The number exceeds the maximum number of 2 digits.');
+
+        // 2 digits as parsed, but the converted result 0.25 has 3
+        BigDecimal::parse('1/4', allowedSyntax: NumberSyntax::RATIONAL, maxDigits: 2);
+    }
+
+    public function testParseNonConvertibleValueThrowsException(): void
+    {
+        $this->expectException(RoundingNecessaryException::class);
+        $this->expectExceptionMessageExact('This rational number has a non-terminating decimal expansion and cannot be represented as a decimal without rounding.');
+
+        BigDecimal::parse('1/3', allowedSyntax: NumberSyntax::RATIONAL, maxDigits: 2);
+    }
+
+    public function testParseNullableConvertibleValue(): void
+    {
+        // 2 digits as parsed, but the converted result has 4
+        $result = BigDecimal::parseNullable('1/8', NumberSyntax::RATIONAL, 4);
+
+        self::assertNotNull($result);
+        self::assertBigDecimalEquals('0.125', $result);
+    }
+
+    public function testParseNullableConvertedValueExceedingMaxDigitsThrowsException(): void
+    {
+        $this->expectException(NumberFormatException::class);
+        $this->expectExceptionMessageExact('The number exceeds the maximum number of 3 digits.');
+
+        // 2 digits as parsed, but the converted result 0.125 has 4
+        BigDecimal::parseNullable('1/8', allowedSyntax: NumberSyntax::RATIONAL, maxDigits: 3);
+    }
+
+    public function testParseNullableNonConvertibleValueThrowsException(): void
+    {
+        $this->expectException(RoundingNecessaryException::class);
+        $this->expectExceptionMessageExact('This rational number has a non-terminating decimal expansion and cannot be represented as a decimal without rounding.');
+
+        BigDecimal::parseNullable('1/7', allowedSyntax: NumberSyntax::RATIONAL, maxDigits: 2);
     }
 
     /**
@@ -416,8 +470,8 @@ class BigDecimalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to compare.
-     * @param string $min    The expected minimum value.
+     * @param list<int|string> $values The values to compare.
+     * @param string           $min    The expected minimum value.
      */
     #[DataProvider('providerMin')]
     public function testMin(array $values, string $min): void
@@ -452,8 +506,8 @@ class BigDecimalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to compare.
-     * @param string $max    The expected maximum value.
+     * @param list<int|string> $values The values to compare.
+     * @param string           $max    The expected maximum value.
      */
     #[DataProvider('providerMax')]
     public function testMax(array $values, string $max): void
@@ -492,8 +546,8 @@ class BigDecimalTest extends AbstractTestCase
     }
 
     /**
-     * @param array  $values The values to add.
-     * @param string $sum    The expected sum.
+     * @param list<int|string> $values The values to add.
+     * @param string           $sum    The expected sum.
      */
     #[DataProvider('providerSum')]
     public function testSum(array $values, string $sum): void
@@ -782,11 +836,11 @@ class BigDecimalTest extends AbstractTestCase
     }
 
     /**
-     * @param string       $a            The base number.
-     * @param string       $b            The number to divide.
-     * @param int          $scale        The desired scale of the result.
-     * @param RoundingMode $roundingMode The rounding mode.
-     * @param string       $expected     The expected result, or 'DIVISION_NOT_EXACT'|'SCALE_TOO_SMALL' if an exception is expected.
+     * @param string           $a            The base number.
+     * @param string           $b            The number to divide.
+     * @param non-negative-int $scale        The desired scale of the result.
+     * @param RoundingMode     $roundingMode The rounding mode.
+     * @param string           $expected     The expected result, or 'DIVISION_NOT_EXACT'|'SCALE_TOO_SMALL' if an exception is expected.
      */
     #[DataProvider('providerDividedBy')]
     public function testDividedBy(string $a, string $b, int $scale, RoundingMode $roundingMode, string $expected): void
@@ -873,6 +927,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The scale must not be negative.');
 
+        // @phpstan-ignore argument.type
         $one->dividedBy(2, -1);
     }
 
@@ -888,7 +943,7 @@ class BigDecimalTest extends AbstractTestCase
 
         if (self::isException($expected)) {
             $this->expectException($expected);
-            $this->expectExceptionMessageExact(match ($expected) {
+            $this->expectExceptionMessageExact(match ($expected) { // @phpstan-ignore match.unhandled
                 RoundingNecessaryException::class => 'The division yields a non-terminating decimal expansion and cannot be represented as a decimal without rounding.',
                 DivisionByZeroException::class => 'Division by zero.',
             });
@@ -966,465 +1021,737 @@ class BigDecimalTest extends AbstractTestCase
     public static function providerRoundingMode(): array
     {
         return [
-            [RoundingMode::Up,  '3.501',  '3.51',  '3.6',  '4'],
-            [RoundingMode::Up,  '3.500',  '3.50',  '3.5',  '4'],
-            [RoundingMode::Up,  '3.499',  '3.50',  '3.5',  '4'],
-            [RoundingMode::Up,  '3.001',  '3.01',  '3.1',  '4'],
-            [RoundingMode::Up,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Up,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Up,  '2.501',  '2.51',  '2.6',  '3'],
-            [RoundingMode::Up,  '2.500',  '2.50',  '2.5',  '3'],
-            [RoundingMode::Up,  '2.499',  '2.50',  '2.5',  '3'],
-            [RoundingMode::Up,  '2.001',  '2.01',  '2.1',  '3'],
-            [RoundingMode::Up,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Up,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Up,  '1.501',  '1.51',  '1.6',  '2'],
-            [RoundingMode::Up,  '1.500',  '1.50',  '1.5',  '2'],
-            [RoundingMode::Up,  '1.499',  '1.50',  '1.5',  '2'],
-            [RoundingMode::Up,  '1.001',  '1.01',  '1.1',  '2'],
-            [RoundingMode::Up,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Up,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Up,  '0.501',   '0.51',   '0.6',  '1'],
-            [RoundingMode::Up,  '0.500',   '0.50',   '0.5',  '1'],
-            [RoundingMode::Up,  '0.499',   '0.50',   '0.5',  '1'],
-            [RoundingMode::Up,  '0.001',    '0.01',   '0.1',  '1'],
-            [RoundingMode::Up,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Up, '-0.001',   '-0.01',  '-0.1', '-1'],
-            [RoundingMode::Up, '-0.499',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::Up, '-0.500',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::Up, '-0.501',  '-0.51',  '-0.6', '-1'],
-            [RoundingMode::Up, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Up, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Up, '-1.001', '-1.01', '-1.1', '-2'],
-            [RoundingMode::Up, '-1.499', '-1.50', '-1.5', '-2'],
-            [RoundingMode::Up, '-1.500', '-1.50', '-1.5', '-2'],
-            [RoundingMode::Up, '-1.501', '-1.51', '-1.6', '-2'],
-            [RoundingMode::Up, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Up, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Up, '-2.001', '-2.01', '-2.1', '-3'],
-            [RoundingMode::Up, '-2.499', '-2.50', '-2.5', '-3'],
-            [RoundingMode::Up, '-2.500', '-2.50', '-2.5', '-3'],
-            [RoundingMode::Up, '-2.501', '-2.51', '-2.6', '-3'],
-            [RoundingMode::Up, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Up, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Up, '-3.001', '-3.01', '-3.1', '-4'],
-            [RoundingMode::Up, '-3.499', '-3.50', '-3.5', '-4'],
-            [RoundingMode::Up, '-3.500', '-3.50', '-3.5', '-4'],
-            [RoundingMode::Up, '-3.501', '-3.51', '-3.6', '-4'],
-
-            [RoundingMode::Down,  '3.501',  '3.50',  '3.5',  '3'],
-            [RoundingMode::Down,  '3.500',  '3.50',  '3.5',  '3'],
-            [RoundingMode::Down,  '3.499',  '3.49',  '3.4',  '3'],
-            [RoundingMode::Down,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Down,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Down,  '2.999',  '2.99',  '2.9',  '2'],
-            [RoundingMode::Down,  '2.501',  '2.50',  '2.5',  '2'],
-            [RoundingMode::Down,  '2.500',  '2.50',  '2.5',  '2'],
-            [RoundingMode::Down,  '2.499',  '2.49',  '2.4',  '2'],
-            [RoundingMode::Down,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Down,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Down,  '1.999',  '1.99',  '1.9',  '1'],
-            [RoundingMode::Down,  '1.501',  '1.50',  '1.5',  '1'],
-            [RoundingMode::Down,  '1.500',  '1.50',  '1.5',  '1'],
-            [RoundingMode::Down,  '1.499',  '1.49',  '1.4',  '1'],
-            [RoundingMode::Down,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Down,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Down,  '0.999',   '0.99',   '0.9',  '0'],
-            [RoundingMode::Down,  '0.501',   '0.50',   '0.5',  '0'],
-            [RoundingMode::Down,  '0.500',   '0.50',   '0.5',  '0'],
-            [RoundingMode::Down,  '0.499',   '0.49',   '0.4',  '0'],
-            [RoundingMode::Down,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Down,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Down, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Down, '-0.499',  '-0.49',  '-0.4',  '0'],
-            [RoundingMode::Down, '-0.500',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::Down, '-0.501',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::Down, '-0.999',  '-0.99',  '-0.9',  '0'],
-            [RoundingMode::Down, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Down, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Down, '-1.499', '-1.49', '-1.4', '-1'],
-            [RoundingMode::Down, '-1.500', '-1.50', '-1.5', '-1'],
-            [RoundingMode::Down, '-1.501', '-1.50', '-1.5', '-1'],
-            [RoundingMode::Down, '-1.999', '-1.99', '-1.9', '-1'],
-            [RoundingMode::Down, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Down, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Down, '-2.499', '-2.49', '-2.4', '-2'],
-            [RoundingMode::Down, '-2.500', '-2.50', '-2.5', '-2'],
-            [RoundingMode::Down, '-2.501', '-2.50', '-2.5', '-2'],
-            [RoundingMode::Down, '-2.999', '-2.99', '-2.9', '-2'],
-            [RoundingMode::Down, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Down, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Down, '-3.499', '-3.49', '-3.4', '-3'],
-            [RoundingMode::Down, '-3.500', '-3.50', '-3.5', '-3'],
-            [RoundingMode::Down, '-3.501', '-3.50', '-3.5', '-3'],
-
-            [RoundingMode::Ceiling,  '3.501',  '3.51',  '3.6',  '4'],
-            [RoundingMode::Ceiling,  '3.500',  '3.50',  '3.5',  '4'],
-            [RoundingMode::Ceiling,  '3.499',  '3.50',  '3.5',  '4'],
-            [RoundingMode::Ceiling,  '3.001',  '3.01',  '3.1',  '4'],
-            [RoundingMode::Ceiling,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Ceiling,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Ceiling,  '2.501',  '2.51',  '2.6',  '3'],
-            [RoundingMode::Ceiling,  '2.500',  '2.50',  '2.5',  '3'],
-            [RoundingMode::Ceiling,  '2.499',  '2.50',  '2.5',  '3'],
-            [RoundingMode::Ceiling,  '2.001',  '2.01',  '2.1',  '3'],
-            [RoundingMode::Ceiling,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Ceiling,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Ceiling,  '1.501',  '1.51',  '1.6',  '2'],
-            [RoundingMode::Ceiling,  '1.500',  '1.50',  '1.5',  '2'],
-            [RoundingMode::Ceiling,  '1.499',  '1.50',  '1.5',  '2'],
-            [RoundingMode::Ceiling,  '1.001',  '1.01',  '1.1',  '2'],
-            [RoundingMode::Ceiling,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Ceiling,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Ceiling,  '0.501',   '0.51',   '0.6',  '1'],
-            [RoundingMode::Ceiling,  '0.500',   '0.50',   '0.5',  '1'],
-            [RoundingMode::Ceiling,  '0.499',   '0.50',   '0.5',  '1'],
-            [RoundingMode::Ceiling,  '0.001',    '0.01',   '0.1',  '1'],
-            [RoundingMode::Ceiling,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Ceiling, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Ceiling, '-0.499',  '-0.49', '-0.4',  '0'],
-            [RoundingMode::Ceiling, '-0.500',  '-0.50', '-0.5',  '0'],
-            [RoundingMode::Ceiling, '-0.501',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::Ceiling, '-0.999',  '-0.99',  '-0.9',  '0'],
-            [RoundingMode::Ceiling, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Ceiling, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Ceiling, '-1.499', '-1.49', '-1.4', '-1'],
-            [RoundingMode::Ceiling, '-1.500', '-1.50', '-1.5', '-1'],
-            [RoundingMode::Ceiling, '-1.501', '-1.50', '-1.5', '-1'],
-            [RoundingMode::Ceiling, '-1.999', '-1.99', '-1.9', '-1'],
-            [RoundingMode::Ceiling, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Ceiling, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Ceiling, '-2.499', '-2.49', '-2.4', '-2'],
-            [RoundingMode::Ceiling, '-2.500', '-2.50', '-2.5', '-2'],
-            [RoundingMode::Ceiling, '-2.501', '-2.50', '-2.5', '-2'],
-            [RoundingMode::Ceiling, '-2.999', '-2.99', '-2.9', '-2'],
-            [RoundingMode::Ceiling, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Ceiling, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Ceiling, '-3.499', '-3.49', '-3.4', '-3'],
-            [RoundingMode::Ceiling, '-3.500', '-3.50', '-3.5', '-3'],
-            [RoundingMode::Ceiling, '-3.501', '-3.50', '-3.5', '-3'],
-
-            [RoundingMode::Floor,  '3.501',  '3.50',  '3.5',  '3'],
-            [RoundingMode::Floor,  '3.500',  '3.50',  '3.5',  '3'],
-            [RoundingMode::Floor,  '3.499',  '3.49',  '3.4',  '3'],
-            [RoundingMode::Floor,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Floor,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Floor,  '2.999',  '2.99',  '2.9',  '2'],
-            [RoundingMode::Floor,  '2.501',  '2.50',  '2.5',  '2'],
-            [RoundingMode::Floor,  '2.500',  '2.50',  '2.5',  '2'],
-            [RoundingMode::Floor,  '2.499',  '2.49',  '2.4',  '2'],
-            [RoundingMode::Floor,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Floor,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Floor,  '1.999',  '1.99',  '1.9',  '1'],
-            [RoundingMode::Floor,  '1.501',  '1.50',  '1.5',  '1'],
-            [RoundingMode::Floor,  '1.500',  '1.50',  '1.5',  '1'],
-            [RoundingMode::Floor,  '1.499',  '1.49',  '1.4',  '1'],
-            [RoundingMode::Floor,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Floor,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Floor,  '0.999',   '0.99',   '0.9',  '0'],
-            [RoundingMode::Floor,  '0.501',   '0.50',   '0.5',  '0'],
-            [RoundingMode::Floor,  '0.500',   '0.50',   '0.5',  '0'],
-            [RoundingMode::Floor,  '0.499',   '0.49',   '0.4',  '0'],
-            [RoundingMode::Floor,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Floor,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Floor, '-0.001',   '-0.01',  '-0.1', '-1'],
-            [RoundingMode::Floor, '-0.499',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::Floor, '-0.500',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::Floor, '-0.501',  '-0.51',  '-0.6', '-1'],
-            [RoundingMode::Floor, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Floor, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Floor, '-1.001', '-1.01', '-1.1', '-2'],
-            [RoundingMode::Floor, '-1.499', '-1.50', '-1.5', '-2'],
-            [RoundingMode::Floor, '-1.500', '-1.50', '-1.5', '-2'],
-            [RoundingMode::Floor, '-1.501', '-1.51', '-1.6', '-2'],
-            [RoundingMode::Floor, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Floor, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Floor, '-2.001', '-2.01', '-2.1', '-3'],
-            [RoundingMode::Floor, '-2.499', '-2.50', '-2.5', '-3'],
-            [RoundingMode::Floor, '-2.500', '-2.50', '-2.5', '-3'],
-            [RoundingMode::Floor, '-2.501', '-2.51', '-2.6', '-3'],
-            [RoundingMode::Floor, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Floor, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Floor, '-3.001', '-3.01', '-3.1', '-4'],
-            [RoundingMode::Floor, '-3.499', '-3.50', '-3.5', '-4'],
-            [RoundingMode::Floor, '-3.500', '-3.50', '-3.5', '-4'],
-            [RoundingMode::Floor, '-3.501', '-3.51', '-3.6', '-4'],
-
-            [RoundingMode::HalfUp,  '3.501',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfUp,  '3.500',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfUp,  '3.499',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfUp,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfUp,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfUp,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfUp,  '2.501',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfUp,  '2.500',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfUp,  '2.499',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfUp,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfUp,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfUp,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfUp,  '1.501',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfUp,  '1.500',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfUp,  '1.499',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfUp,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfUp,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfUp,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfUp,  '0.501',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfUp,  '0.500',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfUp,  '0.499',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfUp,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfUp,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfUp, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfUp, '-0.499',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfUp, '-0.500',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfUp, '-0.501',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfUp, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfUp, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfUp, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfUp, '-1.499', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfUp, '-1.500', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfUp, '-1.501', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfUp, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfUp, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfUp, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfUp, '-2.499', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfUp, '-2.500', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfUp, '-2.501', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfUp, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfUp, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfUp, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfUp, '-3.499', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfUp, '-3.500', '-3.50', '-3.5', '-4'],
-            [RoundingMode::HalfUp, '-3.501', '-3.50', '-3.5', '-4'],
-
-            [RoundingMode::HalfDown,  '3.501',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfDown,  '3.500',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfDown,  '3.499',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfDown,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfDown,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfDown,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfDown,  '2.501',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfDown,  '2.500',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfDown,  '2.499',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfDown,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfDown,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfDown,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfDown,  '1.501',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfDown,  '1.500',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfDown,  '1.499',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfDown,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfDown,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfDown,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfDown,  '0.501',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfDown,  '0.500',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfDown,  '0.499',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfDown,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfDown,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfDown, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfDown, '-0.499',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfDown, '-0.500',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfDown, '-0.501',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfDown, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfDown, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfDown, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfDown, '-1.499', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfDown, '-1.500', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfDown, '-1.501', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfDown, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfDown, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfDown, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfDown, '-2.499', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfDown, '-2.500', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfDown, '-2.501', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfDown, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfDown, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfDown, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfDown, '-3.499', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfDown, '-3.500', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfDown, '-3.501', '-3.50', '-3.5', '-4'],
-
+            [RoundingMode::Unnecessary,  '3.501',    null,   null, null],
+            [RoundingMode::Up,           '3.501',  '3.51',  '3.6',  '4'],
+            [RoundingMode::Down,         '3.501',  '3.50',  '3.5',  '3'],
+            [RoundingMode::Ceiling,      '3.501',  '3.51',  '3.6',  '4'],
+            [RoundingMode::Floor,        '3.501',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfUp,       '3.501',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfDown,     '3.501',  '3.50',  '3.5',  '4'],
             [RoundingMode::HalfCeiling,  '3.501',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfCeiling,  '3.500',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfCeiling,  '3.499',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfCeiling,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfCeiling,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfCeiling,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfCeiling,  '2.501',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfCeiling,  '2.500',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfCeiling,  '2.499',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfCeiling,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfCeiling,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfCeiling,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfCeiling,  '1.501',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfCeiling,  '1.500',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfCeiling,  '1.499',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfCeiling,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfCeiling,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfCeiling,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfCeiling,  '0.501',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfCeiling,  '0.500',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfCeiling,  '0.499',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfCeiling,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfCeiling,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfCeiling, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfCeiling, '-0.499',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfCeiling, '-0.500',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfCeiling, '-0.501',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfCeiling, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfCeiling, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfCeiling, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfCeiling, '-1.499', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfCeiling, '-1.500', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfCeiling, '-1.501', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfCeiling, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfCeiling, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfCeiling, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfCeiling, '-2.499', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfCeiling, '-2.500', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfCeiling, '-2.501', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfCeiling, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfCeiling, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfCeiling, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfCeiling, '-3.499', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfCeiling, '-3.500', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfCeiling, '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfFloor,    '3.501',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfEven,     '3.501',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfOdd,      '3.501',  '3.50',  '3.5',  '4'],
 
-            [RoundingMode::HalfFloor,  '3.501',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfFloor,  '3.500',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfFloor,  '3.499',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfFloor,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfFloor,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfFloor,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfFloor,  '2.501',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfFloor,  '2.500',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfFloor,  '2.499',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfFloor,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfFloor,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfFloor,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfFloor,  '1.501',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfFloor,  '1.500',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfFloor,  '1.499',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfFloor,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfFloor,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfFloor,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfFloor,  '0.501',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfFloor,  '0.500',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfFloor,  '0.499',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfFloor,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfFloor,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfFloor, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfFloor, '-0.499',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfFloor, '-0.500',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfFloor, '-0.501',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfFloor, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfFloor, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfFloor, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfFloor, '-1.499', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfFloor, '-1.500', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfFloor, '-1.501', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfFloor, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfFloor, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfFloor, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfFloor, '-2.499', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfFloor, '-2.500', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfFloor, '-2.501', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfFloor, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfFloor, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfFloor, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfFloor, '-3.499', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfFloor, '-3.500', '-3.50', '-3.5', '-4'],
-            [RoundingMode::HalfFloor, '-3.501', '-3.50', '-3.5', '-4'],
-
-            [RoundingMode::HalfEven,  '3.501',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfEven,  '3.500',  '3.50',  '3.5',  '4'],
-            [RoundingMode::HalfEven,  '3.499',  '3.50',  '3.5',  '3'],
-            [RoundingMode::HalfEven,  '3.001',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfEven,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfEven,  '2.999',  '3.00',  '3.0',  '3'],
-            [RoundingMode::HalfEven,  '2.501',  '2.50',  '2.5',  '3'],
-            [RoundingMode::HalfEven,  '2.500',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfEven,  '2.499',  '2.50',  '2.5',  '2'],
-            [RoundingMode::HalfEven,  '2.001',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfEven,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfEven,  '1.999',  '2.00',  '2.0',  '2'],
-            [RoundingMode::HalfEven,  '1.501',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfEven,  '1.500',  '1.50',  '1.5',  '2'],
-            [RoundingMode::HalfEven,  '1.499',  '1.50',  '1.5',  '1'],
-            [RoundingMode::HalfEven,  '1.001',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfEven,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfEven,  '0.999',  '1.00',  '1.0',  '1'],
-            [RoundingMode::HalfEven,  '0.501',   '0.50',   '0.5',  '1'],
-            [RoundingMode::HalfEven,  '0.500',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfEven,  '0.499',   '0.50',   '0.5',  '0'],
-            [RoundingMode::HalfEven,  '0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfEven,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfEven, '-0.001',    '0.00',   '0.0',  '0'],
-            [RoundingMode::HalfEven, '-0.499',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfEven, '-0.500',  '-0.50',  '-0.5',  '0'],
-            [RoundingMode::HalfEven, '-0.501',  '-0.50',  '-0.5', '-1'],
-            [RoundingMode::HalfEven, '-0.999', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfEven, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfEven, '-1.001', '-1.00', '-1.0', '-1'],
-            [RoundingMode::HalfEven, '-1.499', '-1.50', '-1.5', '-1'],
-            [RoundingMode::HalfEven, '-1.500', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfEven, '-1.501', '-1.50', '-1.5', '-2'],
-            [RoundingMode::HalfEven, '-1.999', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfEven, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfEven, '-2.001', '-2.00', '-2.0', '-2'],
-            [RoundingMode::HalfEven, '-2.499', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfEven, '-2.500', '-2.50', '-2.5', '-2'],
-            [RoundingMode::HalfEven, '-2.501', '-2.50', '-2.5', '-3'],
-            [RoundingMode::HalfEven, '-2.999', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfEven, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfEven, '-3.001', '-3.00', '-3.0', '-3'],
-            [RoundingMode::HalfEven, '-3.499', '-3.50', '-3.5', '-3'],
-            [RoundingMode::HalfEven, '-3.500', '-3.50', '-3.5', '-4'],
-            [RoundingMode::HalfEven, '-3.501', '-3.50', '-3.5', '-4'],
-
-            [RoundingMode::Unnecessary,  '3.501',   null,  null, null],
             [RoundingMode::Unnecessary,  '3.500',  '3.50',  '3.5', null],
-            [RoundingMode::Unnecessary,  '3.499',   null,  null, null],
-            [RoundingMode::Unnecessary,  '3.001',   null,  null, null],
+            [RoundingMode::Up,           '3.500',  '3.50',  '3.5',  '4'],
+            [RoundingMode::Down,         '3.500',  '3.50',  '3.5',  '3'],
+            [RoundingMode::Ceiling,      '3.500',  '3.50',  '3.5',  '4'],
+            [RoundingMode::Floor,        '3.500',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfUp,       '3.500',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfDown,     '3.500',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfCeiling,  '3.500',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfFloor,    '3.500',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfEven,     '3.500',  '3.50',  '3.5',  '4'],
+            [RoundingMode::HalfOdd,      '3.500',  '3.50',  '3.5',  '3'],
+
+            [RoundingMode::Unnecessary,  '3.499',    null,   null, null],
+            [RoundingMode::Up,           '3.499',  '3.50',  '3.5',  '4'],
+            [RoundingMode::Down,         '3.499',  '3.49',  '3.4',  '3'],
+            [RoundingMode::Ceiling,      '3.499',  '3.50',  '3.5',  '4'],
+            [RoundingMode::Floor,        '3.499',  '3.49',  '3.4',  '3'],
+            [RoundingMode::HalfUp,       '3.499',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfDown,     '3.499',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfCeiling,  '3.499',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfFloor,    '3.499',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfEven,     '3.499',  '3.50',  '3.5',  '3'],
+            [RoundingMode::HalfOdd,      '3.499',  '3.50',  '3.5',  '3'],
+
+            [RoundingMode::Unnecessary,  '3.001',    null,   null, null],
+            [RoundingMode::Up,           '3.001',  '3.01',  '3.1',  '4'],
+            [RoundingMode::Down,         '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Ceiling,      '3.001',  '3.01',  '3.1',  '4'],
+            [RoundingMode::Floor,        '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfUp,       '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfDown,     '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfCeiling,  '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfFloor,    '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfEven,     '3.001',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfOdd,      '3.001',  '3.00',  '3.0',  '3'],
+
             [RoundingMode::Unnecessary,  '3.000',  '3.00',  '3.0',  '3'],
-            [RoundingMode::Unnecessary,  '2.999',   null,  null, null],
-            [RoundingMode::Unnecessary,  '2.501',   null,  null, null],
+            [RoundingMode::Up,           '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Down,         '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Ceiling,      '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Floor,        '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfUp,       '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfDown,     '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfCeiling,  '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfFloor,    '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfEven,     '3.000',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfOdd,      '3.000',  '3.00',  '3.0',  '3'],
+
+            [RoundingMode::Unnecessary,  '2.999',    null,   null, null],
+            [RoundingMode::Up,           '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Down,         '2.999',  '2.99',  '2.9',  '2'],
+            [RoundingMode::Ceiling,      '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::Floor,        '2.999',  '2.99',  '2.9',  '2'],
+            [RoundingMode::HalfUp,       '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfDown,     '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfCeiling,  '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfFloor,    '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfEven,     '2.999',  '3.00',  '3.0',  '3'],
+            [RoundingMode::HalfOdd,      '2.999',  '3.00',  '3.0',  '3'],
+
+            [RoundingMode::Unnecessary,  '2.501',    null,   null, null],
+            [RoundingMode::Up,           '2.501',  '2.51',  '2.6',  '3'],
+            [RoundingMode::Down,         '2.501',  '2.50',  '2.5',  '2'],
+            [RoundingMode::Ceiling,      '2.501',  '2.51',  '2.6',  '3'],
+            [RoundingMode::Floor,        '2.501',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfUp,       '2.501',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfDown,     '2.501',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfCeiling,  '2.501',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfFloor,    '2.501',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfEven,     '2.501',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfOdd,      '2.501',  '2.50',  '2.5',  '3'],
+
             [RoundingMode::Unnecessary,  '2.500',  '2.50',  '2.5', null],
-            [RoundingMode::Unnecessary,  '2.499',   null,  null, null],
-            [RoundingMode::Unnecessary,  '2.001',   null,  null, null],
+            [RoundingMode::Up,           '2.500',  '2.50',  '2.5',  '3'],
+            [RoundingMode::Down,         '2.500',  '2.50',  '2.5',  '2'],
+            [RoundingMode::Ceiling,      '2.500',  '2.50',  '2.5',  '3'],
+            [RoundingMode::Floor,        '2.500',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfUp,       '2.500',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfDown,     '2.500',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfCeiling,  '2.500',  '2.50',  '2.5',  '3'],
+            [RoundingMode::HalfFloor,    '2.500',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfEven,     '2.500',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfOdd,      '2.500',  '2.50',  '2.5',  '3'],
+
+            [RoundingMode::Unnecessary,  '2.499',    null,   null, null],
+            [RoundingMode::Up,           '2.499',  '2.50',  '2.5',  '3'],
+            [RoundingMode::Down,         '2.499',  '2.49',  '2.4',  '2'],
+            [RoundingMode::Ceiling,      '2.499',  '2.50',  '2.5',  '3'],
+            [RoundingMode::Floor,        '2.499',  '2.49',  '2.4',  '2'],
+            [RoundingMode::HalfUp,       '2.499',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfDown,     '2.499',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfCeiling,  '2.499',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfFloor,    '2.499',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfEven,     '2.499',  '2.50',  '2.5',  '2'],
+            [RoundingMode::HalfOdd,      '2.499',  '2.50',  '2.5',  '2'],
+
+            [RoundingMode::Unnecessary,  '2.001',    null,   null, null],
+            [RoundingMode::Up,           '2.001',  '2.01',  '2.1',  '3'],
+            [RoundingMode::Down,         '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Ceiling,      '2.001',  '2.01',  '2.1',  '3'],
+            [RoundingMode::Floor,        '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfUp,       '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfDown,     '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfCeiling,  '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfFloor,    '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfEven,     '2.001',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfOdd,      '2.001',  '2.00',  '2.0',  '2'],
+
             [RoundingMode::Unnecessary,  '2.000',  '2.00',  '2.0',  '2'],
-            [RoundingMode::Unnecessary,  '1.999',   null,  null, null],
-            [RoundingMode::Unnecessary,  '1.501',   null,  null, null],
+            [RoundingMode::Up,           '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Down,         '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Ceiling,      '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Floor,        '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfUp,       '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfDown,     '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfCeiling,  '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfFloor,    '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfEven,     '2.000',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfOdd,      '2.000',  '2.00',  '2.0',  '2'],
+
+            [RoundingMode::Unnecessary,  '1.999',    null,   null, null],
+            [RoundingMode::Up,           '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Down,         '1.999',  '1.99',  '1.9',  '1'],
+            [RoundingMode::Ceiling,      '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::Floor,        '1.999',  '1.99',  '1.9',  '1'],
+            [RoundingMode::HalfUp,       '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfDown,     '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfCeiling,  '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfFloor,    '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfEven,     '1.999',  '2.00',  '2.0',  '2'],
+            [RoundingMode::HalfOdd,      '1.999',  '2.00',  '2.0',  '2'],
+
+            [RoundingMode::Unnecessary,  '1.501',    null,   null, null],
+            [RoundingMode::Up,           '1.501',  '1.51',  '1.6',  '2'],
+            [RoundingMode::Down,         '1.501',  '1.50',  '1.5',  '1'],
+            [RoundingMode::Ceiling,      '1.501',  '1.51',  '1.6',  '2'],
+            [RoundingMode::Floor,        '1.501',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfUp,       '1.501',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfDown,     '1.501',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfCeiling,  '1.501',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfFloor,    '1.501',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfEven,     '1.501',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfOdd,      '1.501',  '1.50',  '1.5',  '2'],
+
             [RoundingMode::Unnecessary,  '1.500',  '1.50',  '1.5', null],
-            [RoundingMode::Unnecessary,  '1.499',   null,  null, null],
-            [RoundingMode::Unnecessary,  '1.001',   null,  null, null],
+            [RoundingMode::Up,           '1.500',  '1.50',  '1.5',  '2'],
+            [RoundingMode::Down,         '1.500',  '1.50',  '1.5',  '1'],
+            [RoundingMode::Ceiling,      '1.500',  '1.50',  '1.5',  '2'],
+            [RoundingMode::Floor,        '1.500',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfUp,       '1.500',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfDown,     '1.500',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfCeiling,  '1.500',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfFloor,    '1.500',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfEven,     '1.500',  '1.50',  '1.5',  '2'],
+            [RoundingMode::HalfOdd,      '1.500',  '1.50',  '1.5',  '1'],
+
+            [RoundingMode::Unnecessary,  '1.499',    null,   null, null],
+            [RoundingMode::Up,           '1.499',  '1.50',  '1.5',  '2'],
+            [RoundingMode::Down,         '1.499',  '1.49',  '1.4',  '1'],
+            [RoundingMode::Ceiling,      '1.499',  '1.50',  '1.5',  '2'],
+            [RoundingMode::Floor,        '1.499',  '1.49',  '1.4',  '1'],
+            [RoundingMode::HalfUp,       '1.499',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfDown,     '1.499',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfCeiling,  '1.499',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfFloor,    '1.499',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfEven,     '1.499',  '1.50',  '1.5',  '1'],
+            [RoundingMode::HalfOdd,      '1.499',  '1.50',  '1.5',  '1'],
+
+            [RoundingMode::Unnecessary,  '1.001',    null,   null, null],
+            [RoundingMode::Up,           '1.001',  '1.01',  '1.1',  '2'],
+            [RoundingMode::Down,         '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Ceiling,      '1.001',  '1.01',  '1.1',  '2'],
+            [RoundingMode::Floor,        '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfUp,       '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfDown,     '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfCeiling,  '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfFloor,    '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfEven,     '1.001',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfOdd,      '1.001',  '1.00',  '1.0',  '1'],
+
             [RoundingMode::Unnecessary,  '1.000',  '1.00',  '1.0',  '1'],
-            [RoundingMode::Unnecessary,  '0.999',   null,  null, null],
-            [RoundingMode::Unnecessary,  '0.501',   null,  null, null],
-            [RoundingMode::Unnecessary,  '0.500',   '0.50',   '0.5', null],
-            [RoundingMode::Unnecessary,  '0.499',   null,  null, null],
-            [RoundingMode::Unnecessary,  '0.001',   null,  null, null],
-            [RoundingMode::Unnecessary,  '0.000',    '0.00',   '0.0',  '0'],
-            [RoundingMode::Unnecessary, '-0.001',   null,  null, null],
-            [RoundingMode::Unnecessary, '-0.499',   null,  null, null],
-            [RoundingMode::Unnecessary, '-0.500',  '-0.50',  '-0.5', null],
-            [RoundingMode::Unnecessary, '-0.501',   null,  null, null],
-            [RoundingMode::Unnecessary, '-0.999',   null,  null, null],
+            [RoundingMode::Up,           '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Down,         '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Ceiling,      '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Floor,        '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfUp,       '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfDown,     '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfCeiling,  '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfFloor,    '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfEven,     '1.000',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfOdd,      '1.000',  '1.00',  '1.0',  '1'],
+
+            [RoundingMode::Unnecessary,  '0.999',    null,   null, null],
+            [RoundingMode::Up,           '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Down,         '0.999',  '0.99',  '0.9',  '0'],
+            [RoundingMode::Ceiling,      '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Floor,        '0.999',  '0.99',  '0.9',  '0'],
+            [RoundingMode::HalfUp,       '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfDown,     '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfCeiling,  '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfFloor,    '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfEven,     '0.999',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfOdd,      '0.999',  '1.00',  '1.0',  '1'],
+
+            [RoundingMode::Unnecessary,  '0.501',    null,   null, null],
+            [RoundingMode::Up,           '0.501',  '0.51',  '0.6',  '1'],
+            [RoundingMode::Down,         '0.501',  '0.50',  '0.5',  '0'],
+            [RoundingMode::Ceiling,      '0.501',  '0.51',  '0.6',  '1'],
+            [RoundingMode::Floor,        '0.501',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfUp,       '0.501',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfDown,     '0.501',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfCeiling,  '0.501',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfFloor,    '0.501',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfEven,     '0.501',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfOdd,      '0.501',  '0.50',  '0.5',  '1'],
+
+            [RoundingMode::Unnecessary,  '0.500',  '0.50',  '0.5', null],
+            [RoundingMode::Up,           '0.500',  '0.50',  '0.5',  '1'],
+            [RoundingMode::Down,         '0.500',  '0.50',  '0.5',  '0'],
+            [RoundingMode::Ceiling,      '0.500',  '0.50',  '0.5',  '1'],
+            [RoundingMode::Floor,        '0.500',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfUp,       '0.500',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfDown,     '0.500',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfCeiling,  '0.500',  '0.50',  '0.5',  '1'],
+            [RoundingMode::HalfFloor,    '0.500',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfEven,     '0.500',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfOdd,      '0.500',  '0.50',  '0.5',  '1'],
+
+            [RoundingMode::Unnecessary,  '0.499',    null,   null, null],
+            [RoundingMode::Up,           '0.499',  '0.50',  '0.5',  '1'],
+            [RoundingMode::Down,         '0.499',  '0.49',  '0.4',  '0'],
+            [RoundingMode::Ceiling,      '0.499',  '0.50',  '0.5',  '1'],
+            [RoundingMode::Floor,        '0.499',  '0.49',  '0.4',  '0'],
+            [RoundingMode::HalfUp,       '0.499',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfDown,     '0.499',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfCeiling,  '0.499',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfFloor,    '0.499',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfEven,     '0.499',  '0.50',  '0.5',  '0'],
+            [RoundingMode::HalfOdd,      '0.499',  '0.50',  '0.5',  '0'],
+
+            [RoundingMode::Unnecessary,  '0.001',    null,   null, null],
+            [RoundingMode::Up,           '0.001',  '0.01',  '0.1',  '1'],
+            [RoundingMode::Down,         '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Ceiling,      '0.001',  '0.01',  '0.1',  '1'],
+            [RoundingMode::Floor,        '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfUp,       '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfDown,     '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfCeiling,  '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfFloor,    '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfEven,     '0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfOdd,      '0.001',  '0.00',  '0.0',  '0'],
+
+            [RoundingMode::Unnecessary,  '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Up,           '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Down,         '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Ceiling,      '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Floor,        '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfUp,       '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfDown,     '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfCeiling,  '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfFloor,    '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfEven,     '0.000',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfOdd,      '0.000',  '0.00',  '0.0',  '0'],
+
+            [RoundingMode::Unnecessary, '-0.001',    null,   null, null],
+            [RoundingMode::Up,          '-0.001', '-0.01', '-0.1', '-1'],
+            [RoundingMode::Down,        '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Ceiling,     '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::Floor,       '-0.001', '-0.01', '-0.1', '-1'],
+            [RoundingMode::HalfUp,      '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfDown,    '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfCeiling, '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfFloor,   '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfEven,    '-0.001',  '0.00',  '0.0',  '0'],
+            [RoundingMode::HalfOdd,     '-0.001',  '0.00',  '0.0',  '0'],
+
+            [RoundingMode::Unnecessary, '-0.499',    null,   null, null],
+            [RoundingMode::Up,          '-0.499', '-0.50', '-0.5', '-1'],
+            [RoundingMode::Down,        '-0.499', '-0.49', '-0.4',  '0'],
+            [RoundingMode::Ceiling,     '-0.499', '-0.49', '-0.4',  '0'],
+            [RoundingMode::Floor,       '-0.499', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfUp,      '-0.499', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfDown,    '-0.499', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfCeiling, '-0.499', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfFloor,   '-0.499', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfEven,    '-0.499', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfOdd,     '-0.499', '-0.50', '-0.5',  '0'],
+
+            [RoundingMode::Unnecessary, '-0.500', '-0.50', '-0.5', null],
+            [RoundingMode::Up,          '-0.500', '-0.50', '-0.5', '-1'],
+            [RoundingMode::Down,        '-0.500', '-0.50', '-0.5',  '0'],
+            [RoundingMode::Ceiling,     '-0.500', '-0.50', '-0.5',  '0'],
+            [RoundingMode::Floor,       '-0.500', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfUp,      '-0.500', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfDown,    '-0.500', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfCeiling, '-0.500', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfFloor,   '-0.500', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfEven,    '-0.500', '-0.50', '-0.5',  '0'],
+            [RoundingMode::HalfOdd,     '-0.500', '-0.50', '-0.5', '-1'],
+
+            [RoundingMode::Unnecessary, '-0.501',    null,   null, null],
+            [RoundingMode::Up,          '-0.501', '-0.51', '-0.6', '-1'],
+            [RoundingMode::Down,        '-0.501', '-0.50', '-0.5',  '0'],
+            [RoundingMode::Ceiling,     '-0.501', '-0.50', '-0.5',  '0'],
+            [RoundingMode::Floor,       '-0.501', '-0.51', '-0.6', '-1'],
+            [RoundingMode::HalfUp,      '-0.501', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfDown,    '-0.501', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfCeiling, '-0.501', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfFloor,   '-0.501', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfEven,    '-0.501', '-0.50', '-0.5', '-1'],
+            [RoundingMode::HalfOdd,     '-0.501', '-0.50', '-0.5', '-1'],
+
+            [RoundingMode::Unnecessary, '-0.999',    null,   null, null],
+            [RoundingMode::Up,          '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Down,        '-0.999', '-0.99', '-0.9',  '0'],
+            [RoundingMode::Ceiling,     '-0.999', '-0.99', '-0.9',  '0'],
+            [RoundingMode::Floor,       '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfUp,      '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfDown,    '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfCeiling, '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfFloor,   '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfEven,    '-0.999', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfOdd,     '-0.999', '-1.00', '-1.0', '-1'],
+
             [RoundingMode::Unnecessary, '-1.000', '-1.00', '-1.0', '-1'],
-            [RoundingMode::Unnecessary, '-1.001',   null,  null, null],
-            [RoundingMode::Unnecessary, '-1.499',   null,  null, null],
+            [RoundingMode::Up,          '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Down,        '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Ceiling,     '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Floor,       '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfUp,      '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfDown,    '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfCeiling, '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfFloor,   '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfEven,    '-1.000', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfOdd,     '-1.000', '-1.00', '-1.0', '-1'],
+
+            [RoundingMode::Unnecessary, '-1.001',    null,   null, null],
+            [RoundingMode::Up,          '-1.001', '-1.01', '-1.1', '-2'],
+            [RoundingMode::Down,        '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Ceiling,     '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Floor,       '-1.001', '-1.01', '-1.1', '-2'],
+            [RoundingMode::HalfUp,      '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfDown,    '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfCeiling, '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfFloor,   '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfEven,    '-1.001', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfOdd,     '-1.001', '-1.00', '-1.0', '-1'],
+
+            [RoundingMode::Unnecessary, '-1.499',    null,   null, null],
+            [RoundingMode::Up,          '-1.499', '-1.50', '-1.5', '-2'],
+            [RoundingMode::Down,        '-1.499', '-1.49', '-1.4', '-1'],
+            [RoundingMode::Ceiling,     '-1.499', '-1.49', '-1.4', '-1'],
+            [RoundingMode::Floor,       '-1.499', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfUp,      '-1.499', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfDown,    '-1.499', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfCeiling, '-1.499', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfFloor,   '-1.499', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfEven,    '-1.499', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfOdd,     '-1.499', '-1.50', '-1.5', '-1'],
+
             [RoundingMode::Unnecessary, '-1.500', '-1.50', '-1.5', null],
-            [RoundingMode::Unnecessary, '-1.501',   null,  null, null],
-            [RoundingMode::Unnecessary, '-1.999',   null,  null, null],
+            [RoundingMode::Up,          '-1.500', '-1.50', '-1.5', '-2'],
+            [RoundingMode::Down,        '-1.500', '-1.50', '-1.5', '-1'],
+            [RoundingMode::Ceiling,     '-1.500', '-1.50', '-1.5', '-1'],
+            [RoundingMode::Floor,       '-1.500', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfUp,      '-1.500', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfDown,    '-1.500', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfCeiling, '-1.500', '-1.50', '-1.5', '-1'],
+            [RoundingMode::HalfFloor,   '-1.500', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfEven,    '-1.500', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfOdd,     '-1.500', '-1.50', '-1.5', '-1'],
+
+            [RoundingMode::Unnecessary, '-1.501',    null,   null, null],
+            [RoundingMode::Up,          '-1.501', '-1.51', '-1.6', '-2'],
+            [RoundingMode::Down,        '-1.501', '-1.50', '-1.5', '-1'],
+            [RoundingMode::Ceiling,     '-1.501', '-1.50', '-1.5', '-1'],
+            [RoundingMode::Floor,       '-1.501', '-1.51', '-1.6', '-2'],
+            [RoundingMode::HalfUp,      '-1.501', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfDown,    '-1.501', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfCeiling, '-1.501', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfFloor,   '-1.501', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfEven,    '-1.501', '-1.50', '-1.5', '-2'],
+            [RoundingMode::HalfOdd,     '-1.501', '-1.50', '-1.5', '-2'],
+
+            [RoundingMode::Unnecessary, '-1.999',    null,   null, null],
+            [RoundingMode::Up,          '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Down,        '-1.999', '-1.99', '-1.9', '-1'],
+            [RoundingMode::Ceiling,     '-1.999', '-1.99', '-1.9', '-1'],
+            [RoundingMode::Floor,       '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfUp,      '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfDown,    '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfCeiling, '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfFloor,   '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfEven,    '-1.999', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfOdd,     '-1.999', '-2.00', '-2.0', '-2'],
+
             [RoundingMode::Unnecessary, '-2.000', '-2.00', '-2.0', '-2'],
-            [RoundingMode::Unnecessary, '-2.001',   null,  null, null],
-            [RoundingMode::Unnecessary, '-2.499',   null,  null, null],
+            [RoundingMode::Up,          '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Down,        '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Ceiling,     '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Floor,       '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfUp,      '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfDown,    '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfCeiling, '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfFloor,   '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfEven,    '-2.000', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfOdd,     '-2.000', '-2.00', '-2.0', '-2'],
+
+            [RoundingMode::Unnecessary, '-2.001',    null,   null, null],
+            [RoundingMode::Up,          '-2.001', '-2.01', '-2.1', '-3'],
+            [RoundingMode::Down,        '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Ceiling,     '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::Floor,       '-2.001', '-2.01', '-2.1', '-3'],
+            [RoundingMode::HalfUp,      '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfDown,    '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfCeiling, '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfFloor,   '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfEven,    '-2.001', '-2.00', '-2.0', '-2'],
+            [RoundingMode::HalfOdd,     '-2.001', '-2.00', '-2.0', '-2'],
+
+            [RoundingMode::Unnecessary, '-2.499',    null,   null, null],
+            [RoundingMode::Up,          '-2.499', '-2.50', '-2.5', '-3'],
+            [RoundingMode::Down,        '-2.499', '-2.49', '-2.4', '-2'],
+            [RoundingMode::Ceiling,     '-2.499', '-2.49', '-2.4', '-2'],
+            [RoundingMode::Floor,       '-2.499', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfUp,      '-2.499', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfDown,    '-2.499', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfCeiling, '-2.499', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfFloor,   '-2.499', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfEven,    '-2.499', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfOdd,     '-2.499', '-2.50', '-2.5', '-2'],
+
             [RoundingMode::Unnecessary, '-2.500', '-2.50', '-2.5', null],
-            [RoundingMode::Unnecessary, '-2.501',   null,  null, null],
-            [RoundingMode::Unnecessary, '-2.999',   null,  null, null],
+            [RoundingMode::Up,          '-2.500', '-2.50', '-2.5', '-3'],
+            [RoundingMode::Down,        '-2.500', '-2.50', '-2.5', '-2'],
+            [RoundingMode::Ceiling,     '-2.500', '-2.50', '-2.5', '-2'],
+            [RoundingMode::Floor,       '-2.500', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfUp,      '-2.500', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfDown,    '-2.500', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfCeiling, '-2.500', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfFloor,   '-2.500', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfEven,    '-2.500', '-2.50', '-2.5', '-2'],
+            [RoundingMode::HalfOdd,     '-2.500', '-2.50', '-2.5', '-3'],
+
+            [RoundingMode::Unnecessary, '-2.501',    null,   null, null],
+            [RoundingMode::Up,          '-2.501', '-2.51', '-2.6', '-3'],
+            [RoundingMode::Down,        '-2.501', '-2.50', '-2.5', '-2'],
+            [RoundingMode::Ceiling,     '-2.501', '-2.50', '-2.5', '-2'],
+            [RoundingMode::Floor,       '-2.501', '-2.51', '-2.6', '-3'],
+            [RoundingMode::HalfUp,      '-2.501', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfDown,    '-2.501', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfCeiling, '-2.501', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfFloor,   '-2.501', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfEven,    '-2.501', '-2.50', '-2.5', '-3'],
+            [RoundingMode::HalfOdd,     '-2.501', '-2.50', '-2.5', '-3'],
+
+            [RoundingMode::Unnecessary, '-2.999',    null,   null, null],
+            [RoundingMode::Up,          '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Down,        '-2.999', '-2.99', '-2.9', '-2'],
+            [RoundingMode::Ceiling,     '-2.999', '-2.99', '-2.9', '-2'],
+            [RoundingMode::Floor,       '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfUp,      '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfDown,    '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfCeiling, '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfFloor,   '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfEven,    '-2.999', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfOdd,     '-2.999', '-3.00', '-3.0', '-3'],
+
             [RoundingMode::Unnecessary, '-3.000', '-3.00', '-3.0', '-3'],
-            [RoundingMode::Unnecessary, '-3.001',   null,  null, null],
-            [RoundingMode::Unnecessary, '-3.499',   null,  null, null],
+            [RoundingMode::Up,          '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Down,        '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Ceiling,     '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Floor,       '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfUp,      '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfDown,    '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfCeiling, '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfFloor,   '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfEven,    '-3.000', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfOdd,     '-3.000', '-3.00', '-3.0', '-3'],
+
+            [RoundingMode::Unnecessary, '-3.001',    null,   null, null],
+            [RoundingMode::Up,          '-3.001', '-3.01', '-3.1', '-4'],
+            [RoundingMode::Down,        '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Ceiling,     '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::Floor,       '-3.001', '-3.01', '-3.1', '-4'],
+            [RoundingMode::HalfUp,      '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfDown,    '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfCeiling, '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfFloor,   '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfEven,    '-3.001', '-3.00', '-3.0', '-3'],
+            [RoundingMode::HalfOdd,     '-3.001', '-3.00', '-3.0', '-3'],
+
+            [RoundingMode::Unnecessary, '-3.499',    null,   null, null],
+            [RoundingMode::Up,          '-3.499', '-3.50', '-3.5', '-4'],
+            [RoundingMode::Down,        '-3.499', '-3.49', '-3.4', '-3'],
+            [RoundingMode::Ceiling,     '-3.499', '-3.49', '-3.4', '-3'],
+            [RoundingMode::Floor,       '-3.499', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfUp,      '-3.499', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfDown,    '-3.499', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfCeiling, '-3.499', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfFloor,   '-3.499', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfEven,    '-3.499', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfOdd,     '-3.499', '-3.50', '-3.5', '-3'],
+
             [RoundingMode::Unnecessary, '-3.500', '-3.50', '-3.5', null],
-            [RoundingMode::Unnecessary, '-3.501',   null,  null, null],
+            [RoundingMode::Up,          '-3.500', '-3.50', '-3.5', '-4'],
+            [RoundingMode::Down,        '-3.500', '-3.50', '-3.5', '-3'],
+            [RoundingMode::Ceiling,     '-3.500', '-3.50', '-3.5', '-3'],
+            [RoundingMode::Floor,       '-3.500', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfUp,      '-3.500', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfDown,    '-3.500', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfCeiling, '-3.500', '-3.50', '-3.5', '-3'],
+            [RoundingMode::HalfFloor,   '-3.500', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfEven,    '-3.500', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfOdd,     '-3.500', '-3.50', '-3.5', '-3'],
+
+            [RoundingMode::Unnecessary, '-3.501',    null,   null, null],
+            [RoundingMode::Up,          '-3.501', '-3.51', '-3.6', '-4'],
+            [RoundingMode::Down,        '-3.501', '-3.50', '-3.5', '-3'],
+            [RoundingMode::Ceiling,     '-3.501', '-3.50', '-3.5', '-3'],
+            [RoundingMode::Floor,       '-3.501', '-3.51', '-3.6', '-4'],
+            [RoundingMode::HalfUp,      '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfDown,    '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfCeiling, '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfFloor,   '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfEven,    '-3.501', '-3.50', '-3.5', '-4'],
+            [RoundingMode::HalfOdd,     '-3.501', '-3.50', '-3.5', '-4'],
+
+            [RoundingMode::Unnecessary,  '0.045',    null,   null, null],
+            [RoundingMode::Up,           '0.045',  '0.05',  '0.1',  '1'],
+            [RoundingMode::Down,         '0.045',  '0.04',  '0.0',  '0'],
+            [RoundingMode::Ceiling,      '0.045',  '0.05',  '0.1',  '1'],
+            [RoundingMode::Floor,        '0.045',  '0.04',  '0.0',  '0'],
+            [RoundingMode::HalfUp,       '0.045',  '0.05',  '0.0',  '0'],
+            [RoundingMode::HalfDown,     '0.045',  '0.04',  '0.0',  '0'],
+            [RoundingMode::HalfCeiling,  '0.045',  '0.05',  '0.0',  '0'],
+            [RoundingMode::HalfFloor,    '0.045',  '0.04',  '0.0',  '0'],
+            [RoundingMode::HalfEven,     '0.045',  '0.04',  '0.0',  '0'],
+            [RoundingMode::HalfOdd,      '0.045',  '0.05',  '0.0',  '0'],
+
+            [RoundingMode::Unnecessary,  '0.055',    null,   null, null],
+            [RoundingMode::Up,           '0.055',  '0.06',  '0.1',  '1'],
+            [RoundingMode::Down,         '0.055',  '0.05',  '0.0',  '0'],
+            [RoundingMode::Ceiling,      '0.055',  '0.06',  '0.1',  '1'],
+            [RoundingMode::Floor,        '0.055',  '0.05',  '0.0',  '0'],
+            [RoundingMode::HalfUp,       '0.055',  '0.06',  '0.1',  '0'],
+            [RoundingMode::HalfDown,     '0.055',  '0.05',  '0.1',  '0'],
+            [RoundingMode::HalfCeiling,  '0.055',  '0.06',  '0.1',  '0'],
+            [RoundingMode::HalfFloor,    '0.055',  '0.05',  '0.1',  '0'],
+            [RoundingMode::HalfEven,     '0.055',  '0.06',  '0.1',  '0'],
+            [RoundingMode::HalfOdd,      '0.055',  '0.05',  '0.1',  '0'],
+
+            [RoundingMode::Unnecessary,  '0.995',    null,   null, null],
+            [RoundingMode::Up,           '0.995',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Down,         '0.995',  '0.99',  '0.9',  '0'],
+            [RoundingMode::Ceiling,      '0.995',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Floor,        '0.995',  '0.99',  '0.9',  '0'],
+            [RoundingMode::HalfUp,       '0.995',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfDown,     '0.995',  '0.99',  '1.0',  '1'],
+            [RoundingMode::HalfCeiling,  '0.995',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfFloor,    '0.995',  '0.99',  '1.0',  '1'],
+            [RoundingMode::HalfEven,     '0.995',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfOdd,      '0.995',  '0.99',  '1.0',  '1'],
+
+            [RoundingMode::Unnecessary,  '1.005',    null,   null, null],
+            [RoundingMode::Up,           '1.005',  '1.01',  '1.1',  '2'],
+            [RoundingMode::Down,         '1.005',  '1.00',  '1.0',  '1'],
+            [RoundingMode::Ceiling,      '1.005',  '1.01',  '1.1',  '2'],
+            [RoundingMode::Floor,        '1.005',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfUp,       '1.005',  '1.01',  '1.0',  '1'],
+            [RoundingMode::HalfDown,     '1.005',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfCeiling,  '1.005',  '1.01',  '1.0',  '1'],
+            [RoundingMode::HalfFloor,    '1.005',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfEven,     '1.005',  '1.00',  '1.0',  '1'],
+            [RoundingMode::HalfOdd,      '1.005',  '1.01',  '1.0',  '1'],
+
+            [RoundingMode::Unnecessary,  '2.450',  '2.45',   null, null],
+            [RoundingMode::Up,           '2.450',  '2.45',  '2.5',  '3'],
+            [RoundingMode::Down,         '2.450',  '2.45',  '2.4',  '2'],
+            [RoundingMode::Ceiling,      '2.450',  '2.45',  '2.5',  '3'],
+            [RoundingMode::Floor,        '2.450',  '2.45',  '2.4',  '2'],
+            [RoundingMode::HalfUp,       '2.450',  '2.45',  '2.5',  '2'],
+            [RoundingMode::HalfDown,     '2.450',  '2.45',  '2.4',  '2'],
+            [RoundingMode::HalfCeiling,  '2.450',  '2.45',  '2.5',  '2'],
+            [RoundingMode::HalfFloor,    '2.450',  '2.45',  '2.4',  '2'],
+            [RoundingMode::HalfEven,     '2.450',  '2.45',  '2.4',  '2'],
+            [RoundingMode::HalfOdd,      '2.450',  '2.45',  '2.5',  '2'],
+
+            [RoundingMode::Unnecessary,  '2.550',  '2.55',   null, null],
+            [RoundingMode::Up,           '2.550',  '2.55',  '2.6',  '3'],
+            [RoundingMode::Down,         '2.550',  '2.55',  '2.5',  '2'],
+            [RoundingMode::Ceiling,      '2.550',  '2.55',  '2.6',  '3'],
+            [RoundingMode::Floor,        '2.550',  '2.55',  '2.5',  '2'],
+            [RoundingMode::HalfUp,       '2.550',  '2.55',  '2.6',  '3'],
+            [RoundingMode::HalfDown,     '2.550',  '2.55',  '2.5',  '3'],
+            [RoundingMode::HalfCeiling,  '2.550',  '2.55',  '2.6',  '3'],
+            [RoundingMode::HalfFloor,    '2.550',  '2.55',  '2.5',  '3'],
+            [RoundingMode::HalfEven,     '2.550',  '2.55',  '2.6',  '3'],
+            [RoundingMode::HalfOdd,      '2.550',  '2.55',  '2.5',  '3'],
+
+            [RoundingMode::Unnecessary, '1000000000000000000000000000.005', null, null, null],
+            [RoundingMode::Up,          '1000000000000000000000000000.005', '1000000000000000000000000000.01', '1000000000000000000000000000.1', '1000000000000000000000000001'],
+            [RoundingMode::Down,        '1000000000000000000000000000.005', '1000000000000000000000000000.00', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::Ceiling,     '1000000000000000000000000000.005', '1000000000000000000000000000.01', '1000000000000000000000000000.1', '1000000000000000000000000001'],
+            [RoundingMode::Floor,       '1000000000000000000000000000.005', '1000000000000000000000000000.00', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfUp,      '1000000000000000000000000000.005', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfDown,    '1000000000000000000000000000.005', '1000000000000000000000000000.00', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfCeiling, '1000000000000000000000000000.005', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfFloor,   '1000000000000000000000000000.005', '1000000000000000000000000000.00', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfEven,    '1000000000000000000000000000.005', '1000000000000000000000000000.00', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfOdd,     '1000000000000000000000000000.005', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+
+            [RoundingMode::Unnecessary, '1000000000000000000000000000.015', null, null, null],
+            [RoundingMode::Up,          '1000000000000000000000000000.015', '1000000000000000000000000000.02', '1000000000000000000000000000.1', '1000000000000000000000000001'],
+            [RoundingMode::Down,        '1000000000000000000000000000.015', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::Ceiling,     '1000000000000000000000000000.015', '1000000000000000000000000000.02', '1000000000000000000000000000.1', '1000000000000000000000000001'],
+            [RoundingMode::Floor,       '1000000000000000000000000000.015', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfUp,      '1000000000000000000000000000.015', '1000000000000000000000000000.02', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfDown,    '1000000000000000000000000000.015', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfCeiling, '1000000000000000000000000000.015', '1000000000000000000000000000.02', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfFloor,   '1000000000000000000000000000.015', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfEven,    '1000000000000000000000000000.015', '1000000000000000000000000000.02', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+            [RoundingMode::HalfOdd,     '1000000000000000000000000000.015', '1000000000000000000000000000.01', '1000000000000000000000000000.0', '1000000000000000000000000000'],
+
+            [RoundingMode::Unnecessary, '-0.045',    null,   null, null],
+            [RoundingMode::Up,          '-0.045', '-0.05', '-0.1', '-1'],
+            [RoundingMode::Down,        '-0.045', '-0.04',  '0.0',  '0'],
+            [RoundingMode::Ceiling,     '-0.045', '-0.04',  '0.0',  '0'],
+            [RoundingMode::Floor,       '-0.045', '-0.05', '-0.1', '-1'],
+            [RoundingMode::HalfUp,      '-0.045', '-0.05',  '0.0',  '0'],
+            [RoundingMode::HalfDown,    '-0.045', '-0.04',  '0.0',  '0'],
+            [RoundingMode::HalfCeiling, '-0.045', '-0.04',  '0.0',  '0'],
+            [RoundingMode::HalfFloor,   '-0.045', '-0.05',  '0.0',  '0'],
+            [RoundingMode::HalfEven,    '-0.045', '-0.04',  '0.0',  '0'],
+            [RoundingMode::HalfOdd,     '-0.045', '-0.05',  '0.0',  '0'],
+
+            [RoundingMode::Unnecessary, '-0.055',    null,   null, null],
+            [RoundingMode::Up,          '-0.055', '-0.06', '-0.1', '-1'],
+            [RoundingMode::Down,        '-0.055', '-0.05',  '0.0',  '0'],
+            [RoundingMode::Ceiling,     '-0.055', '-0.05',  '0.0',  '0'],
+            [RoundingMode::Floor,       '-0.055', '-0.06', '-0.1', '-1'],
+            [RoundingMode::HalfUp,      '-0.055', '-0.06', '-0.1',  '0'],
+            [RoundingMode::HalfDown,    '-0.055', '-0.05', '-0.1',  '0'],
+            [RoundingMode::HalfCeiling, '-0.055', '-0.05', '-0.1',  '0'],
+            [RoundingMode::HalfFloor,   '-0.055', '-0.06', '-0.1',  '0'],
+            [RoundingMode::HalfEven,    '-0.055', '-0.06', '-0.1',  '0'],
+            [RoundingMode::HalfOdd,     '-0.055', '-0.05', '-0.1',  '0'],
+
+            [RoundingMode::Unnecessary, '-0.995',    null,   null, null],
+            [RoundingMode::Up,          '-0.995', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Down,        '-0.995', '-0.99', '-0.9',  '0'],
+            [RoundingMode::Ceiling,     '-0.995', '-0.99', '-0.9',  '0'],
+            [RoundingMode::Floor,       '-0.995', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfUp,      '-0.995', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfDown,    '-0.995', '-0.99', '-1.0', '-1'],
+            [RoundingMode::HalfCeiling, '-0.995', '-0.99', '-1.0', '-1'],
+            [RoundingMode::HalfFloor,   '-0.995', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfEven,    '-0.995', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfOdd,     '-0.995', '-0.99', '-1.0', '-1'],
+
+            [RoundingMode::Unnecessary, '-1.005',    null,   null, null],
+            [RoundingMode::Up,          '-1.005', '-1.01', '-1.1', '-2'],
+            [RoundingMode::Down,        '-1.005', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Ceiling,     '-1.005', '-1.00', '-1.0', '-1'],
+            [RoundingMode::Floor,       '-1.005', '-1.01', '-1.1', '-2'],
+            [RoundingMode::HalfUp,      '-1.005', '-1.01', '-1.0', '-1'],
+            [RoundingMode::HalfDown,    '-1.005', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfCeiling, '-1.005', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfFloor,   '-1.005', '-1.01', '-1.0', '-1'],
+            [RoundingMode::HalfEven,    '-1.005', '-1.00', '-1.0', '-1'],
+            [RoundingMode::HalfOdd,     '-1.005', '-1.01', '-1.0', '-1'],
+
+            [RoundingMode::Unnecessary, '-2.450', '-2.45',   null, null],
+            [RoundingMode::Up,          '-2.450', '-2.45', '-2.5', '-3'],
+            [RoundingMode::Down,        '-2.450', '-2.45', '-2.4', '-2'],
+            [RoundingMode::Ceiling,     '-2.450', '-2.45', '-2.4', '-2'],
+            [RoundingMode::Floor,       '-2.450', '-2.45', '-2.5', '-3'],
+            [RoundingMode::HalfUp,      '-2.450', '-2.45', '-2.5', '-2'],
+            [RoundingMode::HalfDown,    '-2.450', '-2.45', '-2.4', '-2'],
+            [RoundingMode::HalfCeiling, '-2.450', '-2.45', '-2.4', '-2'],
+            [RoundingMode::HalfFloor,   '-2.450', '-2.45', '-2.5', '-2'],
+            [RoundingMode::HalfEven,    '-2.450', '-2.45', '-2.4', '-2'],
+            [RoundingMode::HalfOdd,     '-2.450', '-2.45', '-2.5', '-2'],
+
+            [RoundingMode::Unnecessary, '-2.550', '-2.55',   null, null],
+            [RoundingMode::Up,          '-2.550', '-2.55', '-2.6', '-3'],
+            [RoundingMode::Down,        '-2.550', '-2.55', '-2.5', '-2'],
+            [RoundingMode::Ceiling,     '-2.550', '-2.55', '-2.5', '-2'],
+            [RoundingMode::Floor,       '-2.550', '-2.55', '-2.6', '-3'],
+            [RoundingMode::HalfUp,      '-2.550', '-2.55', '-2.6', '-3'],
+            [RoundingMode::HalfDown,    '-2.550', '-2.55', '-2.5', '-3'],
+            [RoundingMode::HalfCeiling, '-2.550', '-2.55', '-2.5', '-3'],
+            [RoundingMode::HalfFloor,   '-2.550', '-2.55', '-2.6', '-3'],
+            [RoundingMode::HalfEven,    '-2.550', '-2.55', '-2.6', '-3'],
+            [RoundingMode::HalfOdd,     '-2.550', '-2.55', '-2.5', '-3'],
+
+            [RoundingMode::Unnecessary, '-1000000000000000000000000000.005', null, null, null],
+            [RoundingMode::Up,          '-1000000000000000000000000000.005', '-1000000000000000000000000000.01', '-1000000000000000000000000000.1', '-1000000000000000000000000001'],
+            [RoundingMode::Down,        '-1000000000000000000000000000.005', '-1000000000000000000000000000.00', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::Ceiling,     '-1000000000000000000000000000.005', '-1000000000000000000000000000.00', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::Floor,       '-1000000000000000000000000000.005', '-1000000000000000000000000000.01', '-1000000000000000000000000000.1', '-1000000000000000000000000001'],
+            [RoundingMode::HalfUp,      '-1000000000000000000000000000.005', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfDown,    '-1000000000000000000000000000.005', '-1000000000000000000000000000.00', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfCeiling, '-1000000000000000000000000000.005', '-1000000000000000000000000000.00', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfFloor,   '-1000000000000000000000000000.005', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfEven,    '-1000000000000000000000000000.005', '-1000000000000000000000000000.00', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfOdd,     '-1000000000000000000000000000.005', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+
+            [RoundingMode::Unnecessary, '-1000000000000000000000000000.015', null, null, null],
+            [RoundingMode::Up,          '-1000000000000000000000000000.015', '-1000000000000000000000000000.02', '-1000000000000000000000000000.1', '-1000000000000000000000000001'],
+            [RoundingMode::Down,        '-1000000000000000000000000000.015', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::Ceiling,     '-1000000000000000000000000000.015', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::Floor,       '-1000000000000000000000000000.015', '-1000000000000000000000000000.02', '-1000000000000000000000000000.1', '-1000000000000000000000000001'],
+            [RoundingMode::HalfUp,      '-1000000000000000000000000000.015', '-1000000000000000000000000000.02', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfDown,    '-1000000000000000000000000000.015', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfCeiling, '-1000000000000000000000000000.015', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfFloor,   '-1000000000000000000000000000.015', '-1000000000000000000000000000.02', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfEven,    '-1000000000000000000000000000.015', '-1000000000000000000000000000.02', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
+            [RoundingMode::HalfOdd,     '-1000000000000000000000000000.015', '-1000000000000000000000000000.01', '-1000000000000000000000000000.0', '-1000000000000000000000000000'],
         ];
     }
 
@@ -1547,6 +1874,9 @@ class BigDecimalTest extends AbstractTestCase
         $number->quotientAndRemainder(0);
     }
 
+    /**
+     * @param non-negative-int $scale
+     */
     #[DataProvider('providerSqrt')]
     #[DataProvider('providerSqrtMidpointTies')]
     public function testSqrt(string $number, int $scale, RoundingMode $roundingMode, string $expected): void
@@ -1571,8 +1901,12 @@ class BigDecimalTest extends AbstractTestCase
         }
     }
 
+    /**
+     * @return Generator<array{string, non-negative-int, RoundingMode, string}>
+     */
     public static function providerSqrt(): Generator
     {
+        /** @var list<array{string, non-negative-int, RoundingMode, string}> $tests */
         $tests = [
             ['0', 0, RoundingMode::Unnecessary, '0'],
             ['0', 1, RoundingMode::Unnecessary, '0.0'],
@@ -2382,10 +2716,11 @@ class BigDecimalTest extends AbstractTestCase
                 RoundingMode::Up => [RoundingMode::Ceiling],
                 RoundingMode::Down => [RoundingMode::Floor],
                 RoundingMode::HalfUp => [
-                    RoundingMode::HalfCeiling,
                     RoundingMode::HalfDown,
-                    RoundingMode::HalfEven,
+                    RoundingMode::HalfCeiling,
                     RoundingMode::HalfFloor,
+                    RoundingMode::HalfEven,
+                    RoundingMode::HalfOdd,
                 ],
                 default => [],
             };
@@ -2399,6 +2734,8 @@ class BigDecimalTest extends AbstractTestCase
     /**
      * Midpoint-tie cases: each Half* mode gives a different answer, so all are listed explicitly.
      * The foreach only does Up/Down ↔ Ceiling/Floor renaming (no HalfUp expansion).
+     *
+     * @return Generator<array{string, non-negative-int, RoundingMode, string}>
      */
     public static function providerSqrtMidpointTies(): Generator
     {
@@ -2410,36 +2747,40 @@ class BigDecimalTest extends AbstractTestCase
             ['0.25', 0, RoundingMode::HalfUp,      '1'],
             ['0.25', 0, RoundingMode::HalfDown,    '0'],
             ['0.25', 0, RoundingMode::HalfEven,    '0'],
+            ['0.25', 0, RoundingMode::HalfOdd,     '1'],
             ['0.25', 0, RoundingMode::HalfCeiling, '1'],
             ['0.25', 0, RoundingMode::HalfFloor,   '0'],
 
-            // √2.25 = 1.5 → tie between 1 (odd) and 2 (even); HalfEven picks 2.
+            // √2.25 = 1.5 → tie between 1 (odd) and 2 (even); HalfEven picks 2, HalfOdd picks 1.
             ['2.25', 0, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['2.25', 0, RoundingMode::Down,        '1'],
             ['2.25', 0, RoundingMode::Up,          '2'],
             ['2.25', 0, RoundingMode::HalfUp,      '2'],
             ['2.25', 0, RoundingMode::HalfDown,    '1'],
             ['2.25', 0, RoundingMode::HalfEven,    '2'],
+            ['2.25', 0, RoundingMode::HalfOdd,     '1'],
             ['2.25', 0, RoundingMode::HalfCeiling, '2'],
             ['2.25', 0, RoundingMode::HalfFloor,   '1'],
 
-            // √0.0625 = 0.25 → tie between 0.2 (even) and 0.3 (odd); HalfEven picks 0.2.
+            // √0.0625 = 0.25 → tie between 0.2 (even) and 0.3 (odd); HalfEven picks 0.2, HalfOdd picks 0.3.
             ['0.0625', 1, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['0.0625', 1, RoundingMode::Down,        '0.2'],
             ['0.0625', 1, RoundingMode::Up,          '0.3'],
             ['0.0625', 1, RoundingMode::HalfUp,      '0.3'],
             ['0.0625', 1, RoundingMode::HalfDown,    '0.2'],
             ['0.0625', 1, RoundingMode::HalfEven,    '0.2'],
+            ['0.0625', 1, RoundingMode::HalfOdd,     '0.3'],
             ['0.0625', 1, RoundingMode::HalfCeiling, '0.3'],
             ['0.0625', 1, RoundingMode::HalfFloor,   '0.2'],
 
-            // √0.1225 = 0.35 → tie between 0.3 (odd) and 0.4 (even); HalfEven picks 0.4.
+            // √0.1225 = 0.35 → tie between 0.3 (odd) and 0.4 (even); HalfEven picks 0.4, HalfOdd picks 0.3.
             ['0.1225', 1, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['0.1225', 1, RoundingMode::Down,        '0.3'],
             ['0.1225', 1, RoundingMode::Up,          '0.4'],
             ['0.1225', 1, RoundingMode::HalfUp,      '0.4'],
             ['0.1225', 1, RoundingMode::HalfDown,    '0.3'],
             ['0.1225', 1, RoundingMode::HalfEven,    '0.4'],
+            ['0.1225', 1, RoundingMode::HalfOdd,     '0.3'],
             ['0.1225', 1, RoundingMode::HalfCeiling, '0.4'],
             ['0.1225', 1, RoundingMode::HalfFloor,   '0.3'],
         ];
@@ -2476,9 +2817,14 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The scale must not be negative.');
 
+        // @phpstan-ignore argument.type
         $number->sqrt(-1);
     }
 
+    /**
+     * @param positive-int     $n
+     * @param non-negative-int $scale
+     */
     #[DataProvider('providerNthRoot')]
     #[DataProvider('providerNthRootFromSqrt')]
     #[DataProvider('providerNthRootMidpointTies')]
@@ -2838,12 +3184,12 @@ class BigDecimalTest extends AbstractTestCase
                 RoundingMode::Up => ($number[0] === '-') ? [RoundingMode::Floor] : [RoundingMode::Ceiling],
                 RoundingMode::Down => ($number[0] === '-') ? [RoundingMode::Ceiling] : [RoundingMode::Floor],
                 RoundingMode::HalfUp => [
-                    RoundingMode::HalfCeiling,
                     RoundingMode::HalfDown,
-                    RoundingMode::HalfEven,
+                    RoundingMode::HalfCeiling,
                     RoundingMode::HalfFloor,
+                    RoundingMode::HalfEven,
+                    RoundingMode::HalfOdd,
                 ],
-                default => [],
             };
 
             foreach ($eqs as $eq) {
@@ -2892,6 +3238,7 @@ class BigDecimalTest extends AbstractTestCase
             ['1.25', 1, 1, RoundingMode::HalfUp,      '1.3'],
             ['1.25', 1, 1, RoundingMode::HalfDown,    '1.2'],
             ['1.25', 1, 1, RoundingMode::HalfEven,    '1.2'],
+            ['1.25', 1, 1, RoundingMode::HalfOdd,     '1.3'],
             ['1.25', 1, 1, RoundingMode::HalfCeiling, '1.3'],
             ['1.25', 1, 1, RoundingMode::HalfFloor,   '1.2'],
 
@@ -2902,16 +3249,18 @@ class BigDecimalTest extends AbstractTestCase
             ['0.125',  3, 0, RoundingMode::HalfUp,      '1'],
             ['0.125',  3, 0, RoundingMode::HalfDown,    '0'],
             ['0.125',  3, 0, RoundingMode::HalfEven,    '0'],
+            ['0.125',  3, 0, RoundingMode::HalfOdd,     '1'],
             ['0.125',  3, 0, RoundingMode::HalfCeiling, '1'],
             ['0.125',  3, 0, RoundingMode::HalfFloor,   '0'],
 
-            // ∛3.375 = 1.5 → tie between 1 (odd) and 2 (even); HalfEven picks 2.
+            // ∛3.375 = 1.5 → tie between 1 (odd) and 2 (even); HalfEven picks 2, HalfOdd picks 1.
             ['3.375',  3, 0, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['3.375',  3, 0, RoundingMode::Down,        '1'],
             ['3.375',  3, 0, RoundingMode::Up,          '2'],
             ['3.375',  3, 0, RoundingMode::HalfUp,      '2'],
             ['3.375',  3, 0, RoundingMode::HalfDown,    '1'],
             ['3.375',  3, 0, RoundingMode::HalfEven,    '2'],
+            ['3.375',  3, 0, RoundingMode::HalfOdd,     '1'],
             ['3.375',  3, 0, RoundingMode::HalfCeiling, '2'],
             ['3.375',  3, 0, RoundingMode::HalfFloor,   '1'],
 
@@ -2922,16 +3271,18 @@ class BigDecimalTest extends AbstractTestCase
             ['-0.125', 3, 0, RoundingMode::HalfUp,      '-1'],
             ['-0.125', 3, 0, RoundingMode::HalfDown,    '0'],
             ['-0.125', 3, 0, RoundingMode::HalfEven,    '0'],
+            ['-0.125', 3, 0, RoundingMode::HalfOdd,     '-1'],
             ['-0.125', 3, 0, RoundingMode::HalfCeiling, '0'],
             ['-0.125', 3, 0, RoundingMode::HalfFloor,   '-1'],
 
-            // ∛-3.375 = -1.5 → tie between -2 (even) and -1 (odd); HalfEven picks -2.
+            // ∛-3.375 = -1.5 → tie between -2 (even) and -1 (odd); HalfEven picks -2, HalfOdd picks -1.
             ['-3.375', 3, 0, RoundingMode::Unnecessary, 'SCALE_TOO_SMALL'],
             ['-3.375', 3, 0, RoundingMode::Down,        '-1'],
             ['-3.375', 3, 0, RoundingMode::Up,          '-2'],
             ['-3.375', 3, 0, RoundingMode::HalfUp,      '-2'],
             ['-3.375', 3, 0, RoundingMode::HalfDown,    '-1'],
             ['-3.375', 3, 0, RoundingMode::HalfEven,    '-2'],
+            ['-3.375', 3, 0, RoundingMode::HalfOdd,     '-1'],
             ['-3.375', 3, 0, RoundingMode::HalfCeiling, '-1'],
             ['-3.375', 3, 0, RoundingMode::HalfFloor,   '-2'],
         ];
@@ -2975,6 +3326,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The degree of an nth root must be a positive integer.');
 
+        // @phpstan-ignore argument.type
         $number->nthRoot(0, 10);
     }
 
@@ -2984,6 +3336,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The degree of an nth root must be a positive integer.');
 
+        // @phpstan-ignore argument.type
         $number->nthRoot(-2, 10);
     }
 
@@ -2993,6 +3346,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The scale must not be negative.');
 
+        // @phpstan-ignore argument.type
         $number->nthRoot(3, -1);
     }
 
@@ -3028,9 +3382,9 @@ class BigDecimalTest extends AbstractTestCase
     }
 
     /**
-     * @param string $number   The base number.
-     * @param int    $exponent The exponent to apply.
-     * @param string $expected The expected result.
+     * @param string           $number   The base number.
+     * @param non-negative-int $exponent The exponent to apply.
+     * @param string           $expected The expected result.
      */
     #[DataProvider('providerPower')]
     public function testPower(string $number, int $exponent, string $expected): void
@@ -3096,14 +3450,15 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The exponent must not be negative.');
 
+        // @phpstan-ignore argument.type
         $one->power(-1);
     }
 
     /**
-     * @param string       $number       The number to scale.
-     * @param int          $toScale      The scale to apply.
-     * @param RoundingMode $roundingMode The rounding mode to apply.
-     * @param string|null  $expected     The expected result, or null if an exception is expected.
+     * @param string           $number       The number to scale.
+     * @param non-negative-int $toScale      The scale to apply.
+     * @param RoundingMode     $roundingMode The rounding mode to apply.
+     * @param string|null      $expected     The expected result, or null if an exception is expected.
      */
     #[DataProvider('providerToScale')]
     public function testToScale(string $number, int $toScale, RoundingMode $roundingMode, ?string $expected): void
@@ -3157,6 +3512,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessageExact('The scale must not be negative.');
 
+        // @phpstan-ignore argument.type
         $number->toScale(-1);
     }
 
@@ -3741,6 +4097,12 @@ class BigDecimalTest extends AbstractTestCase
         ];
     }
 
+    public function testToBigDecimal(): void
+    {
+        $decimal = BigDecimal::of('123.456');
+        self::assertSame($decimal, $decimal->toBigDecimal());
+    }
+
     /**
      * @param string $decimal  The decimal number to test.
      * @param string $rational The expected rational number.
@@ -3951,7 +4313,10 @@ class BigDecimalTest extends AbstractTestCase
         $number = '-123456789098.7654321012345678909876543210123456789';
         $bigDecimal = BigDecimal::of($number);
 
-        self::assertBigDecimalEquals($number, unserialize(serialize($bigDecimal)));
+        /** @var BigDecimal $deserialized */
+        $deserialized = unserialize(serialize($bigDecimal));
+
+        self::assertBigDecimalEquals($number, $deserialized);
     }
 
     public function testDirectCallToUnserialize(): void
@@ -3961,6 +4326,7 @@ class BigDecimalTest extends AbstractTestCase
         $this->expectException(LogicException::class);
         $this->expectExceptionMessageExact('__unserialize() is an internal function, it must not be called directly.');
 
+        // @phpstan-ignore argument.type
         $zero->__unserialize([]);
     }
 
@@ -4265,13 +4631,14 @@ class BigDecimalTest extends AbstractTestCase
     {
         foreach ([$zero, $one, $two] as $scale => $expected) {
             if ($expected === null) {
-                $this->expectException(RoundingNecessaryException::class);
-                $this->expectExceptionMessageExact('The division result is exact but cannot be represented at the requested scale without rounding.');
-            }
-
-            $actual = $number->dividedBy($divisor, $scale, $roundingMode);
-
-            if ($expected !== null) {
+                try {
+                    $number->dividedBy($divisor, $scale, $roundingMode);
+                    self::fail(sprintf('Dividing %s by %s at scale %d should throw a RoundingNecessaryException.', $number, $divisor, $scale));
+                } catch (RoundingNecessaryException $e) {
+                    self::assertSame('The division result is exact but cannot be represented at the requested scale without rounding.', $e->getMessage());
+                }
+            } else {
+                $actual = $number->dividedBy($divisor, $scale, $roundingMode);
                 self::assertBigDecimalEquals($expected, $actual);
             }
         }

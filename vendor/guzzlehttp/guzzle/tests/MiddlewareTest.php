@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests;
 
 use GuzzleHttp\BodySummarizer;
@@ -11,6 +13,7 @@ use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\MessageFormatter;
+use GuzzleHttp\MessageFormatterInterface;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise as P;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -22,13 +25,13 @@ use Psr\Http\Message\ResponseInterface;
 
 class MiddlewareTest extends TestCase
 {
-    public function testAddsCookiesToRequests()
+    public function testAddsCookiesToRequests(): void
     {
         $jar = new CookieJar();
         $m = Middleware::cookies($jar);
         $h = new MockHandler(
             [
-                static function (RequestInterface $request) {
+                static function (RequestInterface $request): ResponseInterface {
                     return new Response(200, [
                         'Set-Cookie' => (string) new SetCookie([
                             'Name' => 'name',
@@ -44,7 +47,7 @@ class MiddlewareTest extends TestCase
         self::assertCount(1, $jar);
     }
 
-    public function testThrowsExceptionOnHttpClientError()
+    public function testThrowsExceptionOnHttpClientError(): void
     {
         $m = Middleware::httpErrors();
         $h = new MockHandler([new Response(400, [], str_repeat('a', 1000))]);
@@ -53,11 +56,11 @@ class MiddlewareTest extends TestCase
         self::assertTrue(P\Is::pending($p));
 
         $this->expectException(ClientException::class);
-        $this->expectExceptionMessage(\sprintf("Client error: `GET http://foo.com` resulted in a `400 Bad Request` response:\n%s (truncated...)", str_repeat('a', 120)));
+        $this->expectExceptionMessage(\sprintf('Client error: `GET http://foo.com` resulted in a `400 Bad Request` response: %s (truncated...)', str_repeat('a', 120)));
         $p->wait();
     }
 
-    public function testThrowsExceptionOnHttpClientErrorLongBody()
+    public function testThrowsExceptionOnHttpClientErrorLongBody(): void
     {
         $m = Middleware::httpErrors(new BodySummarizer(200));
         $h = new MockHandler([new Response(404, [], str_repeat('b', 1000))]);
@@ -66,11 +69,11 @@ class MiddlewareTest extends TestCase
         self::assertTrue(P\Is::pending($p));
 
         $this->expectException(ClientException::class);
-        $this->expectExceptionMessage(\sprintf("Client error: `GET http://foo.com` resulted in a `404 Not Found` response:\n%s (truncated...)", str_repeat('b', 200)));
+        $this->expectExceptionMessage(\sprintf('Client error: `GET http://foo.com` resulted in a `404 Not Found` response: %s (truncated...)', str_repeat('b', 200)));
         $p->wait();
     }
 
-    public function testThrowsExceptionOnHttpServerError()
+    public function testThrowsExceptionOnHttpServerError(): void
     {
         $m = Middleware::httpErrors();
         $h = new MockHandler([new Response(500, [], 'Oh no!')]);
@@ -79,14 +82,16 @@ class MiddlewareTest extends TestCase
         self::assertTrue(P\Is::pending($p));
 
         $this->expectException(ServerException::class);
-        $this->expectExceptionMessage("GET http://foo.com` resulted in a `500 Internal Server Error` response:\nOh no!");
+        $this->expectExceptionMessage('GET http://foo.com` resulted in a `500 Internal Server Error` response: Oh no!');
         $p->wait();
     }
 
     /**
      * @dataProvider getHistoryUseCases
+     *
+     * @param array|\ArrayObject $container
      */
-    public function testTracksHistory($container)
+    public function testTracksHistory($container): void
     {
         $m = Middleware::history($container);
         $h = new MockHandler([new Response(200), new Response(201)]);
@@ -107,7 +112,7 @@ class MiddlewareTest extends TestCase
     /**
      * As documented in Middleware::history parameter phpdoc.
      */
-    public function testNullContainerException()
+    public function testNullContainerException(): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
@@ -115,7 +120,7 @@ class MiddlewareTest extends TestCase
         Middleware::history($nullContainer);
     }
 
-    public static function getHistoryUseCases()
+    public static function getHistoryUseCases(): array
     {
         return [
             [[]],                // 1. Container is an array
@@ -123,7 +128,7 @@ class MiddlewareTest extends TestCase
         ];
     }
 
-    public function testTracksHistoryForFailures()
+    public function testTracksHistoryForFailures(): void
     {
         $container = [];
         $m = Middleware::history($container);
@@ -136,11 +141,11 @@ class MiddlewareTest extends TestCase
         self::assertInstanceOf(RequestException::class, $container[0]['error']);
     }
 
-    public function testTapsBeforeAndAfter()
+    public function testTapsBeforeAndAfter(): void
     {
         $calls = [];
-        $m = static function ($handler) use (&$calls) {
-            return static function ($request, $options) use ($handler, &$calls) {
+        $m = static function (callable $handler) use (&$calls): callable {
+            return static function (RequestInterface $request, array $options) use ($handler, &$calls): PromiseInterface {
                 $calls[] = '2';
 
                 return $handler($request, $options);
@@ -148,10 +153,10 @@ class MiddlewareTest extends TestCase
         };
 
         $m2 = Middleware::tap(
-            static function (RequestInterface $request, array $options) use (&$calls) {
+            static function (RequestInterface $request, array $options) use (&$calls): void {
                 $calls[] = '1';
             },
-            static function (RequestInterface $request, array $options, PromiseInterface $p) use (&$calls) {
+            static function (RequestInterface $request, array $options, PromiseInterface $p) use (&$calls): void {
                 $calls[] = '3';
             }
         );
@@ -167,17 +172,17 @@ class MiddlewareTest extends TestCase
         self::assertSame(200, $p->wait()->getStatusCode());
     }
 
-    public function testMapsRequest()
+    public function testMapsRequest(): void
     {
         $h = new MockHandler([
-            static function (RequestInterface $request, array $options) {
+            static function (RequestInterface $request, array $options): ResponseInterface {
                 self::assertSame('foo', $request->getHeaderLine('Bar'));
 
                 return new Response(200);
             },
         ]);
         $stack = new HandlerStack($h);
-        $stack->push(Middleware::mapRequest(static function (RequestInterface $request) {
+        $stack->push(Middleware::mapRequest(static function (RequestInterface $request): RequestInterface {
             return $request->withHeader('Bar', 'foo');
         }));
         $comp = $stack->resolve();
@@ -185,11 +190,11 @@ class MiddlewareTest extends TestCase
         self::assertInstanceOf(PromiseInterface::class, $p);
     }
 
-    public function testMapsResponse()
+    public function testMapsResponse(): void
     {
         $h = new MockHandler([new Response(200)]);
         $stack = new HandlerStack($h);
-        $stack->push(Middleware::mapResponse(static function (ResponseInterface $response) {
+        $stack->push(Middleware::mapResponse(static function (ResponseInterface $response): ResponseInterface {
             return $response->withHeader('Bar', 'foo');
         }));
         $comp = $stack->resolve();
@@ -198,7 +203,7 @@ class MiddlewareTest extends TestCase
         self::assertSame('foo', $p->wait()->getHeaderLine('Bar'));
     }
 
-    public function testLogsRequestsAndResponses()
+    public function testLogsRequestsAndResponses(): void
     {
         $h = new MockHandler([new Response(200)]);
         $stack = new HandlerStack($h);
@@ -212,7 +217,7 @@ class MiddlewareTest extends TestCase
         self::assertStringContainsString('"PUT / HTTP/1.1" 200', $logger->records[0]['message']);
     }
 
-    public function testLogsRequestsAndResponsesCustomLevel()
+    public function testLogsRequestsAndResponsesCustomLevel(): void
     {
         $h = new MockHandler([new Response(200)]);
         $stack = new HandlerStack($h);
@@ -227,7 +232,31 @@ class MiddlewareTest extends TestCase
         self::assertSame('debug', $logger->records[0]['level']);
     }
 
-    public function testLogsRequestsAndErrors()
+    public function testLogsWithCustomMessageFormatterInterface(): void
+    {
+        $h = new MockHandler([new Response(201)]);
+        $stack = new HandlerStack($h);
+        $logger = new TestLogger();
+        $formatter = new class implements MessageFormatterInterface {
+            public function format(
+                RequestInterface $request,
+                ?ResponseInterface $response = null,
+                ?\Throwable $error = null
+            ): string {
+                return $request->getMethod().' '.($response ? $response->getStatusCode() : 'NULL');
+            }
+        };
+
+        $stack->push(Middleware::log($logger, $formatter));
+        $comp = $stack->resolve();
+        $p = $comp(new Request('PUT', 'http://www.google.com'), []);
+        $p->wait();
+
+        self::assertCount(1, $logger->records);
+        self::assertSame('PUT 201', $logger->records[0]['message']);
+    }
+
+    public function testLogsRequestsAndErrors(): void
     {
         $h = new MockHandler([new Response(404)]);
         $stack = new HandlerStack($h);
@@ -243,7 +272,7 @@ class MiddlewareTest extends TestCase
         self::assertStringContainsString('404 Not Found', $logger->records[0]['message']);
     }
 
-    public function testLogsWithStringError()
+    public function testLogsWithStringError(): void
     {
         $h = new MockHandler([P\Create::rejectionFor('some problem')]);
         $stack = new HandlerStack($h);

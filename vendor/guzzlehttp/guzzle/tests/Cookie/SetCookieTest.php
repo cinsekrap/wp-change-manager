@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests\Cookie;
 
 use GuzzleHttp\Cookie\SetCookie;
@@ -10,19 +12,25 @@ use PHPUnit\Framework\TestCase;
  */
 class SetCookieTest extends TestCase
 {
-    public function testInitializesDefaultValues()
+    public function testInitializesDefaultValues(): void
     {
         $cookie = new SetCookie();
         self::assertSame('/', $cookie->getPath());
     }
 
-    public function testConvertsDateTimeMaxAgeToUnixTimestamp()
+    public function testConvertsDateTimeMaxAgeToUnixTimestamp(): void
     {
         $cookie = new SetCookie(['Expires' => 'November 20, 1984']);
         self::assertIsInt($cookie->getExpires());
     }
 
-    public function testUnparseableExpiresBecomesNull()
+    public function testIgnoresInvalidExpiresValue(): void
+    {
+        $cookie = new SetCookie(['Expires' => 'not a date']);
+        self::assertNull($cookie->getExpires());
+    }
+
+    public function testUnparseableExpiresBecomesNull(): void
     {
         $cookie = new SetCookie();
         $cookie->setExpires('this-is-not-a-date');
@@ -31,7 +39,7 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->isExpired(), 'an unparseable Expires must not make the cookie permanently expired');
     }
 
-    public function testUnparseableExpiresFromStringBecomesNull()
+    public function testUnparseableExpiresFromStringBecomesNull(): void
     {
         $cookie = SetCookie::fromString('foo=bar; Expires=garbage');
 
@@ -39,14 +47,19 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->isExpired());
     }
 
-    public function testAddsExpiresBasedOnMaxAge()
+    public function testAddsExpiresBasedOnMaxAge(): void
     {
-        $t = \time();
+        $before = \time();
         $cookie = new SetCookie(['Max-Age' => 100]);
-        self::assertEquals($t + 100, $cookie->getExpires());
+        $after = \time();
+        $expires = $cookie->getExpires();
+
+        self::assertIsInt($expires);
+        self::assertGreaterThanOrEqual($before + 100, $expires);
+        self::assertLessThanOrEqual($after + 100, $expires);
     }
 
-    public function testMaxAgeZeroExpiresCookie()
+    public function testMaxAgeZeroExpiresCookie(): void
     {
         $cookie = SetCookie::fromString('sid=abc; Max-Age=0');
 
@@ -54,49 +67,65 @@ class SetCookieTest extends TestCase
         self::assertTrue($cookie->isExpired());
     }
 
-    public function testNegativeMaxAgeExpiresCookie(): void
+    public function testMaxAgeOverridesFutureExpires(): void
     {
-        $cookie = SetCookie::fromString('sid=abc; Max-Age=-1');
+        $cookie = SetCookie::fromString('sid=abc; Expires=Wed, 21 Oct 2037 07:28:00 GMT; Max-Age=0');
+
+        self::assertSame(0, $cookie->getMaxAge());
+        self::assertTrue($cookie->isExpired());
+    }
+
+    public function testNegativeMaxAgeOverridesFutureExpires(): void
+    {
+        $cookie = SetCookie::fromString('sid=abc; Expires=Wed, 21 Oct 2037 07:28:00 GMT; Max-Age=-1');
 
         self::assertSame(-1, $cookie->getMaxAge());
         self::assertTrue($cookie->isExpired());
     }
 
-    public function testMaxAgeZeroDoesNotOverrideFutureExpires(): void
+    public function testParsesMinimumMaxAge(): void
     {
-        $expires = \gmdate('D, d M Y H:i:s \G\M\T', \time() + 3600);
-        $cookie = SetCookie::fromString('sid=abc; Max-Age=0; Expires='.$expires);
+        $cookie = SetCookie::fromString('sid=abc; Max-Age='.\PHP_INT_MIN);
 
-        self::assertSame(0, $cookie->getMaxAge());
-        self::assertFalse($cookie->isExpired());
+        self::assertSame(\PHP_INT_MIN, $cookie->getMaxAge());
+        self::assertTrue($cookie->isExpired());
+
+        // Guard the <= 0 branch: this must use now - 1, not now + Max-Age.
+        self::assertGreaterThan(0, $cookie->getExpires());
+        self::assertLessThanOrEqual(\time(), $cookie->getExpires());
     }
 
-    public function testFractionalMaxAgeIsParsedAsInteger(): void
+    public function testFromStringTrimsOnlyRfc6265Whitespace(): void
     {
-        $cookie = SetCookie::fromString('foo=bar; Max-Age=1.5');
+        $cookie = SetCookie::fromString("\tfoo\t=\t\x0Bbar\x0B\t; \tPath\t=\t/p\t");
 
-        self::assertSame(1, $cookie->getMaxAge());
-        self::assertFalse($cookie->isExpired());
+        self::assertSame('foo', $cookie->getName());
+        self::assertSame("\x0Bbar\x0B", $cookie->getValue());
+        self::assertSame('/p', $cookie->getPath());
     }
 
-    public function testClampsMaxAgeThatWouldOverflowExpiry(): void
+    public function testFromStringIgnoresValuelessTypedAttributes(): void
     {
-        $cookie = SetCookie::fromString('sid=v; Max-Age='.\PHP_INT_MAX);
+        $cookie = SetCookie::fromString('foo=bar; Domain; Path; Expires; Max-Age; Value; Secure');
 
-        self::assertSame(\PHP_INT_MAX, $cookie->getMaxAge());
-        self::assertSame(\PHP_INT_MAX, $cookie->getExpires());
-        self::assertFalse($cookie->isExpired());
+        self::assertSame('foo', $cookie->getName());
+        self::assertSame('bar', $cookie->getValue());
+        self::assertNull($cookie->getDomain());
+        self::assertSame('/', $cookie->getPath());
+        self::assertNull($cookie->getExpires());
+        self::assertNull($cookie->getMaxAge());
+        self::assertTrue($cookie->getSecure());
     }
 
-    public function testHoldsValues()
+    public function testHoldsValues(): void
     {
-        $t = \time();
+        $before = \time();
         $data = [
             'Name' => 'foo',
             'Value' => 'baz',
             'Path' => '/bar',
             'Domain' => 'baz.com',
-            'Expires' => $t,
+            'Expires' => $before,
             'Max-Age' => 100,
             'Secure' => true,
             'Discard' => true,
@@ -106,13 +135,22 @@ class SetCookieTest extends TestCase
         ];
 
         $cookie = new SetCookie($data);
-        self::assertEquals($data, $cookie->toArray());
+        $after = \time();
+        $expires = $cookie->getExpires();
+
+        self::assertIsInt($expires);
+        self::assertGreaterThanOrEqual($before + 100, $expires);
+        self::assertLessThanOrEqual($after + 100, $expires);
+
+        $expected = $data;
+        $expected['Expires'] = $expires;
+        self::assertEquals($expected, $cookie->toArray());
 
         self::assertSame('foo', $cookie->getName());
         self::assertSame('baz', $cookie->getValue());
         self::assertSame('baz.com', $cookie->getDomain());
         self::assertSame('/bar', $cookie->getPath());
-        self::assertSame($t, $cookie->getExpires());
+        self::assertSame($expires, $cookie->getExpires());
         self::assertSame(100, $cookie->getMaxAge());
         self::assertTrue($cookie->getSecure());
         self::assertTrue($cookie->getDiscard());
@@ -141,7 +179,128 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->getHttpOnly());
     }
 
-    public function testDeterminesIfExpired()
+    /**
+     * @dataProvider invalidCookieFieldProvider
+     *
+     * @param mixed[] $data
+     */
+    public function testRejectsInvalidCookieFieldTypes(array $data): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new SetCookie($data);
+    }
+
+    public static function invalidCookieFieldProvider(): array
+    {
+        return [
+            [['Name' => false]],
+            [['Value' => false]],
+            [['Domain' => false]],
+            [['Path' => false]],
+            [['Max-Age' => '10']],
+            [['Expires' => false]],
+            [['Secure' => 'true']],
+            [['Discard' => 'true']],
+            [['HttpOnly' => 'true']],
+            [['HostOnly' => 'true']],
+        ];
+    }
+
+    public function testAllowsZeroNameAndValue(): void
+    {
+        $cookie = new SetCookie([
+            'Name' => '0',
+            'Value' => '0',
+            'Domain' => 'example.com',
+        ]);
+
+        self::assertSame('0', $cookie->getName());
+        self::assertSame('0', $cookie->getValue());
+    }
+
+    public function testFromStringStillNormalizesFlagsAndMaxAge(): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Max-Age=10; Secure; HttpOnly');
+
+        self::assertSame(10, $cookie->getMaxAge());
+        self::assertTrue($cookie->getSecure());
+        self::assertTrue($cookie->getHttpOnly());
+    }
+
+    /**
+     * @dataProvider floatLikeMaxAgeProvider
+     */
+    public function testIgnoresFloatLikeMaxAge(string $maxAge): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Max-Age='.$maxAge.'; Expires=Wed, 21 Oct 2037 07:28:00 GMT');
+
+        self::assertNull($cookie->getMaxAge());
+        self::assertFalse($cookie->isExpired());
+    }
+
+    public static function floatLikeMaxAgeProvider(): array
+    {
+        return [
+            ['0.5'],
+            ['1.5'],
+            ['1e3'],
+            ['5.'],
+            ['.5'],
+        ];
+    }
+
+    /**
+     * @dataProvider integerMaxAgeProvider
+     */
+    public function testAcceptsIntegerMaxAgeSyntax(string $maxAge, ?int $expected): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Max-Age='.$maxAge);
+
+        self::assertSame($expected, $cookie->getMaxAge());
+    }
+
+    public static function integerMaxAgeProvider(): array
+    {
+        return [
+            ['10', 10],
+            ['+5', 5],
+            ['-3', -3],
+            ['999999999999999999999999', null],
+        ];
+    }
+
+    public function testSetExpiresStillParsesFloatLikeNumericString(): void
+    {
+        $cookie = new SetCookie();
+        $cookie->setExpires('1.5');
+
+        self::assertSame(1, $cookie->getExpires());
+    }
+
+    public function testIgnoresHugeMaxAge(): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Max-Age=999999999999999999999999');
+
+        self::assertNull($cookie->getMaxAge());
+    }
+
+    public function testClampsMaxAgeThatWouldOverflowExpiry(): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Max-Age='.\PHP_INT_MAX);
+
+        self::assertSame(\PHP_INT_MAX, $cookie->getMaxAge());
+        self::assertSame(\PHP_INT_MAX, $cookie->getExpires());
+    }
+
+    public function testIgnoresHugeNumericExpires(): void
+    {
+        $cookie = SetCookie::fromString('foo=bar; Expires=999999999999999999999999');
+
+        self::assertNull($cookie->getExpires());
+    }
+
+    public function testDeterminesIfExpired(): void
     {
         $c = new SetCookie();
         $c->setExpires(10);
@@ -150,10 +309,63 @@ class SetCookieTest extends TestCase
         self::assertFalse($c->isExpired());
     }
 
-    public function testMatchesDomain()
+    public function testMatchesIpv6DomainsAcrossSpellings(): void
+    {
+        $cookie = new SetCookie(['Domain' => '[2001:0DB8:0:0:0:0:0:1]']);
+        self::assertSame('[2001:db8::1]', $cookie->getDomain());
+        self::assertTrue($cookie->matchesDomain('[2001:0db8::1]'));
+        self::assertTrue($cookie->matchesDomain('[2001:db8::1]'));
+        self::assertFalse($cookie->matchesDomain('[2001:db8::2]'));
+    }
+
+    public function testMatchesBareIpv6DomainsAcrossSpellings(): void
+    {
+        $cookie = new SetCookie(['Domain' => '2001:0DB8:0:0:0:0:0:1']);
+        self::assertSame('2001:db8::1', $cookie->getDomain());
+        self::assertTrue($cookie->matchesDomain('2001:0db8::1'));
+        self::assertFalse($cookie->matchesDomain('[2001:db8::1]'));
+        self::assertFalse($cookie->matchesDomain('2001:db8::2'));
+
+        $cookie->setDomain('2001:0DB8::2');
+        self::assertSame('2001:db8::2', $cookie->getDomain());
+    }
+
+    public function testZoneBearingIpv6DomainsMatchExactTextOnly(): void
+    {
+        $cookie = new SetCookie(['Domain' => '[fe80::1%25eth0]']);
+        self::assertTrue($cookie->matchesDomain('[fe80::1%25ETH0]'));
+        self::assertFalse($cookie->matchesDomain('[fe80::1]'));
+        self::assertFalse($cookie->matchesDomain('x.[fe80::1%25eth0]'));
+    }
+
+    public function testLiteralLikeDomainsDoNotSuffixMatch(): void
+    {
+        $ipvFuture = new SetCookie(['Domain' => '[v1.AB]']);
+        self::assertTrue($ipvFuture->matchesDomain('[v1.ab]'));
+        self::assertFalse($ipvFuture->matchesDomain('x.[v1.ab]'));
+
+        $malformed = new SetCookie(['Domain' => '[::1']);
+        self::assertTrue($malformed->matchesDomain('[::1'));
+        self::assertFalse($malformed->matchesDomain('x.[::1'));
+
+        $bareZoned = new SetCookie(['Domain' => 'fe80::1%eth0']);
+        self::assertTrue($bareZoned->matchesDomain('FE80::1%ETH0'));
+        self::assertFalse($bareZoned->matchesDomain('x.fe80::1%eth0'));
+    }
+
+    public function testInvalidRequestHostsDoNotSuffixMatch(): void
+    {
+        $cookie = new SetCookie(['Domain' => 'example.com']);
+        self::assertTrue($cookie->matchesDomain('www.example.com'));
+        self::assertFalse($cookie->matchesDomain('[v1.ab].example.com'));
+        self::assertFalse($cookie->matchesDomain('fe80::1.example.com'));
+        self::assertFalse($cookie->matchesDomain("evil\t.example.com"));
+    }
+
+    public function testMatchesDomain(): void
     {
         $cookie = new SetCookie();
-        self::assertTrue($cookie->matchesDomain('baz.com'));
+        self::assertFalse($cookie->matchesDomain('baz.com'));
 
         $cookie->setDomain('baz.com');
         self::assertTrue($cookie->matchesDomain('baz.com'));
@@ -165,6 +377,11 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('baz.bar.com'));
         self::assertTrue($cookie->matchesDomain('baz.com'));
         self::assertFalse($cookie->matchesDomain("foo.baz.com\n"));
+
+        $cookie->setDomain('..example.com');
+        self::assertSame('.example.com', $cookie->getDomain());
+        self::assertFalse($cookie->matchesDomain('example.com'));
+        self::assertFalse($cookie->matchesDomain('sub.example.com'));
 
         $cookie->setDomain('.127.0.0.1');
         self::assertTrue($cookie->matchesDomain('127.0.0.1'));
@@ -180,44 +397,9 @@ class SetCookieTest extends TestCase
 
         $cookie->setDomain('example.com/'); // malformed domain
         self::assertFalse($cookie->matchesDomain('example.com'));
-
-        $cookie->setDomain('..example.com');
-        self::assertFalse($cookie->matchesDomain('example.com'));
-        self::assertFalse($cookie->matchesDomain('sub.example.com'));
     }
 
-    public function testHostOnlyCookieOnlyMatchesAndRendersExactDomain(): void
-    {
-        $cookie = new SetCookie([
-            'Name' => 'sid',
-            'Value' => 'abc',
-            'Domain' => 'example.com',
-            'HostOnly' => true,
-        ]);
-
-        self::assertTrue($cookie->matchesDomain('EXAMPLE.COM'));
-        self::assertFalse($cookie->matchesDomain('www.example.com'));
-        self::assertSame('sid=abc; Path=/', (string) $cookie);
-        self::assertTrue($cookie->toArray()['HostOnly']);
-    }
-
-    public function testIgnoresHostOnlySetCookieExtension(): void
-    {
-        $cookie = SetCookie::fromString('sid=abc; hOsToNlY; Domain=example.com');
-
-        self::assertFalse($cookie->getHostOnly());
-        self::assertArrayNotHasKey('HostOnly', $cookie->toArray());
-    }
-
-    public function testRejectsInvalidHostOnlyConstructorMetadata(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cookie field "HostOnly" must be a boolean');
-
-        new SetCookie(['HostOnly' => 'true']);
-    }
-
-    public function testIpLiteralDomainIsExactMatchOnly()
+    public function testIpLiteralDomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '192.168.0.1', 'Path' => '/']);
 
@@ -226,7 +408,7 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('10.192.168.0.1'));
     }
 
-    public function testBareNumericDomainIsExactMatchOnly()
+    public function testBareNumericDomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '1', 'Path' => '/']);
 
@@ -234,28 +416,27 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('evil.1'));
     }
 
-    public function testNumericDomainInAnyBaseIsExactMatchOnly()
+    public function testHexadecimalNumericDomainsAreExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0x7f000001', 'Path' => '/']);
 
         self::assertTrue($cookie->matchesDomain('0x7f000001'));
         self::assertFalse($cookie->matchesDomain('evil.0x7f000001'));
 
-        $mixed = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0177.0.0.0x1', 'Path' => '/']);
+        $dotted = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0177.0.0.0x1', 'Path' => '/']);
 
-        self::assertTrue($mixed->matchesDomain('0177.0.0.0x1'));
-        self::assertFalse($mixed->matchesDomain('evil.0177.0.0.0x1'));
+        self::assertTrue($dotted->matchesDomain('0177.0.0.0x1'));
+        self::assertFalse($dotted->matchesDomain('evil.0177.0.0.0x1'));
     }
 
-    public function testOutOfRangeNumericDomainIsExactMatchOnly()
+    public function testNonNumericHexPrefixedDomainsKeepSuffixMatching(): void
     {
-        $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0x100000000', 'Path' => '/']);
+        $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0xname', 'Path' => '/']);
 
-        self::assertTrue($cookie->matchesDomain('0x100000000'));
-        self::assertFalse($cookie->matchesDomain('evil.0x100000000'));
+        self::assertTrue($cookie->matchesDomain('sub.0xname'));
     }
 
-    public function testPercentEscapedDomainIsExactMatchOnly()
+    public function testPercentEscapedDomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '192.168.0.%31', 'Path' => '/']);
 
@@ -268,18 +449,7 @@ class SetCookieTest extends TestCase
         self::assertFalse($whole->matchesDomain('evil.%30x7f000001'));
     }
 
-    public function testDomainWithANonNumericLabelStillMatchesSubdomains()
-    {
-        $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => 'svc.0xdeadbeef', 'Path' => '/']);
-
-        self::assertTrue($cookie->matchesDomain('a.svc.0xdeadbeef'));
-
-        $prefixed = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '0xname', 'Path' => '/']);
-
-        self::assertTrue($prefixed->matchesDomain('sub.0xname'));
-    }
-
-    public function testBareUnbracketedIpv6DomainIsExactMatchOnly()
+    public function testBareUnbracketedIpv6DomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '::1', 'Path' => '/']);
 
@@ -287,7 +457,7 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('evil.::1'));
     }
 
-    public function testBracketedIpv6DomainIsExactMatchOnly()
+    public function testBracketedIpv6DomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '[::1]', 'Path' => '/']);
 
@@ -295,7 +465,7 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('x.[::1]'));
     }
 
-    public function testLeadingDotIpDomainIsExactMatchOnly()
+    public function testLeadingDotIpDomainIsExactMatchOnly(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '.192.168.0.1', 'Path' => '/']);
 
@@ -303,28 +473,28 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('evil.192.168.0.1'));
     }
 
-    public function testRegistrableDomainStillMatchesSubdomains()
+    public function testRegistrableDomainStillMatchesSubdomains(): void
     {
         $cookie = new SetCookie(['Name' => 'a', 'Value' => 'b', 'Domain' => 'example.com', 'Path' => '/']);
 
         self::assertTrue($cookie->matchesDomain('sub.example.com'));
     }
 
-    public function testTrailingDotIpDomainIsNotSubdomainMatchable()
+    public function testTrailingDotIpDomainDoesNotLeak(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '192.168.0.1.', 'Path' => '/']);
 
         self::assertFalse($cookie->matchesDomain('evil.192.168.0.1.'));
     }
 
-    public function testTrailingDotBareNumericDomainIsNotSubdomainMatchable()
+    public function testTrailingDotBareNumericDomainDoesNotLeak(): void
     {
         $cookie = new SetCookie(['Name' => 'sid', 'Value' => 'v', 'Domain' => '1.', 'Path' => '/']);
 
         self::assertFalse($cookie->matchesDomain('evil.1.'));
     }
 
-    public static function dotOnlyDomainProvider()
+    public static function dotOnlyDomainProvider(): array
     {
         return [
             ['.'],
@@ -336,7 +506,7 @@ class SetCookieTest extends TestCase
     /**
      * @dataProvider dotOnlyDomainProvider
      */
-    public function testDoesNotMatchDotOnlyDomain($domain)
+    public function testDoesNotMatchDotOnlyDomain(string $domain): void
     {
         $cookie = new SetCookie([
             'Name' => 'sid',
@@ -347,7 +517,34 @@ class SetCookieTest extends TestCase
         self::assertFalse($cookie->matchesDomain('victim.com'));
     }
 
-    public static function pathMatchProvider()
+    public function testHostOnlyCookieOnlyMatchesExactDomain(): void
+    {
+        $cookie = new SetCookie([
+            'Name' => 'sid',
+            'Value' => 'abc',
+            'Domain' => 'example.com',
+            'HostOnly' => true,
+        ]);
+
+        self::assertTrue($cookie->matchesDomain('example.com'));
+        self::assertFalse($cookie->matchesDomain('foo.example.com'));
+        self::assertFalse($cookie->matchesDomain('not-example.com'));
+    }
+
+    public function testHostOnlyCookieMatchesIpExactly(): void
+    {
+        $cookie = new SetCookie([
+            'Name' => 'sid',
+            'Value' => 'abc',
+            'Domain' => '127.0.0.1',
+            'HostOnly' => true,
+        ]);
+
+        self::assertTrue($cookie->matchesDomain('127.0.0.1'));
+        self::assertFalse($cookie->matchesDomain('foo.127.0.0.1'));
+    }
+
+    public static function pathMatchProvider(): array
     {
         return [
             ['/foo', '/foo', true],
@@ -365,7 +562,7 @@ class SetCookieTest extends TestCase
             ['/foo/bar/', '/foo/bar', false],
             ['/foo/bar/', '/foo/bar/', true],
             ['/foo/bar/', '/foo/bar/baz', true],
-            ['0', '00', false],
+            ['0e0', '0', false],
             ['0', '0', true],
         ];
     }
@@ -373,14 +570,14 @@ class SetCookieTest extends TestCase
     /**
      * @dataProvider pathMatchProvider
      */
-    public function testMatchesPath($cookiePath, $requestPath, $isMatch)
+    public function testMatchesPath(string $cookiePath, string $requestPath, bool $isMatch): void
     {
         $cookie = new SetCookie();
         $cookie->setPath($cookiePath);
         self::assertSame($isMatch, $cookie->matchesPath($requestPath));
     }
 
-    public static function cookieValidateProvider()
+    public static function cookieValidateProvider(): array
     {
         return [
             ['foo', 'baz', 'bar', true],
@@ -400,8 +597,10 @@ class SetCookieTest extends TestCase
 
     /**
      * @dataProvider cookieValidateProvider
+     *
+     * @param bool|string $result
      */
-    public function testValidatesCookies($name, $value, $domain, $result)
+    public function testValidatesCookies(string $name, ?string $value, ?string $domain, $result): void
     {
         $cookie = new SetCookie([
             'Name' => $name,
@@ -411,13 +610,13 @@ class SetCookieTest extends TestCase
         self::assertSame($result, $cookie->validate());
     }
 
-    public function testDoesNotMatchIp()
+    public function testDoesNotMatchIp(): void
     {
         $cookie = new SetCookie(['Domain' => '192.168.16.']);
         self::assertFalse($cookie->matchesDomain('192.168.16.121'));
     }
 
-    public function testConvertsToString()
+    public function testConvertsToString(): void
     {
         $t = 1382916008;
         $cookie = new SetCookie([
@@ -435,7 +634,7 @@ class SetCookieTest extends TestCase
         );
     }
 
-    public function testConvertsToStringWithoutDomainAttribute()
+    public function testConvertsToStringWithoutDomainAttribute(): void
     {
         $cookie = new SetCookie([
             'Name' => 'test',
@@ -445,12 +644,42 @@ class SetCookieTest extends TestCase
         self::assertSame('test=123; Path=/', (string) $cookie);
     }
 
+    public function testConvertsHostOnlyCookieToStringWithoutDomainAttribute(): void
+    {
+        $cookie = new SetCookie([
+            'Name' => 'test',
+            'Value' => '123',
+            'Domain' => 'example.com',
+            'HostOnly' => true,
+        ]);
+
+        self::assertSame('test=123; Path=/', (string) $cookie);
+        self::assertTrue($cookie->toArray()['HostOnly']);
+    }
+
+    public function testIgnoresHostOnlySetCookieExtension(): void
+    {
+        $cookie = SetCookie::fromString('test=123; HostOnly; Domain=example.com');
+
+        self::assertFalse($cookie->getHostOnly());
+        self::assertArrayNotHasKey('HostOnly', $cookie->toArray());
+    }
+
+    public function testRejectsHostOnlyCookieWithoutDomain(): void
+    {
+        $cookie = new SetCookie([
+            'Name' => 'test',
+            'Value' => '123',
+            'HostOnly' => true,
+        ]);
+
+        self::assertSame('Host-only cookies must have a domain', $cookie->validate());
+    }
+
     /**
      * Provides the parsed information from a cookie
-     *
-     * @return array
      */
-    public static function cookieParserDataProvider()
+    public static function cookieParserDataProvider(): array
     {
         return [
             [
@@ -535,7 +764,7 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'expires',
                     'Value' => 'tomorrow',
-                    'Domain' => '.example.com',
+                    'Domain' => 'example.com',
                     'Path' => '/Space Out/',
                     'Expires' => 'Tue, 21-Nov-2006 08:33:44 GMT',
                     'Discard' => null,
@@ -563,7 +792,7 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'path',
                     'Value' => 'indexAction',
-                    'Domain' => '.foo.com',
+                    'Domain' => 'foo.com',
                     'Path' => '/',
                     'Expires' => 'Tue, 21-Nov-2006 08:33:44 GMT',
                     'Secure' => false,
@@ -581,7 +810,6 @@ class SetCookieTest extends TestCase
                     'Path' => '/',
                     'Secure' => true,
                     'Discard' => null,
-                    'Expires' => \time() + 86400,
                     'Max-Age' => 86400,
                     'HttpOnly' => false,
                     'version' => '1',
@@ -592,7 +820,7 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'PHPSESSID',
                     'Value' => '123456789+abcd%2Cef',
-                    'Domain' => '.localdomain',
+                    'Domain' => 'localdomain',
                     'Path' => '/foo/baz',
                     'Expires' => 'Tue, 21-Nov-2006 08:33:44 GMT',
                     'Secure' => true,
@@ -606,7 +834,7 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'fr',
                     'Value' => 'synced',
-                    'Domain' => '.example.com',
+                    'Domain' => 'example.com',
                     'Path' => '/',
                     'Expires' => null,
                     'Secure' => true,
@@ -621,9 +849,8 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'SESS3a6f27284c4d8b34b6f4ff98cb87703e',
                     'Value' => 'Ts-5YeSyvOCMS%2CzkEb9eDfW4C4ZNFOcRYdu-3JpEAXIm58aH',
-                    'Domain' => '.example.com',
+                    'Domain' => 'example.com',
                     'Path' => '/',
-                    'Expires' => 'Wed, 07-Jun-2023 15:56:35 GMT',
                     'Secure' => false,
                     'Discard' => false,
                     'Max-Age' => 2000000,
@@ -636,7 +863,7 @@ class SetCookieTest extends TestCase
                 [
                     'Name' => 'SESS3a6f27284c4d8b34b6f4ff98cb87703e',
                     'Value' => 'Ts-5YeSyvOCMS%2CzkEb9eDfW4C4ZNFOcRYdu-3JpEAXIm58aH',
-                    'Domain' => '.example.com',
+                    'Domain' => 'example.com',
                     'Path' => '/',
                     'Expires' => 'Wed, 07-Jun-2023 15:56:35 GMT',
                     'Secure' => false,
@@ -651,17 +878,30 @@ class SetCookieTest extends TestCase
 
     /**
      * @dataProvider cookieParserDataProvider
+     *
+     * @param string|string[] $cookie
+     * @param mixed[]         $parsed
      */
-    public function testParseCookie($cookie, $parsed)
+    public function testParseCookie($cookie, array $parsed): void
     {
         foreach ((array) $cookie as $v) {
+            $before = \time();
             $c = SetCookie::fromString($v);
+            $after = \time();
             $p = $c->toArray();
 
             if (isset($p['Expires'])) {
-                $delta = 40;
-                $parsedExpires = \is_numeric($parsed['Expires']) ? $parsed['Expires'] : \strtotime($parsed['Expires']);
-                self::assertLessThan($delta, \abs($p['Expires'] - $parsedExpires), 'Comparing Expires '.\var_export($p['Expires'], true).' : '.\var_export($parsed, true).' | '.\var_export($p, true));
+                $maxAge = $parsed['Max-Age'] ?? null;
+                $message = 'Comparing Expires '.\var_export($p['Expires'], true).' : '.\var_export($parsed, true).' | '.\var_export($p, true);
+
+                if (\is_int($maxAge)) {
+                    self::assertGreaterThanOrEqual($before + $maxAge, $p['Expires'], $message);
+                    self::assertLessThanOrEqual($after + $maxAge, $p['Expires'], $message);
+                } else {
+                    $parsedExpires = \is_numeric($parsed['Expires']) ? (int) $parsed['Expires'] : \strtotime($parsed['Expires']);
+                    self::assertSame($parsedExpires, $p['Expires'], $message);
+                }
+
                 unset($p['Expires']);
                 unset($parsed['Expires']);
             }
@@ -691,10 +931,8 @@ class SetCookieTest extends TestCase
 
     /**
      * Provides the data for testing isExpired
-     *
-     * @return array
      */
-    public static function isExpiredProvider()
+    public static function isExpiredProvider(): array
     {
         return [
             [
@@ -706,11 +944,11 @@ class SetCookieTest extends TestCase
                 true,
             ],
             [
-                'FOO=bar; expires='.\gmdate('D, d M Y H:i:s \G\M\T', \time() + 3600).';',
+                'FOO=bar; Max-Age=3600;',
                 false,
             ],
             [
-                'FOO=bar; expires='.\gmdate('D, d M Y H:i:s \G\M\T', \time() - 30).';',
+                'FOO=bar; Max-Age=0;',
                 true,
             ],
             [
@@ -723,7 +961,7 @@ class SetCookieTest extends TestCase
     /**
      * @dataProvider isExpiredProvider
      */
-    public function testIsExpired($cookie, $expired)
+    public function testIsExpired(string $cookie, bool $expired): void
     {
         self::assertSame(
             $expired,

@@ -742,6 +742,7 @@ class TestKernel implements HttpKernelInterface
     }
 }
 
+
 class CustomProjectDirKernel extends Kernel implements WarmableInterface
 {
     public bool $warmedUp = false;

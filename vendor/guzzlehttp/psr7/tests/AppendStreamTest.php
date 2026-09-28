@@ -148,6 +148,16 @@ class AppendStreamTest extends TestCase
         self::assertTrue($stream->eof());
     }
 
+    public function testReadRejectsNegativeLength(): void
+    {
+        $stream = new AppendStream();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $stream->read(-1);
+    }
+
     public function testReadAfterCloseReturnsEmptyString(): void
     {
         $stream = new AppendStream([Psr7\Utils::streamFor('foo')]);
@@ -186,6 +196,115 @@ class AppendStreamTest extends TestCase
         self::assertSame('foobarbaz', (string) $a);
     }
 
+    public function testReadThrowsWhenCurrentStreamTimesOut(): void
+    {
+        $stream = new Psr7\FnStream([
+            'isReadable' => function (): bool {
+                return true;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+            'read' => function (): string {
+                return '';
+            },
+            'getMetadata' => function (?string $key = null) {
+                return $key === 'timed_out' ? true : null;
+            },
+        ]);
+        $a = new AppendStream([$stream]);
+
+        $this->expectException(Psr7\Exception\TimeoutException::class);
+        $this->expectExceptionMessage('Unable to read from stream: timed out');
+
+        $a->read(1);
+    }
+
+    public function testReadAdvancesPastCurrentStreamWhenMetadataProbeFails(): void
+    {
+        $stream = new Psr7\FnStream([
+            'isReadable' => function (): bool {
+                return true;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+            'read' => function (): string {
+                return '';
+            },
+            'getMetadata' => function (): void {
+                throw new \RuntimeException('metadata failed');
+            },
+        ]);
+        $a = new AppendStream([$stream, Psr7\Utils::streamFor('foo')]);
+
+        self::assertSame('foo', $a->read(3));
+    }
+
+    public function testReadPreservesCurrentStreamExceptionWhenMetadataProbeFails(): void
+    {
+        $stream = new Psr7\FnStream([
+            'isReadable' => function (): bool {
+                return true;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+            'read' => function (): string {
+                throw new \RuntimeException('read failed');
+            },
+            'getMetadata' => function (): void {
+                throw new \RuntimeException('metadata failed');
+            },
+        ]);
+        $a = new AppendStream([$stream]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('read failed');
+
+        $a->read(1);
+    }
+
+    public function testReadThrowsTimeoutWhenCurrentStreamExceptionTimesOut(): void
+    {
+        $stream = new Psr7\FnStream([
+            'isReadable' => function (): bool {
+                return true;
+            },
+            'isSeekable' => function (): bool {
+                return false;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+            'read' => function (): string {
+                throw new \RuntimeException('read failed');
+            },
+            'getMetadata' => function (?string $key = null) {
+                return $key === 'timed_out' ? true : null;
+            },
+        ]);
+        $a = new AppendStream([$stream]);
+
+        try {
+            $a->read(1);
+            self::fail('Expected timeout exception');
+        } catch (Psr7\Exception\TimeoutException $e) {
+            self::assertSame('Unable to read from stream: timed out', $e->getMessage());
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertSame('read failed', $e->getPrevious()->getMessage());
+        }
+    }
+
     public function testCanDetermineSizeFromMultipleStreams(): void
     {
         $a = new AppendStream([
@@ -205,10 +324,27 @@ class AppendStreamTest extends TestCase
         self::assertNull($a->getSize());
     }
 
-    /**
-     * @requires PHP < 7.4
-     */
-    public function testCatchesExceptionsWhenCastingToString(): void
+    public function testGetSizeThrowsWhenCombinedSizeOverflows(): void
+    {
+        $first = $this->createMock(StreamInterface::class);
+        $first->method('isReadable')->willReturn(true);
+        $first->method('isSeekable')->willReturn(true);
+        $first->method('getSize')->willReturn(\PHP_INT_MAX);
+
+        $second = $this->createMock(StreamInterface::class);
+        $second->method('isReadable')->willReturn(true);
+        $second->method('isSeekable')->willReturn(true);
+        $second->method('getSize')->willReturn(1);
+
+        $stream = new AppendStream([$first, $second]);
+
+        $this->expectException(\OverflowException::class);
+        $this->expectExceptionMessage('Stream byte count exceeds the maximum integer size supported on this platform');
+
+        $stream->getSize();
+    }
+
+    public function testThrowsExceptionsWhenCastingToString(): void
     {
         $s = $this->createMock(StreamInterface::class);
         $s->expects(self::once())
@@ -226,19 +362,10 @@ class AppendStreamTest extends TestCase
         $a = new AppendStream([$s]);
         self::assertFalse($a->eof());
 
-        $errors = [];
-        set_error_handler(static function (int $errorNumber, string $errorMessage) use (&$errors): bool {
-            $errors[] = ['number' => $errorNumber, 'message' => $errorMessage];
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('foo');
 
-            return true;
-        });
         (string) $a;
-
-        restore_error_handler();
-
-        self::assertCount(1, $errors);
-        self::assertSame(E_USER_ERROR, $errors[0]['number']);
-        self::assertStringStartsWith('GuzzleHttp\Psr7\AppendStream::__toString exception:', $errors[0]['message']);
     }
 
     public function testReturnsEmptyMetadata(): void

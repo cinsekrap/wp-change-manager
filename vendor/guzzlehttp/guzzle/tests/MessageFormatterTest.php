@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests;
 
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\MessageFormatter;
 use GuzzleHttp\Psr7;
 use GuzzleHttp\Psr7\Request;
@@ -14,15 +16,21 @@ use PHPUnit\Framework\TestCase;
  */
 class MessageFormatterTest extends TestCase
 {
-    public function testCreatesWithClfByDefault()
+    public function testCreatesWithClfByDefault(): void
     {
-        $f = new MessageFormatter();
-        self::assertEquals(MessageFormatter::CLF, self::readTemplate($f));
-        $f = new MessageFormatter(null);
-        self::assertEquals(MessageFormatter::CLF, self::readTemplate($f));
+        $request = new Request('GET', 'http://example.com/foo', ['User-Agent' => 'Guzzle']);
+        $response = new Response(200, ['Content-Length' => '0']);
+        $format = static function (MessageFormatter $formatter) use ($request, $response): string {
+            return (string) \preg_replace('/\[[^\]]+\]/', '[date]', $formatter->format($request, $response));
+        };
+
+        $expected = $format(new MessageFormatter(MessageFormatter::CLF));
+
+        self::assertSame($expected, $format(new MessageFormatter()));
+        self::assertSame($expected, $format(new MessageFormatter(null)));
     }
 
-    public static function dateProvider()
+    public static function dateProvider(): array
     {
         return [
             ['{ts}', '/^[0-9]{4}\-[0-9]{2}\-[0-9]{2}/'],
@@ -34,25 +42,19 @@ class MessageFormatterTest extends TestCase
     /**
      * @dataProvider dateProvider
      */
-    public function testFormatsTimestamps(string $format, string $pattern)
+    public function testFormatsTimestamps(string $format, string $pattern): void
     {
         $f = new MessageFormatter($format);
         $request = new Request('GET', '/');
         $result = $f->format($request);
-        if (method_exists($this, 'assertMatchesRegularExpression')) {
-            // PHPUnit 9
-            self::assertMatchesRegularExpression($pattern, $result);
-        } else {
-            // PHPUnit 8
-            self::assertRegExp($pattern, $result);
-        }
+        self::assertMatchesRegularExpression($pattern, $result);
     }
 
-    public static function formatProvider()
+    public static function formatProvider(): array
     {
         $request = new Request('PUT', '/', ['x-test' => 'abc'], Psr7\Utils::streamFor('foo'));
         $response = new Response(200, ['X-Baz' => 'Bar'], Psr7\Utils::streamFor('baz'));
-        $err = new RequestException('Test', $request, $response);
+        $err = new ResponseException('Test', $request, $response);
 
         return [
             ['{request}', [$request], Psr7\Message::toString($request)],
@@ -91,19 +93,12 @@ class MessageFormatterTest extends TestCase
 
     /**
      * @dataProvider formatProvider
+     *
+     * @param mixed $result
      */
-    public function testFormatsMessages(string $template, array $args, $result)
+    public function testFormatsMessages(string $template, array $args, $result): void
     {
         $f = new MessageFormatter($template);
         self::assertSame((string) $result, $f->format(...$args));
-    }
-
-    private static function readTemplate(MessageFormatter $formatter): string
-    {
-        $readTemplate = \Closure::bind(static function (MessageFormatter $formatter): string {
-            return $formatter->template;
-        }, null, MessageFormatter::class);
-
-        return $readTemplate($formatter);
     }
 }

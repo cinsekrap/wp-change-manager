@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace GuzzleHttp\Tests\Psr7;
 
+use GuzzleHttp\Psr7\FnStream;
+use GuzzleHttp\Psr7\NoSeekStream;
 use GuzzleHttp\Psr7\Stream;
 use GuzzleHttp\Psr7\UploadedFile;
 use PHPUnit\Framework\TestCase;
@@ -14,7 +16,8 @@ use ReflectionProperty;
  */
 class UploadedFileTest extends TestCase
 {
-    private $cleanup;
+    /** @var list<string|false> */
+    private array $cleanup;
 
     protected function setUp(): void
     {
@@ -30,7 +33,7 @@ class UploadedFileTest extends TestCase
         }
     }
 
-    public static function invalidStreams()
+    public static function invalidStreams(): array
     {
         return [
             'null' => [null],
@@ -45,6 +48,8 @@ class UploadedFileTest extends TestCase
 
     /**
      * @dataProvider invalidStreams
+     *
+     * @param mixed $streamOrFile
      */
     public function testRaisesExceptionOnInvalidStreamOrFile($streamOrFile): void
     {
@@ -68,6 +73,14 @@ class UploadedFileTest extends TestCase
         $uploadStream = $upload->getStream()->detach();
 
         self::assertSame($stream, $uploadStream);
+    }
+
+    public function testRejectsNegativeSize(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Uploaded file size must be a non-negative integer or null');
+
+        new UploadedFile('not ok', -1, UPLOAD_ERR_NO_FILE);
     }
 
     public function testGetStreamReturnsStreamForFile(): void
@@ -99,31 +112,14 @@ class UploadedFileTest extends TestCase
         self::assertSame($stream->__toString(), file_get_contents($to));
     }
 
-    public static function invalidMovePaths(): iterable
-    {
-        return [
-            'null' => [null],
-            'true' => [true],
-            'false' => [false],
-            'int' => [1],
-            'float' => [1.1],
-            'empty' => [''],
-            'array' => [['filename']],
-            'object' => [(object) ['filename']],
-        ];
-    }
-
-    /**
-     * @dataProvider invalidMovePaths
-     */
-    public function testMoveRaisesExceptionForInvalidPath($path): void
+    public function testMoveRaisesExceptionForEmptyPath(): void
     {
         $stream = \GuzzleHttp\Psr7\Utils::streamFor('Foo bar!');
         $upload = new UploadedFile($stream, 0, UPLOAD_ERR_OK);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('path');
-        $upload->moveTo($path);
+        $upload->moveTo('');
     }
 
     public function testMoveCannotBeCalledMoreThanOnce(): void
@@ -170,7 +166,7 @@ class UploadedFileTest extends TestCase
     /**
      * @dataProvider nonOkErrorStatus
      */
-    public function testConstructorDoesNotRaiseExceptionForInvalidStreamWhenErrorStatusPresent($status): void
+    public function testConstructorDoesNotRaiseExceptionForInvalidStreamWhenErrorStatusPresent(int $status): void
     {
         $uploadedFile = new UploadedFile('not ok', 0, $status);
         self::assertSame($status, $uploadedFile->getError());
@@ -179,7 +175,7 @@ class UploadedFileTest extends TestCase
     /**
      * @dataProvider nonOkErrorStatus
      */
-    public function testMoveToRaisesExceptionWhenErrorStatusPresent($status): void
+    public function testMoveToRaisesExceptionWhenErrorStatusPresent(int $status): void
     {
         $uploadedFile = new UploadedFile('not ok', 0, $status);
         $this->expectException(\RuntimeException::class);
@@ -190,7 +186,7 @@ class UploadedFileTest extends TestCase
     /**
      * @dataProvider nonOkErrorStatus
      */
-    public function testGetStreamRaisesExceptionWhenErrorStatusPresent($status): void
+    public function testGetStreamRaisesExceptionWhenErrorStatusPresent(int $status): void
     {
         $uploadedFile = new UploadedFile('not ok', 0, $status);
         $this->expectException(\RuntimeException::class);
@@ -209,5 +205,116 @@ class UploadedFileTest extends TestCase
         $uploadedFile->moveTo($to);
 
         self::assertFileEquals(__FILE__, $to);
+    }
+
+    public function testMoveToMovesCompleteFileBackedUploadAfterReadingStream(): void
+    {
+        $this->cleanup[] = $from = tempnam(sys_get_temp_dir(), 'copy_from');
+        $this->cleanup[] = $to = tempnam(sys_get_temp_dir(), 'copy_to');
+        $contents = 'Foo bar!';
+
+        file_put_contents($from, $contents);
+
+        $uploadedFile = new UploadedFile($from, strlen($contents), UPLOAD_ERR_OK, basename($from), 'text/plain');
+        self::assertSame('Foo', $uploadedFile->getStream()->read(3));
+
+        $uploadedFile->moveTo($to);
+
+        self::assertFileExists($to);
+        self::assertSame($contents, file_get_contents($to));
+    }
+
+    public function testMoveToLeavesUploadActiveWhenTargetPathIsInvalid(): void
+    {
+        $stream = \GuzzleHttp\Psr7\Utils::streamFor('Foo bar!');
+        $uploadedFile = new UploadedFile($stream, $stream->getSize(), UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+
+        try {
+            $uploadedFile->moveTo('');
+            self::fail('Expected invalid target path exception');
+        } catch (\InvalidArgumentException $e) {
+            self::assertFalse($uploadedFile->isMoved());
+            self::assertSame($stream, $uploadedFile->getStream());
+        }
+    }
+
+    public function testMoveToLeavesUploadActiveWhenTargetCannotBeOpened(): void
+    {
+        $stream = \GuzzleHttp\Psr7\Utils::streamFor('Foo bar!');
+        $uploadedFile = new UploadedFile($stream, $stream->getSize(), UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+        $target = sys_get_temp_dir().'/missing-upload-dir-'.bin2hex(random_bytes(8)).'/target.txt';
+
+        try {
+            $uploadedFile->moveTo($target);
+            self::fail('Expected target open exception');
+        } catch (\RuntimeException $e) {
+            self::assertFalse($uploadedFile->isMoved());
+            self::assertSame($stream, $uploadedFile->getStream());
+            self::assertFileDoesNotExist($target);
+        }
+    }
+
+    public function testMoveToCopiesNonSeekableStreamBackedUploadFromCurrentPosition(): void
+    {
+        $stream = new NoSeekStream(\GuzzleHttp\Psr7\Utils::streamFor('Foo bar!'));
+        $uploadedFile = new UploadedFile($stream, null, UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+
+        self::assertSame('Foo ', $uploadedFile->getStream()->read(4));
+
+        $this->cleanup[] = $to = tempnam(sys_get_temp_dir(), 'non_seekable_upload');
+        $uploadedFile->moveTo($to);
+
+        self::assertSame('bar!', file_get_contents($to));
+    }
+
+    public function testMoveToCopiesCompleteSeekableStreamBackedUploadAfterPartialRead(): void
+    {
+        $stream = \GuzzleHttp\Psr7\Utils::streamFor('Foo bar!');
+        $uploadedFile = new UploadedFile($stream, $stream->getSize(), UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+
+        self::assertSame('Foo ', $uploadedFile->getStream()->read(4));
+
+        $this->cleanup[] = $to = tempnam(sys_get_temp_dir(), 'seekable_upload');
+        $uploadedFile->moveTo($to);
+
+        self::assertSame('Foo bar!', file_get_contents($to));
+    }
+
+    public function testMoveToCopiesCompleteSeekableStreamBackedUploadFromEnd(): void
+    {
+        $stream = \GuzzleHttp\Psr7\Utils::streamFor('Foo bar!');
+        $uploadedFile = new UploadedFile($stream, $stream->getSize(), UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+
+        self::assertSame('Foo bar!', $uploadedFile->getStream()->getContents());
+
+        $this->cleanup[] = $to = tempnam(sys_get_temp_dir(), 'seekable_upload');
+        $uploadedFile->moveTo($to);
+
+        self::assertSame('Foo bar!', file_get_contents($to));
+    }
+
+    public function testMoveToLeavesUploadActiveWhenSeekableStreamCannotRewind(): void
+    {
+        $stream = FnStream::decorate(\GuzzleHttp\Psr7\Utils::streamFor('Foo bar!'), [
+            'isSeekable' => function (): bool {
+                return true;
+            },
+            'rewind' => function (): void {
+                throw new \RuntimeException('Unable to rewind stream');
+            },
+        ]);
+        $uploadedFile = new UploadedFile($stream, 8, UPLOAD_ERR_OK, 'filename.txt', 'text/plain');
+        $this->cleanup[] = $to = tempnam(sys_get_temp_dir(), 'seekable_upload');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Unable to rewind stream');
+
+        try {
+            $uploadedFile->moveTo($to);
+        } catch (\RuntimeException $e) {
+            self::assertFalse($uploadedFile->isMoved());
+
+            throw $e;
+        }
     }
 }

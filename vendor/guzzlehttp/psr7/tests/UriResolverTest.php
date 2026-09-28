@@ -17,6 +17,14 @@ class UriResolverTest extends TestCase
     private const RFC3986_BASE = 'http://a/b/c/d;p?q';
 
     /**
+     * @dataProvider getRemoveDotSegmentsTestCases
+     */
+    public function testRemoveDotSegments(string $path, string $expectedPath): void
+    {
+        self::assertSame($expectedPath, UriResolver::removeDotSegments($path));
+    }
+
+    /**
      * @dataProvider getResolveTestCases
      */
     public function testResolveUri(string $base, string $rel, string $expectedTarget): void
@@ -55,6 +63,14 @@ class UriResolverTest extends TestCase
 
         self::assertSame(get_class($referenceUri), get_class($targetUri));
         self::assertSame('https://other.example/b?x=y#fragment', (string) $targetUri);
+    }
+
+    public function testResolveKeepsColonInFirstSegmentOfSchemeLessReferenceImplementation(): void
+    {
+        $referenceUri = self::customUri('git@example.com:user/repo');
+        $targetUri = UriResolver::resolve(new Uri('https://example.com/a/b'), $referenceUri);
+
+        self::assertSame('https://example.com/a/git@example.com:user/repo', (string) $targetUri);
     }
 
     public function testResolvePreservesBaseUriImplementationWhenReferenceInheritsAuthority(): void
@@ -162,6 +178,49 @@ class UriResolverTest extends TestCase
         self::assertSame((string) $targetUri, (string) UriResolver::resolve($baseUri, $relativeUri));
     }
 
+    public function testRelativizeAndResolveWithSameAuthorityEmptyPathTargetRoundTrips(): void
+    {
+        $baseUri = new Uri('urn://example.com/a/b');
+        $targetUri = new Uri('urn://example.com');
+        $relativeUri = UriResolver::relativize($baseUri, $targetUri);
+
+        self::assertSame('//example.com', (string) $relativeUri);
+        self::assertSame((string) $targetUri, (string) UriResolver::resolve($baseUri, $relativeUri));
+    }
+
+    public function testResolveDoesNotGuardPathsOfHostlessHttpUris(): void
+    {
+        $targetUri = UriResolver::resolve(new Uri('http:/x'), new Uri('/..//b'));
+
+        self::assertSame('http://localhost//b', (string) $targetUri);
+    }
+
+    public static function getRemoveDotSegmentsTestCases(): iterable
+    {
+        return [
+            ['', ''],
+            ['/', '/'],
+            // RFC 3986 Section 5.2.4 examples
+            ['/a/b/c/./../../g', '/a/g'],
+            ['mid/content=5/../6', 'mid/6'],
+            // ".." segments above the root of an absolute path are dropped without
+            // consuming the root, so a following empty segment is preserved
+            ['/..//a', '//a'],
+            ['/..//..//b', '//b'],
+            ['/a/../..//b', '//b'],
+            ['/..//', '//'],
+            ['/..', '/'],
+            ['/../..', '/'],
+            ['/a/..//b', '//b'],
+            ['//a', '//a'],
+            // rootless paths keep their historic behavior where excess ".." segments
+            // may consume the first segment entirely
+            ['a/../', ''],
+            ['..//..', ''],
+            ['a/..//a/b', '/a/b'],
+        ];
+    }
+
     public static function getResolveTestCases(): iterable
     {
         return [
@@ -253,8 +312,6 @@ class UriResolverTest extends TestCase
             ['',                 './b:',          './b:'],
             ['a',                '../b:c',        './b:c'],
             ['x',                'b%41:',         './b%41:'],
-            // an unchanged base path is not prefixed
-            ['a_b:c',            '?q',            'a_b:c?q'],
             // relative path references
             ['a',               'a/b',            'a/b'],
             ['',                 '',              ''],
@@ -262,6 +319,11 @@ class UriResolverTest extends TestCase
             ['/',                '..',            '/'],
             ['urn:a/b',          '..//a/b',       'urn:/a/b'],
             // network path references
+            // same-authority target with an empty path
+            ['urn://h/path',     '//h',           'urn://h'],
+            ['urn://h/path',     '//h?q',         'urn://h?q'],
+            ['http://h/',        '//h',           'http://h'],
+            ['urn://h#f',        '//h',           'urn://h'],
             // empty base path and relative-path reference
             ['//example.com',    'a',             '//example.com/a'],
             // path starting with two slashes
@@ -274,6 +336,19 @@ class UriResolverTest extends TestCase
             ['http://a//b/c',    'x',             'http://a//b/x'],
             ['http://a/b/c',     'http://x//y/z', 'http://x//y/z'],
             ['http://a/b/c',     '//x//y/z',      'http://x//y/z'],
+            // ".." segments above the root do not consume the root, so a following
+            // empty segment is preserved (RFC 3986 Section 5.2.4)
+            [self::RFC3986_BASE, '/..//g',        'http://a//g'],
+            [self::RFC3986_BASE, '/..//..//g',    'http://a//g'],
+            ['http://a/b',       '..//g',         'http://a//g'],
+            ['http://a/b',       'http://x/..//y', 'http://x//y'],
+            ['http://a/b/c',     '//h/..//z',     'http://h//z'],
+            // paths starting with "//" on a URI without an authority are serialized
+            // with a "/." prefix like the WHATWG URL Standard
+            ['mailto:base',      '/..//e/x',      'mailto:/.//e/x'],
+            ['mailto:base',      'b/..///x',      'mailto:/.//x'],
+            ['urn:base/x',       'urn:a/..///x',  'urn:/.//x'],
+            ['/',                '/..//g',        '/.//g'],
             // base URI has less components than relative URI
             ['/',                '//a/b?q#h',     '//a/b?q#h'],
             ['/',                'urn:/',         'urn:/'],
@@ -311,6 +386,46 @@ class UriResolverTest extends TestCase
             ['http://a/b/',     '/',            '../'],
             // absolute target URI without authority but base URI has one
             ['urn://a/b/',      'urn:/b/',      'urn:/b/'],
+            // a same-authority target with an empty path can only be a network-path reference,
+            // as any path reference would resolve to a path of at least "/"
+            ['urn://h/path',    'urn://h',      '//h'],
+            ['urn://h/path',    'urn://h#f',    '//h#f'],
+            ['urn://h/path?bq', 'urn://h',      '//h'],
+            ['http://h/a/b/c',  'http://h',     '//h'],
+            // the network-path reference keeps the port and userinfo of the target authority
+            ['http://h:8080/path', 'http://h:8080', '//h:8080'],
+            ['http://u:p@h/path',  'http://u:p@h',  '//u:p@h'],
+            // "http://h" and "http://h/" are distinct strings and must round-trip exactly
+            ['http://h/',       'http://h',     '//h'],
+            ['urn://h/path',    'urn://h/',     './'],
+            // same for an empty-path reference that would inherit the base query
+            ['urn://h?bq',      'urn://h',      '//h'],
+            ['urn://h?bq',      'urn://h?q',    '?q'],
+            // same for an empty-path reference that would inherit the base fragment
+            ['urn://h#bf',      'urn://h',      '//h'],
+            ['urn://h?q#bf',    'urn://h?q',    '//h?q'],
+            ['//h#bf',          '//h',          '//h'],
+            // nothing is inherited when the target has its own fragment or a different query
+            ['urn://h#bf',      'urn://h#f',    '#f'],
+            ['urn://h#bf',      'urn://h?q',    '?q'],
+            // a base fragment is not inherited into an equal-path target; a non-empty
+            // reference is returned instead of the empty reference
+            ['http://h/p#old',  'http://h/p',   'p'],
+            ['http://h/#old',   'http://h/',    './'],
+            ['http://h/p#old',  'http://h/p#f', '#f'],
+            ['http://h/p?q#old', 'http://h/p?q', '?q'],
+            // a single-segment reference containing a colon would be mistaken for a scheme
+            // name and is prefixed with "./", like in references to different paths
+            ['http://h/a:b#old', 'http://h/a:b', './a:b'],
+            ['http://h/a:b?bq',  'http://h/a:b', './a:b'],
+            // a colon-free segment needs no "./" prefix
+            ['http://h/p?bq',   'http://h/p',   'p'],
+            // an empty base path needs no network-path reference when nothing would be inherited
+            ['urn://h',         'urn://h',      ''],
+            ['urn://h',         'urn://h#f',    '#f'],
+            ['urn://h',         'urn://h?q',    '?q'],
+            // an empty-path target with a different authority uses a network-path reference as well
+            ['http://h/a/b',    'http://other', '//other'],
         ];
     }
 

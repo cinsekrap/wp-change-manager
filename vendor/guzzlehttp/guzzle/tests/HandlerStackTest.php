@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests;
 
 use GuzzleHttp\Cookie\CookieJar;
@@ -11,11 +13,11 @@ use PHPUnit\Framework\TestCase;
 
 class HandlerStackTest extends TestCase
 {
-    public function testSetsHandlerInCtor()
+    public function testSetsHandlerInCtor(): void
     {
-        $f = static function () {
+        $f = static function (): void {
         };
-        $m1 = static function () {
+        $m1 = static function (): void {
         };
         $h = new HandlerStack($f, [$m1]);
         self::assertTrue($h->hasHandler());
@@ -24,16 +26,16 @@ class HandlerStackTest extends TestCase
     /**
      * @doesNotPerformAssertions
      */
-    public function testCanSetDifferentHandlerAfterConstruction()
+    public function testCanSetDifferentHandlerAfterConstruction(): void
     {
-        $f = static function () {
+        $f = static function (): void {
         };
         $h = new HandlerStack();
         $h->setHandler($f);
         $h->resolve();
     }
 
-    public function testEnsuresHandlerIsSet()
+    public function testEnsuresHandlerIsSet(): void
     {
         $this->expectException(\LogicException::class);
 
@@ -41,7 +43,78 @@ class HandlerStackTest extends TestCase
         $h->resolve();
     }
 
-    public function testPushInOrder()
+    public function testResolveRejectsNonCallableHandler(): void
+    {
+        $stack = new HandlerStack();
+        $handler = new \ReflectionProperty($stack, 'handler');
+
+        if (\PHP_VERSION_ID < 80100) {
+            $handler->setAccessible(true);
+        }
+
+        $handler->setValue($stack, 'id');
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Handler must be callable');
+
+        $stack->resolve();
+    }
+
+    public function testResolveRejectsNonCallableMiddleware(): void
+    {
+        $stack = new HandlerStack(static function (string $value): string {
+            return $value;
+        });
+        $middleware = new \ReflectionProperty($stack, 'stack');
+
+        if (\PHP_VERSION_ID < 80100) {
+            $middleware->setAccessible(true);
+        }
+
+        $middleware->setValue($stack, [[null, 'bad']]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Middleware must be callable');
+
+        $stack->resolve();
+    }
+
+    public function testRejectsNativePhpUnserialization(): void
+    {
+        $class = HandlerStack::class;
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage($class.' should never be unserialized');
+
+        \unserialize(\sprintf('O:%d:"%s":0:{}', \strlen($class), $class), ['allowed_classes' => [$class]]);
+    }
+
+    public function testRejectsNativePhpUnserializationWithRuntimeClassName(): void
+    {
+        $class = HandlerStackSerializationTestDouble::class;
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage($class.' should never be unserialized');
+
+        \unserialize(\sprintf('O:%d:"%s":0:{}', \strlen($class), $class), ['allowed_classes' => [$class]]);
+    }
+
+    public function testResolveRejectsMiddlewareReturningNonCallable(): void
+    {
+        $stack = new HandlerStack(static function (string $value): string {
+            return $value;
+        });
+        $stack->push(static function (callable $next): string {
+            return 'not callable';
+        });
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('Middleware must return a callable');
+
+        $stack->resolve();
+    }
+
+    public function testPushInOrder(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -57,7 +130,7 @@ class HandlerStackTest extends TestCase
         );
     }
 
-    public function testUnshiftsInReverseOrder()
+    public function testUnshiftsInReverseOrder(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -73,7 +146,7 @@ class HandlerStackTest extends TestCase
         );
     }
 
-    public function testCanRemoveMiddlewareByInstance()
+    public function testCanRemoveMiddlewareByInstance(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -88,7 +161,7 @@ class HandlerStackTest extends TestCase
         self::assertSame('Hello - test1131', $composed('test'));
     }
 
-    public function testCanRemoveMiddlewareByCallableStringName()
+    public function testCanRemoveMiddlewareByCallableStringName(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -102,10 +175,10 @@ class HandlerStackTest extends TestCase
         self::assertSame([], $meths[0]);
     }
 
-    public function testCanRemoveMiddlewareByCallableStringInstance()
+    public function testCanRemoveMiddlewareByCallableStringInstance(): void
     {
         $builder = new HandlerStack();
-        $builder->setHandler(static function ($value) {
+        $builder->setHandler(static function (string $value): string {
             return 'Hello - '.$value;
         });
         $builder->push(__CLASS__.'::addSuffixMiddleware');
@@ -116,7 +189,7 @@ class HandlerStackTest extends TestCase
         self::assertSame('Hello - test', $composed('test'));
     }
 
-    public function testRemovePrefersNameWhenStringIsAlsoCallable()
+    public function testRemovePrefersNameWhenStringIsAlsoCallable(): void
     {
         $meths = $this->getFunctions();
         $name = __CLASS__.'::addSuffixMiddleware';
@@ -133,28 +206,16 @@ class HandlerStackTest extends TestCase
         self::assertSame([], $meths[0]);
     }
 
-    public function testCanPrintMiddleware()
+    public function testRemoveRejectsNonStringNonCallable(): void
     {
-        $meths = $this->getFunctions();
-        $builder = new HandlerStack();
-        $builder->setHandler($meths[1]);
-        $builder->push($meths[2], 'a');
-        $builder->push([__CLASS__, 'foo']);
-        $builder->push([$this, 'bar']);
-        $builder->push(__CLASS__.'::foo');
-        $lines = \explode("\n", (string) $builder);
-        self::assertStringContainsString("> 4) Name: 'a', Function: callable(", $lines[0]);
-        self::assertStringContainsString("> 3) Name: '', Function: callable(GuzzleHttp\\Tests\\HandlerStackTest::foo)", $lines[1]);
-        self::assertStringContainsString("> 2) Name: '', Function: callable(['GuzzleHttp\\Tests\\HandlerStackTest', 'bar'])", $lines[2]);
-        self::assertStringContainsString("> 1) Name: '', Function: callable(GuzzleHttp\\Tests\\HandlerStackTest::foo)", $lines[3]);
-        self::assertStringContainsString('< 0) Handler: callable(', $lines[4]);
-        self::assertStringContainsString("< 1) Name: '', Function: callable(GuzzleHttp\\Tests\\HandlerStackTest::foo)", $lines[5]);
-        self::assertStringContainsString("< 2) Name: '', Function: callable(['GuzzleHttp\\Tests\\HandlerStackTest', 'bar'])", $lines[6]);
-        self::assertStringContainsString("< 3) Name: '', Function: callable(GuzzleHttp\\Tests\\HandlerStackTest::foo)", $lines[7]);
-        self::assertStringContainsString("< 4) Name: 'a', Function: callable(", $lines[8]);
+        $stack = new HandlerStack();
+
+        $this->expectException(\TypeError::class);
+
+        $stack->remove(new \stdClass());
     }
 
-    public function testCanAddBeforeByName()
+    public function testCanAddBeforeByName(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -163,23 +224,25 @@ class HandlerStackTest extends TestCase
         $builder->before('foo', $meths[3], 'baz');
         $builder->before('baz', $meths[4], 'bar');
         $builder->before('baz', $meths[4], 'qux');
-        $lines = \explode("\n", (string) $builder);
-        self::assertStringContainsString('> 4) Name: \'bar\'', $lines[0]);
-        self::assertStringContainsString('> 3) Name: \'qux\'', $lines[1]);
-        self::assertStringContainsString('> 2) Name: \'baz\'', $lines[2]);
-        self::assertStringContainsString('> 1) Name: \'foo\'', $lines[3]);
+
+        $composed = $builder->resolve();
+        self::assertSame('Hello - test3321', $composed('test'));
+        self::assertSame(
+            [['c', 'test'], ['c', 'test3'], ['b', 'test33'], ['a', 'test332']],
+            $meths[0]
+        );
     }
 
-    public function testEnsuresHandlerExistsByName()
+    public function testEnsuresHandlerExistsByName(): void
     {
         $this->expectException(\InvalidArgumentException::class);
 
         $builder = new HandlerStack();
-        $builder->before('foo', static function () {
+        $builder->before('foo', static function (): void {
         });
     }
 
-    public function testCanAddAfterByName()
+    public function testCanAddAfterByName(): void
     {
         $meths = $this->getFunctions();
         $builder = new HandlerStack();
@@ -188,14 +251,16 @@ class HandlerStackTest extends TestCase
         $builder->push($meths[3], 'b');
         $builder->after('a', $meths[4], 'c');
         $builder->after('b', $meths[4], 'd');
-        $lines = \explode("\n", (string) $builder);
-        self::assertStringContainsString('4) Name: \'a\'', $lines[0]);
-        self::assertStringContainsString('3) Name: \'c\'', $lines[1]);
-        self::assertStringContainsString('2) Name: \'b\'', $lines[2]);
-        self::assertStringContainsString('1) Name: \'d\'', $lines[3]);
+
+        $composed = $builder->resolve();
+        self::assertSame('Hello - test1323', $composed('test'));
+        self::assertSame(
+            [['a', 'test'], ['c', 'test1'], ['b', 'test13'], ['c', 'test132']],
+            $meths[0]
+        );
     }
 
-    public function testPicksUpCookiesFromRedirects()
+    public function testPicksUpCookiesFromRedirects(): void
     {
         $mock = new MockHandler([
             new Response(301, [
@@ -217,53 +282,60 @@ class HandlerStackTest extends TestCase
         self::assertSame('foo=bar', $lastRequest->getHeaderLine('Cookie'));
     }
 
-    private function getFunctions()
+    /**
+     * @return array{0: array<int, array{string, string}>, 1: callable, 2: callable, 3: callable, 4: callable}
+     */
+    private function getFunctions(): array
     {
         $calls = [];
 
-        $a = static function (callable $next) use (&$calls) {
-            return static function ($v) use ($next, &$calls) {
+        $a = static function (callable $next) use (&$calls): callable {
+            return static function (string $v) use ($next, &$calls): string {
                 $calls[] = ['a', $v];
 
                 return $next($v.'1');
             };
         };
 
-        $b = static function (callable $next) use (&$calls) {
-            return static function ($v) use ($next, &$calls) {
+        $b = static function (callable $next) use (&$calls): callable {
+            return static function (string $v) use ($next, &$calls): string {
                 $calls[] = ['b', $v];
 
                 return $next($v.'2');
             };
         };
 
-        $c = static function (callable $next) use (&$calls) {
-            return static function ($v) use ($next, &$calls) {
+        $c = static function (callable $next) use (&$calls): callable {
+            return static function (string $v) use ($next, &$calls): string {
                 $calls[] = ['c', $v];
 
                 return $next($v.'3');
             };
         };
 
-        $handler = static function ($v) {
+        $handler = static function (string $v): string {
             return 'Hello - '.$v;
         };
 
         return [&$calls, $handler, $a, $b, $c];
     }
 
-    public static function foo()
+    public static function foo(): void
     {
     }
 
-    public static function addSuffixMiddleware(callable $handler)
+    public static function addSuffixMiddleware(callable $handler): callable
     {
-        return static function ($value) use ($handler) {
+        return static function (string $value) use ($handler): string {
             return $handler($value.'x');
         };
     }
 
-    public function bar()
+    public function bar(): void
     {
     }
+}
+
+final class HandlerStackSerializationTestDouble extends HandlerStack
+{
 }

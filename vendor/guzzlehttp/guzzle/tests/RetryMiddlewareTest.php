@@ -1,28 +1,32 @@
 <?php
 
+declare(strict_types=1);
+
 namespace GuzzleHttp\Tests;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise\Create;
+use GuzzleHttp\Promise\PromiseInterface;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
-use GuzzleHttp\RetryMiddleware;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 
 class RetryMiddlewareTest extends TestCase
 {
-    public function testRetriesWhenDeciderReturnsTrue()
+    public function testRetriesWhenDeciderReturnsTrue(): void
     {
         $delayCalls = 0;
         $calls = [];
-        $decider = static function (...$args) use (&$calls) {
+        $decider = static function (...$args) use (&$calls): bool {
             $calls[] = $args;
 
             return \count($calls) < 3;
         };
-        $delay = static function ($retries, $response, $request) use (&$delayCalls) {
+        $delay = static function (int $retries, ?ResponseInterface $response, RequestInterface $request) use (&$delayCalls): int {
             ++$delayCalls;
             self::assertSame($retries, $delayCalls);
             self::assertInstanceOf(Response::class, $response);
@@ -41,9 +45,75 @@ class RetryMiddlewareTest extends TestCase
         self::assertSame(202, $p->wait()->getStatusCode());
     }
 
-    public function testDoesNotRetryWhenDeciderReturnsFalse()
+    public function testRetriesWithOneArgumentDelayCallable(): void
     {
-        $decider = static function () {
+        $delayCalls = [];
+        $decider = static function (int $retries): bool {
+            return $retries < 1;
+        };
+        $delay = static function (int $retries) use (&$delayCalls): int {
+            $delayCalls[] = $retries;
+
+            return 1;
+        };
+
+        $m = Middleware::retry($decider, $delay);
+        $h = new MockHandler([new Response(200), new Response(201)]);
+        $c = new Client(['handler' => $m($h)]);
+
+        self::assertSame(201, $c->send(new Request('GET', 'http://test.com'))->getStatusCode());
+        self::assertSame([1], $delayCalls);
+    }
+
+    public function testRetriesWithTwoArgumentDelayCallableReceivesResponse(): void
+    {
+        $delayArgs = [];
+        $decider = static function (int $retries): bool {
+            return $retries < 1;
+        };
+        $delay = static function (int $retries, ?ResponseInterface $response) use (&$delayArgs): int {
+            $delayArgs = [$retries, $response];
+
+            return 1;
+        };
+
+        $m = Middleware::retry($decider, $delay);
+        $h = new MockHandler([new Response(200), new Response(201)]);
+        $c = new Client(['handler' => $m($h)]);
+
+        self::assertSame(201, $c->send(new Request('GET', 'http://test.com'))->getStatusCode());
+        self::assertSame(1, $delayArgs[0]);
+        self::assertInstanceOf(Response::class, $delayArgs[1]);
+        self::assertSame(200, $delayArgs[1]->getStatusCode());
+    }
+
+    public function testRetriesWithVariadicDelayCallableReceivesContext(): void
+    {
+        $delayArgs = [];
+        $decider = static function (int $retries): bool {
+            return $retries < 1;
+        };
+        $delay = static function (...$args) use (&$delayArgs): int {
+            $delayArgs = $args;
+
+            return 1;
+        };
+
+        $m = Middleware::retry($decider, $delay);
+        $h = new MockHandler([new Response(200), new Response(201)]);
+        $c = new Client(['handler' => $m($h)]);
+
+        $c->send(new Request('GET', 'http://test.com'));
+
+        self::assertCount(3, $delayArgs);
+        self::assertSame(1, $delayArgs[0]);
+        self::assertInstanceOf(Response::class, $delayArgs[1]);
+        self::assertInstanceOf(Request::class, $delayArgs[2]);
+    }
+
+    public function testDoesNotRetryWhenDeciderReturnsFalse(): void
+    {
+        $decider = static function (): bool {
             return false;
         };
         $m = Middleware::retry($decider);
@@ -53,10 +123,25 @@ class RetryMiddlewareTest extends TestCase
         self::assertSame(200, $p->wait()->getStatusCode());
     }
 
-    public function testCanRetryExceptions()
+    public function testRejectsNonIntegerRetriesOption(): void
+    {
+        $decider = static function (int $retries): bool {
+            return false;
+        };
+        $m = Middleware::retry($decider);
+        $h = new MockHandler([new Response(200)]);
+        $c = new Client(['handler' => $m($h)]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Passing string to request option "retries" is invalid; expected int.');
+
+        $c->send(new Request('GET', 'http://test.com'), ['retries' => '0']);
+    }
+
+    public function testCanRetryExceptions(): void
     {
         $calls = [];
-        $decider = static function (...$args) use (&$calls) {
+        $decider = static function (...$args) use (&$calls): bool {
             $calls[] = $args;
 
             return $args[3] instanceof \Exception;
@@ -75,18 +160,18 @@ class RetryMiddlewareTest extends TestCase
         self::assertNull($calls[1][3]);
     }
 
-    public function testUsesDefaultExponentialDelay()
+    public function testUsesDefaultExponentialDelay(): void
     {
         $responses = [new Response(500), new Response(500), new Response(200)];
         $delays = [];
-        $handler = static function ($request, array $options) use (&$responses, &$delays) {
+        $handler = static function (RequestInterface $request, array $options) use (&$responses, &$delays): PromiseInterface {
             if (isset($options['delay'])) {
                 $delays[] = $options['delay'];
             }
 
             return Create::promiseFor(\array_shift($responses));
         };
-        $decider = static function ($retries) {
+        $decider = static function (int $retries): bool {
             return $retries < 2;
         };
 
@@ -95,30 +180,5 @@ class RetryMiddlewareTest extends TestCase
 
         self::assertSame(200, $p->wait()->getStatusCode());
         self::assertSame([1000, 2000], $delays);
-    }
-
-    public function testExponentialDelayIsDeprecated()
-    {
-        $deprecations = [];
-
-        set_error_handler(static function (int $severity, string $message) use (&$deprecations): bool {
-            if ($severity !== \E_USER_DEPRECATED) {
-                return false;
-            }
-
-            $deprecations[] = $message;
-
-            return true;
-        });
-
-        try {
-            self::assertSame(1000, RetryMiddleware::exponentialDelay(1));
-        } finally {
-            restore_error_handler();
-        }
-
-        self::assertSame([
-            'Since guzzlehttp/guzzle 7.11: GuzzleHttp\\RetryMiddleware::exponentialDelay() is deprecated and will be removed in 8.0.',
-        ], $deprecations);
     }
 }

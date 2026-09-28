@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 class QueryTest extends TestCase
 {
-    public static function parseQueryProvider()
+    public static function parseQueryProvider(): array
     {
         return [
             // Does not need to parse when the string is empty
@@ -53,7 +53,7 @@ class QueryTest extends TestCase
     /**
      * @dataProvider parseQueryProvider
      */
-    public function testParsesQueries($input, $output): void
+    public function testParsesQueries(string $input, array $output): void
     {
         $result = Psr7\Query::parse($input);
         self::assertSame($output, $result);
@@ -69,7 +69,7 @@ class QueryTest extends TestCase
     /**
      * @dataProvider parseQueryProvider
      */
-    public function testParsesAndBuildsQueries($input): void
+    public function testParsesAndBuildsQueries(string $input): void
     {
         $result = Psr7\Query::parse($input, false);
         self::assertSame($input, Psr7\Query::build($result, false));
@@ -120,5 +120,92 @@ class QueryTest extends TestCase
             'bar' => false,
         ];
         self::assertEquals('foo=true&bar=false', Psr7\Query::build($data, PHP_QUERY_RFC3986, false));
+    }
+
+    public function testBuildAcceptsStringableObjectValue(): void
+    {
+        $value = new class {
+            public function __toString(): string
+            {
+                return 'bar baz';
+            }
+        };
+
+        self::assertSame('foo=bar%20baz', Psr7\Query::build(['foo' => $value]));
+    }
+
+    public function testBuildAcceptsStringableObjectArrayValue(): void
+    {
+        $value = new class {
+            public function __toString(): string
+            {
+                return 'bar';
+            }
+        };
+
+        self::assertSame('foo=bar&foo=baz', Psr7\Query::build(['foo' => [$value, 'baz']]));
+    }
+
+    public function testBuildRejectsNestedArrayValue(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be scalar, null, or stringable objects');
+
+        Psr7\Query::build(['foo' => ['bar' => ['baz']]]);
+    }
+
+    public function testBuildRejectsNestedListValue(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be scalar, null, or stringable objects');
+
+        Psr7\Query::build(['foo' => [['bar']]]);
+    }
+
+    public function testBuildRejectsUnsupportedObjectValue(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be scalar, null, or stringable objects');
+
+        Psr7\Query::build(['foo' => new \stdClass()]);
+    }
+
+    public function testBuildRejectsUnsupportedObjectArrayValue(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be scalar, null, or stringable objects');
+
+        Psr7\Query::build(['foo' => ['bar', new \stdClass()]]);
+    }
+
+    /**
+     * @dataProvider nonFiniteFloatProvider
+     */
+    public function testBuildRejectsNonFiniteFloatValue(float $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be finite; non-finite floats are not supported.');
+
+        Psr7\Query::build(['foo' => $value]);
+    }
+
+    /**
+     * @dataProvider nonFiniteFloatProvider
+     */
+    public function testBuildRejectsNonFiniteFloatValueInArray(float $value): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Query string values must be finite; non-finite floats are not supported.');
+
+        Psr7\Query::build(['foo' => [$value]]);
+    }
+
+    public static function nonFiniteFloatProvider(): array
+    {
+        return [
+            'NAN' => [\NAN],
+            'INF' => [\INF],
+            '-INF' => [-\INF],
+        ];
     }
 }

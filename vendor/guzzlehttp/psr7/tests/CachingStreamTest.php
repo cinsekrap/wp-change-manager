@@ -8,16 +8,15 @@ use GuzzleHttp\Psr7;
 use GuzzleHttp\Psr7\CachingStream;
 use GuzzleHttp\Psr7\Stream;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\StreamInterface;
 
 /**
  * @covers \GuzzleHttp\Psr7\CachingStream
  */
 class CachingStreamTest extends TestCase
 {
-    /** @var CachingStream */
-    private $body;
-    /** @var Stream */
-    private $decorated;
+    private CachingStream $body;
+    private Stream $decorated;
 
     protected function setUp(): void
     {
@@ -137,6 +136,99 @@ class CachingStreamTest extends TestCase
         self::assertSame('test', $this->body->read(4));
     }
 
+    public function testReadRejectsNegativeLength(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Length parameter cannot be negative');
+
+        $this->body->read(-1);
+    }
+
+    public function testReadThrowsWhenRemoteStreamTimesOut(): void
+    {
+        $remote = new Psr7\FnStream([
+            'read' => function (): string {
+                return '';
+            },
+            'getMetadata' => function (?string $key = null) {
+                return $key === 'timed_out' ? true : null;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+        ]);
+        $stream = new CachingStream($remote);
+
+        $this->expectException(Psr7\Exception\TimeoutException::class);
+        $this->expectExceptionMessage('Unable to read from stream: timed out');
+
+        $stream->read(1);
+    }
+
+    public function testReadIgnoresRemoteMetadataProbeFailure(): void
+    {
+        $remote = new Psr7\FnStream([
+            'read' => function (): string {
+                return '';
+            },
+            'getMetadata' => function (): void {
+                throw new \RuntimeException('metadata failed');
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+        ]);
+        $stream = new CachingStream($remote);
+
+        self::assertSame('', $stream->read(1));
+    }
+
+    public function testReadPreservesRemoteExceptionWhenMetadataProbeFails(): void
+    {
+        $remote = new Psr7\FnStream([
+            'read' => function (): string {
+                throw new \RuntimeException('read failed');
+            },
+            'getMetadata' => function (): void {
+                throw new \RuntimeException('metadata failed');
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+        ]);
+        $stream = new CachingStream($remote);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('read failed');
+
+        $stream->read(1);
+    }
+
+    public function testReadThrowsTimeoutWhenRemoteExceptionTimesOut(): void
+    {
+        $remote = new Psr7\FnStream([
+            'read' => function (): string {
+                throw new \RuntimeException('read failed');
+            },
+            'getMetadata' => function (?string $key = null) {
+                return $key === 'timed_out' ? true : null;
+            },
+            'eof' => function (): bool {
+                return false;
+            },
+        ]);
+        $stream = new CachingStream($remote);
+
+        try {
+            $stream->read(1);
+            self::fail('Expected timeout exception');
+        } catch (Psr7\Exception\TimeoutException $e) {
+            self::assertSame('Unable to read from stream: timed out', $e->getMessage());
+            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertSame('read failed', $e->getPrevious()->getMessage());
+        }
+    }
+
     public function testReadThrowsWhenCacheTargetDoesNotPersistEntireWrite(): void
     {
         $remote = Psr7\Utils::streamFor('ABCDEFGHIJ');
@@ -224,16 +316,21 @@ class CachingStreamTest extends TestCase
 
         $resource = $body->detach();
 
-        self::assertIsResource($resource);
-        self::assertSame(0, ftell($resource));
+        try {
+            self::assertIsResource($resource);
+            self::assertSame(0, ftell($resource));
 
-        $stats = fstat($resource);
-        self::assertIsArray($stats);
-        self::assertSame(strlen('Hello world!'), $stats['size']);
-        self::assertSame('Hello world!', stream_get_contents($resource));
+            $stats = fstat($resource);
+            self::assertIsArray($stats);
+            self::assertSame(strlen('Hello world!'), $stats['size']);
+            self::assertSame('Hello world!', stream_get_contents($resource));
+        } finally {
+            if (is_resource($resource)) {
+                fclose($resource);
+            }
 
-        fclose($resource);
-        $body->close();
+            $body->close();
+        }
     }
 
     public function testDetachReturnsCompleteResourceAfterPartialRead(): void
@@ -244,15 +341,20 @@ class CachingStreamTest extends TestCase
 
         $resource = $body->detach();
 
-        self::assertIsResource($resource);
-        self::assertSame(6, ftell($resource));
-        self::assertSame('world!', stream_get_contents($resource));
+        try {
+            self::assertIsResource($resource);
+            self::assertSame(6, ftell($resource));
+            self::assertSame('world!', stream_get_contents($resource));
 
-        rewind($resource);
-        self::assertSame('Hello world!', stream_get_contents($resource));
+            rewind($resource);
+            self::assertSame('Hello world!', stream_get_contents($resource));
+        } finally {
+            if (is_resource($resource)) {
+                fclose($resource);
+            }
 
-        fclose($resource);
-        $body->close();
+            $body->close();
+        }
     }
 
     public function testDetachPreservesCachedWritesAndUnreadRemoteBytes(): void
@@ -265,12 +367,17 @@ class CachingStreamTest extends TestCase
 
         $resource = $body->detach();
 
-        self::assertIsResource($resource);
-        self::assertSame(0, ftell($resource));
-        self::assertSame('tehiing', stream_get_contents($resource));
+        try {
+            self::assertIsResource($resource);
+            self::assertSame(0, ftell($resource));
+            self::assertSame('tehiing', stream_get_contents($resource));
+        } finally {
+            if (is_resource($resource)) {
+                fclose($resource);
+            }
 
-        fclose($resource);
-        $body->close();
+            $body->close();
+        }
     }
 
     public function testDetachReturnsNullAfterDetach(): void
@@ -342,6 +449,121 @@ class CachingStreamTest extends TestCase
         self::assertFalse(is_resource($s));
     }
 
+    public function testCloseIsIdempotentAndClosesRemoteAndCacheStreamsOnce(): void
+    {
+        $remote = $this->createMock(StreamInterface::class);
+        $cache = $this->createMock(StreamInterface::class);
+
+        $remote->expects(self::once())->method('close');
+        $cache->expects(self::once())->method('close');
+
+        $stream = new CachingStream($remote, $cache);
+
+        $stream->close();
+        $stream->close();
+
+        self::assertNull($stream->detach());
+    }
+
+    public function testCloseAfterDetachClosesRemoteOnceAndKeepsDetachedResourceOpen(): void
+    {
+        $remote = $this->createMock(StreamInterface::class);
+        $remote->method('eof')->willReturn(true);
+        $remote->method('read')->willReturn('');
+        $remote->method('getMetadata')->willReturn(null);
+        $remote->expects(self::once())->method('close');
+
+        $cacheResource = fopen('php://temp', 'r+');
+        $detached = null;
+
+        try {
+            fwrite($cacheResource, 'cached');
+            rewind($cacheResource);
+
+            $stream = new CachingStream($remote, new Stream($cacheResource));
+            $detached = $stream->detach();
+
+            self::assertIsResource($detached);
+
+            $stream->close();
+            $stream->close();
+
+            self::assertIsResource($detached);
+            rewind($detached);
+            self::assertSame('cached', stream_get_contents($detached));
+        } finally {
+            if (is_resource($detached)) {
+                fclose($detached);
+            } elseif (is_resource($cacheResource)) {
+                fclose($cacheResource);
+            }
+        }
+    }
+
+    public function testCloseDoesNotRetryAfterRemoteCloseFailure(): void
+    {
+        $remote = $this->createMock(StreamInterface::class);
+        $cache = $this->createMock(StreamInterface::class);
+
+        $remote->expects(self::once())
+            ->method('close')
+            ->willThrowException(new \RuntimeException('remote close failed'));
+        $cache->expects(self::once())->method('close');
+
+        $stream = new CachingStream($remote, $cache);
+
+        try {
+            $stream->close();
+            self::fail('Expected close to fail');
+        } catch (\RuntimeException $e) {
+            self::assertSame('remote close failed', $e->getMessage());
+        }
+
+        $stream->close();
+    }
+
+    public function testCloseDoesNotRetryAfterCacheCloseFailure(): void
+    {
+        $remote = $this->createMock(StreamInterface::class);
+        $cache = $this->createMock(StreamInterface::class);
+
+        $remote->expects(self::once())->method('close');
+        $cache->expects(self::once())
+            ->method('close')
+            ->willThrowException(new \RuntimeException('cache close failed'));
+
+        $stream = new CachingStream($remote, $cache);
+
+        try {
+            $stream->close();
+            self::fail('Expected close to fail');
+        } catch (\RuntimeException $e) {
+            self::assertSame('cache close failed', $e->getMessage());
+        }
+
+        $stream->close();
+    }
+
+    public function testRemoteCloseFailureTakesPriorityOverCacheCloseFailure(): void
+    {
+        $remote = $this->createMock(StreamInterface::class);
+        $cache = $this->createMock(StreamInterface::class);
+
+        $remote->expects(self::once())
+            ->method('close')
+            ->willThrowException(new \RuntimeException('remote close failed'));
+        $cache->expects(self::once())
+            ->method('close')
+            ->willThrowException(new \RuntimeException('cache close failed'));
+
+        $stream = new CachingStream($remote, $cache);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('remote close failed');
+
+        $stream->close();
+    }
+
     public function testEnsuresValidWhence(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -352,12 +574,36 @@ class CachingStreamTest extends TestCase
     public function testEnsuresSeekCurTargetIsNonNegative(): void
     {
         $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Stream offset must be non-negative');
         $this->body->seek(-1, SEEK_CUR);
     }
 
     public function testEnsuresSeekEndTargetIsNonNegative(): void
     {
         $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Stream offset must be non-negative');
         $this->body->seek(-100, SEEK_END);
+    }
+
+    public function testRejectedSeekEndWithUnknownSizeDoesNotMoveCursor(): void
+    {
+        $baseStream = Psr7\Utils::streamFor('testing');
+        $decorated = Psr7\FnStream::decorate($baseStream, [
+            'getSize' => function () {
+                return null;
+            },
+        ]);
+        $cached = new CachingStream($decorated);
+        self::assertSame('te', $cached->read(2));
+
+        try {
+            $cached->seek(-100, SEEK_END);
+            self::fail('Expected seek to fail');
+        } catch (\RuntimeException $e) {
+            self::assertSame('Stream offset must be non-negative', $e->getMessage());
+        }
+
+        self::assertSame(2, $cached->tell());
+        self::assertSame('sting', $cached->read(5));
     }
 }

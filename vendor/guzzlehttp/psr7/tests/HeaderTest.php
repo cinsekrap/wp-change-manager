@@ -101,7 +101,7 @@ class HeaderTest extends TestCase
     /**
      * @dataProvider parseParamsProvider
      */
-    public function testParseParams($header, $result): void
+    public function testParseParams(string $header, array $result): void
     {
         self::assertSame($result, Psr7\Header::parse($header));
     }
@@ -117,6 +117,20 @@ class HeaderTest extends TestCase
         }
 
         self::assertSame([$expected], Psr7\Header::parse(\implode('; ', $parameters)));
+    }
+
+    public function testParseReportsPcreFailures(): void
+    {
+        $limit = \ini_set('pcre.backtrack_limit', '1');
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Unable to parse header parameters: ');
+
+            Psr7\Header::parse('rel=front');
+        } finally {
+            \ini_set('pcre.backtrack_limit', $limit);
+        }
     }
 
     public static function normalizeProvider(): array
@@ -194,44 +208,44 @@ class HeaderTest extends TestCase
                 "<https://example.gitlab.com>; rel=\"first\",\n<https://example.gitlab.com>; rel=\"next\",\n<https://example.gitlab.com>; rel=\"prev\",\n<https://example.gitlab.com>; rel=\"last\",",
                 ['<https://example.gitlab.com>; rel="first"', '<https://example.gitlab.com>; rel="next"', '<https://example.gitlab.com>; rel="prev"', '<https://example.gitlab.com>; rel="last"'],
             ],
+            // NUL and vertical tab are not header whitespace and must survive splitting
+            [
+                "foo\x0B, \x00bar",
+                ["foo\x0B", "\x00bar"],
+            ],
         ];
     }
 
     /**
      * @dataProvider normalizeProvider
+     *
+     * @param string|string[] $header
      */
-    public function testNormalize($header, $result): void
-    {
-        self::assertSame($result, Psr7\Header::normalize([$header]));
-        self::assertSame($result, Psr7\Header::normalize($header));
-    }
-
-    /**
-     * @dataProvider normalizeProvider
-     */
-    public function testSplitList($header, $result): void
+    public function testSplitList($header, array $result): void
     {
         self::assertSame($result, Psr7\Header::splitList($header));
     }
 
-    public function testSplitListRejectsNestedArrays(): void
+    public static function nonStringSplitListValueProvider(): array
     {
-        $this->expectException(\TypeError::class);
-
-        Psr7\Header::splitList([['foo']]);
+        return [
+            'top-level integer' => [1],
+            'integer element' => [[1]],
+            'mixed element list' => [['ok', 1]],
+            'object element' => [[new \stdClass()]],
+        ];
     }
 
-    public function testSplitListArrayContainingNonStrings(): void
+    /**
+     * @dataProvider nonStringSplitListValueProvider
+     *
+     * @param mixed $values
+     */
+    public function testSplitListRejectsNonStringValues($values): void
     {
         $this->expectException(\TypeError::class);
+        $this->expectExceptionMessage('$header must either be a string or an array containing strings.');
 
-        Psr7\Header::splitList(['foo', 'bar', 1, false]);
-    }
-
-    public function testSplitListRejectsNonStrings(): void
-    {
-        $this->expectException(\TypeError::class);
-
-        Psr7\Header::splitList(false);
+        Psr7\Header::splitList($values);
     }
 }
