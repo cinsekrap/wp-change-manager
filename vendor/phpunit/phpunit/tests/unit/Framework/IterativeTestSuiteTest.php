@@ -10,6 +10,7 @@
 namespace PHPUnit\Framework;
 
 use function realpath;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Event\EventsAreNotBeingCollectedException;
 use PHPUnit\Event\Facade as EventFacade;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Runner\Phpt\TestCase as PhptTestCase;
 use PHPUnit\TestFixture\ConcreteIterativeTestSuite;
 use PHPUnit\TestFixture\TestThatThrowsWhenRun;
+use PHPUnit\TestFixture\TestWithDifferentNames;
 use ReflectionProperty;
 use RuntimeException;
 
@@ -30,7 +32,7 @@ final class IterativeTestSuiteTest extends TestCase
 
         $this->assertNotFalse($filename);
 
-        $suite = ConcreteIterativeTestSuite::empty('the-name');
+        $suite = ConcreteIterativeTestSuite::empty('the-name', $this->createStub(Emitter::class));
         $suite->addTest(new PhptTestCase($filename));
 
         $dependencies = [new ExecutionOrderDependency('PHPUnit\TestFixture\ExampleTest::testOne')];
@@ -43,9 +45,25 @@ final class IterativeTestSuiteTest extends TestCase
         );
     }
 
+    public function testEmitsSkippedEventForRemainingRepetition(): void
+    {
+        $test    = new TestWithDifferentNames('testWithName')->valueObjectForEvents();
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testSkipped')
+            ->with($test, 'Remaining repetition skipped after failure in repetition 2')
+            ->seal();
+
+        $message = ConcreteIterativeTestSuite::empty('the-name', $this->createStub(Emitter::class))->skipRepetition($test, 2, $emitter);
+
+        $this->assertSame('Remaining repetition skipped after failure in repetition 2', $message);
+    }
+
     public function testStopsCollectingEventsWhenRunningTheTestThrows(): void
     {
-        $suite = ConcreteIterativeTestSuite::empty('the-name');
+        $suite = ConcreteIterativeTestSuite::empty('the-name', $this->createStub(Emitter::class));
 
         $message = null;
 

@@ -10,7 +10,7 @@
 namespace PHPUnit\TextUI;
 
 use function uniqid;
-use PHPUnit\Event\Facade as EventFacade;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Medium;
@@ -20,7 +20,6 @@ use PHPUnit\Runner\TestRunHistory\NullTestRunHistory;
 use PHPUnit\TextUI\CliArguments\Builder as CliBuilder;
 use PHPUnit\TextUI\Configuration\Merger;
 use PHPUnit\TextUI\XmlConfiguration\DefaultConfiguration;
-use ReflectionProperty;
 
 #[CoversClass(TestRunner::class)]
 #[Medium]
@@ -31,35 +30,21 @@ final class TestRunnerTest extends TestCase
     {
         $file = '/path/to/file/that/does/not/exist/' . uniqid('test_id_filter_file_');
 
-        $configuration = (new Merger)->merge(
-            (new CliBuilder)->fromParameters([
+        $configuration = new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters([
                 '--test-id-filter-file',
                 $file,
             ]),
             DefaultConfiguration::create(),
         );
 
-        /*
-         * TestRunner emits test runner events. These must not end up in the
-         * result of the test run that exercises TestRunner, so they are
-         * emitted into a throw-away event facade that is never forwarded.
-         */
-        $property = new ReflectionProperty(EventFacade::class, 'instance');
-        $facade   = $property->getValue();
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Cannot read from ' . $file);
 
-        $property->setValue(null, new EventFacade);
-
-        try {
-            $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('Cannot read from ' . $file);
-
-            (new TestRunner)->run(
-                $configuration,
-                new NullTestRunHistory,
-                TestSuite::empty('test suite'),
-            );
-        } finally {
-            $property->setValue(null, $facade);
-        }
+        new TestRunner($this->createStub(Emitter::class))->run(
+            $configuration,
+            new NullTestRunHistory,
+            TestSuite::empty('test suite', $this->createStub(Emitter::class)),
+        );
     }
 }

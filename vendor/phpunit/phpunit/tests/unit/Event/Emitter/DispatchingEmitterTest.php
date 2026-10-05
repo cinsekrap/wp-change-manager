@@ -42,6 +42,8 @@ use PHPUnit\Event\TestRunner\GarbageCollectionTriggered;
 use PHPUnit\Event\TestRunner\GarbageCollectionTriggeredSubscriber;
 use PHPUnit\Event\TestRunner\NoticeTriggered as TestRunnerNoticeTriggered;
 use PHPUnit\Event\TestRunner\NoticeTriggeredSubscriber as TestRunnerNoticeTriggeredSubscriber;
+use PHPUnit\Event\TestRunner\TimeLimitExceeded;
+use PHPUnit\Event\TestRunner\TimeLimitExceededSubscriber;
 use PHPUnit\Event\TestRunner\WarningTriggered as TestRunnerWarningTriggered;
 use PHPUnit\Event\TestRunner\WarningTriggeredSubscriber as TestRunnerWarningTriggeredSubscriber;
 use PHPUnit\Event\TestSuite\Filtered as TestSuiteFiltered;
@@ -227,8 +229,8 @@ final class DispatchingEmitterTest extends Framework\TestCase
             $telemetrySystem,
         );
 
-        $configuration = (new Merger)->merge(
-            (new Builder)->fromParameters([]),
+        $configuration = new Merger($this->createStub(Emitter::class))->merge(
+            new Builder($this->createStub(Emitter::class))->fromParameters([]),
             DefaultConfiguration::create(),
         );
 
@@ -500,6 +502,7 @@ final class DispatchingEmitterTest extends Framework\TestCase
         $executionOrder        = 9001;
         $executionOrderDefects = 5;
         $resolveDependencies   = true;
+        $pipeline              = ['duration-ascending', 'defects', 'resolve-dependencies'];
 
         $subscriber = new class extends RecordingSubscriber implements TestSuiteSortedSubscriber
         {
@@ -526,6 +529,7 @@ final class DispatchingEmitterTest extends Framework\TestCase
             $executionOrder,
             $executionOrderDefects,
             $resolveDependencies,
+            $pipeline,
         );
 
         $this->assertSame(1, $subscriber->recordedEventCount());
@@ -537,6 +541,7 @@ final class DispatchingEmitterTest extends Framework\TestCase
         $this->assertSame($executionOrder, $event->executionOrder());
         $this->assertSame($executionOrderDefects, $event->executionOrderDefects());
         $this->assertSame($resolveDependencies, $event->resolveDependencies());
+        $this->assertSame($pipeline, $event->pipeline());
     }
 
     #[TestDox('testRunnerEventFacadeSealed() emits TestRunner\EventFacadeSealed event')]
@@ -3713,6 +3718,40 @@ final class DispatchingEmitterTest extends Framework\TestCase
 
         $this->assertSame(1, $subscriber->recordedEventCount());
         $this->assertInstanceOf(ExecutionAborted::class, $subscriber->lastRecordedEvent());
+    }
+
+    #[TestDox('testRunnerTimeLimitExceeded() emits TestRunner\TimeLimitExceeded event')]
+    public function testTestRunnerTimeLimitExceededEmitsTestRunnerTimeLimitExceededEvent(): void
+    {
+        $subscriber = new class extends RecordingSubscriber implements TimeLimitExceededSubscriber
+        {
+            public function notify(TimeLimitExceeded $event): void
+            {
+                $this->record($event);
+            }
+        };
+
+        $dispatcher = $this->dispatcherWithRegisteredSubscriber(
+            TimeLimitExceededSubscriber::class,
+            TimeLimitExceeded::class,
+            $subscriber,
+        );
+
+        $telemetrySystem = $this->telemetrySystem();
+
+        $emitter = new DispatchingEmitter(
+            $dispatcher,
+            $telemetrySystem,
+        );
+
+        $emitter->testRunnerTimeLimitExceeded(60);
+
+        $this->assertSame(1, $subscriber->recordedEventCount());
+
+        $event = $subscriber->lastRecordedEvent();
+
+        $this->assertInstanceOf(TimeLimitExceeded::class, $event);
+        $this->assertSame(60, $event->timeLimit());
     }
 
     #[TestDox('testRunnerExecutionFinished() emits TestRunner\ExecutionFinished event')]

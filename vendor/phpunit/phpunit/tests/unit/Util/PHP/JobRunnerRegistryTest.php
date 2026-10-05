@@ -41,6 +41,7 @@ final class JobRunnerRegistryTest extends TestCase
                     PassedTests::instance(),
                     CodeCoverage::instance(),
                 ),
+                Facade::emitter(),
             ),
         );
     }
@@ -60,8 +61,9 @@ final class JobRunnerRegistryTest extends TestCase
                     new Facade,
                     $emitter,
                     new PassedTests,
-                    new CodeCoverage,
+                    new CodeCoverage($this->createStub(Emitter::class)),
                 ),
+                $this->createStub(Emitter::class),
             ),
         );
 

@@ -3,8 +3,7 @@
     "extends": [
         "config:recommended",
         "helpers:pinGitHubActionDigestsToSemver",
-        ":configMigration",
-        ":maintainLockFilesWeekly"
+        ":configMigration"
     ],
     "timezone": "Europe/Berlin",
     "baseBranchPatterns": [
@@ -23,11 +22,6 @@
         "enabled": true,
         "labels": ["type/security", "type/dependencies"]
     },
-    "lockFileMaintenance": {
-        "enabled": true,
-        "automerge": true,
-        "schedule": ["before 6am on monday"]
-    },
     "packageRules": [
         {
             "description": "Group GitHub Actions updates per branch into one PR, automerge",
@@ -36,8 +30,8 @@
             "automerge": true
         },
         {
-            "description": "Automerge patch updates after they have settled",
-            "matchUpdateTypes": ["patch", "pin", "digest"],
+            "description": "Automerge minor and patch updates after they have settled",
+            "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
             "automerge": true
         },
         {

@@ -10,6 +10,7 @@
 namespace PHPUnit\Metadata\Parser;
 
 use function assert;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Metadata\DependsOnClass;
@@ -43,12 +44,15 @@ use PHPUnit\TestFixture\Metadata\Attribute\DuplicateSmallAttributeTest;
 use PHPUnit\TestFixture\Metadata\Attribute\DuplicateTestAttributeTest;
 use PHPUnit\TestFixture\Metadata\Attribute\Example;
 use PHPUnit\TestFixture\Metadata\Attribute\ExampleTrait;
+use PHPUnit\TestFixture\Metadata\Attribute\GroupNameThatCannotBeSelectedTest;
 use PHPUnit\TestFixture\Metadata\Attribute\GroupTest;
 use PHPUnit\TestFixture\Metadata\Attribute\IgnoreDeprecationsClassTest;
 use PHPUnit\TestFixture\Metadata\Attribute\IgnoreDeprecationsMethodTest;
 use PHPUnit\TestFixture\Metadata\Attribute\IgnorePhpunitDeprecationsClassTest;
 use PHPUnit\TestFixture\Metadata\Attribute\IgnorePhpunitDeprecationsMethodTest;
 use PHPUnit\TestFixture\Metadata\Attribute\IgnorePhpunitWarningsTest;
+use PHPUnit\TestFixture\Metadata\Attribute\InvalidRepeatTest;
+use PHPUnit\TestFixture\Metadata\Attribute\InvalidRetryTest;
 use PHPUnit\TestFixture\Metadata\Attribute\LargeTest;
 use PHPUnit\TestFixture\Metadata\Attribute\MediumTest;
 use PHPUnit\TestFixture\Metadata\Attribute\NonPhpunitAttributeTest;
@@ -56,6 +60,7 @@ use PHPUnit\TestFixture\Metadata\Attribute\PhpunitAttributeThatDoesNotExistTest;
 use PHPUnit\TestFixture\Metadata\Attribute\PreserveGlobalStateTest;
 use PHPUnit\TestFixture\Metadata\Attribute\ProcessIsolationTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RepeatTest;
+use PHPUnit\TestFixture\Metadata\Attribute\RequiresClassTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RequiresEnvironmentVariableTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RequiresFunctionTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RequiresMethodTest;
@@ -67,11 +72,14 @@ use PHPUnit\TestFixture\Metadata\Attribute\RequiresPhpunitExtensionTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RequiresPhpunitTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RequiresSettingTest;
 use PHPUnit\TestFixture\Metadata\Attribute\RetryTest;
+use PHPUnit\TestFixture\Metadata\Attribute\SizeAsGroupNameTest;
+use PHPUnit\TestFixture\Metadata\Attribute\SmallAndMediumTest;
 use PHPUnit\TestFixture\Metadata\Attribute\SmallTest;
 use PHPUnit\TestFixture\Metadata\Attribute\TestDoxTest;
 use PHPUnit\TestFixture\Metadata\Attribute\TestWithTest;
 use PHPUnit\TestFixture\Metadata\Attribute\UsesFilesystemTest;
 use PHPUnit\TestFixture\Metadata\Attribute\UsesTest;
+use PHPUnit\TestFixture\Metadata\Attribute\VersionRequirementWithoutOperatorTest;
 use PHPUnit\TestFixture\Metadata\Attribute\WithEnvironmentVariableTest;
 use PHPUnit\TestFixture\Metadata\Attribute\WithoutErrorHandlerTest;
 
@@ -322,6 +330,16 @@ abstract class AttributeParserTestCase extends TestCase
         $this->assertTrue($metadata->asArray()[0]->isRequiresMethod());
         $this->assertSame('ClassName', $metadata->asArray()[0]->className());
         $this->assertSame('methodName', $metadata->asArray()[0]->methodName());
+    }
+
+    #[TestDox('Parses #[RequiresClass] attribute on class')]
+    public function test_parses_RequiresClass_attribute_on_class(): void
+    {
+        $metadata = $this->parser()->forClass(RequiresClassTest::class)->isRequiresClass();
+
+        $this->assertCount(1, $metadata);
+        $this->assertTrue($metadata->asArray()[0]->isRequiresClass());
+        $this->assertSame(TestCase::class, $metadata->asArray()[0]->className());
     }
 
     #[TestDox('Parses #[RequiresFunction] attribute on class')]
@@ -985,6 +1003,16 @@ abstract class AttributeParserTestCase extends TestCase
         $this->assertSame('anotherMethodName', $metadata->asArray()[0]->methodName());
     }
 
+    #[TestDox('Parses #[RequiresClass] attribute on method')]
+    public function test_parses_RequiresClass_attribute_on_method(): void
+    {
+        $metadata = $this->parser()->forMethod(RequiresClassTest::class, 'testOne')->isRequiresClass();
+
+        $this->assertCount(1, $metadata);
+        $this->assertTrue($metadata->asArray()[0]->isRequiresClass());
+        $this->assertSame(RequiresClassTest::class, $metadata->asArray()[0]->className());
+    }
+
     #[TestDox('Parses #[RequiresFunction] attribute on method')]
     public function test_parses_RequiresFunction_attribute_on_method(): void
     {
@@ -1375,5 +1403,122 @@ abstract class AttributeParserTestCase extends TestCase
         );
     }
 
-    abstract protected function parser(): Parser;
+    public function testWarnsWhenSizeAttributesAreCombined(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('#[Medium] cannot be combined with #[Small] or #[Large] for class ' . SmallAndMediumTest::class)
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forClass(SmallAndMediumTest::class)->isGroup();
+
+        $this->assertCount(1, $metadata);
+        $this->assertSame('small', $metadata->asArray()[0]->groupName());
+    }
+
+    public function testWarnsWhenSizeIsUsedAsGroupName(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Group name "small" is not allowed for class ' . SizeAsGroupNameTest::class)
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forClass(SizeAsGroupNameTest::class)->isGroup();
+
+        $this->assertCount(0, $metadata);
+    }
+
+    public function testWarnsWhenGroupNameCannotBeUsedToSelectTests(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Group name "one+two" for class ' . GroupNameThatCannotBeSelectedTest::class . ' cannot be used to select tests: "+" combines several group names into a selection of the tests that are in all of them')
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forClass(GroupNameThatCannotBeSelectedTest::class)->isGroup();
+
+        $this->assertCount(1, $metadata);
+        $this->assertSame('one+two', $metadata->asArray()[0]->groupName());
+    }
+
+    public function testWarnsWhenNumberOfRepetitionsIsNotPositive(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Method ' . InvalidRepeatTest::class . '::testWithInvalidNumberOfRepetitions is annotated with #[Repeat] but 0 is not a positive integer for the number of repetitions and will not be repeated')
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forMethod(InvalidRepeatTest::class, 'testWithInvalidNumberOfRepetitions')->isRepeat();
+
+        $this->assertCount(1, $metadata);
+        $this->assertSame(1, $metadata->asArray()[0]->times());
+        $this->assertSame(1, $metadata->asArray()[0]->failureThreshold());
+    }
+
+    public function testWarnsWhenFailureThresholdIsNotPositive(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Method ' . InvalidRepeatTest::class . '::testWithInvalidFailureThreshold is annotated with #[Repeat] but 0 is not a positive integer for the failure threshold and will not be repeated')
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forMethod(InvalidRepeatTest::class, 'testWithInvalidFailureThreshold')->isRepeat();
+
+        $this->assertCount(1, $metadata);
+        $this->assertSame(1, $metadata->asArray()[0]->times());
+        $this->assertSame(1, $metadata->asArray()[0]->failureThreshold());
+    }
+
+    public function testWarnsWhenMaximumNumberOfAttemptsIsNotPositive(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Method ' . InvalidRetryTest::class . '::testOne is annotated with #[Retry] but 0 is not a positive integer for the maximum number of attempts and will not be retried')
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forMethod(InvalidRetryTest::class, 'testOne')->isRetry();
+
+        $this->assertCount(1, $metadata);
+        $this->assertSame(1, $metadata->asArray()[0]->maxAttempts());
+    }
+
+    public function testWarnsWhenVersionRequirementHasNoComparisonOperator(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Attribute RequiresPhp for test class ' . VersionRequirementWithoutOperatorTest::class . ' has version requirement "8" without a version comparison operator, the version requirement is ignored (use a version comparison such as ">= 8.1.0" or a version constraint such as "^8.1")')
+            ->seal();
+
+        $metadata = $this->parserWithEmitter($emitter)->forClass(VersionRequirementWithoutOperatorTest::class)->isRequiresPhp();
+
+        $this->assertCount(0, $metadata);
+    }
+
+    abstract protected function parserWithEmitter(Emitter $emitter): Parser;
+
+    final protected function parser(): Parser
+    {
+        return $this->parserWithEmitter($this->createStub(Emitter::class));
+    }
 }

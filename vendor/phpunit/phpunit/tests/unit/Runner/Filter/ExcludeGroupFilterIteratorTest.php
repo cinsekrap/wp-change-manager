@@ -10,15 +10,19 @@
 namespace PHPUnit\Runner\Filter;
 
 use function assert;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Small;
+use PHPUnit\Framework\Attributes\TestDox;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\TestSuite;
 use PHPUnit\TestFixture\BankAccountTest;
 
 #[CoversClass(ExcludeGroupFilterIterator::class)]
 #[CoversClass(GroupFilterIterator::class)]
+#[UsesClass(CompiledGroupFilter::class)]
 #[Small]
 #[Group('test-runner')]
 #[Group('test-runner/filter')]
@@ -48,6 +52,30 @@ final class ExcludeGroupFilterIteratorTest extends TestCase
         );
     }
 
+    public function testDoesNotAcceptTestsThatAreInEveryGroupOfAConjunction(): void
+    {
+        $this->assertSame(
+            [
+                BankAccountTest::class . '::testBalanceIsInitiallyZero',
+                BankAccountTest::class . '::testBalanceCannotBecomeNegative',
+            ],
+            $this->idsOfAcceptedTests(['one+two']),
+        );
+    }
+
+    #[TestDox('Accepts a test that is in only one group of an excluded conjunction')]
+    public function testAcceptsTestThatIsInOnlyOneGroupOfAnExcludedConjunction(): void
+    {
+        $this->assertSame(
+            [
+                BankAccountTest::class . '::testBalanceIsInitiallyZero',
+                BankAccountTest::class . '::testBalanceCannotBecomeNegative',
+                BankAccountTest::class . '::testBalanceCannotBecomeNegative2',
+            ],
+            $this->idsOfAcceptedTests(['one+group-without-tests']),
+        );
+    }
+
     public function testAcceptsAllTestsWhenNoTestIsInTheExcludedGroup(): void
     {
         $this->assertSame(
@@ -67,7 +95,7 @@ final class ExcludeGroupFilterIteratorTest extends TestCase
      */
     private function idsOfAcceptedTests(array $groups): array
     {
-        $suite = TestSuite::empty('test suite name');
+        $suite = TestSuite::empty('test suite name', $this->createStub(Emitter::class));
 
         $suite->addTest(new BankAccountTest('testBalanceIsInitiallyZero'), ['one']);
         $suite->addTest(new BankAccountTest('testBalanceCannotBecomeNegative'), ['two', '5']);

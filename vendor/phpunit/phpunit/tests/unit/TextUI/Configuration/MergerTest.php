@@ -14,16 +14,15 @@ use const PATH_SEPARATOR;
 use function dirname;
 use function realpath;
 use function uniqid;
-use PHPUnit\Event\Facade as EventFacade;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\TextUI\CliArguments\Builder;
-use PHPUnit\TextUI\CliArguments\Configuration as CliConfiguration;
 use PHPUnit\TextUI\Configuration\Configuration as MergedConfiguration;
 use PHPUnit\TextUI\Configuration\Merger;
-use ReflectionProperty;
+use PHPUnit\TextUI\Configuration\TimeoutNotConfiguredException;
 
 #[CoversClass(Merger::class)]
 #[Medium]
@@ -34,7 +33,7 @@ final class MergerTest extends TestCase
     public function testNoLoggingShouldOnlyAffectXmlConfiguration(): void
     {
         $junitLog = uniqid('junit_log_');
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_logging.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_logging.xml');
 
         $this->assertTrue($fromFile->logging()->hasTeamCity());
         $this->assertTrue($fromFile->logging()->hasTestDoxHtml());
@@ -43,13 +42,13 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromFile->logging()->hasJunit());
         $this->assertNotSame($junitLog, $fromFile->logging()->junit()->target()->path());
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--no-logging',
             '--log-junit',
             $junitLog,
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertFalse($mergedConfig->hasLogfileTeamcity());
         $this->assertFalse($mergedConfig->hasLogfileTestdoxHtml());
@@ -61,26 +60,26 @@ final class MergerTest extends TestCase
 
     public function testBranchCoverageCanBeEnabledFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
         $this->assertFalse($fromFile->codeCoverage()->branchCoverage());
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--branch-coverage',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->branchCoverage());
     }
 
     public function testClassViewAndFileViewForHtmlCodeCoverageReportAreEnabledByDefault(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->coverageHtmlClassView());
         $this->assertTrue($mergedConfig->coverageHtmlFileView());
@@ -88,11 +87,11 @@ final class MergerTest extends TestCase
 
     public function testClassViewForHtmlCodeCoverageReportCanBeDisabledFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage_html_classview.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage_html_classview.xml');
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertFalse($mergedConfig->coverageHtmlClassView());
         $this->assertTrue($mergedConfig->coverageHtmlFileView());
@@ -100,13 +99,13 @@ final class MergerTest extends TestCase
 
     public function testClassViewForHtmlCodeCoverageReportCanBeDisabledFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--without-class-view',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertFalse($mergedConfig->coverageHtmlClassView());
         $this->assertTrue($mergedConfig->coverageHtmlFileView());
@@ -114,11 +113,11 @@ final class MergerTest extends TestCase
 
     public function testFileViewForHtmlCodeCoverageReportCanBeDisabledFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage_html_fileview.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage_html_fileview.xml');
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->coverageHtmlClassView());
         $this->assertFalse($mergedConfig->coverageHtmlFileView());
@@ -126,13 +125,13 @@ final class MergerTest extends TestCase
 
     public function testFileViewForHtmlCodeCoverageReportCanBeDisabledFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--without-file-view',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->coverageHtmlClassView());
         $this->assertFalse($mergedConfig->coverageHtmlFileView());
@@ -140,35 +139,35 @@ final class MergerTest extends TestCase
 
     public function testCoverageTargetingCanBeDisabledFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--disable-coverage-targeting',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->disableCoverageTargeting());
     }
 
     public function testCoverageTargetingIsNotDisabledByDefault(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertFalse($mergedConfig->disableCoverageTargeting());
     }
 
     public function testCoverageDriverIsCarriedOverFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage_driver.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage_driver.xml');
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->hasCoverageDriver());
         $this->assertSame('My\Custom\Driver', $mergedConfig->coverageDriver());
@@ -177,12 +176,13 @@ final class MergerTest extends TestCase
     public function testNoCoverageShouldOnlyAffectXmlConfiguration(): void
     {
         $phpCoverage = uniqid('php_coverage_');
-        $fromFile    = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
+        $fromFile    = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage.xml');
 
         $this->assertTrue($fromFile->codeCoverage()->hasClover());
         $this->assertTrue($fromFile->codeCoverage()->hasCobertura());
         $this->assertTrue($fromFile->codeCoverage()->hasCrap4j());
         $this->assertTrue($fromFile->codeCoverage()->hasHtml());
+        $this->assertTrue($fromFile->codeCoverage()->hasJsonl());
         $this->assertTrue($fromFile->codeCoverage()->hasOpenClover());
         $this->assertTrue($fromFile->codeCoverage()->hasText());
         $this->assertTrue($fromFile->codeCoverage()->hasXml());
@@ -190,18 +190,19 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromFile->codeCoverage()->hasPhp());
         $this->assertNotSame($phpCoverage, $fromFile->codeCoverage()->php()->target()->path());
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--no-coverage',
             '--coverage-php',
             $phpCoverage,
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertFalse($mergedConfig->hasCoverageClover());
         $this->assertFalse($mergedConfig->hasCoverageCobertura());
         $this->assertFalse($mergedConfig->hasCoverageCrap4j());
         $this->assertFalse($mergedConfig->hasCoverageHtml());
+        $this->assertFalse($mergedConfig->hasCoverageJsonl());
         $this->assertFalse($mergedConfig->hasCoverageOpenClover());
         $this->assertFalse($mergedConfig->hasCoverageText());
         $this->assertFalse($mergedConfig->hasCoverageXml());
@@ -212,9 +213,9 @@ final class MergerTest extends TestCase
 
     public function testLoggingConfigurationIsCarriedOverFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_logging.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_logging.xml');
 
-        $mergedConfig = (new Merger)->merge((new Builder)->fromParameters([]), $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge(new Builder($this->createStub(Emitter::class))->fromParameters([]), $fromFile);
 
         $this->assertTrue($mergedConfig->hasLogfileTeamcity());
         $this->assertStringEndsWith('teamcity.txt', $mergedConfig->logfileTeamcity());
@@ -235,9 +236,9 @@ final class MergerTest extends TestCase
 
     public function testCodeCoverageReportsCanBeConfiguredFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_empty.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_empty.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--path-coverage',
             '--disable-coverage-ignore',
             '--coverage-clover',
@@ -248,6 +249,8 @@ final class MergerTest extends TestCase
             'crap4j.xml',
             '--coverage-html',
             'html',
+            '--coverage-jsonl',
+            'jsonl',
             '--coverage-openclover',
             'openclover.xml',
             '--coverage-text=coverage.txt',
@@ -260,7 +263,7 @@ final class MergerTest extends TestCase
             '--require-coverage-contribution',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->pathCoverage());
         $this->assertTrue($mergedConfig->disableCodeCoverageIgnore());
@@ -268,6 +271,7 @@ final class MergerTest extends TestCase
         $this->assertSame('cobertura.xml', $mergedConfig->coverageCobertura());
         $this->assertSame('crap4j.xml', $mergedConfig->coverageCrap4j());
         $this->assertSame('html', $mergedConfig->coverageHtml());
+        $this->assertSame('jsonl', $mergedConfig->coverageJsonl());
         $this->assertSame('openclover.xml', $mergedConfig->coverageOpenClover());
         $this->assertSame('coverage.txt', $mergedConfig->coverageText());
         $this->assertTrue($mergedConfig->coverageTextShowUncoveredFiles());
@@ -280,9 +284,9 @@ final class MergerTest extends TestCase
 
     public function testMiscellaneousOptionsCanBeConfiguredFromCli(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_empty.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_empty.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--stderr',
             '--no-extensions',
             '--fail-on-phpunit-warning',
@@ -293,7 +297,7 @@ final class MergerTest extends TestCase
             '--default-time-limit=-1',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->outputToStandardErrorStream());
         $this->assertTrue($mergedConfig->noExtensions());
@@ -304,46 +308,71 @@ final class MergerTest extends TestCase
         $this->assertSame(0, $mergedConfig->defaultTimeLimit());
     }
 
+    public function testTimeoutIsNotConfiguredByDefault(): void
+    {
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_empty.xml');
+        $fromCli  = new Builder($this->createStub(Emitter::class))->fromParameters([]);
+
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
+
+        $this->assertFalse($mergedConfig->hasTimeout());
+
+        $this->expectException(TimeoutNotConfiguredException::class);
+
+        $mergedConfig->timeout();
+    }
+
+    public function testTimeoutCanBeConfiguredFromCli(): void
+    {
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_empty.xml');
+        $fromCli  = new Builder($this->createStub(Emitter::class))->fromParameters(['--timeout=60']);
+
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
+
+        $this->assertTrue($mergedConfig->hasTimeout());
+        $this->assertSame(60, $mergedConfig->timeout());
+    }
+
     public function testInvalidRandomOrderSeedIsReplacedWithSmallestValidSeed(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_empty.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_empty.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--order-by=random',
             '--random-order-seed=0',
         ]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertSame(1, $mergedConfig->randomOrderSeed());
     }
 
     public function testIncludePathsAreCarriedOverFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_edge_case_values.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_edge_case_values.xml');
 
-        $mergedConfig = (new Merger)->merge((new Builder)->fromParameters([]), $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge(new Builder($this->createStub(Emitter::class))->fromParameters([]), $fromFile);
 
         $this->assertCount(2, $mergedConfig->php()->includePaths());
     }
 
     public function testColorsCanBeEnabledFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration.colors.true.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration.colors.true.xml');
 
-        $mergedConfig = (new Merger)->merge((new Builder)->fromParameters([]), $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge(new Builder($this->createStub(Emitter::class))->fromParameters([]), $fromFile);
 
         $this->assertTrue($mergedConfig->colors());
     }
 
     public function testThresholdsForHtmlCodeCoverageReportAreResetWhenTheyAreInconsistent(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage_html_custom.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage_html_custom.xml');
 
         $this->assertSame(90, $fromFile->codeCoverage()->html()->lowUpperBound());
         $this->assertSame(50, $fromFile->codeCoverage()->html()->highLowerBound());
 
-        $mergedConfig = (new Merger)->merge((new Builder)->fromParameters([]), $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge(new Builder($this->createStub(Emitter::class))->fromParameters([]), $fromFile);
 
         $this->assertLessThanOrEqual(
             $mergedConfig->coverageHtmlHighLowerBound(),
@@ -353,9 +382,9 @@ final class MergerTest extends TestCase
 
     public function testCustomCssFileForHtmlCodeCoverageReportIsCarriedOverFromXmlConfiguration(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_codecoverage_html_custom.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_codecoverage_html_custom.xml');
 
-        $mergedConfig = (new Merger)->merge((new Builder)->fromParameters([]), $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge(new Builder($this->createStub(Emitter::class))->fromParameters([]), $fromFile);
 
         $this->assertTrue($mergedConfig->hasCoverageHtmlCustomCssFile());
         $this->assertStringEndsWith('custom.css', $mergedConfig->coverageHtmlCustomCssFile());
@@ -363,13 +392,20 @@ final class MergerTest extends TestCase
 
     public function testWarningIsTriggeredWhenIssueTriggerIdentificationIsDisabledButNeeded(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration_source_without_issue_trigger_identification.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration_source_without_issue_trigger_identification.xml');
 
         $this->assertTrue($fromFile->source()->ignoreSelfDeprecations());
         $this->assertFalse($fromFile->source()->identifyIssueTrigger());
 
-        $mergedConfig = $this->mergeWithThrowAwayEventFacade(
-            (new Builder)->fromParameters([]),
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->atLeastOnce())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->seal();
+
+        $mergedConfig = new Merger($emitter)->merge(
+            new Builder($this->createStub(Emitter::class))->fromParameters([]),
             $fromFile,
         );
 
@@ -399,7 +435,7 @@ final class MergerTest extends TestCase
     #[Group('regression/6340')]
     public function testIssue6340(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration-issue-6340.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration-issue-6340.xml');
 
         $this->assertTrue($fromFile->phpunit()->failOnPhpunitDeprecation());
         $this->assertTrue($fromFile->phpunit()->failOnPhpunitNotice());
@@ -409,7 +445,7 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromFile->phpunit()->failOnIncomplete());
         $this->assertTrue($fromFile->phpunit()->failOnSkipped());
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--do-not-fail-on-phpunit-deprecation',
             '--do-not-fail-on-phpunit-notice',
             '--do-not-fail-on-deprecation',
@@ -427,7 +463,7 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromCli->doNotFailOnIncomplete());
         $this->assertTrue($fromCli->doNotFailOnSkipped());
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->doNotFailOnPhpunitDeprecation());
         $this->assertTrue($mergedConfig->doNotFailOnPhpunitNotice());
@@ -449,15 +485,15 @@ final class MergerTest extends TestCase
     #[Group('issue-6484')]
     public function testFailOnDeprecationTriggerOptionsCanBeConfiguredUsingXmlConfigurationFile(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration-issue-6484.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration-issue-6484.xml');
 
         $this->assertTrue($fromFile->phpunit()->failOnSelfDeprecation());
         $this->assertTrue($fromFile->phpunit()->failOnDirectDeprecation());
         $this->assertTrue($fromFile->phpunit()->failOnIndirectDeprecation());
 
-        $fromCli = (new Builder)->fromParameters([]);
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->failOnSelfDeprecation());
         $this->assertTrue($mergedConfig->failOnDirectDeprecation());
@@ -473,9 +509,9 @@ final class MergerTest extends TestCase
     #[Group('issue-6484')]
     public function testFailOnDeprecationTriggerOptionsCanBeConfiguredUsingCommandLineOptions(): void
     {
-        $fromFile = (new Loader)->load(TEST_FILES_PATH . 'configuration-issue-6484.xml');
+        $fromFile = new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration-issue-6484.xml');
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--do-not-fail-on-self-deprecation',
             '--do-not-fail-on-direct-deprecation',
             '--do-not-fail-on-indirect-deprecation',
@@ -485,7 +521,7 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromCli->doNotFailOnDirectDeprecation());
         $this->assertTrue($fromCli->doNotFailOnIndirectDeprecation());
 
-        $mergedConfig = (new Merger)->merge($fromCli, $fromFile);
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, $fromFile);
 
         $this->assertTrue($mergedConfig->doNotFailOnSelfDeprecation());
         $this->assertTrue($mergedConfig->doNotFailOnDirectDeprecation());
@@ -493,7 +529,7 @@ final class MergerTest extends TestCase
 
         $this->assertFalse($mergedConfig->displayDetailsOnTestsThatTriggerDeprecations());
 
-        $fromCli = (new Builder)->fromParameters([
+        $fromCli = new Builder($this->createStub(Emitter::class))->fromParameters([
             '--fail-on-self-deprecation',
             '--fail-on-direct-deprecation',
             '--fail-on-indirect-deprecation',
@@ -503,7 +539,7 @@ final class MergerTest extends TestCase
         $this->assertTrue($fromCli->failOnDirectDeprecation());
         $this->assertTrue($fromCli->failOnIndirectDeprecation());
 
-        $mergedConfig = (new Merger)->merge($fromCli, (new Loader)->load(TEST_FILES_PATH . 'configuration-issue-6340.xml'));
+        $mergedConfig = new Merger($this->createStub(Emitter::class))->merge($fromCli, new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . 'configuration-issue-6340.xml'));
 
         $this->assertTrue($mergedConfig->failOnSelfDeprecation());
         $this->assertTrue($mergedConfig->failOnDirectDeprecation());
@@ -527,8 +563,8 @@ final class MergerTest extends TestCase
         }
 
         try {
-            return (new Merger)->merge(
-                (new Builder)->fromParameters([]),
+            return new Merger($this->createStub(Emitter::class))->merge(
+                new Builder($this->createStub(Emitter::class))->fromParameters([]),
                 DefaultConfiguration::create(),
             );
         } finally {
@@ -537,26 +573,6 @@ final class MergerTest extends TestCase
             } else {
                 $_SERVER['PHP_SELF'] = $backup;
             }
-        }
-    }
-
-    /*
-     * Merger emits test runner warnings for configurations that are
-     * inconsistent. These must not end up in the result of the test run that
-     * exercises Merger, so they are emitted into a throw-away event facade
-     * that is never forwarded.
-     */
-    private function mergeWithThrowAwayEventFacade(CliConfiguration $cliConfiguration, Configuration $xmlConfiguration): MergedConfiguration
-    {
-        $property = new ReflectionProperty(EventFacade::class, 'instance');
-        $facade   = $property->getValue();
-
-        $property->setValue(null, new EventFacade);
-
-        try {
-            return (new Merger)->merge($cliConfiguration, $xmlConfiguration);
-        } finally {
-            $property->setValue(null, $facade);
         }
     }
 }

@@ -9,6 +9,9 @@
  */
 namespace PHPUnit\Framework;
 
+use const DIRECTORY_SEPARATOR;
+use const TEST_FILES_PATH;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\TestFixture\AbstractTestCase;
@@ -26,14 +29,14 @@ final class TestSuiteTest extends TestCase
 {
     public function testNotPublicTestCase(): void
     {
-        $suite = TestSuite::fromClassReflector(new ReflectionClass(NotPublicTestCase::class));
+        $suite = TestSuite::fromClassReflector(new ReflectionClass(NotPublicTestCase::class), $this->createStub(Emitter::class));
 
         $this->assertCount(1, $suite);
     }
 
     public function testNormalizeProvidedDependencies(): void
     {
-        $suite = TestSuite::fromClassReflector(new ReflectionClass(MultiDependencyTest::class));
+        $suite = TestSuite::fromClassReflector(new ReflectionClass(MultiDependencyTest::class), $this->createStub(Emitter::class));
 
         $this->assertEquals([
             MultiDependencyTest::class . '::class',
@@ -47,14 +50,14 @@ final class TestSuiteTest extends TestCase
 
     public function testNormalizeRequiredDependencies(): void
     {
-        $suite = TestSuite::fromClassReflector(new ReflectionClass(MultiDependencyTest::class));
+        $suite = TestSuite::fromClassReflector(new ReflectionClass(MultiDependencyTest::class), $this->createStub(Emitter::class));
 
         $this->assertSame([], $suite->requires());
     }
 
     public function testProvidedDependenciesAreDeduplicated(): void
     {
-        $suite = TestSuite::empty('SomeName');
+        $suite = TestSuite::empty('SomeName', $this->createStub(Emitter::class));
         $suite->addTestSuite(new ReflectionClass(DependencySuccessTest::class));
         $suite->addTestSuite(new ReflectionClass(DependencySuccessTest::class));
 
@@ -71,6 +74,7 @@ final class TestSuiteTest extends TestCase
     {
         $suite = TestSuite::fromClassReflector(
             new ReflectionClass(DependencyOnClassTest::class),
+            $this->createStub(Emitter::class),
         );
 
         $this->assertEquals([
@@ -87,7 +91,7 @@ final class TestSuiteTest extends TestCase
 
     public function testResolveDependenciesBetweenTestSuites(): void
     {
-        $suite = TestSuite::fromClassReflector(new ReflectionClass(DependencyOnClassTest::class));
+        $suite = TestSuite::fromClassReflector(new ReflectionClass(DependencyOnClassTest::class), $this->createStub(Emitter::class));
         $suite->addTestSuite(new ReflectionClass(DependencyFailureTest::class));
         $suite->addTestSuite(new ReflectionClass(DependencySuccessTest::class));
 
@@ -115,7 +119,7 @@ final class TestSuiteTest extends TestCase
 
     public function testResolverOnlyUsesSuitesAndCases(): void
     {
-        $suite = TestSuite::empty('SomeName');
+        $suite = TestSuite::empty('SomeName', $this->createStub(Emitter::class));
         $suite->addTestSuite(new ReflectionClass(DependencyOnClassTest::class));
 
         $this->assertEquals([
@@ -131,9 +135,45 @@ final class TestSuiteTest extends TestCase
         ], $suite->requires(), 'Required test names incorrect');
     }
 
+    public function testAddsTestsFromMultipleTestFiles(): void
+    {
+        $suite = TestSuite::empty('the-test-suite', $this->createStub(Emitter::class));
+
+        $suite->addTestFiles(
+            [
+                TEST_FILES_PATH . 'dependencies' . DIRECTORY_SEPARATOR . 'DependencySuccessTest.php',
+                TEST_FILES_PATH . 'dependencies' . DIRECTORY_SEPARATOR . 'DependencyFailureTest.php',
+            ],
+        );
+
+        $tests = $suite->tests();
+
+        $this->assertCount(2, $tests);
+        $this->assertInstanceOf(TestSuite::class, $tests[0]);
+        $this->assertSame(DependencySuccessTest::class, $tests[0]->name());
+        $this->assertInstanceOf(TestSuite::class, $tests[1]);
+        $this->assertSame(DependencyFailureTest::class, $tests[1]->name());
+    }
+
+    public function testIsForTheTestClassItWasCreatedFor(): void
+    {
+        $suite = TestSuite::fromClassReflector(new ReflectionClass(MultiDependencyTest::class), $this->createStub(Emitter::class));
+
+        $this->assertTrue($suite->isForTestClass());
+    }
+
+    public function testIsNotForATestClassWhenItIsOnlyNamedLikeOne(): void
+    {
+        $suite = TestSuite::empty(MultiDependencyTest::class, $this->createStub(Emitter::class));
+
+        $suite->addTestSuite(new ReflectionClass(MultiDependencyTest::class));
+
+        $this->assertFalse($suite->isForTestClass());
+    }
+
     public function testRejectsAbstractTestClass(): void
     {
-        $suite = TestSuite::empty('the-test-suite');
+        $suite = TestSuite::empty('the-test-suite', $this->createStub(Emitter::class));
 
         $this->expectException(Exception::class);
 
@@ -142,7 +182,7 @@ final class TestSuiteTest extends TestCase
 
     public function testRejectsClassThatDoesNotExtendTestClass(): void
     {
-        $suite = TestSuite::empty('the-test-suite');
+        $suite = TestSuite::empty('the-test-suite', $this->createStub(Emitter::class));
 
         $this->expectException(Exception::class);
 
