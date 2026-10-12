@@ -23,11 +23,13 @@ final class ControlFlowGraphTest extends TestCase
     public function testGeneratesDotWithCoverageClassesForNodesAndEdges(): void
     {
         $dot = (new ControlFlowGraph)->generateDot(
+            'Foo\Bar->baz',
             $this->methodData(),
             $this->methodData()->paths,
         );
 
         $this->assertStringContainsString('digraph {', $dot);
+        $this->assertStringContainsString('id="cfg-Foo-Bar--baz";', $dot);
         $this->assertStringContainsString('bgcolor=transparent;', $dot);
         $this->assertStringContainsString('entry [label="entry", shape=oval, class="terminal"];', $dot);
         $this->assertStringContainsString('exit [label="exit", shape=oval, class="terminal"];', $dot);
@@ -37,10 +39,10 @@ final class ControlFlowGraphTest extends TestCase
         $this->assertStringContainsString('b9 [label="L14-L15", class="uncovered"];', $dot);
 
         $this->assertStringContainsString('entry -> b0;', $dot);
-        $this->assertStringContainsString('b0 -> b5 [id="edge-0-5", class="covered path-0"];', $dot);
-        $this->assertStringContainsString('b0 -> b9 [id="edge-0-9", class="uncovered path-1"];', $dot);
-        $this->assertStringContainsString('b5 -> exit [id="edge-5-exit", class="covered path-0"];', $dot);
-        $this->assertStringContainsString('b9 -> exit [id="edge-9-exit", class="uncovered path-1"];', $dot);
+        $this->assertStringContainsString('b0 -> b5 [id="cfg-Foo-Bar--baz_edge-0-5", class="covered path-0"];', $dot);
+        $this->assertStringContainsString('b0 -> b9 [id="cfg-Foo-Bar--baz_edge-0-9", class="uncovered path-1"];', $dot);
+        $this->assertStringContainsString('b5 -> exit [id="cfg-Foo-Bar--baz_edge-5-exit", class="covered path-0"];', $dot);
+        $this->assertStringContainsString('b9 -> exit [id="cfg-Foo-Bar--baz_edge-9-exit", class="uncovered path-1"];', $dot);
 
         $this->assertStringNotContainsString('fillcolor', $dot);
         $this->assertStringNotContainsString('#', $dot);
@@ -48,20 +50,38 @@ final class ControlFlowGraphTest extends TestCase
 
     public function testGeneratesDotWithoutPathClassesWhenNoPathsAreProvided(): void
     {
-        $dot = (new ControlFlowGraph)->generateDot($this->methodData());
+        $dot = (new ControlFlowGraph)->generateDot('foo', $this->methodData());
 
-        $this->assertStringContainsString('b0 -> b5 [id="edge-0-5", class="covered"];', $dot);
+        $this->assertStringContainsString('b0 -> b5 [id="cfg-foo_edge-0-5", class="covered"];', $dot);
         $this->assertStringNotContainsString('path-0', $dot);
+    }
+
+    public function testGraphsAreIdentifiedByTheNameOfTheMethod(): void
+    {
+        $controlFlowGraph = new ControlFlowGraph;
+
+        if ($controlFlowGraph->renderSvg('foo', $this->methodData()) === '') {
+            $this->markTestSkipped('dot is not available');
+        }
+
+        $first  = $controlFlowGraph->renderSvg('Foo\Bar->baz', $this->methodData());
+        $second = $controlFlowGraph->renderSvg('{closure:/path/to/file.php:14-14}', $this->methodData());
+
+        $this->assertStringContainsString('<g id="cfg-Foo-Bar--baz" class="graph"', $first);
+        $this->assertStringContainsString('id="cfg&#45;Foo&#45;Bar&#45;&#45;baz_node1"', $first);
+        $this->assertStringContainsString('id="cfg&#45;Foo&#45;Bar&#45;&#45;baz_edge&#45;0&#45;5"', $first);
+        $this->assertStringContainsString('<g id="cfg--closure--path-to-file-php-14-14-" class="graph"', $second);
+        $this->assertStringNotContainsString('page0,1_', $second);
     }
 
     public function testRendersNoSvgWhenDotIsNotAvailable(): void
     {
         $controlFlowGraph = new ControlFlowGraph('binary-that-does-not-exist');
 
-        $this->assertSame('', $controlFlowGraph->renderSvg($this->methodData()));
+        $this->assertSame('', $controlFlowGraph->renderSvg('foo', $this->methodData()));
 
         // the failure is remembered, subsequent calls do not spawn a process
-        $this->assertSame('', $controlFlowGraph->renderSvg($this->methodData()));
+        $this->assertSame('', $controlFlowGraph->renderSvg('foo', $this->methodData()));
     }
 
     private function methodData(): ProcessedFunctionCoverageData

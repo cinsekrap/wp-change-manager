@@ -3526,6 +3526,17 @@ return [
                 'default' => null,
                 'description' => 'The number of hours to retain failed job data',
             ],
+            [
+                'name' => 'queue',
+                'shortcut' => null,
+                'negatable' => false,
+                'valueRequired' => false,
+                'valueOptional' => true,
+                'isArray' => false,
+                'acceptValue' => true,
+                'default' => null,
+                'description' => 'Flush all of the failed jobs for the specified queue',
+            ],
         ],
     ],
     \Illuminate\Queue\Console\ForgetFailedCommand::class => [
@@ -4035,7 +4046,7 @@ return [
                 'isArray' => false,
                 'acceptValue' => true,
                 'default' => '128',
-                'description' => 'The memory limit in megabytes',
+                'description' => 'The memory limit in megabytes, or as a percentage of the PHP memory limit',
             ],
             [
                 'name' => 'sleep',

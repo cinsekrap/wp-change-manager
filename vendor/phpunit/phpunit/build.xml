@@ -131,6 +131,22 @@
             <arg value="--detach-sign"/>
             <arg path="${basedir}/build/artifacts/phpunit-${version}.phar"/>
         </exec>
+
+        <exec executable="gpg" failonerror="true">
+            <arg value="--local-user"/>
+            <arg value="sb@sebastian-bergmann.de"/>
+            <arg value="--armor"/>
+            <arg value="--detach-sign"/>
+            <arg path="${basedir}/build/artifacts/phpunit-library-${version}.phar.cdx.xml"/>
+        </exec>
+
+        <exec executable="gpg" failonerror="true">
+            <arg value="--local-user"/>
+            <arg value="sb@sebastian-bergmann.de"/>
+            <arg value="--armor"/>
+            <arg value="--detach-sign"/>
+            <arg path="${basedir}/build/artifacts/phpunit-${version}.phar.cdx.xml"/>
+        </exec>
     </target>
 
     <target name="phar" depends="-phar-prepare,-phar-determine-version" description="Create PHAR archive of PHPUnit and all its dependencies">
@@ -158,11 +174,6 @@
         </copy>
 
         <copy file="${basedir}/composer.lock" tofile="${basedir}/build/tmp/phar/composer.lock"/>
-
-        <exec executable="${basedir}/build/scripts/phar-manifest.php" failonerror="true">
-            <arg path="${basedir}/build/tmp/phar/manifest.txt"/>
-            <arg path="${basedir}/build/tmp/phar/sbom.xml"/>
-        </exec>
 
         <copy file="${basedir}/vendor/phpunit/php-code-coverage/LICENSE" tofile="${basedir}/build/tmp/phar/php-code-coverage/LICENSE"/>
         <copy todir="${basedir}/build/tmp/phar/php-code-coverage">
@@ -371,6 +382,13 @@
             <arg value="${type}"/>
         </exec>
 
+        <exec executable="${basedir}/build/scripts/phar-manifest.php" taskname="phar-manifest" failonerror="true">
+            <arg path="${basedir}/build/tmp/phar/composer.lock"/>
+            <arg path="${basedir}/build/tmp/phar/manifest.txt"/>
+            <arg path="${basedir}/build/tmp/phar/sbom.xml"/>
+            <arg value="${type}"/>
+        </exec>
+
         <exec executable="${basedir}/tools/php-scoper" taskname="php-scoper">
             <arg value="add-prefix" />
             <arg value="--no-ansi" />
@@ -398,10 +416,16 @@
 
         <exec executable="${basedir}/build/scripts/phar-set-timestamps/run.php" taskname="phar-set-timestamps" failonerror="true">
             <arg path="${basedir}/build/artifacts/phpunit-library-${_version}.phar" />
+            <arg value="${type}" />
         </exec>
 
         <exec executable="${basedir}/build/scripts/check-scoped-phar.php" taskname="check-scoped-phar" failonerror="true">
             <arg path="${basedir}/build/artifacts/phpunit-library-${_version}.phar" />
+        </exec>
+
+        <exec executable="${basedir}/build/scripts/phar-sbom.php" taskname="phar-sbom" failonerror="true">
+            <arg path="${basedir}/build/artifacts/phpunit-library-${_version}.phar" />
+            <arg path="${basedir}/build/artifacts/phpunit-library-${_version}.phar.cdx.xml" />
         </exec>
 
         <copy file="${basedir}/build/templates/binary-phar-autoload.php.in" tofile="${basedir}/build/tmp/binary-phar-autoload.php"/>
@@ -423,12 +447,18 @@
 
         <exec executable="${basedir}/build/scripts/phar-set-timestamps/run.php" taskname="phar-set-timestamps" failonerror="true">
             <arg path="${basedir}/build/artifacts/phpunit-${_version}.phar" />
+            <arg value="${type}" />
         </exec>
 
         <chmod file="${basedir}/build/artifacts/phpunit-${_version}.phar" perm="ugo+rx"/>
 
         <exec executable="${basedir}/build/scripts/check-scoped-phar.php" taskname="check-scoped-phar" failonerror="true">
             <arg path="${basedir}/build/artifacts/phpunit-${_version}.phar" />
+        </exec>
+
+        <exec executable="${basedir}/build/scripts/phar-sbom.php" taskname="phar-sbom" failonerror="true">
+            <arg path="${basedir}/build/artifacts/phpunit-${_version}.phar" />
+            <arg path="${basedir}/build/artifacts/phpunit-${_version}.phar.cdx.xml" />
         </exec>
 
         <delete dir="${basedir}/build/tmp"/>

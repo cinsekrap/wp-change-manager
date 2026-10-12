@@ -26,6 +26,7 @@ use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Tests\Database\Fixtures\Enums\Bar;
 use Illuminate\Tests\Database\Fixtures\Models\Integration\Post;
 use Illuminate\Tests\Database\Fixtures\Models\Integration\User;
 use PHPUnit\Framework\TestCase;
@@ -76,6 +77,7 @@ class DatabaseEloquentIntegrationTest extends TestCase
             $table->string('first_name');
             $table->string('last_name');
             $table->string('name')->virtualAs("first_name || ' ' || last_name");
+            $table->integer('votes')->default(0);
         });
 
         $this->schema('second_connection')->create('test_items', function ($table) {
@@ -287,6 +289,77 @@ class DatabaseEloquentIntegrationTest extends TestCase
         $this->assertSame('Abigail Otwell', $user->name);
         $this->assertSame('Abigail Otwell', EloquentTestGeneratedUser::$updatedName);
         $this->assertTrue($user->wasChanged('name'));
+    }
+
+    public function testConfiguredAttributesAreRefreshedAfterIncrementAndDecrement()
+    {
+        $user = EloquentTestGeneratedUser::create([
+            'first_name' => 'Taylor',
+            'last_name' => 'Otwell',
+            'votes' => 1,
+        ]);
+
+        $user->increment('votes', 1);
+
+        $this->assertSame(2, $user->votes);
+        $this->assertFalse($user->isDirty());
+        $this->assertSame([], $user->getDirty());
+
+        $user->save();
+
+        $user->decrement('votes', 1);
+
+        $this->assertSame(1, $user->votes);
+        $this->assertFalse($user->isDirty());
+        $this->assertSame([], $user->getDirty());
+
+        $user->save();
+
+        $user->incrementEach(['votes' => 2]);
+
+        $this->assertSame(3, $user->votes);
+        $this->assertFalse($user->isDirty());
+        $this->assertSame([], $user->getDirty());
+
+        $user->save();
+
+        $user->decrementEach(['votes' => 1]);
+
+        $this->assertSame(2, $user->votes);
+        $this->assertFalse($user->isDirty());
+        $this->assertSame([], $user->getDirty());
+
+        $user->save();
+
+        $user->increment('votes', 1, ['first_name' => 'Abigail']);
+
+        $this->assertSame(3, $user->votes);
+        $this->assertSame('Abigail', $user->first_name);
+        $this->assertSame('Abigail Otwell', $user->name);
+        $this->assertFalse($user->isDirty('name'));
+        $this->assertTrue($user->isDirty('first_name'));
+
+        $user->save();
+    }
+
+    public function testConfiguredAttributesAreExcludedWhenReplicating()
+    {
+        $user = EloquentTestGeneratedUser::create([
+            'first_name' => 'Taylor',
+            'last_name' => 'Otwell',
+        ]);
+
+        $replica = $user->replicate();
+        $replica->save();
+
+        $this->assertSame(2, $replica->id);
+        $this->assertSame('Taylor Otwell', $replica->name);
+
+        $quietReplica = $user->replicateQuietly();
+        $quietReplica->save();
+
+        $this->assertSame(3, $quietReplica->id);
+        $this->assertSame('Taylor Otwell', $quietReplica->name);
     }
 
     public function testBasicModelCollectionRetrieval()
@@ -1221,6 +1294,35 @@ class DatabaseEloquentIntegrationTest extends TestCase
         EloquentTestUser::findOrFail(new Collection([1, 1, 2, 3]));
     }
 
+    public function testBelongsToManyFindOrFailAndFindOrWithEnumIds()
+    {
+        $user = EloquentTestUser::create(['id' => 1, 'email' => 'taylorotwell@gmail.com']);
+        EloquentTestUser::create(['id' => 5, 'email' => 'first@example.com']);
+        EloquentTestUser::create(['id' => 6, 'email' => 'second@example.com']);
+        $user->friends()->attach([5, 6]);
+
+        $ids = [Bar::FOO, 6, Bar::FOO, 5];
+
+        foreach ([$ids, new Collection($ids)] as $ids) {
+            $this->assertEqualsCanonicalizing([5, 6], $user->friends()->findOrFail($ids)->modelKeys());
+            $this->assertEqualsCanonicalizing([5, 6], $user->friends()->findOr($ids, fn () => $this->fail('Unexpected callback.'))->modelKeys());
+        }
+
+        $user->friends()->detach(5);
+
+        foreach ([[Bar::FOO, 6], new Collection([Bar::FOO, 6])] as $ids) {
+            $this->assertSame('missing', $user->friends()->findOr($ids, fn () => 'missing'));
+
+            try {
+                $user->friends()->findOrFail($ids);
+                $this->fail('Expected ModelNotFoundException was not thrown.');
+            } catch (ModelNotFoundException $exception) {
+                $this->assertSame(EloquentTestUser::class, $exception->getModel());
+                $this->assertSame([5, 6], $exception->getIds());
+            }
+        }
+    }
+
     public function testOneToOneRelationship()
     {
         $user = EloquentTestUser::create(['email' => 'taylorotwell@gmail.com']);
@@ -1664,6 +1766,19 @@ class DatabaseEloquentIntegrationTest extends TestCase
             $this->assertEquals($user->id, $result->pivot->user_id);
             $this->assertEquals($friend->id, $result->pivot->friend_id);
         });
+    }
+
+    public function testBelongsToManyRelationshipModelsAreProperlyHydratedOverChunkMapRequest()
+    {
+        $user = EloquentTestUser::create(['email' => 'taylorotwell@gmail.com']);
+        $friend = $user->friends()->create(['email' => 'abigailotwell@gmail.com']);
+
+        $results = EloquentTestUser::first()->friends()->chunkMap(fn ($result) => $result, 2);
+
+        $this->assertCount(1, $results);
+        $this->assertSame('abigailotwell@gmail.com', $results->first()->email);
+        $this->assertEquals($user->id, $results->first()->pivot->user_id);
+        $this->assertEquals($friend->id, $results->first()->pivot->friend_id);
     }
 
     public function testBelongsToManyRelationshipModelsAreProperlyHydratedOverCursorRequest()

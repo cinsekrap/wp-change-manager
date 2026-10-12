@@ -12,6 +12,7 @@ namespace PHPUnit\TextUI;
 use function hrtime;
 use PHPUnit\Event\Code\TestDoxBuilder;
 use PHPUnit\Event\Code\TestMethod;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Event\Telemetry\CpuTime;
 use PHPUnit\Event\Telemetry\Duration;
 use PHPUnit\Event\Telemetry\GarbageCollectorStatus;
@@ -21,6 +22,7 @@ use PHPUnit\Event\Telemetry\MemoryUsage;
 use PHPUnit\Event\Telemetry\Snapshot;
 use PHPUnit\Event\Test\PhpunitNoticeTriggered;
 use PHPUnit\Event\TestData\TestDataCollection;
+use PHPUnit\Event\TestRunner\TimeLimitExceeded;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Medium;
@@ -62,13 +64,24 @@ final class ShellExitCodeCalculatorTest extends TestCase
         );
     }
 
+    public function testSignalsExceededTimeLimitUsingDedicatedExitCode(): void
+    {
+        $this->assertSame(
+            124,
+            (new ShellExitCodeCalculator)->calculate(
+                $this->configuration([]),
+                $this->testResultWithExceededTimeLimit(),
+            ),
+        );
+    }
+
     /**
      * @param list<non-empty-string> $parameters
      */
     private function configuration(array $parameters): Configuration
     {
-        return (new Merger)->merge(
-            (new CliBuilder)->fromParameters($parameters),
+        return new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters($parameters),
             DefaultConfiguration::create(),
         );
     }
@@ -129,6 +142,51 @@ final class ShellExitCodeCalculatorTest extends TestCase
                 'indirect' => 0,
                 'unknown'  => 0,
             ],
+        );
+    }
+
+    private function testResultWithExceededTimeLimit(): TestResult
+    {
+        return new TestResult(
+            1,
+            1,
+            1,
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            0,
+            [
+                'self'     => 0,
+                'direct'   => 0,
+                'indirect' => 0,
+                'unknown'  => 0,
+            ],
+            [],
+            new TimeLimitExceeded($this->telemetryInfo(), 60),
         );
     }
 

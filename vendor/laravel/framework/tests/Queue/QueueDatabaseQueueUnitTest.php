@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\CountCrashesAsExceptions;
 use Illuminate\Queue\Attributes\Delay;
 use Illuminate\Queue\Attributes\FailOnTimeout;
 use Illuminate\Queue\Attributes\MaxExceptions;
@@ -19,6 +20,7 @@ use Illuminate\Queue\Queue;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Mockery;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -27,6 +29,7 @@ use stdClass;
 class QueueDatabaseQueueUnitTest extends TestCase
 {
     #[DataProvider('pushJobsDataProvider')]
+    #[AllowMockObjectsWithoutExpectations]
     public function testPushProperlyPushesJobOntoDatabase($uuid, $job, $displayNameStartsWith, $jobStartsWith)
     {
         Str::createUuidsUsing(function () use ($uuid) {
@@ -70,6 +73,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
         ];
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testDelayedPushProperlyPushesJobOntoDatabase()
     {
         $uuid = Str::uuid();
@@ -106,6 +110,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
         Str::createUuidsNormally();
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testPushIncludesBatchIdInPayloadForBatchableJob()
     {
         $uuid = Str::uuid()->toString();
@@ -151,6 +156,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
             $this->assertSame('13', $payload['backoff']);
             $this->assertSame(11, $payload['maxExceptions']);
             $this->assertFalse($payload['failOnTimeout']);
+            $this->assertFalse($payload['countCrashesAsExceptions']);
         });
 
         $queue->push(new ChildJobWithPropertiesOverridingParentAttributes, ['data']);
@@ -174,6 +180,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
             $this->assertSame('9', $payload['backoff']);
             $this->assertSame(3, $payload['maxExceptions']);
             $this->assertTrue($payload['failOnTimeout']);
+            $this->assertTrue($payload['countCrashesAsExceptions']);
         });
 
         $queue->push(new JobWithAttributesAndDefaultProperties, ['data']);
@@ -188,7 +195,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
         $job = new stdClass;
         $job->invalid = "\xc3\x28";
 
-        $queue = Mockery::mock(Queue::class)->makePartial();
+        $queue = new DatabaseQueue(Mockery::mock(Connection::class), 'table', 'default');
         $class = new ReflectionClass(Queue::class);
 
         $createPayload = $class->getMethod('createPayload');
@@ -202,7 +209,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $this->expectException('InvalidArgumentException');
 
-        $queue = Mockery::mock(Queue::class)->makePartial();
+        $queue = new DatabaseQueue(Mockery::mock(Connection::class), 'table', 'default');
         $class = new ReflectionClass(Queue::class);
 
         $createPayload = $class->getMethod('createPayload');
@@ -212,6 +219,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
         ]);
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testBulkBatchPushesOntoDatabase()
     {
         $uuid = Str::uuid();
@@ -252,6 +260,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
         Str::createUuidsNormally();
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testDelayAttributeIsRespectedWhenBulkPushing()
     {
         $database = Mockery::mock(Connection::class);
@@ -306,8 +315,9 @@ class QueueDatabaseQueueUnitTest extends TestCase
 
     public function testBuildDatabaseRecordWithPayloadAtTheEnd()
     {
-        $queue = Mockery::mock(DatabaseQueue::class);
-        $record = $queue->buildDatabaseRecord('queue', 'any_payload', 0);
+        $queue = new DatabaseQueue(Mockery::mock(Connection::class), 'table', 'default');
+        $class = new ReflectionClass(DatabaseQueue::class);
+        $record = $class->getMethod('buildDatabaseRecord')->invoke($queue, 'queue', 'any_payload', 0);
         $this->assertArrayHasKey('payload', $record);
         $this->assertArrayHasKey('payload', array_slice($record, -1, 1, true));
     }
@@ -316,7 +326,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload = json_encode(['uuid' => 'test-uuid', 'displayName' => 'MyTestJob', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
 
@@ -343,7 +353,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload = json_encode(['uuid' => 'test-uuid', 'displayName' => 'MyDelayedJob', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
 
@@ -370,7 +380,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload = json_encode(['uuid' => 'test-uuid', 'displayName' => 'MyTestJob', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
 
@@ -396,7 +406,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload1 = json_encode(['uuid' => 'uuid-1', 'displayName' => 'JobA', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
         $payload2 = json_encode(['uuid' => 'uuid-2', 'displayName' => 'JobB', 'job' => 'foo', 'data' => [], 'createdAt' => 1000001]);
@@ -429,7 +439,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload1 = json_encode(['uuid' => 'uuid-1', 'displayName' => 'JobA', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
         $payload2 = json_encode(['uuid' => 'uuid-2', 'displayName' => 'JobB', 'job' => 'foo', 'data' => [], 'createdAt' => 1000001]);
@@ -462,7 +472,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $payload1 = json_encode(['uuid' => 'uuid-1', 'displayName' => 'JobA', 'job' => 'foo', 'data' => [], 'createdAt' => 1000000]);
         $payload2 = json_encode(['uuid' => 'uuid-2', 'displayName' => 'JobB', 'job' => 'foo', 'data' => [], 'createdAt' => 1000001]);
@@ -495,7 +505,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $query = Mockery::mock(QueryBuilder::class);
         $database->expects('table')->with('table')->andReturn($query);
@@ -508,7 +518,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $query = Mockery::mock(QueryBuilder::class);
         $database->expects('table')->with('table')->andReturn($query);
@@ -523,7 +533,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $query = Mockery::mock(QueryBuilder::class);
         $database->expects('table')->with('table')->andReturn($query);
@@ -538,7 +548,7 @@ class QueueDatabaseQueueUnitTest extends TestCase
     {
         $database = Mockery::mock(Connection::class);
         $queue = new DatabaseQueue($database, 'table', 'default');
-        $queue->setContainer(Mockery::spy(Container::class));
+        $queue->setContainer(new Container);
 
         $query = Mockery::mock(QueryBuilder::class);
         $database->expects('table')->with('table')->andReturn($query);
@@ -594,6 +604,7 @@ class AfterCommitJob implements ShouldQueue
 }
 
 #[Backoff(9)]
+#[CountCrashesAsExceptions]
 #[FailOnTimeout]
 #[MaxExceptions(3)]
 #[Timeout(40)]
@@ -606,6 +617,8 @@ class ChildJobWithPropertiesOverridingParentAttributes extends ParentJobWithAttr
 {
     public $backoff = 13;
 
+    public $countCrashesAsExceptions = false;
+
     public $failOnTimeout = false;
 
     public $maxExceptions = 11;
@@ -616,6 +629,7 @@ class ChildJobWithPropertiesOverridingParentAttributes extends ParentJobWithAttr
 }
 
 #[Backoff(9)]
+#[CountCrashesAsExceptions]
 #[FailOnTimeout]
 #[MaxExceptions(3)]
 #[Timeout(40)]
@@ -623,6 +637,8 @@ class ChildJobWithPropertiesOverridingParentAttributes extends ParentJobWithAttr
 class JobWithAttributesAndDefaultProperties implements ShouldQueue
 {
     public $backoff = 13;
+
+    public $countCrashesAsExceptions = false;
 
     public $failOnTimeout = false;
 

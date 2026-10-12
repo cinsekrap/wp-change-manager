@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Egulias\EmailValidator\Validation\NoRFCWarningsValidation;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Hashing\Hasher;
 use Illuminate\Contracts\Translation\Translator as TranslatorContract;
@@ -31,12 +32,12 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 use Mockery;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 use RuntimeException;
-use stdClass;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -443,12 +444,8 @@ class ValidationValidatorTest extends TestCase
         $trans = $this->getIlluminateArrayTranslator();
         $trans->addLines(['validation.foo' => 'foo!'], 'en');
         $v = new Validator($trans, [], ['name' => 'required']);
-        $container = Mockery::mock(Container::class);
-        $v->setContainer($container);
-        $v->addReplacer('required', 'Foo@bar');
-        $foo = Mockery::mock(stdClass::class);
-        $container->expects('make')->with('Foo')->andReturn($foo);
-        $foo->expects('bar')->andReturn('replaced!');
+        $v->setContainer(new Container);
+        $v->addReplacer('required', ClassBasedValidatorStub::class.'@replace');
         $v->passes();
         $v->messages()->setFormat(':message');
         $this->assertSame('replaced!', $v->messages()->first('name'));
@@ -1314,9 +1311,10 @@ class ValidationValidatorTest extends TestCase
     public function testValidateCurrentPassword()
     {
         // Fails when user is not logged in.
-        $auth = Mockery::mock(Guard::class);
-        $auth->expects('guard')->andReturn($auth);
-        $auth->expects('guest')->andReturn(true);
+        $guard = Mockery::mock(Guard::class);
+        $guard->expects('guest')->andReturn(true);
+        $auth = Mockery::mock(AuthFactory::class);
+        $auth->expects('guard')->andReturn($guard);
 
         $hasher = Mockery::mock(Hasher::class);
 
@@ -1336,10 +1334,11 @@ class ValidationValidatorTest extends TestCase
         $user = Mockery::mock(Authenticatable::class);
         $user->expects('getAuthPassword');
 
-        $auth = Mockery::mock(Guard::class);
-        $auth->expects('guard')->andReturn($auth);
-        $auth->expects('guest')->andReturn(false);
-        $auth->expects('user')->andReturn($user);
+        $guard = Mockery::mock(Guard::class);
+        $guard->expects('guest')->andReturn(false);
+        $guard->expects('user')->andReturn($user);
+        $auth = Mockery::mock(AuthFactory::class);
+        $auth->expects('guard')->andReturn($guard);
 
         $hasher = Mockery::mock(Hasher::class);
         $hasher->expects('check')->andReturn(false);
@@ -1360,10 +1359,11 @@ class ValidationValidatorTest extends TestCase
         $user = Mockery::mock(Authenticatable::class);
         $user->expects('getAuthPassword');
 
-        $auth = Mockery::mock(Guard::class);
-        $auth->expects('guard')->andReturn($auth);
-        $auth->expects('guest')->andReturn(false);
-        $auth->expects('user')->andReturn($user);
+        $guard = Mockery::mock(Guard::class);
+        $guard->expects('guest')->andReturn(false);
+        $guard->expects('user')->andReturn($user);
+        $auth = Mockery::mock(AuthFactory::class);
+        $auth->expects('guard')->andReturn($guard);
 
         $hasher = Mockery::mock(Hasher::class);
         $hasher->expects('check')->andReturn(true);
@@ -1384,10 +1384,11 @@ class ValidationValidatorTest extends TestCase
         $user = Mockery::mock(Authenticatable::class);
         $user->expects('getAuthPassword');
 
-        $auth = Mockery::mock(Guard::class);
-        $auth->expects('guard')->with('custom')->andReturn($auth);
-        $auth->expects('guest')->andReturn(false);
-        $auth->expects('user')->andReturn($user);
+        $guard = Mockery::mock(Guard::class);
+        $guard->expects('guest')->andReturn(false);
+        $guard->expects('user')->andReturn($user);
+        $auth = Mockery::mock(AuthFactory::class);
+        $auth->expects('guard')->with('custom')->andReturn($guard);
 
         $hasher = Mockery::mock(Hasher::class);
         $hasher->expects('check')->andReturn(true);
@@ -2469,6 +2470,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testGreaterThan()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -2567,6 +2569,7 @@ class ValidationValidatorTest extends TestCase
         ], $v->messages()->keys());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testLessThan()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -2608,6 +2611,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->fails());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testGreaterThanOrEqual()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -2649,6 +2653,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testLessThanOrEqual()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -3899,6 +3904,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateSize()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -3943,6 +3949,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateBetween()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -3999,6 +4006,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateMin()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4058,6 +4066,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateMax()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4207,6 +4216,7 @@ class ValidationValidatorTest extends TestCase
         ];
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testProperMessagesAreReturnedForSizes()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4230,6 +4240,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertSame('file', $v->messages()->first('photo'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateGtPlaceHolderIsReplacedProperly()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4272,6 +4283,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertEquals(4, $v->messages()->first('items'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateLtPlaceHolderIsReplacedProperly()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4314,6 +4326,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertEquals(2, $v->messages()->first('items'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateGtePlaceHolderIsReplacedProperly()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4356,6 +4369,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertEquals(4, $v->messages()->first('items'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateLtePlaceHolderIsReplacedProperly()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4719,6 +4733,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateGtMessagesAreCorrect()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4759,6 +4774,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertSame('The array field must have more than 4 items.', $v->messages()->first('array'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateGteMessagesAreCorrect()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4799,6 +4815,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertSame('The array field must have 4 items or more.', $v->messages()->first('array'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateLtMessagesAreCorrect()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -4839,6 +4856,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertSame('The array field must have less than 2 items.', $v->messages()->first('array'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateLteMessagesAreCorrect()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5028,11 +5046,8 @@ class ValidationValidatorTest extends TestCase
 
     public function testValidateEmailWithCustomClassCheck()
     {
-        $container = Mockery::mock(Container::class);
-        $container->expects('make')->with(NoRFCWarningsValidation::class)->andReturn(new NoRFCWarningsValidation);
-
         $v = new Validator($this->getIlluminateArrayTranslator(), ['x' => 'foo@bar '], ['x' => 'email:'.NoRFCWarningsValidation::class]);
-        $v->setContainer($container);
+        $v->setContainer(new Container);
 
         $this->assertFalse($v->passes());
     }
@@ -5428,6 +5443,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($property->getValue());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateImage()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5501,6 +5517,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateImageDoesNotAllowPhpExtensionsOnImageMime()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5645,6 +5662,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateMimetypes()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5671,6 +5689,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateMime()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5701,6 +5720,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertTrue($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateExtension()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -5733,6 +5753,7 @@ class ValidationValidatorTest extends TestCase
         $this->assertFalse($v->passes());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testValidateMimeEnforcesPhpCheck()
     {
         $trans = $this->getIlluminateArrayTranslator();
@@ -7379,12 +7400,8 @@ class ValidationValidatorTest extends TestCase
         $trans = $this->getIlluminateArrayTranslator();
         $trans->addLines(['validation.foo' => 'foo!'], 'en');
         $v = new Validator($trans, ['name' => 'taylor'], ['name' => 'foo']);
-        $container = Mockery::mock(Container::class);
-        $v->setContainer($container);
-        $v->addExtension('foo', 'Foo@bar');
-        $foo = Mockery::mock(stdClass::class);
-        $container->expects('make')->with('Foo')->andReturn($foo);
-        $foo->expects('bar')->andReturn(false);
+        $v->setContainer(new Container);
+        $v->addExtension('foo', ClassBasedValidatorStub::class.'@bar');
         $this->assertFalse($v->passes());
         $v->messages()->setFormat(':message');
         $this->assertSame('foo!', $v->messages()->first('name'));
@@ -7395,12 +7412,8 @@ class ValidationValidatorTest extends TestCase
         $trans = $this->getIlluminateArrayTranslator();
         $trans->addLines(['validation.foo' => 'foo!'], 'en');
         $v = new Validator($trans, ['name' => 'taylor'], ['name' => 'foo']);
-        $container = Mockery::mock(Container::class);
-        $v->setContainer($container);
-        $v->addExtension('foo', 'Foo');
-        $foo = Mockery::mock(stdClass::class);
-        $container->expects('make')->with('Foo')->andReturn($foo);
-        $foo->expects('validate')->andReturn(false);
+        $v->setContainer(new Container);
+        $v->addExtension('foo', ConventionalValidatorStub::class);
         $this->assertFalse($v->passes());
         $v->messages()->setFormat(':message');
         $this->assertSame('foo!', $v->messages()->first('name'));
@@ -9809,6 +9822,18 @@ class ValidationValidatorTest extends TestCase
         $this->assertSame(['mouse' => null], $validator->invalid());
     }
 
+    public function testExcludedAttributesDoNotExcludeAttributesSharingTheirName()
+    {
+        $validator = new Validator(
+            $this->getIlluminateArrayTranslator(),
+            ['price' => ['amount' => 10], 'price_note' => 'On sale'],
+            ['price' => 'exclude|array', 'price.amount' => 'integer', 'price_note' => 'string']
+        );
+
+        $this->assertTrue($validator->passes());
+        $this->assertSame(['price_note' => 'On sale'], $validator->validated());
+    }
+
     public function testExcludeWithValuesAreReallyRemoved()
     {
         $validator = new Validator(
@@ -10387,6 +10412,27 @@ class ValidationValidatorTest extends TestCase
         return new Translator(
             new ArrayLoader, 'en'
         );
+    }
+}
+
+class ClassBasedValidatorStub
+{
+    public function replace()
+    {
+        return 'replaced!';
+    }
+
+    public function bar()
+    {
+        return false;
+    }
+}
+
+class ConventionalValidatorStub
+{
+    public function validate()
+    {
+        return false;
     }
 }
 

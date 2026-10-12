@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\Framework;
 
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
@@ -17,6 +18,9 @@ use PHPUnit\Framework\TestRunner\TestRunner;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversClass;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversClassesThatExtendClass;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversClassesThatImplementInterface;
+use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversDirectory;
+use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversDirectoryRecursively;
+use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversFile;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversFunction;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversMethod;
 use PHPUnit\TestFixture\CoverageMetadata\TestWithCoversNamespace;
@@ -42,6 +46,9 @@ final class TestRunnerTest extends TestCase
             [TestWithCoversClassesThatImplementInterface::class],
             [TestWithCoversMethod::class],
             [TestWithCoversFunction::class],
+            [TestWithCoversFile::class],
+            [TestWithCoversDirectory::class],
+            [TestWithCoversDirectoryRecursively::class],
             [TestWithCoversNothing::class],
         ];
     }
@@ -67,7 +74,7 @@ final class TestRunnerTest extends TestCase
     private function hasCoverageMetadata(string $className): bool
     {
         return new ReflectionMethod(TestRunner::class, 'hasCoverageMetadata')->invoke(
-            new TestRunner,
+            new TestRunner($this->createStub(Emitter::class)),
             $className,
             'testOne',
         );

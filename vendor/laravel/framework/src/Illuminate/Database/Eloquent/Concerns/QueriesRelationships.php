@@ -315,6 +315,8 @@ trait QueriesRelationships
             );
         });
 
+        $relation->replayMacros($belongsTo->getQuery());
+
         $belongsTo->getQuery()->mergeConstraintsFrom($relation->getQuery());
 
         return $belongsTo;
@@ -648,7 +650,9 @@ trait QueriesRelationships
             $models->groupBy(fn ($model) => $model->getMorphClass())->each(function ($models) use ($query, $relation) {
                 $query->orWhere(function ($query) use ($relation, $models) {
                     $query->where($relation->qualifyColumn($relation->getMorphType()), $models->first()->getMorphClass())
-                        ->whereIn($relation->qualifyColumn($relation->getForeignKeyName()), $models->map->getKey());
+                        ->whereIn($relation->qualifyColumn($relation->getForeignKeyName()), $models->map(
+                            fn ($model) => $model->getAttribute($relation->getOwnerKeyName() ?? $model->getKeyName())
+                        ));
                 });
             });
         }, null, null, $boolean);
@@ -691,7 +695,9 @@ trait QueriesRelationships
             $models->groupBy(fn ($model) => $model->getMorphClass())->each(function ($models) use ($query, $relation) {
                 $query->orWhere(function ($query) use ($relation, $models) {
                     $query->whereNullSafeEquals($relation->qualifyColumn($relation->getMorphType()), $models->first()->getMorphClass())
-                        ->whereIn($relation->qualifyColumn($relation->getForeignKeyName()), $models->map->getKey());
+                        ->whereIn($relation->qualifyColumn($relation->getForeignKeyName()), $models->map(
+                            fn ($model) => $model->getAttribute($relation->getOwnerKeyName() ?? $model->getKeyName())
+                        ));
                 });
             });
         }, null, null, $boolean);

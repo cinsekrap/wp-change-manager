@@ -15,6 +15,7 @@ use function realpath;
 use function rmdir;
 use function sys_get_temp_dir;
 use function uniqid;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Medium;
@@ -123,6 +124,17 @@ final class ConfigurationTest extends TestCase
         $this->expectException(CodeCoverageReportNotConfiguredException::class);
 
         $configuration->coverageCobertura();
+    }
+
+    public function testCoverageJsonlThrowsWhenNotConfigured(): void
+    {
+        $configuration = $this->defaultConfiguration();
+
+        $this->assertFalse($configuration->hasCoverageJsonl());
+
+        $this->expectException(CodeCoverageReportNotConfiguredException::class);
+
+        $configuration->coverageJsonl();
     }
 
     public function testCoverageCrap4jThrowsWhenNotConfigured(): void
@@ -503,6 +515,9 @@ final class ConfigurationTest extends TestCase
         $this->assertStringEndsWith('crap4j.xml', $configuration->coverageCrap4j());
         $this->assertSame(42, $configuration->coverageCrap4jThreshold());
 
+        $this->assertTrue($configuration->hasCoverageJsonl());
+        $this->assertStringEndsWith('coverage-jsonl', $configuration->coverageJsonl());
+
         $this->assertTrue($configuration->hasCoverageHtml());
         $this->assertStringEndsWith('coverage', $configuration->coverageHtml());
         $this->assertSame(50, $configuration->coverageHtmlLowUpperBound());
@@ -572,8 +587,8 @@ final class ConfigurationTest extends TestCase
 
     public function testReturnsValuesProvidedViaCommandLineArguments(): void
     {
-        $configuration = (new Merger)->merge(
-            (new CliBuilder)->fromParameters([
+        $configuration = new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters([
                 '--test-files-file', 'tests.txt',
                 '--bootstrap', 'bootstrap.php',
                 '--filter', 'foo',
@@ -635,8 +650,8 @@ final class ConfigurationTest extends TestCase
         $cacheDirectory = sys_get_temp_dir() . '/' . uniqid('phpunit-test-cache-');
 
         try {
-            $configuration = (new Merger)->merge(
-                (new CliBuilder)->fromParameters(['--cache-directory', $cacheDirectory]),
+            $configuration = new Merger($this->createStub(Emitter::class))->merge(
+                new CliBuilder($this->createStub(Emitter::class))->fromParameters(['--cache-directory', $cacheDirectory]),
                 DefaultConfiguration::create(),
             );
 
@@ -657,8 +672,8 @@ final class ConfigurationTest extends TestCase
 
     public function testReturnsBaselineProvidedViaCommandLineArguments(): void
     {
-        $configuration = (new Merger)->merge(
-            (new CliBuilder)->fromParameters(['--generate-baseline', 'baseline.xml']),
+        $configuration = new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters(['--generate-baseline', 'baseline.xml']),
             DefaultConfiguration::create(),
         );
 
@@ -668,17 +683,17 @@ final class ConfigurationTest extends TestCase
 
     private function defaultConfiguration(): Configuration
     {
-        return (new Merger)->merge(
-            (new CliBuilder)->fromParameters([]),
+        return new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters([]),
             DefaultConfiguration::create(),
         );
     }
 
     private function configurationFromXml(string $filename): Configuration
     {
-        return (new Merger)->merge(
-            (new CliBuilder)->fromParameters([]),
-            (new Loader)->load(TEST_FILES_PATH . $filename),
+        return new Merger($this->createStub(Emitter::class))->merge(
+            new CliBuilder($this->createStub(Emitter::class))->fromParameters([]),
+            new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . $filename),
         );
     }
 }

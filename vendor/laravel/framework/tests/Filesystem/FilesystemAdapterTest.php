@@ -9,9 +9,11 @@ use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Filesystem\FilesystemManager;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Exceptions\Handler;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Image\Image;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Testing\Fakes\ExceptionHandlerFake;
 use Illuminate\Testing\Assert;
 use InvalidArgumentException;
 use League\Flysystem\Filesystem;
@@ -139,6 +141,15 @@ class FilesystemAdapterTest extends TestCase
         $response = $files->download('Hello%World.txt', 'Hello%World.txt');
         $this->assertInstanceOf(StreamedResponse::class, $response);
         $this->assertSame('attachment; filename=HelloWorld.txt; filename*=utf-8\'\'Hello%25World.txt', $response->headers->get('content-disposition'));
+    }
+
+    public function testDownloadFilenameWithoutAsciiEquivalent()
+    {
+        $this->filesystem->write('file.txt', 'Hello World');
+        $files = new FilesystemAdapter($this->filesystem, $this->adapter);
+        $response = $files->download('file.txt', '請求書');
+        $this->assertInstanceOf(StreamedResponse::class, $response);
+        $this->assertSame('attachment; filename=___; filename*=utf-8\'\'%E8%AB%8B%E6%B1%82%E6%9B%B8', $response->headers->get('content-disposition'));
     }
 
     public function testExists()
@@ -704,15 +715,7 @@ class FilesystemAdapterTest extends TestCase
     {
         $container = Container::getInstance();
 
-        $exceptionHandler = Mockery::mock(ExceptionHandler::class);
-
-        $exceptionHandler->expects('report')
-            ->andReturnUsing(function (UnableToReadFile $e) {
-                $this->assertStringContainsString(
-                    'Unable to read file from location: foo.txt.',
-                    $e->getMessage(),
-                );
-            });
+        $exceptionHandler = new ExceptionHandlerFake(new Handler($container));
 
         $container->bind(ExceptionHandler::class, function () use ($exceptionHandler) {
             return $exceptionHandler;
@@ -725,21 +728,15 @@ class FilesystemAdapterTest extends TestCase
         } catch (UnableToReadFile) {
             $this->fail('Exception was thrown.');
         }
+
+        $exceptionHandler->assertReported(fn (UnableToReadFile $e) => str_contains($e->getMessage(), 'Unable to read file from location: foo.txt.'));
     }
 
     public function testReportExceptionsForReadStream()
     {
         $container = Container::getInstance();
 
-        $exceptionHandler = Mockery::mock(ExceptionHandler::class);
-
-        $exceptionHandler->expects('report')
-            ->andReturnUsing(function (UnableToReadFile $e) {
-                $this->assertStringContainsString(
-                    'Unable to read file from location: foo.txt.',
-                    $e->getMessage(),
-                );
-            });
+        $exceptionHandler = new ExceptionHandlerFake(new Handler($container));
 
         $container->bind(ExceptionHandler::class, function () use ($exceptionHandler) {
             return $exceptionHandler;
@@ -752,21 +749,15 @@ class FilesystemAdapterTest extends TestCase
         } catch (UnableToReadFile) {
             $this->fail('Exception was thrown.');
         }
+
+        $exceptionHandler->assertReported(fn (UnableToReadFile $e) => str_contains($e->getMessage(), 'Unable to read file from location: foo.txt.'));
     }
 
     public function testReportExceptionsForPut()
     {
         $container = Container::getInstance();
 
-        $exceptionHandler = Mockery::mock(ExceptionHandler::class);
-
-        $exceptionHandler->expects('report')
-            ->andReturnUsing(function (UnableToWriteFile $e) {
-                $this->assertStringContainsString(
-                    'Unable to write file at location: foo.txt.',
-                    $e->getMessage(),
-                );
-            });
+        $exceptionHandler = new ExceptionHandlerFake(new Handler($container));
 
         $container->bind(ExceptionHandler::class, function () use ($exceptionHandler) {
             return $exceptionHandler;
@@ -785,21 +776,15 @@ class FilesystemAdapterTest extends TestCase
         } finally {
             chmod(__DIR__.'/tmp/foo.txt', 0600);
         }
+
+        $exceptionHandler->assertReported(fn (UnableToWriteFile $e) => str_contains($e->getMessage(), 'Unable to write file at location: foo.txt.'));
     }
 
     public function testReportExceptionsForMimeType()
     {
         $container = Container::getInstance();
 
-        $exceptionHandler = Mockery::mock(ExceptionHandler::class);
-
-        $exceptionHandler->expects('report')
-            ->andReturnUsing(function (UnableToRetrieveMetadata $e) {
-                $this->assertStringContainsString(
-                    'Unable to retrieve the mime_type for file at location: unknown.mime-type.',
-                    $e->getMessage(),
-                );
-            });
+        $exceptionHandler = new ExceptionHandlerFake(new Handler($container));
 
         $container->bind(ExceptionHandler::class, function () use ($exceptionHandler) {
             return $exceptionHandler;
@@ -814,6 +799,8 @@ class FilesystemAdapterTest extends TestCase
         } catch (UnableToRetrieveMetadata) {
             $this->fail('Exception was thrown.');
         }
+
+        $exceptionHandler->assertReported(fn (UnableToRetrieveMetadata $e) => str_contains($e->getMessage(), 'Unable to retrieve the mime_type for file at location: unknown.mime-type.'));
     }
 
     public function testGetAllFiles()
