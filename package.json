@@ -5,7 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "test:js": "node tests/js/reading-age.test.mjs && node tests/js/funding.test.mjs && node tests/js/tabs.test.mjs && node tests/js/note-kind.test.mjs && node tests/js/repeat-fields.test.mjs && node tests/js/wizard.test.mjs"
+        "test:js": "npm run test:js:unit && node tests/js/wizard.test.mjs",
+        "test:js:unit": "node tests/js/reading-age.test.mjs && node tests/js/funding.test.mjs && node tests/js/tabs.test.mjs && node tests/js/note-kind.test.mjs && node tests/js/repeat-fields.test.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
