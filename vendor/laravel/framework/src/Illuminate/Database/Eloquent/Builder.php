@@ -6,11 +6,13 @@ use BadMethodCallException;
 use Closure;
 use Exception;
 use Illuminate\Contracts\Database\Eloquent\Builder as BuilderContract;
+use Illuminate\Contracts\Database\Eloquent\SupportsPartialRelations;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Database\Concerns\BuildsQueries;
 use Illuminate\Database\Eloquent\Concerns\QueriesRelationships;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOneOrManyThrough;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\RecordsNotFoundException;
@@ -23,6 +25,8 @@ use Illuminate\Support\Traits\ForwardsCalls;
 use ReflectionClass;
 use ReflectionMethod;
 use SortDirection;
+
+use function Illuminate\Support\enum_value;
 
 /**
  * @template TModel of \Illuminate\Database\Eloquent\Model
@@ -433,6 +437,12 @@ class Builder implements BuilderContract
      */
     public function whereNot($column, $operator = null, $value = null, $boolean = 'and')
     {
+        if (is_array($column)) {
+            $this->query->whereNot($column, $operator, $value, $boolean);
+
+            return $this;
+        }
+
         return $this->where($column, $operator, $value, $boolean.' not');
     }
 
@@ -644,6 +654,8 @@ class Builder implements BuilderContract
         $id = $id instanceof Arrayable ? $id->toArray() : $id;
 
         if (is_array($id)) {
+            $id = array_map(enum_value(...), $id);
+
             if (count($result) !== count(array_unique($id))) {
                 throw (new ModelNotFoundException)->setModel(
                     get_class($this->model), array_diff($id, $result->modelKeys())
@@ -785,7 +797,7 @@ class Builder implements BuilderContract
      */
     public function incrementOrCreate(array $attributes, string $column = 'count', $default = 1, $step = 1, array $extra = [])
     {
-        return tap($this->firstOrCreate($attributes, [$column => $default]), function ($instance) use ($column, $step, $extra) {
+        return tap($this->firstOrCreate($attributes, array_merge($extra, [$column => $default])), function ($instance) use ($column, $step, $extra) {
             if (! $instance->wasRecentlyCreated) {
                 $instance->increment($column, $step, $extra);
             }
@@ -1279,7 +1291,7 @@ class Builder implements BuilderContract
     public function forceCreate(array $attributes)
     {
         return $this->model::unguarded(function () use ($attributes) {
-            return $this->newModelInstance()->create($attributes);
+            return $this->newModelInstance()->create(array_merge($this->pendingAttributes, $attributes));
         });
     }
 
@@ -1767,7 +1779,7 @@ class Builder implements BuilderContract
         if ($callback instanceof Closure) {
             $eagerLoad = $this->parseWithRelations([$relations => $callback]);
         } else {
-            $eagerLoad = $this->parseWithRelations(is_string($relations) ? func_get_args() : $relations);
+            $eagerLoad = $this->parseWithRelations(is_string($relations) ? array_filter(func_get_args()) : $relations);
         }
 
         $this->eagerLoad = array_merge($this->eagerLoad, $eagerLoad);
@@ -1940,6 +1952,8 @@ class Builder implements BuilderContract
         return [explode(':', $name)[0], static function ($query) use ($name) {
             $query->select(array_map(static function ($column) use ($query) {
                 return $query instanceof BelongsToMany
+                    || $query instanceof HasOneOrManyThrough
+                    || ($query instanceof SupportsPartialRelations && $query->isOneOfMany())
                     ? $query->getRelated()->qualifyColumn($column)
                     : $column;
             }, explode(',', explode(':', $name)[1])));
@@ -2008,7 +2022,7 @@ class Builder implements BuilderContract
      */
     public function withCasts($casts)
     {
-        $this->model->mergeCasts($casts);
+        $this->model = (clone $this->model)->mergeCasts($casts);
 
         return $this;
     }

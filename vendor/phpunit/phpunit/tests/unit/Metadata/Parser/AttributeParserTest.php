@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\Metadata\Parser;
 
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\After;
 use PHPUnit\Framework\Attributes\AfterClass;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -48,6 +49,7 @@ use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\PostCondition;
 use PHPUnit\Framework\Attributes\PreCondition;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RequiresClass;
 use PHPUnit\Framework\Attributes\RequiresEnvironmentVariable;
 use PHPUnit\Framework\Attributes\RequiresFunction;
 use PHPUnit\Framework\Attributes\RequiresMethod;
@@ -125,6 +127,7 @@ use PHPUnit\Metadata\InvalidAttribute;
 #[CoversClass(PreCondition::class)]
 #[CoversClass(PreserveGlobalState::class)]
 #[CoversClass(RequiresFunction::class)]
+#[CoversClass(RequiresClass::class)]
 #[CoversClass(RequiresMethod::class)]
 #[CoversClass(RequiresOperatingSystemFamily::class)]
 #[CoversClass(RequiresOperatingSystem::class)]
@@ -162,8 +165,8 @@ use PHPUnit\Metadata\InvalidAttribute;
 #[Group('metadata/attributes')]
 final class AttributeParserTest extends AttributeParserTestCase
 {
-    protected function parser(): Parser
+    protected function parserWithEmitter(Emitter $emitter): Parser
     {
-        return new AttributeParser;
+        return new AttributeParser($emitter);
     }
 }

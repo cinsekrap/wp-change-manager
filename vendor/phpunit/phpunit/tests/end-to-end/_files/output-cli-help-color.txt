@@ -35,9 +35,11 @@
                                        suite(s)
   [32m--list-groups                       [0m List available test groups
   [32m--group [36m<name>[0m                      [0m Only run tests from the specified
-                                       group(s)
+                                       group(s); use "a+b" for the tests that
+                                       are in group "a" and in group "b"
   [32m--exclude-group [36m<name>[0m              [0m Exclude tests from the specified
-                                       group(s)
+                                       group(s); use "a+b" for the tests that
+                                       are in group "a" and in group "b"
   [32m--covers [36m<name>[0m                     [0m Only run tests that intend to cover
                                        <name>
   [32m--uses [36m<name>[0m                       [0m Only run tests that intend to use <name>
@@ -76,6 +78,9 @@
   [32m--enforce-time-limit                [0m Enforce time limit based on test size
   [32m--default-time-limit [36m<sec>[0m          [0m Timeout in seconds for tests that have
                                        no declared size
+  [32m--timeout [36m<sec>[0m                     [0m Stop the test run after the specified
+                                       number of seconds (wall-clock time for
+                                       the entire run)
   [32m--do-not-report-useless-tests       [0m Do not report tests that do not test
                                        anything
 
@@ -164,6 +169,8 @@
 
   [32m--record-test-run-history           [0m Record test run history
   [32m--do-not-record-test-run-history    [0m Do not record test run history
+  [32m--cache-test-index                  [0m Write test index to cache file
+  [32m--do-not-cache-test-index           [0m Do not write test index to cache file
 
   [32m--warn-when-php-is-not-configured-for-development[0m
                                        Trigger a test runner warning when PHP
@@ -174,9 +181,11 @@
                                        development
 
   [32m--order-by [36m<order>[0m                  [0m Run tests in order:
-                                       default|defects|depends|duration-ascending|duration-descending|no-depends|random|reverse|size-ascending|size-descending
-  [32m--resolve-dependencies              [0m Alias for "--order-by depends"
-  [32m--ignore-dependencies               [0m Alias for "--order-by no-depends"
+                                       default|defects|duration-ascending|duration-descending|modified-ascending|modified-descending|random|reverse|size-ascending|size-descending
+  [32m--resolve-dependencies              [0m Reorder tests to resolve dependencies
+                                       between them (default)
+  [32m--ignore-dependencies               [0m Do not reorder tests to resolve
+                                       dependencies between them
   [32m--random-order                      [0m Alias for "--order-by random"
   [32m--random-order-seed [36m<N>[0m             [0m Use the specified random seed when
                                        running tests in random order
@@ -269,6 +278,8 @@
                                        format without class view
   [32m--without-file-view                 [0m Render code coverage report in HTML
                                        format without file view
+  [32m--coverage-jsonl [36m<dir>[0m              [0m Write code coverage report in JSONL
+                                       format to directory
   [32m--coverage-php [36m<file>[0m               [0m Write serialized code coverage data to
                                        file
   [32m--coverage-text=[36m<file>[0m              [0m Write code coverage report in text

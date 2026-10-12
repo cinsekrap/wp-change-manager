@@ -36,6 +36,7 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
             $table->increments('id');
             $table->string('name');
             $table->string('type')->nullable();
+            $table->integer('count')->default(0);
             $table->timestamps();
         });
 
@@ -791,6 +792,36 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
         $this->assertTrue($tag->is($post->tags()->first()));
     }
 
+    public function testIncrementOrCreateMethod()
+    {
+        $post = Post::create(['title' => Str::random()]);
+
+        $tag1 = $post->tags()->incrementOrCreate(['name' => 'wavez']);
+        $tag2 = $post->tags()->incrementOrCreate(['name' => 'wavez']);
+
+        $this->assertTrue($tag1->is($tag2));
+        $this->assertTrue($tag1->wasRecentlyCreated);
+        $this->assertFalse($tag2->wasRecentlyCreated);
+        $this->assertEquals(2, $tag2->fresh()->count);
+        $this->assertTrue($tag1->is($post->tags()->first()));
+        $this->assertCount(1, $post->tags()->get());
+    }
+
+    public function testIncrementOrCreateMethodWithExtra()
+    {
+        $post = Post::create(['title' => Str::random()]);
+
+        $tag1 = $post->tags()->incrementOrCreate(['name' => 'wavez'], extra: ['type' => 'featured']);
+
+        $this->assertTrue($tag1->wasRecentlyCreated);
+        $this->assertSame('featured', $tag1->fresh()->type);
+
+        $tag2 = $post->tags()->incrementOrCreate(['name' => 'wavez'], extra: ['type' => 'pinned']);
+
+        $this->assertSame('pinned', $tag2->fresh()->type);
+        $this->assertEquals(2, $tag2->fresh()->count);
+    }
+
     public function testUpdateOrCreateMethodCreate()
     {
         $post = Post::create(['title' => Str::random()]);
@@ -1171,6 +1202,39 @@ class EloquentBelongsToManyTest extends DatabaseTestCase
             ->first();
 
         $this->assertEquals($relationTag->getAttributes(), $tag->getAttributes());
+    }
+
+    public function testWherePivotBetweenIsAppliedToPivotTableOperations()
+    {
+        $post = Post::create(['title' => Str::random()]);
+        $tag1 = Tag::create(['name' => Str::random()]);
+        $tag2 = Tag::create(['name' => Str::random()]);
+        $tag3 = Tag::create(['name' => Str::random()]);
+        $tag4 = Tag::create(['name' => Str::random()]);
+
+        DB::table('posts_tags')->insert([
+            ['post_id' => $post->id, 'tag_id' => $tag1->id, 'flag' => '2024'],
+            ['post_id' => $post->id, 'tag_id' => $tag2->id, 'flag' => '2025'],
+            ['post_id' => $post->id, 'tag_id' => $tag3->id, 'flag' => '2026'],
+        ]);
+
+        $post->tagsWithExtraPivot()->wherePivotBetween('flag', ['2026', '2026'])->sync([$tag4->id => ['flag' => '2026']]);
+
+        $this->assertEquals(
+            [$tag1->id, $tag2->id, $tag4->id],
+            $post->tagsWithExtraPivot()->orderBy('tags.id')->pluck('tags.id')->all()
+        );
+
+        $post->tagsWithExtraPivot()->wherePivotNotBetween('flag', ['2024', '2025'])->detach();
+
+        $this->assertEquals(
+            [$tag1->id, $tag2->id],
+            $post->tagsWithExtraPivot()->orderBy('tags.id')->pluck('tags.id')->all()
+        );
+
+        $post->tagsWithExtraPivot()->wherePivotBetween('flag', ['2025', '2025'])->updateExistingPivot($tag1->id, ['flag' => 'updated']);
+
+        $this->assertSame('2024', $post->tagsWithExtraPivot()->find($tag1->id)->pivot->flag);
     }
 
     public function testWherePivotInMethod()
@@ -1819,7 +1883,7 @@ class Tag extends Model
 {
     public $table = 'tags';
     public $timestamps = true;
-    protected $fillable = ['name', 'type'];
+    protected $fillable = ['name', 'type', 'count'];
 
     public function posts()
     {

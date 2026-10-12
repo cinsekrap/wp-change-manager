@@ -2,13 +2,14 @@
 
 namespace Illuminate\Tests\Http\Middleware;
 
-use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Contracts\Session\Session;
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Exceptions\OriginMismatchException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Session\ArraySessionHandler;
+use Illuminate\Session\Store;
 use Illuminate\Session\TokenMismatchException;
 use Mockery;
 use PHPUnit\Framework\TestCase;
@@ -119,19 +120,39 @@ class PreventRequestForgeryTest extends TestCase
         $this->assertSame('OK', $response->getContent());
     }
 
-    protected function createRequest(array $server = [], ?string $token = null)
+    public function test_query_request_without_token_fails()
+    {
+        $middleware = $this->createMiddleware();
+        $request = $this->createRequest(['HTTP_SEC_FETCH_SITE' => 'cross-site'], method: 'QUERY');
+
+        $this->expectException(TokenMismatchException::class);
+
+        $middleware->handle($request, fn () => new Response('OK'));
+    }
+
+    public function test_query_request_with_valid_token_passes()
+    {
+        $middleware = $this->createMiddleware();
+        $request = $this->createRequest(['HTTP_SEC_FETCH_SITE' => 'cross-site'], 'test-token', 'QUERY');
+
+        $response = $middleware->handle($request, fn () => new Response('OK'));
+
+        $this->assertEquals('OK', $response->getContent());
+    }
+
+    protected function createRequest(array $server = [], ?string $token = null, string $method = 'POST')
     {
         $request = Request::create(
             'http://example.com/test',
-            'POST',
+            $method,
             $token ? ['_token' => $token] : [],
             [],
             [],
             $server
         );
 
-        $session = Mockery::mock(Session::class);
-        $session->shouldReceive('token')->andReturn('test-token');
+        $session = new Store('test', new ArraySessionHandler(10));
+        $session->put('_token', 'test-token');
         $request->setLaravelSession($session);
 
         return $request;
@@ -141,7 +162,7 @@ class PreventRequestForgeryTest extends TestCase
     {
         return new PreventRequestForgeryTestStub(
             Mockery::mock(Application::class),
-            Mockery::mock(Encrypter::class)
+            new Encrypter(str_repeat('a', 16))
         );
     }
 }

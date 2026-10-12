@@ -12,10 +12,28 @@ use Illuminate\Translation\MessageSelector;
 use Illuminate\Translation\Translator;
 use InvalidArgumentException;
 use Mockery;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
 class TranslationTranslatorTest extends TestCase
 {
+    public function testSetLocaleRejectsPathTraversal()
+    {
+        $t = new Translator($this->getLoader(), 'en');
+
+        foreach (['../secret', '..\\secret', '..', "en\0"] as $locale) {
+            try {
+                $t->setLocale($locale);
+
+                $this->fail("Locale [{$locale}] should have been rejected.");
+            } catch (InvalidArgumentException $e) {
+                $this->assertSame('Invalid characters present in locale.', $e->getMessage());
+            }
+        }
+
+        $this->assertSame('en', $t->getLocale());
+    }
+
     public function testHasMethodReturnsFalseWhenReturnedTranslationIsNull()
     {
         $t = $this->getMockBuilder(Translator::class)->onlyMethods(['get'])->setConstructorArgs([$this->getLoader(), 'en'])->getMock();
@@ -120,6 +138,7 @@ class TranslationTranslatorTest extends TestCase
         $this->assertSame('breeze <p>test</p>', $t->get('foo.bar', [], 'en'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testGetMethodProperlyLoadsAndRetrievesItemWithCapitalization()
     {
         $t = $this->getMockBuilder(Translator::class)->onlyMethods([])->setConstructorArgs([$this->getLoader(), 'en'])->getMock();

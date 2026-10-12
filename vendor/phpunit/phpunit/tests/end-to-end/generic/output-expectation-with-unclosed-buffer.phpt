@@ -21,11 +21,9 @@ Time: %s, Memory: %s
 There was 1 risky test:
 
 1) PHPUnit\TestFixture\OutputExpectationWithUnclosedBufferTest::testOutputExpectationIsReportedAsRiskyWhenBufferIsLeftOpen
-* Test code or tested code did not close its own output buffers
-
-* Test code or tested code closed output buffers other than its own
+Test code or tested code did not close its own output buffers
 
 %sOutputExpectationWithUnclosedBufferTest.php:%i
 
 OK, but there were issues!
-Tests: 1, Assertions: 1, Notices: 1, Risky: 1.
+Tests: 1, Assertions: 1, Risky: 1.

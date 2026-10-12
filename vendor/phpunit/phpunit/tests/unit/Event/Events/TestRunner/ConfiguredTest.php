@@ -10,6 +10,7 @@
 namespace PHPUnit\Event\TestRunner;
 
 use PHPUnit\Event\AbstractEventTestCase;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Small;
@@ -50,8 +51,8 @@ final class ConfiguredTest extends AbstractEventTestCase
 
     private function configuration(): Configuration
     {
-        return (new Merger)->merge(
-            (new Builder)->fromParameters([]),
+        return new Merger($this->createStub(Emitter::class))->merge(
+            new Builder($this->createStub(Emitter::class))->fromParameters([]),
             DefaultConfiguration::create(),
         );
     }

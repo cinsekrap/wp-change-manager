@@ -2,22 +2,26 @@
 
 namespace Illuminate\Tests\Database;
 
+use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\Grammars\Grammar;
 use Mockery;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
 class DatabaseEloquentBelongsToManyWithDefaultAttributesTest extends TestCase
 {
+    #[AllowMockObjectsWithoutExpectations]
     public function testWithPivotValueMethodSetsWhereConditionsForFetching()
     {
         $relation = $this->getMockBuilder(BelongsToMany::class)->onlyMethods(['touchIfTouching'])->setConstructorArgs($this->getRelationArguments())->getMock();
         $relation->withPivotValue(['is_admin' => 1]);
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testWithPivotValueMethodSetsDefaultArgumentsForInsertion()
     {
         $relation = $this->getMockBuilder(BelongsToMany::class)->onlyMethods(['touchIfTouching'])->setConstructorArgs($this->getRelationArguments())->getMock();
@@ -53,7 +57,7 @@ class DatabaseEloquentBelongsToManyWithDefaultAttributesTest extends TestCase
 
         $mockQueryBuilder = Mockery::mock(QueryBuilder::class);
         $builder->shouldReceive('getQuery')->andReturn($mockQueryBuilder);
-        $mockQueryBuilder->shouldReceive('getGrammar')->andReturn(Mockery::mock(Grammar::class, ['isExpression' => false]));
+        $mockQueryBuilder->shouldReceive('getGrammar')->andReturn(new Grammar(Mockery::mock(Connection::class)));
 
         return [
             $builder,

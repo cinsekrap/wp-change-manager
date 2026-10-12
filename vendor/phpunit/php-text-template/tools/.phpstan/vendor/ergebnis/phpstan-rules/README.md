@@ -1,15 +1,15 @@
 # phpstan-rules
 
-[![Integrate](https://github.com/ergebnis/phpstan-rules/workflows/Integrate/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions)
-[![Merge](https://github.com/ergebnis/phpstan-rules/workflows/Merge/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions)
-[![Release](https://github.com/ergebnis/phpstan-rules/workflows/Release/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions)
-[![Renew](https://github.com/ergebnis/phpstan-rules/workflows/Renew/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions)
+[![Integrate](https://github.com/ergebnis/phpstan-rules/actions/workflows/integrate.yaml/badge.svg?branch=main)](https://github.com/ergebnis/phpstan-rules/actions/workflows/integrate.yaml)
+[![Merge](https://github.com/ergebnis/phpstan-rules/actions/workflows/merge.yaml/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions/workflows/merge.yaml)
+[![Release](https://github.com/ergebnis/phpstan-rules/actions/workflows/release.yaml/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions/workflows/release.yaml)
+[![Renew](https://github.com/ergebnis/phpstan-rules/actions/workflows/renew.yaml/badge.svg)](https://github.com/ergebnis/phpstan-rules/actions/workflows/renew.yaml)
 
 [![Code Coverage](https://codecov.io/gh/ergebnis/phpstan-rules/branch/main/graph/badge.svg)](https://codecov.io/gh/ergebnis/phpstan-rules)
 
 [![Latest Stable Version](https://poser.pugx.org/ergebnis/phpstan-rules/v/stable)](https://packagist.org/packages/ergebnis/phpstan-rules)
 [![Total Downloads](https://poser.pugx.org/ergebnis/phpstan-rules/downloads)](https://packagist.org/packages/ergebnis/phpstan-rules)
-[![Monthly Downloads](http://poser.pugx.org/ergebnis/phpstan-rules/d/monthly)](https://packagist.org/packages/ergebnis/phpstan-rules)
+[![Monthly Downloads](https://poser.pugx.org/ergebnis/phpstan-rules/d/monthly)](https://packagist.org/packages/ergebnis/phpstan-rules)
 
 This project provides a [`composer`](https://getcomposer.org) package with rules for [`phpstan/phpstan`](https://github.com/phpstan/phpstan).
 
@@ -58,6 +58,7 @@ This package provides the following rules for use with [`phpstan/phpstan`](https
 - [`Ergebnis\PHPStan\Rules\Expressions\NoEvalRule`](https://github.com/ergebnis/phpstan-rules#expressionsnoevalrule)
 - [`Ergebnis\PHPStan\Rules\Expressions\NoIssetRule`](https://github.com/ergebnis/phpstan-rules#expressionsnoissetrule)
 - [`Ergebnis\PHPStan\Rules\Files\DeclareStrictTypesRule`](https://github.com/ergebnis/phpstan-rules#filesdeclarestricttypesrule)
+- [`Ergebnis\PHPStan\Rules\Files\NoPhpstanIgnoreRule`](https://github.com/ergebnis/phpstan-rules#filesnophpstanignorerule)
 - [`Ergebnis\PHPStan\Rules\Functions\NoNullableReturnTypeDeclarationRule`](https://github.com/ergebnis/phpstan-rules#functionsnonullablereturntypedeclarationrule)
 - [`Ergebnis\PHPStan\Rules\Functions\NoParameterPassedByReferenceRule`](https://github.com/ergebnis/phpstan-rules#functionsnoparameterpassedbyreferencerule)
 - [`Ergebnis\PHPStan\Rules\Functions\NoParameterWithNullableTypeDeclarationRule`](https://github.com/ergebnis/phpstan-rules#functionsnoparameterwithnullabletypedeclarationrule)
@@ -345,6 +346,21 @@ You can set the `enabled` parameter to `false` to disable this rule.
 parameters:
 	ergebnis:
 		declareStrictTypes:
+			enabled: false
+```
+
+#### `Files\NoPhpstanIgnoreRule`
+
+This rule reports an error when a `@phpstan-ignore`, `@phpstan-ignore-line`, or `@phpstan-ignore-next-line` tag is used to [ignore errors reported by `phpstan/phpstan`](https://phpstan.org/user-guide/ignoring-errors#ignoring-in-code-using-phpdocs).
+
+##### Disabling the rule
+
+You can set the `enabled` parameter to `false` to disable this rule.
+
+```neon
+parameters:
+	ergebnis:
+		noPhpstanIgnore:
 			enabled: false
 ```
 
@@ -739,9 +755,17 @@ You can support the maintenance of this project by [sponsoring @ergebnis](https:
 
 ## PHP Version Support Policy
 
-This project supports PHP versions with [active and security support](https://www.php.net/supported-versions.php).
+This project currently supports the following PHP versions:
 
-The maintainers of this project add support for a PHP version following its initial release and drop support for a PHP version when it has reached the end of security support.
+- [PHP 7.4](https://www.php.net/releases/#7.4.0) (has reached its end of life on November 28, 2022)
+- [PHP 8.0](https://www.php.net/releases/#8.0.0) (has reached its end of life on November 26, 2023)
+- [PHP 8.1](https://www.php.net/releases/#8.1.0) (has reached its end of life on December 31, 2025)
+- [PHP 8.2](https://www.php.net/releases/#8.2.0)
+- [PHP 8.3](https://www.php.net/releases/#8.3.0)
+- [PHP 8.4](https://www.php.net/releases/#8.4.0)
+- [PHP 8.5](https://www.php.net/releases/#8.5.0)
+
+The maintainers of this project add support for a PHP version following its initial release and _may_ drop support for a PHP version when it has reached its [end of life](https://www.php.net/supported-versions.php).
 
 ## Security Policy
 

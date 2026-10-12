@@ -4,6 +4,7 @@ namespace Illuminate\Tests\Support;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Batch;
+use Illuminate\Bus\Dispatcher as BusDispatcher;
 use Illuminate\Bus\Queueable;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Bus\Dispatcher;
@@ -23,14 +24,14 @@ class SupportTestingBusFakeTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->fake = new BusFake(Mockery::mock(QueueingDispatcher::class));
+        $this->fake = new BusFake(new BusDispatcher(new Container));
     }
 
     public function testItUsesCustomBusRepository()
     {
         $busRepository = new BatchRepositoryFake;
 
-        $fake = new BusFake(Mockery::mock(QueueingDispatcher::class), [], $busRepository);
+        $fake = new BusFake(new BusDispatcher(new Container), [], $busRepository);
 
         $this->assertNull($fake->findBatch('non-existent-batch'));
 
@@ -375,6 +376,14 @@ class SupportTestingBusFakeTest extends TestCase
         $this->fake->assertDispatchedSyncTimes(function (OtherBusJobStub $job) {
             return $job->id === 1;
         }, 2);
+    }
+
+    public function testAssertDispatchedWithArrayOfProperties()
+    {
+        $this->fake->dispatch(new BusJobWithPropertiesStub('pending'));
+
+        $this->fake->assertDispatched(BusJobWithPropertiesStub::class, ['status' => 'pending']);
+        $this->fake->assertNotDispatched(BusJobWithPropertiesStub::class, ['status' => 'complete']);
     }
 
     public function testAssertNotDispatched()
@@ -792,7 +801,7 @@ class SupportTestingBusFakeTest extends TestCase
     {
         $batchRepository = new BatchRepositoryFake;
 
-        $fake = new BusFake(Mockery::mock(QueueingDispatcher::class), [], $batchRepository);
+        $fake = new BusFake(new BusDispatcher(new Container), [], $batchRepository);
 
         $batch = $fake->batch([])->dispatch();
 
@@ -1043,6 +1052,13 @@ class SupportTestingBusFakeTest extends TestCase
 class BusJobStub
 {
     //
+}
+
+class BusJobWithPropertiesStub
+{
+    public function __construct(public string $status)
+    {
+    }
 }
 
 class ChainedJobStub

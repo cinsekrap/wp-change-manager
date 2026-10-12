@@ -17,9 +17,7 @@ use PHPUnit\Framework\Attributes\ExcludeGlobalVariableFromBackup;
 use PHPUnit\Framework\TestCase\GlobalStateCapture;
 use PHPUnit\TestFixture\ExpectsOutput;
 use PHPUnit\TestFixture\TestWithDifferentNames;
-use ReflectionMethod;
 use ReflectionProperty;
-use stdClass;
 
 #[CoversClass(TestCase::class)]
 #[ExcludeGlobalVariableFromBackup('i')]
@@ -134,38 +132,118 @@ class TestCaseTest extends TestCase
         );
     }
 
-    public function testShouldRunInSeparateProcessReturnsFalseWhenTestIsAlreadyInIsolation(): void
+    public function testValueObjectForEventsIsCached(): void
     {
         $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertSame($testCase->valueObjectForEvents(), $testCase->valueObjectForEvents());
+    }
+
+    public function testValueObjectForEventsReflectsDataSetProvidedAfterItWasBuilt(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->valueObjectForEvents()->testData()->hasDataFromDataProvider());
+
+        $testCase->setData('myDataSet', ['foo']);
+
+        $this->assertTrue($testCase->valueObjectForEvents()->testData()->hasDataFromDataProvider());
+        $this->assertSame('myDataSet', $testCase->valueObjectForEvents()->testData()->dataFromDataProvider()->dataSetName());
+    }
+
+    public function testValueObjectForEventsReflectsRepetitionSetAfterItWasBuilt(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->valueObjectForEvents()->isRepeated());
+
+        $testCase->setRepetition(2, 3);
+
+        $this->assertTrue($testCase->valueObjectForEvents()->isRepeated());
+        $this->assertSame(2, $testCase->valueObjectForEvents()->repetition());
+        $this->assertSame(3, $testCase->valueObjectForEvents()->totalRepetitions());
+    }
+
+    public function testValueObjectForEventsReflectsAttemptSetAfterItWasBuilt(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->valueObjectForEvents()->isRetried());
+
+        $testCase->setAttempt(2, 3);
+
+        $this->assertTrue($testCase->valueObjectForEvents()->isRetried());
+        $this->assertSame(2, $testCase->valueObjectForEvents()->attempt());
+        $this->assertSame(3, $testCase->valueObjectForEvents()->maxAttempts());
+    }
+
+    public function testValueObjectForEventsReflectsDependencyInputSetAfterItWasBuilt(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertCount(0, $testCase->valueObjectForEvents()->testData());
+
+        $testCase->setDependencyInput(['previousTest' => 'value']);
+
+        $this->assertCount(1, $testCase->valueObjectForEvents()->testData());
+    }
+
+    public function testDoesNotRunInSeparateProcessByDefault(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->runsTestInSeparateProcess());
+    }
+
+    public function testCanBeConfiguredToRunInSeparateProcess(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $testCase->setRunTestInSeparateProcess(true);
+
+        $this->assertTrue($testCase->runsTestInSeparateProcess());
+    }
+
+    public function testFirstConfigurationOfRunningInSeparateProcessWins(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $testCase->setRunTestInSeparateProcess(false);
+        $testCase->setRunTestInSeparateProcess(true);
+
+        $this->assertFalse($testCase->runsTestInSeparateProcess());
+    }
+
+    public function testDoesNotPreserveGlobalStateByDefault(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->preservesGlobalState());
+    }
+
+    public function testCanBeConfiguredToPreserveGlobalState(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $testCase->setPreserveGlobalState(true);
+
+        $this->assertTrue($testCase->preservesGlobalState());
+    }
+
+    public function testIsNotInIsolationByDefault(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
+        $this->assertFalse($testCase->isInIsolation());
+    }
+
+    public function testCanBeMarkedAsInIsolation(): void
+    {
+        $testCase = new TestWithDifferentNames('testWithName');
+
         $testCase->setInIsolation(true);
 
-        $method = new ReflectionMethod(TestCase::class, 'shouldRunInSeparateProcess');
-
-        $this->assertFalse($method->invoke($testCase));
-    }
-
-    public function testShouldInvocationMockerBeResetReturnsFalseWhenMockIsAmongDependencyInput(): void
-    {
-        $testCase = new TestWithDifferentNames('testWithName');
-        $mock     = $this->createMock(stdClass::class);
-
-        $testCase->setDependencyInput(['previousTest' => $mock]);
-
-        $method = new ReflectionMethod(TestCase::class, 'shouldInvocationMockerBeReset');
-
-        $this->assertFalse($method->invoke($testCase, $mock));
-    }
-
-    public function testShouldInvocationMockerBeResetReturnsFalseWhenMockIsAmongTestResult(): void
-    {
-        $testCase = new TestWithDifferentNames('testWithName');
-        $mock     = $this->createMock(stdClass::class);
-
-        $testCase->setResult([$mock]);
-
-        $method = new ReflectionMethod(TestCase::class, 'shouldInvocationMockerBeReset');
-
-        $this->assertFalse($method->invoke($testCase, $mock));
+        $this->assertTrue($testCase->isInIsolation());
     }
 
     public function testCreateGlobalStateSnapshotAppliesBackupStaticPropertiesExcludeList(): void

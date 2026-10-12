@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\Event\TestSuite;
 
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Small;
@@ -62,11 +63,11 @@ final class TestSuiteBuilderTest extends TestCase
 
     private function testSuiteFromXmlConfiguration(): FrameworkTestSuite
     {
-        $cliConfiguration = (new CliArgumentsBuilder)->fromParameters([]);
-        $xmlConfiguration = (new XmlConfigurationLoader)->load(__DIR__ . '/../../../../end-to-end/_files/groups/phpunit.xml');
-        $configuration    = (new ConfigurationMerger)->merge($cliConfiguration, $xmlConfiguration);
+        $cliConfiguration = new CliArgumentsBuilder($this->createStub(Emitter::class))->fromParameters([]);
+        $xmlConfiguration = new XmlConfigurationLoader($this->createStub(Emitter::class))->load(__DIR__ . '/../../../../end-to-end/_files/groups/phpunit.xml');
+        $configuration    = new ConfigurationMerger($this->createStub(Emitter::class))->merge($cliConfiguration, $xmlConfiguration);
 
-        return (new TestSuiteMapper)->map(
+        return new TestSuiteMapper($this->createStub(Emitter::class))->map(
             $configuration->configurationFile(),
             $configuration->testSuite(),
             $configuration->includeTestSuites(),

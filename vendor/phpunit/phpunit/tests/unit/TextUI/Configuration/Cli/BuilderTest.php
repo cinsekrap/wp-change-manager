@@ -9,6 +9,7 @@
  */
 namespace PHPUnit\TextUI\CliArguments;
 
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnorePhpunitDeprecations;
@@ -29,7 +30,7 @@ final class BuilderTest extends TestCase
     #[TestDox('argument')]
     public function testArguments(): void
     {
-        $configuration = (new Builder)->fromParameters(['command', 'argument']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['command', 'argument']);
 
         $this->assertSame(['argument'], $configuration->arguments());
     }
@@ -37,7 +38,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--test-files-file tests.txt')]
     public function testTestFilesFile(): void
     {
-        $configuration = (new Builder)->fromParameters(['--test-files-file', 'tests.txt']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--test-files-file', 'tests.txt']);
 
         $this->assertTrue($configuration->hasTestFilesFile());
         $this->assertSame('tests.txt', $configuration->testFilesFile());
@@ -45,7 +46,7 @@ final class BuilderTest extends TestCase
 
     public function testTestFilesFileMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestFilesFile());
 
@@ -57,7 +58,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--test-id-filter-file test-ids.txt')]
     public function testTestIdFile(): void
     {
-        $configuration = (new Builder)->fromParameters(['--test-id-filter-file', 'test-ids.txt']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--test-id-filter-file', 'test-ids.txt']);
 
         $this->assertTrue($configuration->hasTestIdFile());
         $this->assertSame('test-ids.txt', $configuration->testIdFile());
@@ -65,7 +66,7 @@ final class BuilderTest extends TestCase
 
     public function testTestIdFileMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestIdFile());
 
@@ -77,7 +78,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--run-test-id Foo::testBar')]
     public function testTestIdFilter(): void
     {
-        $configuration = (new Builder)->fromParameters(['--run-test-id', 'Foo::testBar']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--run-test-id', 'Foo::testBar']);
 
         $this->assertTrue($configuration->hasTestIdFilter());
         $this->assertSame('Foo::testBar', $configuration->testIdFilter());
@@ -85,7 +86,7 @@ final class BuilderTest extends TestCase
 
     public function testTestIdFilterMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestIdFilter());
 
@@ -97,7 +98,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--all')]
     public function testAll(): void
     {
-        $configuration = (new Builder)->fromParameters(['--all']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--all']);
 
         $this->assertTrue($configuration->hasAll());
         $this->assertTrue($configuration->all());
@@ -105,7 +106,7 @@ final class BuilderTest extends TestCase
 
     public function testAllMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasAll());
 
@@ -117,7 +118,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--colors')]
     public function testColorsImplicitAuto(): void
     {
-        $configuration = (new Builder)->fromParameters(['--colors']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--colors']);
 
         $this->assertTrue($configuration->hasColors());
         $this->assertSame('auto', $configuration->colors());
@@ -126,7 +127,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--colors=auto')]
     public function testColorsExplicitAuto(): void
     {
-        $configuration = (new Builder)->fromParameters(['--colors=auto']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--colors=auto']);
 
         $this->assertTrue($configuration->hasColors());
         $this->assertSame('auto', $configuration->colors());
@@ -135,7 +136,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--colors=always')]
     public function testColorsAlways(): void
     {
-        $configuration = (new Builder)->fromParameters(['--colors=always']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--colors=always']);
 
         $this->assertTrue($configuration->hasColors());
         $this->assertSame('always', $configuration->colors());
@@ -144,7 +145,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--colors=never')]
     public function testColorsNever(): void
     {
-        $configuration = (new Builder)->fromParameters(['--colors=never']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--colors=never']);
 
         $this->assertTrue($configuration->hasColors());
         $this->assertSame('never', $configuration->colors());
@@ -152,7 +153,7 @@ final class BuilderTest extends TestCase
 
     public function testColorsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasColors());
 
@@ -164,7 +165,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--bootstrap script.php')]
     public function testBootstrap(): void
     {
-        $configuration = (new Builder)->fromParameters(['--bootstrap', 'script.php']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--bootstrap', 'script.php']);
 
         $this->assertTrue($configuration->hasBootstrap());
         $this->assertSame('script.php', $configuration->bootstrap());
@@ -172,7 +173,7 @@ final class BuilderTest extends TestCase
 
     public function testBootstrapMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasBootstrap());
 
@@ -184,7 +185,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--cache-directory directory')]
     public function testCacheDirectory(): void
     {
-        $configuration = (new Builder)->fromParameters(['--cache-directory', 'directory']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--cache-directory', 'directory']);
 
         $this->assertTrue($configuration->hasCacheDirectory());
         $this->assertSame('directory', $configuration->cacheDirectory());
@@ -192,7 +193,7 @@ final class BuilderTest extends TestCase
 
     public function testCacheDirectoryMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCacheDirectory());
 
@@ -204,7 +205,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--record-test-run-history')]
     public function testRecordTestRunHistory(): void
     {
-        $configuration = (new Builder)->fromParameters(['--record-test-run-history']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--record-test-run-history']);
 
         $this->assertTrue($configuration->hasRecordTestRunHistory());
         $this->assertTrue($configuration->recordTestRunHistory());
@@ -213,7 +214,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-record-test-run-history')]
     public function testDoNotRecordTestRunHistory(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-record-test-run-history']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-record-test-run-history']);
 
         $this->assertTrue($configuration->hasRecordTestRunHistory());
         $this->assertFalse($configuration->recordTestRunHistory());
@@ -221,7 +222,7 @@ final class BuilderTest extends TestCase
 
     public function testRecordTestRunHistoryMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasRecordTestRunHistory());
 
@@ -230,10 +231,39 @@ final class BuilderTest extends TestCase
         $configuration->recordTestRunHistory();
     }
 
+    #[TestDox('--cache-test-index')]
+    public function testCacheTestIndex(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--cache-test-index']);
+
+        $this->assertTrue($configuration->hasCacheTestIndex());
+        $this->assertTrue($configuration->cacheTestIndex());
+    }
+
+    #[TestDox('--do-not-cache-test-index')]
+    public function testDoNotCacheTestIndex(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-cache-test-index']);
+
+        $this->assertTrue($configuration->hasCacheTestIndex());
+        $this->assertFalse($configuration->cacheTestIndex());
+    }
+
+    public function testCacheTestIndexMayNotBeConfigured(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
+
+        $this->assertFalse($configuration->hasCacheTestIndex());
+
+        $this->expectException(Exception::class);
+
+        $configuration->cacheTestIndex();
+    }
+
     #[TestDox('--columns <n>')]
     public function testColumnsNumber(): void
     {
-        $configuration = (new Builder)->fromParameters(['--columns', '100']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--columns', '100']);
 
         $this->assertTrue($configuration->hasColumns());
         $this->assertSame(100, $configuration->columns());
@@ -242,7 +272,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--columns max')]
     public function testColumnsMax(): void
     {
-        $configuration = (new Builder)->fromParameters(['--columns', 'max']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--columns', 'max']);
 
         $this->assertTrue($configuration->hasColumns());
         $this->assertSame('max', $configuration->columns());
@@ -250,7 +280,7 @@ final class BuilderTest extends TestCase
 
     public function testColumnsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasColumns());
 
@@ -262,7 +292,7 @@ final class BuilderTest extends TestCase
     #[TestDox('-c file')]
     public function testConfigurationShort(): void
     {
-        $configuration = (new Builder)->fromParameters(['-c', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['-c', 'file']);
 
         $this->assertTrue($configuration->hasConfigurationFile());
         $this->assertSame('file', $configuration->configurationFile());
@@ -271,7 +301,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--configuration file')]
     public function testConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--configuration', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--configuration', 'file']);
 
         $this->assertTrue($configuration->hasConfigurationFile());
         $this->assertSame('file', $configuration->configurationFile());
@@ -279,7 +309,7 @@ final class BuilderTest extends TestCase
 
     public function testConfigurationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasConfigurationFile());
 
@@ -291,14 +321,14 @@ final class BuilderTest extends TestCase
     #[TestDox('--warm-coverage-cache')]
     public function testWarmCoverageCache(): void
     {
-        $configuration = (new Builder)->fromParameters(['--warm-coverage-cache']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--warm-coverage-cache']);
 
         $this->assertTrue($configuration->warmCoverageCache());
     }
 
     public function testWarmCoverageCacheMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->warmCoverageCache());
     }
@@ -306,7 +336,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-clover file')]
     public function testCoverageClover(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-clover', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-clover', 'file']);
 
         $this->assertTrue($configuration->hasCoverageClover());
         $this->assertSame('file', $configuration->coverageClover());
@@ -314,7 +344,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageCloverMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageClover());
 
@@ -326,7 +356,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-cobertura file')]
     public function testCoverageCobertura(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-cobertura', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-cobertura', 'file']);
 
         $this->assertTrue($configuration->hasCoverageCobertura());
         $this->assertSame('file', $configuration->coverageCobertura());
@@ -334,7 +364,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageCoberturaMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageCobertura());
 
@@ -343,10 +373,30 @@ final class BuilderTest extends TestCase
         $configuration->coverageCobertura();
     }
 
+    #[TestDox('--coverage-jsonl directory')]
+    public function testCoverageJsonl(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-jsonl', 'directory']);
+
+        $this->assertTrue($configuration->hasCoverageJsonl());
+        $this->assertSame('directory', $configuration->coverageJsonl());
+    }
+
+    public function testCoverageJsonlMayNotBeConfigured(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
+
+        $this->assertFalse($configuration->hasCoverageJsonl());
+
+        $this->expectException(Exception::class);
+
+        $configuration->coverageJsonl();
+    }
+
     #[TestDox('--coverage-crap4j file')]
     public function testCoverageCrap4j(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-crap4j', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-crap4j', 'file']);
 
         $this->assertTrue($configuration->hasCoverageCrap4J());
         $this->assertSame('file', $configuration->coverageCrap4J());
@@ -354,7 +404,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageCrap4jMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageCrap4J());
 
@@ -366,7 +416,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-html directory')]
     public function testCoverageHtml(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-html', 'directory']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-html', 'directory']);
 
         $this->assertTrue($configuration->hasCoverageHtml());
         $this->assertSame('directory', $configuration->coverageHtml());
@@ -374,7 +424,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageHtmlMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageHtml());
 
@@ -386,7 +436,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--without-class-view')]
     public function testWithoutClassView(): void
     {
-        $configuration = (new Builder)->fromParameters(['--without-class-view']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--without-class-view']);
 
         $this->assertTrue($configuration->hasWithoutClassView());
         $this->assertTrue($configuration->withoutClassView());
@@ -394,7 +444,7 @@ final class BuilderTest extends TestCase
 
     public function testWithoutClassViewMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasWithoutClassView());
 
@@ -406,7 +456,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--without-file-view')]
     public function testWithoutFileView(): void
     {
-        $configuration = (new Builder)->fromParameters(['--without-file-view']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--without-file-view']);
 
         $this->assertTrue($configuration->hasWithoutFileView());
         $this->assertTrue($configuration->withoutFileView());
@@ -414,7 +464,7 @@ final class BuilderTest extends TestCase
 
     public function testWithoutFileViewMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasWithoutFileView());
 
@@ -426,7 +476,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-openclover file')]
     public function testCoverageOpenClover(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-openclover', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-openclover', 'file']);
 
         $this->assertTrue($configuration->hasCoverageOpenClover());
         $this->assertSame('file', $configuration->coverageOpenClover());
@@ -434,7 +484,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageOpenCloverMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageOpenClover());
 
@@ -446,7 +496,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-php file')]
     public function testCoveragePhp(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-php', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-php', 'file']);
 
         $this->assertTrue($configuration->hasCoveragePhp());
         $this->assertSame('file', $configuration->coveragePhp());
@@ -454,7 +504,7 @@ final class BuilderTest extends TestCase
 
     public function testCoveragePhpMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoveragePhp());
 
@@ -466,7 +516,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-text')]
     public function testCoverageText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-text']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-text']);
 
         $this->assertTrue($configuration->hasCoverageText());
         $this->assertSame('php://stdout', $configuration->coverageText());
@@ -475,7 +525,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-text=file')]
     public function testCoverageTextFile(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-text=file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-text=file']);
 
         $this->assertTrue($configuration->hasCoverageText());
         $this->assertSame('file', $configuration->coverageText());
@@ -483,7 +533,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageText());
 
@@ -495,7 +545,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--only-summary-for-coverage-text')]
     public function testOnlySummaryForCoverageText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--only-summary-for-coverage-text']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--only-summary-for-coverage-text']);
 
         $this->assertTrue($configuration->hasCoverageTextShowOnlySummary());
         $this->assertTrue($configuration->coverageTextShowOnlySummary());
@@ -503,7 +553,7 @@ final class BuilderTest extends TestCase
 
     public function testOnlySummaryForCoverageTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageTextShowOnlySummary());
 
@@ -515,7 +565,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--show-uncovered-for-coverage-text')]
     public function testShowUncoveredForCoverageText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--show-uncovered-for-coverage-text']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--show-uncovered-for-coverage-text']);
 
         $this->assertTrue($configuration->hasCoverageTextShowUncoveredFiles());
         $this->assertTrue($configuration->coverageTextShowUncoveredFiles());
@@ -523,7 +573,7 @@ final class BuilderTest extends TestCase
 
     public function testShowUncoveredForCoverageTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageTextShowUncoveredFiles());
 
@@ -535,7 +585,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-xml directory')]
     public function testCoverageXml(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-xml', 'directory']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-xml', 'directory']);
 
         $this->assertTrue($configuration->hasCoverageXml());
         $this->assertSame('directory', $configuration->coverageXml());
@@ -543,7 +593,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageXmlMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageXml());
 
@@ -555,7 +605,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--exclude-source-from-xml-coverage=')]
     public function testExcludeSourceFromXmlCoverage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--exclude-source-from-xml-coverage']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--exclude-source-from-xml-coverage']);
 
         $this->assertTrue($configuration->hasExcludeSourceFromXmlCoverage());
         $this->assertTrue($configuration->excludeSourceFromXmlCoverage());
@@ -563,7 +613,7 @@ final class BuilderTest extends TestCase
 
     public function testExcludeSourceFromXmlCoverageMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExcludeSourceFromXmlCoverage());
 
@@ -575,7 +625,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--path-coverage')]
     public function testPathCoverage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--path-coverage']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--path-coverage']);
 
         $this->assertTrue($configuration->hasPathCoverage());
         $this->assertTrue($configuration->pathCoverage());
@@ -583,7 +633,7 @@ final class BuilderTest extends TestCase
 
     public function testPathCoverageMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasPathCoverage());
 
@@ -595,7 +645,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--branch-coverage')]
     public function testBranchCoverage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--branch-coverage']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--branch-coverage']);
 
         $this->assertTrue($configuration->hasBranchCoverage());
         $this->assertTrue($configuration->branchCoverage());
@@ -603,7 +653,7 @@ final class BuilderTest extends TestCase
 
     public function testBranchCoverageMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasBranchCoverage());
 
@@ -615,7 +665,7 @@ final class BuilderTest extends TestCase
     #[TestDox('-d foo=bar')]
     public function testIniSetting(): void
     {
-        $configuration = (new Builder)->fromParameters(['-d', 'foo=bar']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['-d', 'foo=bar']);
 
         $this->assertTrue($configuration->hasIniSettings());
         $this->assertSame(['foo' => 'bar'], $configuration->iniSettings());
@@ -624,7 +674,7 @@ final class BuilderTest extends TestCase
     #[TestDox('-d foo')]
     public function testIniSetting2(): void
     {
-        $configuration = (new Builder)->fromParameters(['-d', 'foo']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['-d', 'foo']);
 
         $this->assertTrue($configuration->hasIniSettings());
         $this->assertSame(['foo' => '1'], $configuration->iniSettings());
@@ -632,7 +682,7 @@ final class BuilderTest extends TestCase
 
     public function testIniSettingMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasIniSettings());
 
@@ -644,7 +694,7 @@ final class BuilderTest extends TestCase
     #[TestDox('-h')]
     public function testHelpShort(): void
     {
-        $configuration = (new Builder)->fromParameters(['-h']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['-h']);
 
         $this->assertTrue($configuration->help());
     }
@@ -652,14 +702,14 @@ final class BuilderTest extends TestCase
     #[TestDox('--help')]
     public function testHelp(): void
     {
-        $configuration = (new Builder)->fromParameters(['--help']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--help']);
 
         $this->assertTrue($configuration->help());
     }
 
     public function testHelpMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->help());
     }
@@ -667,7 +717,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--filter string')]
     public function testFilter(): void
     {
-        $configuration = (new Builder)->fromParameters(['--filter', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--filter', 'string']);
 
         $this->assertTrue($configuration->hasFilter());
         $this->assertSame('string', $configuration->filter());
@@ -675,7 +725,7 @@ final class BuilderTest extends TestCase
 
     public function testFilterMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFilter());
 
@@ -687,7 +737,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--exclude-filter string')]
     public function testExcludeFilter(): void
     {
-        $configuration = (new Builder)->fromParameters(['--exclude-filter', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--exclude-filter', 'string']);
 
         $this->assertTrue($configuration->hasExcludeFilter());
         $this->assertSame('string', $configuration->excludeFilter());
@@ -695,7 +745,7 @@ final class BuilderTest extends TestCase
 
     public function testExcludeFilterMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExcludeFilter());
 
@@ -707,7 +757,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--testsuite string')]
     public function testTestSuite(): void
     {
-        $configuration = (new Builder)->fromParameters(['--testsuite', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--testsuite', 'string']);
 
         $this->assertTrue($configuration->hasTestSuite());
         $this->assertSame('string', $configuration->testSuite());
@@ -715,7 +765,7 @@ final class BuilderTest extends TestCase
 
     public function testTestSuiteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestSuite());
 
@@ -727,7 +777,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--exclude-testsuite string')]
     public function testExcludeTestSuite(): void
     {
-        $configuration = (new Builder)->fromParameters(['--exclude-testsuite', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--exclude-testsuite', 'string']);
 
         $this->assertTrue($configuration->hasExcludedTestSuite());
         $this->assertSame('string', $configuration->excludedTestSuite());
@@ -735,7 +785,7 @@ final class BuilderTest extends TestCase
 
     public function testExcludeTestSuiteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExcludedTestSuite());
 
@@ -747,7 +797,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--generate-baseline file')]
     public function testGenerateBaseline(): void
     {
-        $configuration = (new Builder)->fromParameters(['--generate-baseline', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--generate-baseline', 'file']);
 
         $this->assertTrue($configuration->hasGenerateBaseline());
         $this->assertStringEndsWith('file', $configuration->generateBaseline());
@@ -756,7 +806,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--generate-baseline /path/to/file')]
     public function testGenerateBaselineWithPathToFile(): void
     {
-        $configuration = (new Builder)->fromParameters(['--generate-baseline', '/path/to/file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--generate-baseline', '/path/to/file']);
 
         $this->assertTrue($configuration->hasGenerateBaseline());
         $this->assertSame('/path/to/file', $configuration->generateBaseline());
@@ -764,7 +814,7 @@ final class BuilderTest extends TestCase
 
     public function testGenerateBaselineMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasGenerateBaseline());
 
@@ -776,7 +826,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--use-baseline file')]
     public function testUseBaseline(): void
     {
-        $configuration = (new Builder)->fromParameters(['--use-baseline', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--use-baseline', 'file']);
 
         $this->assertTrue($configuration->hasUseBaseline());
         $this->assertStringEndsWith('file', $configuration->useBaseline());
@@ -785,7 +835,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--use-baseline /path/to/file')]
     public function testUseBaselineWithPathToFile(): void
     {
-        $configuration = (new Builder)->fromParameters(['--use-baseline', '/path/to/file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--use-baseline', '/path/to/file']);
 
         $this->assertTrue($configuration->hasUseBaseline());
         $this->assertSame('/path/to/file', $configuration->useBaseline());
@@ -793,7 +843,7 @@ final class BuilderTest extends TestCase
 
     public function testUseBaselineMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasUseBaseline());
 
@@ -805,7 +855,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--ignore-baseline')]
     public function testIgnoreBaseline(): void
     {
-        $configuration = (new Builder)->fromParameters(['--ignore-baseline']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--ignore-baseline']);
 
         $this->assertTrue($configuration->ignoreBaseline());
     }
@@ -813,7 +863,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--generate-configuration')]
     public function testGenerateConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--generate-configuration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--generate-configuration']);
 
         $this->assertTrue($configuration->generateConfiguration());
     }
@@ -821,7 +871,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--migrate-configuration')]
     public function testMigrateConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--migrate-configuration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--migrate-configuration']);
 
         $this->assertTrue($configuration->migrateConfiguration());
     }
@@ -829,7 +879,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--group string')]
     public function testGroup(): void
     {
-        $configuration = (new Builder)->fromParameters(['--group', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--group', 'string']);
 
         $this->assertTrue($configuration->hasGroups());
         $this->assertSame(['string'], $configuration->groups());
@@ -838,7 +888,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--group string --group another-string')]
     public function testGroups(): void
     {
-        $configuration = (new Builder)->fromParameters(['--group', 'string', '--group', 'another-string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--group', 'string', '--group', 'another-string']);
 
         $this->assertTrue($configuration->hasGroups());
         $this->assertSame(['string', 'another-string'], $configuration->groups());
@@ -846,7 +896,7 @@ final class BuilderTest extends TestCase
 
     public function testGroupMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasGroups());
 
@@ -858,7 +908,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--exclude-group string')]
     public function testExcludeGroup(): void
     {
-        $configuration = (new Builder)->fromParameters(['--exclude-group', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--exclude-group', 'string']);
 
         $this->assertTrue($configuration->hasExcludeGroups());
         $this->assertSame(['string'], $configuration->excludeGroups());
@@ -867,7 +917,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--exclude-group string --exclude-group another-string')]
     public function testExcludeGroups(): void
     {
-        $configuration = (new Builder)->fromParameters(['--exclude-group', 'string', '--exclude-group', 'another-string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--exclude-group', 'string', '--exclude-group', 'another-string']);
 
         $this->assertTrue($configuration->hasExcludeGroups());
         $this->assertSame(['string', 'another-string'], $configuration->excludeGroups());
@@ -875,7 +925,7 @@ final class BuilderTest extends TestCase
 
     public function testExcludeGroupMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasGroups());
 
@@ -887,7 +937,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--covers Foo\\Bar\\Baz')]
     public function testCovers(): void
     {
-        $configuration = (new Builder)->fromParameters(['--covers', 'Foo\\Bar\\Baz']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--covers', 'Foo\\Bar\\Baz']);
 
         $this->assertTrue($configuration->hasTestsCovering());
         $this->assertSame(['foo\\bar\\baz'], $configuration->testsCovering());
@@ -895,7 +945,7 @@ final class BuilderTest extends TestCase
 
     public function testCoversMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestsCovering());
 
@@ -907,7 +957,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--uses Foo\\Bar\\Baz')]
     public function testUses(): void
     {
-        $configuration = (new Builder)->fromParameters(['--uses', 'Foo\\Bar\\Baz']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--uses', 'Foo\\Bar\\Baz']);
 
         $this->assertTrue($configuration->hasTestsUsing());
         $this->assertSame(['foo\\bar\\baz'], $configuration->testsUsing());
@@ -915,7 +965,7 @@ final class BuilderTest extends TestCase
 
     public function testUsesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestsUsing());
 
@@ -927,7 +977,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--requires-php-extension extension')]
     public function testRequiresPhpExtension(): void
     {
-        $configuration = (new Builder)->fromParameters(['--requires-php-extension', 'extension']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--requires-php-extension', 'extension']);
 
         $this->assertTrue($configuration->hasTestsRequiringPhpExtension());
         $this->assertSame(['extension'], $configuration->testsRequiringPhpExtension());
@@ -935,7 +985,7 @@ final class BuilderTest extends TestCase
 
     public function testRequiresPhpExtensionMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestsRequiringPhpExtension());
 
@@ -947,7 +997,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--test-suffix string')]
     public function testTestSuffix(): void
     {
-        $configuration = (new Builder)->fromParameters(['--test-suffix', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--test-suffix', 'string']);
 
         $this->assertTrue($configuration->hasTestSuffixes());
         $this->assertSame(['string'], $configuration->testSuffixes());
@@ -956,7 +1006,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--test-suffix string --test-suffix another-string')]
     public function testTestSuffixes(): void
     {
-        $configuration = (new Builder)->fromParameters(['--test-suffix', 'string', '--test-suffix', 'another-string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--test-suffix', 'string', '--test-suffix', 'another-string']);
 
         $this->assertTrue($configuration->hasTestSuffixes());
         $this->assertSame(['string', 'another-string'], $configuration->testSuffixes());
@@ -964,7 +1014,7 @@ final class BuilderTest extends TestCase
 
     public function testTestSuffixMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestSuffixes());
 
@@ -976,7 +1026,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--include-path string')]
     public function testIncludePath(): void
     {
-        $configuration = (new Builder)->fromParameters(['--include-path', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--include-path', 'string']);
 
         $this->assertTrue($configuration->hasIncludePath());
         $this->assertSame('string', $configuration->includePath());
@@ -984,7 +1034,7 @@ final class BuilderTest extends TestCase
 
     public function testIncludePathMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasIncludePath());
 
@@ -996,7 +1046,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-groups')]
     public function testListGroups(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-groups']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-groups']);
 
         $this->assertTrue($configuration->listGroups());
     }
@@ -1004,7 +1054,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-suites')]
     public function testListSuites(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-suites']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-suites']);
 
         $this->assertTrue($configuration->listSuites());
     }
@@ -1012,7 +1062,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-test-files')]
     public function testListTestFiles(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-test-files']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-test-files']);
 
         $this->assertTrue($configuration->listTestFiles());
     }
@@ -1020,14 +1070,14 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-test-ids')]
     public function testListTestIds(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-test-ids']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-test-ids']);
 
         $this->assertTrue($configuration->listTestIds());
     }
 
     public function testListTestIdsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->listTestIds());
     }
@@ -1035,7 +1085,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-tests')]
     public function testListTests(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-tests']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-tests']);
 
         $this->assertTrue($configuration->listTests());
     }
@@ -1043,7 +1093,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--list-tests-xml file')]
     public function testListTestsXml(): void
     {
-        $configuration = (new Builder)->fromParameters(['--list-tests-xml', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--list-tests-xml', 'file']);
 
         $this->assertTrue($configuration->hasListTestsXml());
         $this->assertSame('file', $configuration->listTestsXml());
@@ -1051,7 +1101,7 @@ final class BuilderTest extends TestCase
 
     public function testListTestsXmlMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasListTestsXml());
 
@@ -1063,7 +1113,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--log-events-text file')]
     public function testEventsText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--log-events-text', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--log-events-text', 'file']);
 
         $this->assertTrue($configuration->hasLogEventsText());
         $this->assertStringEndsWith('file', $configuration->logEventsText());
@@ -1075,12 +1125,12 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('The path "/invalid/path" specified for the --log-events-text option could not be resolved');
 
-        (new Builder)->fromParameters(['--log-events-text', '/invalid/path']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--log-events-text', '/invalid/path']);
     }
 
     public function testEventsTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasLogEventsText());
 
@@ -1092,7 +1142,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--log-events-verbose-text file')]
     public function testEventsVerboseText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--log-events-verbose-text', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--log-events-verbose-text', 'file']);
 
         $this->assertTrue($configuration->hasLogEventsVerboseText());
         $this->assertStringEndsWith('file', $configuration->logEventsVerboseText());
@@ -1104,12 +1154,12 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('The path "/invalid/path" specified for the --log-events-verbose-text option could not be resolved');
 
-        (new Builder)->fromParameters(['--log-events-verbose-text', '/invalid/path']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--log-events-verbose-text', '/invalid/path']);
     }
 
     public function testEventsVerboseTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasLogEventsVerboseText());
 
@@ -1121,7 +1171,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--log-junit file')]
     public function testLogJunit(): void
     {
-        $configuration = (new Builder)->fromParameters(['--log-junit', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--log-junit', 'file']);
 
         $this->assertTrue($configuration->hasJunitLogfile());
         $this->assertSame('file', $configuration->junitLogfile());
@@ -1129,7 +1179,7 @@ final class BuilderTest extends TestCase
 
     public function testLogJunitMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasJunitLogfile());
 
@@ -1141,7 +1191,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--log-otr file')]
     public function testLogOtr(): void
     {
-        $configuration = (new Builder)->fromParameters(['--log-otr', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--log-otr', 'file']);
 
         $this->assertTrue($configuration->hasOtrLogfile());
         $this->assertSame('file', $configuration->otrLogfile());
@@ -1149,7 +1199,7 @@ final class BuilderTest extends TestCase
 
     public function testLogOtrMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasOtrLogfile());
 
@@ -1161,7 +1211,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--include-git-information')]
     public function testIncludeGitInformation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--include-git-information']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--include-git-information']);
 
         $this->assertTrue($configuration->hasIncludeGitInformation());
         $this->assertTrue($configuration->includeGitInformation());
@@ -1169,7 +1219,7 @@ final class BuilderTest extends TestCase
 
     public function testIncludeGitInformationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasIncludeGitInformation());
 
@@ -1181,7 +1231,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--log-teamcity file')]
     public function testLogTeamcity(): void
     {
-        $configuration = (new Builder)->fromParameters(['--log-teamcity', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--log-teamcity', 'file']);
 
         $this->assertTrue($configuration->hasTeamcityLogfile());
         $this->assertSame('file', $configuration->teamcityLogfile());
@@ -1189,7 +1239,7 @@ final class BuilderTest extends TestCase
 
     public function testLogTeamcityMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTeamcityLogfile());
 
@@ -1201,7 +1251,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by default')]
     public function testOrderByDefault(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'default']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'default']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DEFAULT, $configuration->executionOrder());
@@ -1213,7 +1263,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by defects')]
     public function testOrderByDefects(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'defects']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'defects']);
 
         $this->assertFalse($configuration->hasExecutionOrder());
         $this->assertTrue($configuration->hasExecutionOrderDefects());
@@ -1221,10 +1271,11 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->hasResolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by depends')]
     public function testOrderByDepends(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends']);
 
         $this->assertFalse($configuration->hasExecutionOrder());
         $this->assertFalse($configuration->hasExecutionOrderDefects());
@@ -1235,7 +1286,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by duration')]
     public function testOrderByDuration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'duration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'duration']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->executionOrder());
@@ -1246,7 +1297,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by duration-ascending')]
     public function testOrderByDurationAscending(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'duration-ascending']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'duration-ascending']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->executionOrder());
@@ -1257,7 +1308,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by duration-descending')]
     public function testOrderByDurationDescending(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'duration-descending']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'duration-descending']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DURATION_DESCENDING, $configuration->executionOrder());
@@ -1265,10 +1316,32 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->hasResolveDependencies());
     }
 
+    #[TestDox('--order-by modified-ascending')]
+    public function testOrderByModifiedAscending(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'modified-ascending']);
+
+        $this->assertTrue($configuration->hasExecutionOrder());
+        $this->assertSame(TestSuiteSorter::ORDER_MODIFIED_ASCENDING, $configuration->executionOrder());
+        $this->assertFalse($configuration->hasExecutionOrderDefects());
+        $this->assertFalse($configuration->hasResolveDependencies());
+    }
+
+    #[TestDox('--order-by modified-descending')]
+    public function testOrderByModifiedDescending(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'modified-descending']);
+
+        $this->assertTrue($configuration->hasExecutionOrder());
+        $this->assertSame(TestSuiteSorter::ORDER_MODIFIED_DESCENDING, $configuration->executionOrder());
+        $this->assertFalse($configuration->hasExecutionOrderDefects());
+        $this->assertFalse($configuration->hasResolveDependencies());
+    }
+
     #[TestDox('--order-by random')]
     public function testOrderByRandom(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'random']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'random']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_RANDOMIZED, $configuration->executionOrder());
@@ -1279,7 +1352,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by reverse')]
     public function testOrderByReverse(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'reverse']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'reverse']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_REVERSED, $configuration->executionOrder());
@@ -1291,7 +1364,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by size')]
     public function testOrderBySize(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'size']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'size']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_SIZE_ASCENDING, $configuration->executionOrder());
@@ -1302,7 +1375,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by size-ascending')]
     public function testOrderBySizeAscending(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'size-ascending']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'size-ascending']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_SIZE_ASCENDING, $configuration->executionOrder());
@@ -1313,7 +1386,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by size-descending')]
     public function testOrderBySizeDescending(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'size-descending']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'size-descending']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_SIZE_DESCENDING, $configuration->executionOrder());
@@ -1321,10 +1394,11 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->hasResolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by depends,defects')]
     public function testOrderByDependsDefects(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends,defects']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends,defects']);
 
         $this->assertFalse($configuration->hasExecutionOrder());
         $this->assertTrue($configuration->hasExecutionOrderDefects());
@@ -1336,7 +1410,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by depends,duration')]
     public function testOrderByDependsDuration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends,duration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends,duration']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->executionOrder());
@@ -1344,10 +1418,11 @@ final class BuilderTest extends TestCase
         $this->assertTrue($configuration->hasResolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by depends,random')]
     public function testOrderByDependsRandom(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends,random']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends,random']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_RANDOMIZED, $configuration->executionOrder());
@@ -1355,10 +1430,11 @@ final class BuilderTest extends TestCase
         $this->assertTrue($configuration->hasResolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by depends,reverse')]
     public function testOrderByDependsReverse(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends,reverse']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends,reverse']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_REVERSED, $configuration->executionOrder());
@@ -1370,7 +1446,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by depends,size')]
     public function testOrderByDependsSize(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'depends,size']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'depends,size']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_SIZE_ASCENDING, $configuration->executionOrder());
@@ -1378,10 +1454,11 @@ final class BuilderTest extends TestCase
         $this->assertTrue($configuration->hasResolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by no-depends')]
     public function testOrderByNoDepends(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends']);
 
         $this->assertFalse($configuration->hasExecutionOrder());
         $this->assertFalse($configuration->hasExecutionOrderDefects());
@@ -1389,10 +1466,11 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->resolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by no-depends,defects')]
     public function testOrderByNoDependsDefects(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends,defects']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends,defects']);
 
         $this->assertFalse($configuration->hasExecutionOrder());
         $this->assertTrue($configuration->hasExecutionOrderDefects());
@@ -1405,7 +1483,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by no-depends,duration')]
     public function testOrderByNoDependsDuration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends,duration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends,duration']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->executionOrder());
@@ -1414,10 +1492,11 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->resolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by no-depends,random')]
     public function testOrderByNoDependsRandom(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends,random']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends,random']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_RANDOMIZED, $configuration->executionOrder());
@@ -1426,10 +1505,11 @@ final class BuilderTest extends TestCase
         $this->assertFalse($configuration->resolveDependencies());
     }
 
+    #[IgnorePhpunitDeprecations]
     #[TestDox('--order-by no-depends,reverse')]
     public function testOrderByNoDependsReverse(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends,reverse']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends,reverse']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_REVERSED, $configuration->executionOrder());
@@ -1442,7 +1522,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--order-by no-depends,size')]
     public function testOrderByNoDependsSize(): void
     {
-        $configuration = (new Builder)->fromParameters(['--order-by', 'no-depends,size']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'no-depends,size']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_SIZE_ASCENDING, $configuration->executionOrder());
@@ -1457,12 +1537,12 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('unrecognized --order-by option: invalid');
 
-        (new Builder)->fromParameters(['--order-by', 'invalid']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--order-by', 'invalid']);
     }
 
     public function testExecutionOrderMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExecutionOrder());
 
@@ -1473,7 +1553,7 @@ final class BuilderTest extends TestCase
 
     public function testExecutionOrderDefectsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExecutionOrderDefects());
 
@@ -1484,7 +1564,7 @@ final class BuilderTest extends TestCase
 
     public function testResolveDependenciesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasResolveDependencies());
 
@@ -1496,7 +1576,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--process-isolation')]
     public function testProcessIsolation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--process-isolation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--process-isolation']);
 
         $this->assertTrue($configuration->hasProcessIsolation());
         $this->assertTrue($configuration->processIsolation());
@@ -1504,7 +1584,7 @@ final class BuilderTest extends TestCase
 
     public function testProcessIsolationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasProcessIsolation());
 
@@ -1516,7 +1596,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stderr')]
     public function testStderr(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stderr']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stderr']);
 
         $this->assertTrue($configuration->hasStderr());
         $this->assertTrue($configuration->stderr());
@@ -1524,7 +1604,7 @@ final class BuilderTest extends TestCase
 
     public function testStderrMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStderr());
 
@@ -1536,7 +1616,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-all-issues')]
     public function testFailOnAllIssues(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-all-issues']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-all-issues']);
 
         $this->assertTrue($configuration->hasFailOnAllIssues());
         $this->assertTrue($configuration->failOnAllIssues());
@@ -1544,7 +1624,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnAllIssuesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnAllIssues());
 
@@ -1556,7 +1636,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-deprecation')]
     public function testFailOnDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-deprecation']);
 
         $this->assertTrue($configuration->hasFailOnDeprecation());
         $this->assertTrue($configuration->failOnDeprecation());
@@ -1564,7 +1644,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnDeprecation());
 
@@ -1576,7 +1656,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-self-deprecation')]
     public function testFailOnSelfDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-self-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-self-deprecation']);
 
         $this->assertTrue($configuration->hasFailOnSelfDeprecation());
         $this->assertTrue($configuration->failOnSelfDeprecation());
@@ -1584,7 +1664,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnSelfDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnSelfDeprecation());
 
@@ -1596,7 +1676,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-direct-deprecation')]
     public function testFailOnDirectDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-direct-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-direct-deprecation']);
 
         $this->assertTrue($configuration->hasFailOnDirectDeprecation());
         $this->assertTrue($configuration->failOnDirectDeprecation());
@@ -1604,7 +1684,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnDirectDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnDirectDeprecation());
 
@@ -1616,7 +1696,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-indirect-deprecation')]
     public function testFailOnIndirectDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-indirect-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-indirect-deprecation']);
 
         $this->assertTrue($configuration->hasFailOnIndirectDeprecation());
         $this->assertTrue($configuration->failOnIndirectDeprecation());
@@ -1624,7 +1704,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnIndirectDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnIndirectDeprecation());
 
@@ -1636,7 +1716,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-phpunit-deprecation')]
     public function testFailOnPhpunitDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-phpunit-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-phpunit-deprecation']);
 
         $this->assertTrue($configuration->hasFailOnPhpunitDeprecation());
         $this->assertTrue($configuration->failOnPhpunitDeprecation());
@@ -1644,7 +1724,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnPhpunitDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnPhpunitDeprecation());
 
@@ -1656,7 +1736,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-phpunit-notice')]
     public function testFailOnPhpunitNotice(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-phpunit-notice']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-phpunit-notice']);
 
         $this->assertTrue($configuration->hasFailOnPhpunitNotice());
         $this->assertTrue($configuration->failOnPhpunitNotice());
@@ -1664,7 +1744,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnPhpunitNoticeMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnPhpunitNotice());
 
@@ -1676,7 +1756,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-phpunit-warning')]
     public function testFailOnPhpunitWarning(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-phpunit-warning']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-phpunit-warning']);
 
         $this->assertTrue($configuration->hasFailOnPhpunitWarning());
         $this->assertTrue($configuration->failOnPhpunitWarning());
@@ -1684,7 +1764,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnPhpunitWarningMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnPhpunitWarning());
 
@@ -1696,7 +1776,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-empty-test-suite')]
     public function testFailOnEmptyTestSuite(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-empty-test-suite']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-empty-test-suite']);
 
         $this->assertTrue($configuration->hasFailOnEmptyTestSuite());
         $this->assertTrue($configuration->failOnEmptyTestSuite());
@@ -1704,7 +1784,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnEmptyTestSuiteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnEmptyTestSuite());
 
@@ -1716,7 +1796,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-incomplete')]
     public function testFailOnIncomplete(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-incomplete']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-incomplete']);
 
         $this->assertTrue($configuration->hasFailOnIncomplete());
         $this->assertTrue($configuration->failOnIncomplete());
@@ -1724,7 +1804,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnIncompleteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnIncomplete());
 
@@ -1736,7 +1816,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-notice')]
     public function testFailOnNotice(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-notice']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-notice']);
 
         $this->assertTrue($configuration->hasFailOnNotice());
         $this->assertTrue($configuration->failOnNotice());
@@ -1744,7 +1824,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnNoticeMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnNotice());
 
@@ -1756,7 +1836,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-risky')]
     public function testFailOnRisky(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-risky']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-risky']);
 
         $this->assertTrue($configuration->hasFailOnRisky());
         $this->assertTrue($configuration->failOnRisky());
@@ -1764,7 +1844,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnRiskyMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnRisky());
 
@@ -1776,7 +1856,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-skipped')]
     public function testFailOnSkipped(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-skipped']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-skipped']);
 
         $this->assertTrue($configuration->hasFailOnSkipped());
         $this->assertTrue($configuration->failOnSkipped());
@@ -1784,7 +1864,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnSkippedMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnSkipped());
 
@@ -1796,7 +1876,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--fail-on-warning')]
     public function testFailOnWarning(): void
     {
-        $configuration = (new Builder)->fromParameters(['--fail-on-warning']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--fail-on-warning']);
 
         $this->assertTrue($configuration->hasFailOnWarning());
         $this->assertTrue($configuration->failOnWarning());
@@ -1804,7 +1884,7 @@ final class BuilderTest extends TestCase
 
     public function testFailOnWarningMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasFailOnWarning());
 
@@ -1816,7 +1896,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-deprecation')]
     public function testDoNotFailOnDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-deprecation']);
 
         $this->assertTrue($configuration->hasDoNotFailOnDeprecation());
         $this->assertTrue($configuration->doNotFailOnDeprecation());
@@ -1824,7 +1904,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnDeprecation());
 
@@ -1836,7 +1916,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-self-deprecation')]
     public function testDoNotFailOnSelfDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-self-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-self-deprecation']);
 
         $this->assertTrue($configuration->hasDoNotFailOnSelfDeprecation());
         $this->assertTrue($configuration->doNotFailOnSelfDeprecation());
@@ -1844,7 +1924,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnSelfDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnSelfDeprecation());
 
@@ -1856,7 +1936,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-direct-deprecation')]
     public function testDoNotFailOnDirectDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-direct-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-direct-deprecation']);
 
         $this->assertTrue($configuration->hasDoNotFailOnDirectDeprecation());
         $this->assertTrue($configuration->doNotFailOnDirectDeprecation());
@@ -1864,7 +1944,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnDirectDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnDirectDeprecation());
 
@@ -1876,7 +1956,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-indirect-deprecation')]
     public function testDoNotFailOnIndirectDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-indirect-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-indirect-deprecation']);
 
         $this->assertTrue($configuration->hasDoNotFailOnIndirectDeprecation());
         $this->assertTrue($configuration->doNotFailOnIndirectDeprecation());
@@ -1884,7 +1964,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnIndirectDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnIndirectDeprecation());
 
@@ -1896,7 +1976,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-phpunit-deprecation')]
     public function testDoNotFailOnPhpunitDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-phpunit-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-phpunit-deprecation']);
 
         $this->assertTrue($configuration->hasDoNotFailOnPhpunitDeprecation());
         $this->assertTrue($configuration->doNotFailOnPhpunitDeprecation());
@@ -1904,7 +1984,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnPhpunitDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnPhpunitDeprecation());
 
@@ -1916,7 +1996,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-phpunit-notice')]
     public function testDoNotFailOnPhpunitNotice(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-phpunit-notice']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-phpunit-notice']);
 
         $this->assertTrue($configuration->hasDoNotFailOnPhpunitNotice());
         $this->assertTrue($configuration->doNotFailOnPhpunitNotice());
@@ -1924,7 +2004,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnPhpunitNoticeMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnPhpunitNotice());
 
@@ -1936,7 +2016,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-phpunit-warning')]
     public function testDoNotFailOnPhpunitWarning(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-phpunit-warning']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-phpunit-warning']);
 
         $this->assertTrue($configuration->hasDoNotFailOnPhpunitWarning());
         $this->assertTrue($configuration->doNotFailOnPhpunitWarning());
@@ -1944,7 +2024,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnPhpunitWarningMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnPhpunitWarning());
 
@@ -1956,7 +2036,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-empty-test-suite')]
     public function testDoNotFailOnEmptyTestSuite(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-empty-test-suite']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-empty-test-suite']);
 
         $this->assertTrue($configuration->hasDoNotFailOnEmptyTestSuite());
         $this->assertTrue($configuration->doNotFailOnEmptyTestSuite());
@@ -1964,7 +2044,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnEmptyTestSuiteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnEmptyTestSuite());
 
@@ -1976,7 +2056,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-incomplete')]
     public function testDoNotFailOnIncomplete(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-incomplete']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-incomplete']);
 
         $this->assertTrue($configuration->hasDoNotFailOnIncomplete());
         $this->assertTrue($configuration->doNotFailOnIncomplete());
@@ -1984,7 +2064,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnIncompleteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnIncomplete());
 
@@ -1996,7 +2076,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-notice')]
     public function testDoNotFailOnNotice(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-notice']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-notice']);
 
         $this->assertTrue($configuration->hasDoNotFailOnNotice());
         $this->assertTrue($configuration->doNotFailOnNotice());
@@ -2004,7 +2084,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnNoticeMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnNotice());
 
@@ -2016,7 +2096,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-risky')]
     public function testDoNotFailOnRisky(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-risky']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-risky']);
 
         $this->assertTrue($configuration->hasDoNotFailOnRisky());
         $this->assertTrue($configuration->doNotFailOnRisky());
@@ -2024,7 +2104,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnRiskyMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnRisky());
 
@@ -2036,7 +2116,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-skipped')]
     public function testDoNotFailOnSkipped(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-skipped']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-skipped']);
 
         $this->assertTrue($configuration->hasDoNotFailOnSkipped());
         $this->assertTrue($configuration->doNotFailOnSkipped());
@@ -2044,7 +2124,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnSkippedMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnSkipped());
 
@@ -2056,7 +2136,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-fail-on-warning')]
     public function testDoNotFailOnWarning(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-fail-on-warning']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-fail-on-warning']);
 
         $this->assertTrue($configuration->hasDoNotFailOnWarning());
         $this->assertTrue($configuration->doNotFailOnWarning());
@@ -2064,7 +2144,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotFailOnWarningMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDoNotFailOnWarning());
 
@@ -2076,7 +2156,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-defect')]
     public function testStopOnDefect(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-defect']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-defect']);
 
         $this->assertTrue($configuration->hasStopOnDefect());
         $this->assertSame(1, $configuration->stopOnDefect());
@@ -2085,7 +2165,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-defect=<n>')]
     public function testStopOnDefectWithThreshold(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-defect=5']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-defect=5']);
 
         $this->assertTrue($configuration->hasStopOnDefect());
         $this->assertSame(5, $configuration->stopOnDefect());
@@ -2093,7 +2173,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnDefectMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnDefect());
 
@@ -2105,7 +2185,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-deprecation')]
     public function testStopOnDeprecation(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-deprecation']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-deprecation']);
 
         $this->assertTrue($configuration->hasStopOnDeprecation());
         $this->assertSame(1, $configuration->stopOnDeprecation());
@@ -2118,7 +2198,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-deprecation=message')]
     public function testStopOnDeprecationMessage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-deprecation=message']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-deprecation=message']);
 
         $this->assertTrue($configuration->hasStopOnDeprecation());
         $this->assertSame(1, $configuration->stopOnDeprecation());
@@ -2129,7 +2209,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-deprecation=<n>')]
     public function testStopOnDeprecationWithThreshold(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-deprecation=3']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-deprecation=3']);
 
         $this->assertTrue($configuration->hasStopOnDeprecation());
         $this->assertSame(3, $configuration->stopOnDeprecation());
@@ -2138,7 +2218,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnDeprecationMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnDeprecation());
 
@@ -2150,7 +2230,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-error')]
     public function testStopOnError(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-error']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-error']);
 
         $this->assertTrue($configuration->hasStopOnError());
         $this->assertSame(1, $configuration->stopOnError());
@@ -2158,7 +2238,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnErrorMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnError());
 
@@ -2170,7 +2250,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-failure')]
     public function testStopOnFailure(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-failure']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-failure']);
 
         $this->assertTrue($configuration->hasStopOnFailure());
         $this->assertSame(1, $configuration->stopOnFailure());
@@ -2178,7 +2258,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnFailureMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnFailure());
 
@@ -2190,7 +2270,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-incomplete')]
     public function testStopOnIncomplete(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-incomplete']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-incomplete']);
 
         $this->assertTrue($configuration->hasStopOnIncomplete());
         $this->assertSame(1, $configuration->stopOnIncomplete());
@@ -2198,7 +2278,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnIncompleteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnIncomplete());
 
@@ -2210,7 +2290,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-notice')]
     public function testStopOnNotice(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-notice']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-notice']);
 
         $this->assertTrue($configuration->hasStopOnNotice());
         $this->assertSame(1, $configuration->stopOnNotice());
@@ -2218,7 +2298,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnNoticeMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnNotice());
 
@@ -2230,7 +2310,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-risky')]
     public function testStopOnRisky(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-risky']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-risky']);
 
         $this->assertTrue($configuration->hasStopOnRisky());
         $this->assertSame(1, $configuration->stopOnRisky());
@@ -2238,7 +2318,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnRiskyMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnRisky());
 
@@ -2250,7 +2330,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-skipped')]
     public function testStopOnSkipped(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-skipped']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-skipped']);
 
         $this->assertTrue($configuration->hasStopOnSkipped());
         $this->assertSame(1, $configuration->stopOnSkipped());
@@ -2258,7 +2338,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnSkippedMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnSkipped());
 
@@ -2270,7 +2350,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--stop-on-warning')]
     public function testStopOnWarning(): void
     {
-        $configuration = (new Builder)->fromParameters(['--stop-on-warning']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--stop-on-warning']);
 
         $this->assertTrue($configuration->hasStopOnWarning());
         $this->assertSame(1, $configuration->stopOnWarning());
@@ -2278,7 +2358,7 @@ final class BuilderTest extends TestCase
 
     public function testStopOnWarningMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStopOnWarning());
 
@@ -2290,7 +2370,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--compact')]
     public function testCompact(): void
     {
-        $configuration = (new Builder)->fromParameters(['--compact']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--compact']);
 
         $this->assertTrue($configuration->hasCompactPrinter());
         $this->assertTrue($configuration->compactPrinter());
@@ -2298,7 +2378,7 @@ final class BuilderTest extends TestCase
 
     public function testCompactMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCompactPrinter());
 
@@ -2310,7 +2390,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--teamcity')]
     public function testTeamcity(): void
     {
-        $configuration = (new Builder)->fromParameters(['--teamcity']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--teamcity']);
 
         $this->assertTrue($configuration->hasTeamCityPrinter());
         $this->assertTrue($configuration->teamCityPrinter());
@@ -2318,7 +2398,7 @@ final class BuilderTest extends TestCase
 
     public function testTeamcityMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTeamCityPrinter());
 
@@ -2330,7 +2410,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--testdox')]
     public function testTestDox(): void
     {
-        $configuration = (new Builder)->fromParameters(['--testdox']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--testdox']);
 
         $this->assertTrue($configuration->hasTestDoxPrinter());
         $this->assertTrue($configuration->testdoxPrinter());
@@ -2338,7 +2418,7 @@ final class BuilderTest extends TestCase
 
     public function testTestDoxMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestDoxPrinter());
 
@@ -2350,7 +2430,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--testdox-summary')]
     public function testTestDoxPrinterSummary(): void
     {
-        $configuration = (new Builder)->fromParameters(['--testdox-summary']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--testdox-summary']);
 
         $this->assertTrue($configuration->hasTestDoxPrinterSummary());
         $this->assertTrue($configuration->testdoxPrinterSummary());
@@ -2358,7 +2438,7 @@ final class BuilderTest extends TestCase
 
     public function testTestDoxPrinterSummaryMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestDoxPrinterSummary());
 
@@ -2370,7 +2450,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--testdox-html file')]
     public function testTestDoxHtml(): void
     {
-        $configuration = (new Builder)->fromParameters(['--testdox-html', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--testdox-html', 'file']);
 
         $this->assertTrue($configuration->hasTestdoxHtmlFile());
         $this->assertSame('file', $configuration->testdoxHtmlFile());
@@ -2378,7 +2458,7 @@ final class BuilderTest extends TestCase
 
     public function testTestDoxHtmlMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestdoxHtmlFile());
 
@@ -2390,7 +2470,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--testdox-text file')]
     public function testTestDoxText(): void
     {
-        $configuration = (new Builder)->fromParameters(['--testdox-text', 'file']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--testdox-text', 'file']);
 
         $this->assertTrue($configuration->hasTestdoxTextFile());
         $this->assertSame('file', $configuration->testdoxTextFile());
@@ -2398,7 +2478,7 @@ final class BuilderTest extends TestCase
 
     public function testTestDoxTextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasTestdoxTextFile());
 
@@ -2410,7 +2490,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-configuration')]
     public function testNoConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-configuration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-configuration']);
 
         $this->assertFalse($configuration->useDefaultConfiguration());
     }
@@ -2418,7 +2498,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-extensions')]
     public function testNoExtensions(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-extensions']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-extensions']);
 
         $this->assertTrue($configuration->hasNoExtensions());
         $this->assertTrue($configuration->noExtensions());
@@ -2426,7 +2506,7 @@ final class BuilderTest extends TestCase
 
     public function testNoExtensionsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoExtensions());
 
@@ -2438,7 +2518,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-coverage')]
     public function testNoCoverage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-coverage']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-coverage']);
 
         $this->assertTrue($configuration->hasNoCoverage());
         $this->assertTrue($configuration->noCoverage());
@@ -2446,7 +2526,7 @@ final class BuilderTest extends TestCase
 
     public function testNoCoverageMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoCoverage());
 
@@ -2458,7 +2538,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-logging')]
     public function testNoLogging(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-logging']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-logging']);
 
         $this->assertTrue($configuration->hasNoLogging());
         $this->assertTrue($configuration->noLogging());
@@ -2466,7 +2546,7 @@ final class BuilderTest extends TestCase
 
     public function testNoLoggingMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoLogging());
 
@@ -2478,7 +2558,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-output')]
     public function testNoOutput(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-output']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-output']);
 
         $this->assertTrue($configuration->hasNoOutput());
         $this->assertTrue($configuration->noOutput());
@@ -2486,7 +2566,7 @@ final class BuilderTest extends TestCase
 
     public function testNoOutputMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoOutput());
 
@@ -2498,7 +2578,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-progress')]
     public function testNoProgress(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-progress']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-progress']);
 
         $this->assertTrue($configuration->hasNoProgress());
         $this->assertTrue($configuration->noProgress());
@@ -2506,7 +2586,7 @@ final class BuilderTest extends TestCase
 
     public function testNoProgressMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoProgress());
 
@@ -2518,7 +2598,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--no-results')]
     public function testNoResults(): void
     {
-        $configuration = (new Builder)->fromParameters(['--no-results']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--no-results']);
 
         $this->assertTrue($configuration->hasNoResults());
         $this->assertTrue($configuration->noResults());
@@ -2526,7 +2606,7 @@ final class BuilderTest extends TestCase
 
     public function testNoResultsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasNoResults());
 
@@ -2538,7 +2618,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--globals-backup')]
     public function testGlobalsBackup(): void
     {
-        $configuration = (new Builder)->fromParameters(['--globals-backup']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--globals-backup']);
 
         $this->assertTrue($configuration->hasBackupGlobals());
         $this->assertTrue($configuration->backupGlobals());
@@ -2546,7 +2626,7 @@ final class BuilderTest extends TestCase
 
     public function testGlobalsBackupMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasBackupGlobals());
 
@@ -2558,7 +2638,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--static-backup')]
     public function testStaticBackup(): void
     {
-        $configuration = (new Builder)->fromParameters(['--static-backup']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--static-backup']);
 
         $this->assertTrue($configuration->hasBackupStaticProperties());
         $this->assertTrue($configuration->backupStaticProperties());
@@ -2566,7 +2646,7 @@ final class BuilderTest extends TestCase
 
     public function testStaticBackupMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasBackupStaticProperties());
 
@@ -2578,7 +2658,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--atleast-version string')]
     public function testAtLeastVersion(): void
     {
-        $configuration = (new Builder)->fromParameters(['--atleast-version', 'string']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--atleast-version', 'string']);
 
         $this->assertTrue($configuration->hasAtLeastVersion());
         $this->assertSame('string', $configuration->atLeastVersion());
@@ -2586,7 +2666,7 @@ final class BuilderTest extends TestCase
 
     public function testAtLeastVersionMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasAtLeastVersion());
 
@@ -2598,7 +2678,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--version')]
     public function testVersion(): void
     {
-        $configuration = (new Builder)->fromParameters(['--version']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--version']);
 
         $this->assertTrue($configuration->version());
     }
@@ -2606,7 +2686,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-report-useless-tests')]
     public function testDoNotReportUselessTests(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-report-useless-tests']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-report-useless-tests']);
 
         $this->assertTrue($configuration->hasReportUselessTests());
         $this->assertFalse($configuration->reportUselessTests());
@@ -2614,7 +2694,7 @@ final class BuilderTest extends TestCase
 
     public function testDoNotReportUselessTestsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasReportUselessTests());
 
@@ -2626,7 +2706,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--strict-coverage')]
     public function testStrictCoverage(): void
     {
-        $configuration = (new Builder)->fromParameters(['--strict-coverage']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--strict-coverage']);
 
         $this->assertTrue($configuration->hasStrictCoverage());
         $this->assertTrue($configuration->strictCoverage());
@@ -2634,7 +2714,7 @@ final class BuilderTest extends TestCase
 
     public function testStrictCoverageMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasStrictCoverage());
 
@@ -2646,7 +2726,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--disable-coverage-ignore')]
     public function testDisableCoverageIgnore(): void
     {
-        $configuration = (new Builder)->fromParameters(['--disable-coverage-ignore']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--disable-coverage-ignore']);
 
         $this->assertTrue($configuration->hasDisableCodeCoverageIgnore());
         $this->assertTrue($configuration->disableCodeCoverageIgnore());
@@ -2654,7 +2734,7 @@ final class BuilderTest extends TestCase
 
     public function testDisableCoverageIgnoreMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisableCodeCoverageIgnore());
 
@@ -2666,7 +2746,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--disable-coverage-targeting')]
     public function testDisableCoverageTargeting(): void
     {
-        $configuration = (new Builder)->fromParameters(['--disable-coverage-targeting']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--disable-coverage-targeting']);
 
         $this->assertTrue($configuration->hasDisableCoverageTargeting());
         $this->assertTrue($configuration->disableCoverageTargeting());
@@ -2674,7 +2754,7 @@ final class BuilderTest extends TestCase
 
     public function testDisableCoverageTargetingMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisableCoverageTargeting());
 
@@ -2686,7 +2766,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--strict-global-state')]
     public function testStrictGlobalState(): void
     {
-        $configuration = (new Builder)->fromParameters(['--strict-global-state']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--strict-global-state']);
 
         $this->assertTrue($configuration->hasBeStrictAboutChangesToGlobalState());
         $this->assertTrue($configuration->beStrictAboutChangesToGlobalState());
@@ -2694,7 +2774,7 @@ final class BuilderTest extends TestCase
 
     public function testStrictGlobalStateMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasBeStrictAboutChangesToGlobalState());
 
@@ -2706,7 +2786,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--disallow-test-output')]
     public function testDisallowTestOutput(): void
     {
-        $configuration = (new Builder)->fromParameters(['--disallow-test-output']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--disallow-test-output']);
 
         $this->assertTrue($configuration->hasDisallowTestOutput());
         $this->assertTrue($configuration->disallowTestOutput());
@@ -2714,7 +2794,7 @@ final class BuilderTest extends TestCase
 
     public function testDisallowTestOutputMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisallowTestOutput());
 
@@ -2726,7 +2806,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-all-issues')]
     public function testDisplayAllIssues(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-all-issues']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-all-issues']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnAllIssues());
         $this->assertTrue($configuration->displayDetailsOnAllIssues());
@@ -2734,7 +2814,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayAllIssuesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnAllIssues());
 
@@ -2746,7 +2826,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-incomplete')]
     public function testDisplayIncomplete(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-incomplete']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-incomplete']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnIncompleteTests());
         $this->assertTrue($configuration->displayDetailsOnIncompleteTests());
@@ -2754,7 +2834,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayIncompleteMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnIncompleteTests());
 
@@ -2766,7 +2846,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-skipped')]
     public function testDisplaySkipped(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-skipped']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-skipped']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnSkippedTests());
         $this->assertTrue($configuration->displayDetailsOnSkippedTests());
@@ -2774,7 +2854,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplaySkippedMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnSkippedTests());
 
@@ -2786,7 +2866,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-deprecations')]
     public function testDisplayDeprecations(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-deprecations']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-deprecations']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnTestsThatTriggerDeprecations());
         $this->assertTrue($configuration->displayDetailsOnTestsThatTriggerDeprecations());
@@ -2794,7 +2874,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayDeprecationsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnTestsThatTriggerDeprecations());
 
@@ -2806,7 +2886,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-phpunit-deprecations')]
     public function testDisplayPhpunitDeprecations(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-phpunit-deprecations']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-phpunit-deprecations']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnPhpunitDeprecations());
         $this->assertTrue($configuration->displayDetailsOnPhpunitDeprecations());
@@ -2814,7 +2894,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayPhpunitDeprecationsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnPhpunitDeprecations());
 
@@ -2826,7 +2906,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-phpunit-notices')]
     public function testDisplayPhpunitNotices(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-phpunit-notices']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-phpunit-notices']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnPhpunitNotices());
         $this->assertTrue($configuration->displayDetailsOnPhpunitNotices());
@@ -2834,7 +2914,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayPhpunitNoticesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnPhpunitNotices());
 
@@ -2846,7 +2926,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-errors')]
     public function testDisplayErrors(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-errors']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-errors']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnTestsThatTriggerErrors());
         $this->assertTrue($configuration->displayDetailsOnTestsThatTriggerErrors());
@@ -2854,7 +2934,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayErrorsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnTestsThatTriggerErrors());
 
@@ -2866,7 +2946,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-notices')]
     public function testDisplayNotices(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-notices']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-notices']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnTestsThatTriggerNotices());
         $this->assertTrue($configuration->displayDetailsOnTestsThatTriggerNotices());
@@ -2874,7 +2954,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayNoticesMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnTestsThatTriggerNotices());
 
@@ -2886,7 +2966,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--display-warnings')]
     public function testDisplayWarnings(): void
     {
-        $configuration = (new Builder)->fromParameters(['--display-warnings']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--display-warnings']);
 
         $this->assertTrue($configuration->hasDisplayDetailsOnTestsThatTriggerWarnings());
         $this->assertTrue($configuration->displayDetailsOnTestsThatTriggerWarnings());
@@ -2894,7 +2974,7 @@ final class BuilderTest extends TestCase
 
     public function testDisplayWarningsMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDisplayDetailsOnTestsThatTriggerWarnings());
 
@@ -2906,7 +2986,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--default-time-limit <n>')]
     public function testDefaultTimeLimit(): void
     {
-        $configuration = (new Builder)->fromParameters(['--default-time-limit', '10']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--default-time-limit', '10']);
 
         $this->assertTrue($configuration->hasDefaultTimeLimit());
         $this->assertSame(10, $configuration->defaultTimeLimit());
@@ -2914,7 +2994,7 @@ final class BuilderTest extends TestCase
 
     public function testDefaultTimeLimitMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDefaultTimeLimit());
 
@@ -2926,7 +3006,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--diff-context <n>')]
     public function testDiffContext(): void
     {
-        $configuration = (new Builder)->fromParameters(['--diff-context', '5']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--diff-context', '5']);
 
         $this->assertTrue($configuration->hasDiffContext());
         $this->assertSame(5, $configuration->diffContext());
@@ -2934,7 +3014,7 @@ final class BuilderTest extends TestCase
 
     public function testDiffContextMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasDiffContext());
 
@@ -2946,7 +3026,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--enforce-time-limit')]
     public function testEnforceTimeLimit(): void
     {
-        $configuration = (new Builder)->fromParameters(['--enforce-time-limit']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--enforce-time-limit']);
 
         $this->assertTrue($configuration->hasEnforceTimeLimit());
         $this->assertTrue($configuration->enforceTimeLimit());
@@ -2954,7 +3034,7 @@ final class BuilderTest extends TestCase
 
     public function testEnforceTimeLimitMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasEnforceTimeLimit());
 
@@ -2966,7 +3046,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--reverse-list')]
     public function testReverseList(): void
     {
-        $configuration = (new Builder)->fromParameters(['--reverse-list']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--reverse-list']);
 
         $this->assertTrue($configuration->hasReverseList());
         $this->assertTrue($configuration->reverseList());
@@ -2974,7 +3054,7 @@ final class BuilderTest extends TestCase
 
     public function testReverseListMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasReverseList());
 
@@ -2986,7 +3066,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--check-version')]
     public function testCheckVersion(): void
     {
-        $configuration = (new Builder)->fromParameters(['--check-version']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--check-version']);
 
         $this->assertTrue($configuration->checkVersion());
     }
@@ -2994,7 +3074,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-filter directory')]
     public function testCoverageFilterDirectory(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-filter', 'directory']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-filter', 'directory']);
 
         $this->assertTrue($configuration->hasCoverageFilter());
         $this->assertSame(['directory'], $configuration->coverageFilter());
@@ -3003,7 +3083,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--coverage-filter directory --coverage-filter another-directory')]
     public function testCoverageFilterDirectories(): void
     {
-        $configuration = (new Builder)->fromParameters(['--coverage-filter', 'directory', '--coverage-filter', 'another-directory']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--coverage-filter', 'directory', '--coverage-filter', 'another-directory']);
 
         $this->assertTrue($configuration->hasCoverageFilter());
         $this->assertSame(['directory', 'another-directory'], $configuration->coverageFilter());
@@ -3011,7 +3091,7 @@ final class BuilderTest extends TestCase
 
     public function testCoverageFilterMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasCoverageFilter());
 
@@ -3023,7 +3103,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--random-order')]
     public function testRandomOrder(): void
     {
-        $configuration = (new Builder)->fromParameters(['--random-order']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--random-order']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_RANDOMIZED, $configuration->executionOrder());
@@ -3032,7 +3112,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--resolve-dependencies')]
     public function testResolveDependencies(): void
     {
-        $configuration = (new Builder)->fromParameters(['--resolve-dependencies']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--resolve-dependencies']);
 
         $this->assertTrue($configuration->hasResolveDependencies());
         $this->assertTrue($configuration->resolveDependencies());
@@ -3041,7 +3121,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--ignore-dependencies')]
     public function testIgnoreDependencies(): void
     {
-        $configuration = (new Builder)->fromParameters(['--ignore-dependencies']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--ignore-dependencies']);
 
         $this->assertTrue($configuration->hasResolveDependencies());
         $this->assertFalse($configuration->resolveDependencies());
@@ -3050,7 +3130,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--reverse-order')]
     public function testReverseOrder(): void
     {
-        $configuration = (new Builder)->fromParameters(['--reverse-order']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--reverse-order']);
 
         $this->assertTrue($configuration->hasExecutionOrder());
         $this->assertSame(TestSuiteSorter::ORDER_REVERSED, $configuration->executionOrder());
@@ -3059,7 +3139,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--random-order-seed')]
     public function testRandomOrderSeed(): void
     {
-        $configuration = (new Builder)->fromParameters(['--random-order', '--random-order-seed', '1234']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--random-order', '--random-order-seed', '1234']);
 
         $this->assertTrue($configuration->hasRandomOrderSeed());
         $this->assertSame(1234, $configuration->randomOrderSeed());
@@ -3067,7 +3147,7 @@ final class BuilderTest extends TestCase
 
     public function testRandomOrderSeedMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasRandomOrderSeed());
 
@@ -3079,7 +3159,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--debug')]
     public function testDebug(): void
     {
-        $configuration = (new Builder)->fromParameters(['--debug']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--debug']);
 
         $this->assertTrue($configuration->debug());
     }
@@ -3087,7 +3167,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--with-telemetry')]
     public function testWithTelemetry(): void
     {
-        $configuration = (new Builder)->fromParameters(['--with-telemetry']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--with-telemetry']);
 
         $this->assertTrue($configuration->withTelemetry());
     }
@@ -3095,7 +3175,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--extension')]
     public function testExtension(): void
     {
-        $configuration = (new Builder)->fromParameters(['--extension', 'ExtensionClass']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--extension', 'ExtensionClass']);
 
         $this->assertTrue($configuration->hasExtensions());
         $this->assertSame(['ExtensionClass'], $configuration->extensions());
@@ -3103,7 +3183,7 @@ final class BuilderTest extends TestCase
 
     public function testExtensionMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasExtensions());
 
@@ -3115,7 +3195,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--repeat')]
     public function testRepeat(): void
     {
-        $configuration = (new Builder)->fromParameters(['--repeat', '3']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--repeat', '3']);
 
         $this->assertTrue($configuration->hasRepeat());
         $this->assertSame(3, $configuration->repeat());
@@ -3123,7 +3203,7 @@ final class BuilderTest extends TestCase
 
     public function testRepeatMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasRepeat());
 
@@ -3135,7 +3215,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--retry')]
     public function testRetry(): void
     {
-        $configuration = (new Builder)->fromParameters(['--retry', '3']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--retry', '3']);
 
         $this->assertTrue($configuration->hasRetry());
         $this->assertSame(3, $configuration->retry());
@@ -3143,7 +3223,7 @@ final class BuilderTest extends TestCase
 
     public function testRetryMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasRetry());
 
@@ -3152,25 +3232,60 @@ final class BuilderTest extends TestCase
         $configuration->retry();
     }
 
+    #[TestDox('--timeout')]
+    public function testTimeout(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--timeout', '60']);
+
+        $this->assertTrue($configuration->hasTimeout());
+        $this->assertSame(60, $configuration->timeout());
+    }
+
+    public function testTimeoutMayNotBeConfigured(): void
+    {
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
+
+        $this->assertFalse($configuration->hasTimeout());
+
+        $this->expectException(Exception::class);
+
+        $configuration->timeout();
+    }
+
+    #[TestDox('--timeout with a value that is not a positive integer is ignored')]
+    public function testTimeoutIsIgnoredWhenValueIsNotAPositiveInteger(): void
+    {
+        $emitter = $this->createMock(Emitter::class);
+
+        $emitter
+            ->expects($this->once())
+            ->method('testRunnerTriggeredPhpunitWarning')
+            ->with('Option "--timeout 0" ignored because "0" is not a positive integer');
+
+        $configuration = new Builder($emitter)->fromParameters(['--timeout', '0']);
+
+        $this->assertFalse($configuration->hasTimeout());
+    }
+
     public function testInvalidOption(): void
     {
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('Unknown option "--invalid-option". Most similar options are --include-path, --configuration, --log-otr, --no-logging, --no-output');
 
-        (new Builder)->fromParameters(['--invalid-option']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--invalid-option']);
     }
 
     #[TestDox('--validate-configuration')]
     public function testValidateConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--validate-configuration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--validate-configuration']);
 
         $this->assertTrue($configuration->validateConfiguration());
     }
 
     public function testValidateConfigurationDefaultsToFalse(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->validateConfiguration());
     }
@@ -3178,14 +3293,14 @@ final class BuilderTest extends TestCase
     #[TestDox('--check-php-configuration')]
     public function testCheckPhpConfiguration(): void
     {
-        $configuration = (new Builder)->fromParameters(['--check-php-configuration']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--check-php-configuration']);
 
         $this->assertTrue($configuration->checkPhpConfiguration());
     }
 
     public function testCheckPhpConfigurationDefaultsToFalse(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->checkPhpConfiguration());
     }
@@ -3193,7 +3308,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--warn-when-php-is-not-configured-for-development')]
     public function testWarnWhenPhpIsNotConfiguredForDevelopment(): void
     {
-        $configuration = (new Builder)->fromParameters(['--warn-when-php-is-not-configured-for-development']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--warn-when-php-is-not-configured-for-development']);
 
         $this->assertTrue($configuration->hasWarnWhenPhpIsNotConfiguredForDevelopment());
         $this->assertTrue($configuration->warnWhenPhpIsNotConfiguredForDevelopment());
@@ -3202,7 +3317,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--do-not-warn-when-php-is-not-configured-for-development')]
     public function testDoNotWarnWhenPhpIsNotConfiguredForDevelopment(): void
     {
-        $configuration = (new Builder)->fromParameters(['--do-not-warn-when-php-is-not-configured-for-development']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--do-not-warn-when-php-is-not-configured-for-development']);
 
         $this->assertTrue($configuration->hasWarnWhenPhpIsNotConfiguredForDevelopment());
         $this->assertFalse($configuration->warnWhenPhpIsNotConfiguredForDevelopment());
@@ -3210,7 +3325,7 @@ final class BuilderTest extends TestCase
 
     public function testWarnWhenPhpIsNotConfiguredForDevelopmentMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasWarnWhenPhpIsNotConfiguredForDevelopment());
 
@@ -3222,7 +3337,7 @@ final class BuilderTest extends TestCase
     #[TestDox('--require-coverage-contribution')]
     public function testRequireCoverageContribution(): void
     {
-        $configuration = (new Builder)->fromParameters(['--require-coverage-contribution']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['--require-coverage-contribution']);
 
         $this->assertTrue($configuration->hasRequireCoverageContribution());
         $this->assertTrue($configuration->requireCoverageContribution());
@@ -3230,7 +3345,7 @@ final class BuilderTest extends TestCase
 
     public function testRequireCoverageContributionMayNotBeConfigured(): void
     {
-        $configuration = (new Builder)->fromParameters([]);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters([]);
 
         $this->assertFalse($configuration->hasRequireCoverageContribution());
 
@@ -3244,12 +3359,12 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('Options --check-version and --help cannot be used together');
 
-        (new Builder)->fromParameters(['--check-version', '--help']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--check-version', '--help']);
     }
 
     public function testEmptyArgumentsAreIgnored(): void
     {
-        $configuration = (new Builder)->fromParameters(['command', '', 'argument']);
+        $configuration = new Builder($this->createStub(Emitter::class))->fromParameters(['command', '', 'argument']);
 
         $this->assertSame(['argument'], $configuration->arguments());
     }
@@ -3260,7 +3375,7 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('Option --group requires a non-empty value');
 
-        (new Builder)->fromParameters(['--group', '']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--group', '']);
     }
 
     #[TestDox('--diff-context requires a numeric value')]
@@ -3269,7 +3384,7 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('Option --diff-context requires a positive integer value');
 
-        (new Builder)->fromParameters(['--diff-context', 'not-a-number']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--diff-context', 'not-a-number']);
     }
 
     #[TestDox('--diff-context requires a positive value')]
@@ -3278,6 +3393,6 @@ final class BuilderTest extends TestCase
         $this->expectException(Exception::class);
         $this->expectExceptionMessageIs('Option --diff-context requires a positive integer value');
 
-        (new Builder)->fromParameters(['--diff-context', '0']);
+        new Builder($this->createStub(Emitter::class))->fromParameters(['--diff-context', '0']);
     }
 }

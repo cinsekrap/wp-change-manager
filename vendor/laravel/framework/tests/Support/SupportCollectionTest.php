@@ -35,6 +35,7 @@ use SortDirection;
 use stdClass;
 use Symfony\Component\VarDumper\VarDumper;
 use UnexpectedValueException;
+use ValueError;
 use WeakMap;
 
 include_once 'Fixtures/Common.php';
@@ -455,6 +456,12 @@ class SupportCollectionTest extends TestCase
         $this->assertSame('f', $foo?->text);
         $this->assertSame('x', $bar?->text);
         $this->assertNull($items->shift());
+    }
+
+    public function testShiftManyReturnsEmptyCollectionOnEmptyCollection()
+    {
+        $this->assertEquals(new Collection, (new Collection)->shift(0));
+        $this->assertEquals(new Collection, (new Collection)->shift(2));
     }
 
     #[DataProvider('collectionClassProvider')]
@@ -1407,6 +1414,13 @@ class SupportCollectionTest extends TestCase
     }
 
     #[DataProvider('collectionClassProvider')]
+    public function testFlattenWithMixedCollectionTypes($collection)
+    {
+        $c = new $collection([new Collection(['#foo', new LazyCollection(['#bar'])]), new LazyCollection(['#baz', new Collection(['#zap'])])]);
+        $this->assertEquals(['#foo', '#bar', '#baz', '#zap'], $c->flatten()->all());
+    }
+
+    #[DataProvider('collectionClassProvider')]
     public function testFlattenWithDepth($collection)
     {
         // No depth flattens recursively
@@ -1960,6 +1974,13 @@ class SupportCollectionTest extends TestCase
     }
 
     #[DataProvider('collectionClassProvider')]
+    public function testCollapseWithMixedCollectionTypes($collection)
+    {
+        $data = new $collection([new Collection([1, 2]), new LazyCollection([3, 4]), [5]]);
+        $this->assertEquals([1, 2, 3, 4, 5], $data->collapse()->all());
+    }
+
+    #[DataProvider('collectionClassProvider')]
     public function testCollapseWithKeys($collection)
     {
         $data = new $collection([[1 => 'a'], [3 => 'c'], [2 => 'b'], 'drop']);
@@ -1975,6 +1996,13 @@ class SupportCollectionTest extends TestCase
     {
         $data = new $collection([new $collection(['a' => '1a', 'b' => '1b']), new $collection(['b' => '2b', 'c' => '2c']), 'drop']);
         $this->assertEquals(['a' => '1a', 'b' => '2b', 'c' => '2c'], $data->collapseWithKeys()->all());
+    }
+
+    #[DataProvider('collectionClassProvider')]
+    public function testCollapseWithKeysWithMixedCollectionTypes($collection)
+    {
+        $data = new $collection([new Collection(['a' => 1, 'b' => 2]), new LazyCollection(['b' => 3, 'c' => 4])]);
+        $this->assertEquals(['a' => 1, 'b' => 3, 'c' => 4], $data->collapseWithKeys()->all());
     }
 
     #[DataProvider('collectionClassProvider')]
@@ -2170,6 +2198,19 @@ class SupportCollectionTest extends TestCase
         $data = $data->sortBy([['sort', 'asc']]);
 
         $this->assertEquals([1 => ['sort' => 1], 0 => ['sort' => 2]], $data->all());
+    }
+
+    #[DataProvider('collectionClassProvider')]
+    public function testSortByManyWithNumericFlagComparesFractionalValues($collection)
+    {
+        $data = new $collection([['price' => 1.5], ['price' => '10.5'], ['price' => 1.2], ['price' => '10.2'], ['price' => 1.9]]);
+
+        $this->assertSame([1.2, 1.5, 1.9, '10.2', '10.5'], $data->sortBy([['price', 'asc']], SORT_NUMERIC)->pluck('price')->values()->all());
+        $this->assertSame(['10.5', '10.2', 1.9, 1.5, 1.2], $data->sortBy([['price', 'desc']], SORT_NUMERIC)->pluck('price')->values()->all());
+        $this->assertSame(
+            $data->sortBy('price', SORT_NUMERIC)->pluck('price')->values()->all(),
+            $data->sortBy([['price', 'asc']], SORT_NUMERIC)->pluck('price')->values()->all(),
+        );
     }
 
     #[DataProvider('collectionClassProvider')]
@@ -5006,6 +5047,22 @@ class SupportCollectionTest extends TestCase
     }
 
     #[DataProvider('collectionClassProvider')]
+    public function testCombineWithFewerValuesThanKeysThrows($collection)
+    {
+        $this->expectException(ValueError::class);
+
+        (new $collection([1, 2]))->combine([3])->all();
+    }
+
+    #[DataProvider('collectionClassProvider')]
+    public function testCombineWithMoreValuesThanKeysThrows($collection)
+    {
+        $this->expectException(ValueError::class);
+
+        (new $collection([1]))->combine([2, 3])->all();
+    }
+
+    #[DataProvider('collectionClassProvider')]
     public function testConcatWithArray($collection)
     {
         $expected = [
@@ -5294,6 +5351,27 @@ class SupportCollectionTest extends TestCase
     {
         $data = new $collection([1, 2, 2, 1]);
         $this->assertEquals([1, 2], $data->mode());
+    }
+
+    #[DataProvider('collectionClassProvider')]
+    public function testModeOnCollectionWithNull($collection)
+    {
+        $data = new $collection([
+            (object) ['foo' => 5],
+            (object) ['foo' => null],
+            (object) ['foo' => null],
+        ]);
+        $this->assertEquals([5], $data->mode('foo'));
+
+        $data = new $collection([null, 3]);
+        $this->assertEquals([3], $data->mode());
+    }
+
+    #[DataProvider('collectionClassProvider')]
+    public function testModeOnCollectionWithOnlyNullsReturnsNull($collection)
+    {
+        $data = new $collection([null, null]);
+        $this->assertNull($data->mode());
     }
 
     #[DataProvider('collectionClassProvider')]

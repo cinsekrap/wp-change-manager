@@ -19,12 +19,14 @@ use function realpath;
 use function sys_get_temp_dir;
 use function uniqid;
 use function unlink;
+use PHPUnit\Event\Emitter;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnorePhpunitDeprecations;
 use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Runner\TestSuiteSorter;
 use PHPUnit\TextUI\Configuration\Configuration;
@@ -49,6 +51,8 @@ final class LoaderTest extends TestCase
             'executionOrder reverse'             => ['executionOrder', 'reverse', TestSuiteSorter::ORDER_REVERSED],
             'executionOrder duration-ascending'  => ['executionOrder', 'duration-ascending', TestSuiteSorter::ORDER_DURATION_ASCENDING],
             'executionOrder duration-descending' => ['executionOrder', 'duration-descending', TestSuiteSorter::ORDER_DURATION_DESCENDING],
+            'executionOrder modified-ascending'  => ['executionOrder', 'modified-ascending', TestSuiteSorter::ORDER_MODIFIED_ASCENDING],
+            'executionOrder modified-descending' => ['executionOrder', 'modified-descending', TestSuiteSorter::ORDER_MODIFIED_DESCENDING],
             'executionOrder size-ascending'      => ['executionOrder', 'size-ascending', TestSuiteSorter::ORDER_SIZE_ASCENDING],
             'executionOrder size-descending'     => ['executionOrder', 'size-descending', TestSuiteSorter::ORDER_SIZE_DESCENDING],
             'cacheDirectory absolute path'       => ['cacheDirectory', '/path/to/cache', '/path/to/cache'],
@@ -136,7 +140,7 @@ final class LoaderTest extends TestCase
         $xml         = "<phpunit {$optionName}='{$optionValue}'></phpunit>" . PHP_EOL;
         file_put_contents($tmpFilename, $xml);
 
-        $configuration = (new Loader)->load($tmpFilename);
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
 
         $this->assertFalse($configuration->hasValidationErrors());
 
@@ -152,7 +156,7 @@ final class LoaderTest extends TestCase
         $xml         = "<phpunit executionOrder='duration'></phpunit>" . PHP_EOL;
         file_put_contents($tmpFilename, $xml);
 
-        $configuration = (new Loader)->load($tmpFilename);
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
 
         $this->assertTrue($configuration->hasValidationErrors());
         $this->assertEquals(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->phpunit()->executionOrder());
@@ -167,7 +171,7 @@ final class LoaderTest extends TestCase
         $xml         = "<phpunit executionOrder='size'></phpunit>" . PHP_EOL;
         file_put_contents($tmpFilename, $xml);
 
-        $configuration = (new Loader)->load($tmpFilename);
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
 
         $this->assertTrue($configuration->hasValidationErrors());
         $this->assertEquals(TestSuiteSorter::ORDER_SIZE_ASCENDING, $configuration->phpunit()->executionOrder());
@@ -175,18 +179,52 @@ final class LoaderTest extends TestCase
         @unlink($tmpFilename);
     }
 
-    public function testShouldParseXmlConfigurationExecutionOrderCombined(): void
+    #[IgnorePhpunitDeprecations]
+    #[TestDox('Parses the deprecated executionOrder="depends,defects" spelling')]
+    public function testShouldParseDeprecatedExecutionOrderCombined(): void
     {
         $tmpFilename = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'phpunit.' . uniqid('', true) . '.xml';
         $xml         = "<phpunit executionOrder='depends,defects'></phpunit>" . PHP_EOL;
         file_put_contents($tmpFilename, $xml);
 
-        $configuration = (new Loader)->load($tmpFilename);
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
 
-        $this->assertFalse($configuration->hasValidationErrors());
+        $this->assertTrue($configuration->hasValidationErrors());
 
         $this->assertTrue($configuration->phpunit()->defectsFirst());
         $this->assertTrue($configuration->phpunit()->resolveDependencies());
+
+        @unlink($tmpFilename);
+    }
+
+    public function testShouldParseXmlConfigurationExecutionOrderWithDefectsAfterOrder(): void
+    {
+        $tmpFilename = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'phpunit.' . uniqid('', true) . '.xml';
+        $xml         = "<phpunit executionOrder='duration-ascending,defects'></phpunit>" . PHP_EOL;
+        file_put_contents($tmpFilename, $xml);
+
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
+
+        $this->assertFalse($configuration->hasValidationErrors());
+
+        $this->assertEquals(TestSuiteSorter::ORDER_DURATION_ASCENDING, $configuration->phpunit()->executionOrder());
+        $this->assertTrue($configuration->phpunit()->defectsFirst());
+        $this->assertTrue($configuration->phpunit()->resolveDependencies());
+
+        @unlink($tmpFilename);
+    }
+
+    #[IgnorePhpunitDeprecations]
+    public function testShouldIgnoreUnknownExecutionOrderToken(): void
+    {
+        $tmpFilename = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'phpunit.' . uniqid('', true) . '.xml';
+        $xml         = "<phpunit executionOrder='reverse,does-not-exist'></phpunit>" . PHP_EOL;
+        file_put_contents($tmpFilename, $xml);
+
+        $configuration = new Loader($this->createStub(Emitter::class))->load($tmpFilename);
+
+        $this->assertTrue($configuration->hasValidationErrors());
+        $this->assertEquals(TestSuiteSorter::ORDER_REVERSED, $configuration->phpunit()->executionOrder());
 
         @unlink($tmpFilename);
     }
@@ -302,6 +340,9 @@ final class LoaderTest extends TestCase
 
         $this->assertTrue($codeCoverage->hasCrap4j());
         $this->assertSame(TEST_FILES_PATH . 'crap4j.xml', $codeCoverage->crap4j()->target()->path());
+
+        $this->assertTrue($codeCoverage->hasJsonl());
+        $this->assertSame(TEST_FILES_PATH . 'coverage-jsonl', $codeCoverage->jsonl()->target()->path());
 
         $defaultColors     = Colors::default();
         $defaultThresholds = Thresholds::default();
@@ -675,6 +716,6 @@ final class LoaderTest extends TestCase
 
     private function configuration(string $filename): LoadedFromFileConfiguration
     {
-        return (new Loader)->load(TEST_FILES_PATH . $filename);
+        return new Loader($this->createStub(Emitter::class))->load(TEST_FILES_PATH . $filename);
     }
 }

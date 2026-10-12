@@ -9,6 +9,7 @@ use Illuminate\Database\PostgresConnection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\SQLiteConnection;
 use Mockery;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -25,6 +26,7 @@ class CacheDatabaseStoreTest extends TestCase
         $this->assertNull($store->get('foo'));
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testNullIsReturnedAndItemDeletedWhenItemIsExpired()
     {
         $store = $this->getMockBuilder(DatabaseStore::class)->onlyMethods(['forgetIfExpired'])->setConstructorArgs($this->getMocks())->getMock();
@@ -159,7 +161,7 @@ class CacheDatabaseStoreTest extends TestCase
     {
         $store = $this->getStore();
         $table = Mockery::mock(Builder::class);
-        $cache = Mockery::mock(stdClass::class);
+        $cache = new stdClass;
 
         $store->getConnection()->expects('transaction')->with(Mockery::type(Closure::class))->andReturnUsing(function ($closure) {
             return $closure();
@@ -198,7 +200,7 @@ class CacheDatabaseStoreTest extends TestCase
     {
         $store = $this->getStore();
         $table = Mockery::mock(Builder::class);
-        $cache = Mockery::mock(stdClass::class);
+        $cache = new stdClass;
 
         $store->getConnection()->expects('transaction')->with(Mockery::type(Closure::class))->andReturnUsing(function ($closure) {
             return $closure();

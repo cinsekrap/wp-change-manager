@@ -7,6 +7,13 @@ on:
 
 name: Release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Release
@@ -14,14 +21,16 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: write # required to create GitHub releases
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install PHP with extensions
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: 8.3
           coverage: none
@@ -29,15 +38,12 @@ jobs:
           tools: none
 
       - name: Determine tag
-        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
 
       - name: Parse ChangeLog
-        run: build/scripts/extract-release-notes.php ${{ env.RELEASE_TAG }} > release-notes.md
+        run: build/scripts/extract-release-notes.php "${RELEASE_TAG}" > release-notes.md
 
       - name: Create release
-        uses: ncipollo/release-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ env.RELEASE_TAG }}
-          name: phpunit/php-text-template ${{ env.RELEASE_TAG }}
-          bodyFile: release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${RELEASE_TAG}" --title "phpunit/php-text-template ${RELEASE_TAG}" --notes-file release-notes.md

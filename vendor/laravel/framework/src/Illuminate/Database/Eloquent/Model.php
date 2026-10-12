@@ -327,6 +327,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
         $this->bootIfNotBooted();
         $this->initializeTraits();
         $this->initializeModelAttributes();
+        $this->mergeDefaultAttributes();
         $this->syncOriginal();
         $this->fill($attributes);
     }
@@ -1157,7 +1158,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
 
             $this->fireModelEvent('updated', false);
 
-            $this->syncOriginalAttribute($column);
+            $this->syncOriginalAttributes(array_merge([$column], $this->refreshes));
         });
     }
 
@@ -1337,7 +1338,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
 
             $this->fireModelEvent('updated', false);
 
-            $this->syncOriginalAttributes(array_keys($columns));
+            $this->syncOriginalAttributes(array_merge(array_keys($columns), $this->refreshes));
         });
     }
 
@@ -2206,6 +2207,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
             $this->getCreatedAtColumn(),
             $this->getUpdatedAtColumn(),
             ...$this->uniqueIds(),
+            ...$this->refreshes,
             'laravel_through_key',
         ]));
 
