@@ -1,0 +1,106 @@
+name: Tests
+
+# Runs the test suites on the PHP version the app actually needs.
+#
+# The locked Symfony 8.1 and PHPUnit 13.4 stack requires PHP >= 8.4.1, which
+# config.platform.php pins. Any runner on an older PHP can install the dependencies but
+# cannot execute them, so the version here is deliberately explicit rather than inherited.
+#
+# vendor/ and public/build are committed artefacts on this project, so the suites run
+# against exactly what ships, and two steps guard that those artefacts are in sync with
+# their sources.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: ctype, dom, fileinfo, filter, gd, iconv, intl, mbstring, openssl, pdo_sqlite, phar, session, sqlite3, tokenizer, xml, xmlwriter, zip
+          coverage: none
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --no-check-publish --no-interaction
+
+      - name: Check committed vendor/ matches composer.lock
+        run: |
+          set -euo pipefail
+          php -r '
+            $lock = json_decode(file_get_contents("composer.lock"), true);
+            $want = [];
+            foreach (["packages", "packages-dev"] as $section) {
+                foreach ($lock[$section] ?? [] as $package) {
+                    $want[$package["name"]] = $package["version"];
+                }
+            }
+            $installed = require "vendor/composer/installed.php";
+            $bad = [];
+            foreach ($want as $name => $version) {
+                $have = $installed["versions"][$name]["pretty_version"] ?? "MISSING";
+                if ($have !== $version) {
+                    $bad[] = sprintf("%s: lock=%s vendor=%s", $name, $version, $have);
+                }
+            }
+            if ($bad) {
+                fwrite(STDERR, "::error::Committed vendor/ is out of sync with composer.lock\n");
+                foreach ($bad as $line) {
+                    fwrite(STDERR, "  $line\n");
+                }
+                exit(1);
+            }
+            printf("vendor/ matches composer.lock across %d packages\n", count($want));
+          '
+
+      - name: Prepare the application
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          php artisan key:generate
+          # Without these the whole suite redirects to the installer instead of running.
+          touch storage/installed.lock
+          touch database/database.sqlite
+
+      - name: Run the PHP test suite
+        run: php artisan test
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run the JavaScript test suite
+        # Excludes tests/js/wizard.test.mjs, which needs a served app with admin-seeded
+        # Site records and fetches a live sitemap. Run that one locally with APP_URL set —
+        # see the header of tests/js/wizard.test.mjs.
+        run: npm run test:js:unit
+
+      - name: Check committed public/build matches the sources
+        run: |
+          set -euo pipefail
+          npm run build
+          if ! git diff --quiet public/build; then
+            echo "::error::public/build is out of date — run 'npm run build' and commit the result"
+            git diff --stat public/build
+            exit 1
+          fi
+          echo "public/build is in sync with its sources"
