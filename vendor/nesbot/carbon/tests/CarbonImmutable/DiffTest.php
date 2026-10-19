@@ -1686,7 +1686,7 @@ class DiffTest extends AbstractTestCase
     {
         $from = Carbon::parse('2021-03-27 20:00 Europe/Warsaw');
         $to = Carbon::parse('2021-03-27 20:00 Europe/London');
-        $from->floatDiffInRealDays($to);
+        $this->assertIsFloat($from->floatDiffInRealDays($to));
 
         $this->assertSame('2021-03-27 20:00:00 Europe/Warsaw', $from->format('Y-m-d H:i:s e'));
         $this->assertSame('2021-03-27 20:00:00 Europe/London', $to->format('Y-m-d H:i:s e'));
@@ -1751,7 +1751,7 @@ class DiffTest extends AbstractTestCase
     {
         $from = Carbon::parse('2021-03-27 20:00 Europe/Warsaw');
         $to = Carbon::parse('2021-03-27 20:00 Europe/London');
-        $from->floatDiffInUtcDays($to);
+        $this->assertIsFloat($from->floatDiffInUtcDays($to));
 
         $this->assertSame('2021-03-27 20:00:00 Europe/Warsaw', $from->format('Y-m-d H:i:s e'));
         $this->assertSame('2021-03-27 20:00:00 Europe/London', $to->format('Y-m-d H:i:s e'));
@@ -1960,5 +1960,42 @@ class DiffTest extends AbstractTestCase
         $interval = $today->diff($past);
 
         $this->assertSame('2', $interval->format('%a'));
+    }
+
+    public function testDiffAsDuration()
+    {
+        $d1 = Carbon::make('2019-01-23 12:00:03.456789');
+
+        $duration = $d1->diffAsDuration('2019-02-23 12:00:00.123456');
+
+        $this->assertFalse($duration->negative);
+        $this->assertSame(2_678_396, $duration->seconds);
+        $this->assertSame(666_667_000, $duration->nanoseconds);
+
+        $d2 = Carbon::make('2019-02-23 12:00:00.123456');
+
+        $duration = $d2->diffAsDuration('2019-01-23 12:00:03.456789');
+
+        $this->assertTrue($duration->negative);
+        $this->assertSame(2_678_396, $duration->seconds);
+        $this->assertSame(666_667_000, $duration->nanoseconds);
+
+        $duration = $d2->diffAsDuration('2019-01-23 12:00:03.456789', true);
+
+        $this->assertFalse($duration->negative);
+        $this->assertSame(2_678_396, $duration->seconds);
+        $this->assertSame(666_667_000, $duration->nanoseconds);
+
+        $duration = $d2->diffAsDuration('2019-01-23 12:00:03.456789 Asia/Tokyo', true);
+
+        $this->assertFalse($duration->negative);
+        $this->assertSame(2_728_796, $duration->seconds);
+        $this->assertSame(666_667_000, $duration->nanoseconds);
+
+        $duration = $d2->diffAsDuration('2019-01-23 12:00:03.456789 America/Argentina/San_Juan', true);
+
+        $this->assertFalse($duration->negative);
+        $this->assertSame(2_685_596, $duration->seconds);
+        $this->assertSame(666_667_000, $duration->nanoseconds);
     }
 }

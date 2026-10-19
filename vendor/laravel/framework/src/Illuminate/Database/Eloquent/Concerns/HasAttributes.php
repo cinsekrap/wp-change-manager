@@ -1136,6 +1136,8 @@ trait HasAttributes
 
         $this->attributes[$key] = $value;
 
+        unset($this->attributeCastCache[$key]);
+
         return $this;
     }
 
@@ -1261,6 +1263,8 @@ trait HasAttributes
         if ($this->isClassCastable($key)) {
             unset($this->classCastCache[$key]);
         }
+
+        unset($this->attributeCastCache[$key]);
 
         return $this;
     }
@@ -2410,6 +2414,9 @@ trait HasAttributes
             return abs($this->castAttribute($key, $attribute) - $this->castAttribute($key, $original)) < PHP_FLOAT_EPSILON * 4;
         } elseif ($this->isEncryptedCastable($key) && ! empty(static::currentEncrypter()->getPreviousKeys())) {
             return false;
+        } elseif ($original !== null && $this->hasCast($key, ['encrypted:object', 'encrypted:collection'])) {
+            return $this->fromJson($this->fromEncryptedString($attribute)) ===
+                $this->fromJson($this->fromEncryptedString($original));
         } elseif ($this->hasCast($key, static::$primitiveCastTypes)) {
             return $this->castAttribute($key, $attribute) ===
                 $this->castAttribute($key, $original);

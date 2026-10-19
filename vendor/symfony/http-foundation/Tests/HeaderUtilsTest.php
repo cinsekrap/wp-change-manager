@@ -42,6 +42,10 @@ class HeaderUtilsTest extends TestCase
             [['foo bar'], 'foo "bar"', ','],
             [['foo bar'], '"foo" bar', ','],
             [['foo bar'], '"foo" "bar"', ','],
+            [['foo', 'bar'], 'foo bar', ' '],
+            [['foo', 'bar'], 'foo   bar', ' '],
+            [[['foo', 'bar'], ['baz']], 'foo bar, baz', ', '],
+            [['foo bar', 'baz'], "foo bar\tbaz", "\t"],
 
             [[['foo_cookie', 'foo=1&bar=2&baz=3'], ['expires', 'Tue, 22-Sep-2020 06:27:09 GMT'], ['path', '/']], 'foo_cookie=foo=1&bar=2&baz=3; expires=Tue, 22-Sep-2020 06:27:09 GMT; path=/', ';='],
             [[['foo_cookie', 'foo=='], ['expires', 'Tue, 22-Sep-2020 06:27:09 GMT'], ['path', '/']], 'foo_cookie=foo==; expires=Tue, 22-Sep-2020 06:27:09 GMT; path=/', ';='],
@@ -192,4 +196,36 @@ class HeaderUtilsTest extends TestCase
 
         // whitespace inside a value is still part of it
         $this->assertSame([["a b  c"]], HeaderUtils::split("a b  c", ",="));
-    }}
+    }
+
+    public function testParseQueryDoesNotWarnAboutKeysNestedBeyondMaxInputNestingLevel()
+    {
+        $deepKey = 'a'.str_repeat('[b]', (int) \ini_get('max_input_nesting_level') + 1);
+
+        // parse_str() only emits its warning when display_errors is off, which is the case in production
+        $displayErrors = ini_set('display_errors', '0');
+        // PHPUnit 10+ leaves E_WARNING out of error_reporting() while a test runs
+        $errorReporting = error_reporting(-1);
+        $warnings = [];
+        set_error_handler(static function (int $type, string $message) use (&$warnings): bool {
+            if (!(error_reporting() & $type)) {
+                return false;
+            }
+
+            $warnings[] = $message;
+
+            return true;
+        });
+
+        try {
+            $query = HeaderUtils::parseQuery($deepKey.'=1&x=2');
+        } finally {
+            restore_error_handler();
+            error_reporting($errorReporting);
+            ini_set('display_errors', $displayErrors);
+        }
+
+        $this->assertSame([], $warnings);
+        $this->assertSame(['x' => '2'], $query);
+    }
+}

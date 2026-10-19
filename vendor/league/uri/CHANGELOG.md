@@ -2,7 +2,28 @@
 
 All Notable changes to `League\Uri` will be documented in this file
 
-## [Next](https://github.com/thephpleague/uri/compare/7.8.0...master) - TBD
+## [7.9.0](https://github.com/thephpleague/uri/compare/7.8.1...7.9.0) - 2026-10-16
+
+### Added
+
+- `UriTemplate` extraction feature
+- `UriTemplate::hasVariable()` method to tell if the instance contains variable or not
+- `UrlPattern` extraction feature
+- Adding Type converter feature
+
+### Fixed
+
+- `UriTemplate::expandToPsr7` method implementation was incorrect
+
+### Deprecated
+
+- None
+
+### Removed
+
+- None
+
+## [7.8.1](https://github.com/thephpleague/uri/compare/7.8.0...7.8.1) - 2026-03-16
 
 ### Added
 
@@ -12,6 +33,8 @@ All Notable changes to `League\Uri` will be documented in this file
 
 - Update requirement to use `uri-interfaces` 7.8.1
 - Simplify `VariableBag` implementation
+- Improve template expansion based on [#193](https://github.com/thephpleague/uri-src/pull/193) by [dualfroz](https://github.com/dualfroz)
+- Multibyte characters handling during template expansion [#192](https://github.com/thephpleague/uri-src/pull/192) by [dualfroz](https://github.com/dualfroz)
 
 ### Deprecated
 

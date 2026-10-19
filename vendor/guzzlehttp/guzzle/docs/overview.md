@@ -30,7 +30,7 @@ curl -sS https://getcomposer.org/installer | php
 You can add Guzzle as a dependency using Composer:
 
 ```bash
-composer require guzzlehttp/guzzle:^8.2
+composer require guzzlehttp/guzzle:^8.3
 ```
 
 Alternatively, you can specify Guzzle as a dependency in your project's existing
@@ -39,7 +39,7 @@ composer.json file:
 ```js
 {
   "require": {
-     "guzzlehttp/guzzle": "^8.2"
+     "guzzlehttp/guzzle": "^8.3"
   }
 }
 ```
@@ -96,7 +96,6 @@ vendor/bin/phpunit
 
 If you discover a security vulnerability within this package, please send an
 email to security@tidelift.com. All security vulnerabilities will be promptly
-addressed. Please do not disclose security-related issues publicly until a fix
-has been announced. Please see the
-[Security Policy](https://github.com/guzzle/guzzle/security/policy) for more
-information.
+addressed by the security maintainers listed in the
+[Security Policy](https://github.com/guzzle/guzzle/security/policy). Please do
+not disclose security-related issues publicly until a fix has been announced.
