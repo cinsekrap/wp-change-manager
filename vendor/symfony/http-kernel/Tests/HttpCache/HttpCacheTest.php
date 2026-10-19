@@ -17,6 +17,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\HttpCache\Esi;
 use Symfony\Component\HttpKernel\HttpCache\HttpCache;
@@ -569,6 +570,44 @@ class HttpCacheTest extends HttpCacheTestCase
         unlink($file);
     }
 
+    public function testDoesNotCacheStreamedResponses()
+    {
+        $kernel = $this->createMock(HttpKernelInterface::class);
+        $kernel->expects($this->exactly(2))
+            ->method('handle')
+            ->willReturnCallback(static fn () => new StreamedResponse(static function () { echo 'Hello World'; }, 200, ['Cache-Control' => 'public, max-age=300']));
+
+        $cache = new HttpCache($kernel, $this->createStore());
+
+        $response = $cache->handle(Request::create('/'));
+        $this->assertSame(['miss'], current($cache->getTraces()));
+        $this->assertFalse($response->headers->has('Age'));
+
+        $cache->handle(Request::create('/'));
+        $this->assertSame(['miss'], current($cache->getTraces()));
+    }
+
+    public function testTracesStoreWhenTheStoreDigestsAResponseWithoutContent()
+    {
+        $kernel = $this->createStub(HttpKernelInterface::class);
+        $kernel->method('handle')->willReturn(new StreamedResponse(static function () { echo 'Hello World'; }, 200, ['Cache-Control' => 'public, max-age=300']));
+
+        $store = $this->createMock(StoreInterface::class);
+        $store->expects($this->once())
+            ->method('write')
+            ->willReturnCallback(static function (Request $request, Response $response): string {
+                $response->headers->set('X-Content-Digest', 'en-digest');
+
+                return 'key';
+            });
+
+        $cache = new HttpCache($kernel, $store);
+        $response = $cache->handle(Request::create('/'));
+
+        $this->assertSame(['miss', 'store'], current($cache->getTraces()));
+        $this->assertTrue($response->headers->has('Age'));
+    }
+
     public function testCachesResponsesWithExplicitNoCacheDirective()
     {
         $time = \DateTimeImmutable::createFromFormat('U', time() + 5);
@@ -755,6 +794,49 @@ class HttpCacheTest extends HttpCacheTestCase
         $this->assertHttpKernelIsNotCalled();
         $this->assertEquals(503, $this->response->getStatusCode());
         $this->assertEquals('Old response', $this->response->getContent());
+    }
+
+    public function testDegradationWhenCacheLockedWithEsi()
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            $this->markTestSkipped('Skips on windows to avoid permissions issues.');
+        }
+
+        $this->cacheConfig['stale_while_revalidate'] = 0;
+
+        $this->setNextResponses([
+            [
+                'status' => 200,
+                'body' => 'Old response <esi:include src="/foo" />',
+                'headers' => [
+                    'Cache-Control' => 'public, s-maxage=5',
+                    'Surrogate-Control' => 'content="ESI/1.0"',
+                    'Last-Modified' => 'some while ago',
+                ],
+            ],
+            [
+                'status' => 200,
+                'body' => 'with fragment',
+                'headers' => [
+                    'Cache-Control' => 'public, s-maxage=60',
+                ],
+            ],
+        ]);
+        $this->request('GET', '/', [], [], true); // warm the cache
+        $this->assertSame('Old response with fragment', $this->response->getContent());
+
+        // Now, lock the cache
+        $concurrentRequest = Request::create('/', 'GET');
+        $this->store->lock($concurrentRequest);
+
+        sleep(10);
+
+        $this->store = $this->createStore(); // create another store instance that does not hold the current lock
+        $this->request('GET', '/', [], [], true);
+        $this->assertHttpKernelIsNotCalled();
+        $this->assertSame(503, $this->response->getStatusCode());
+        $this->assertSame('10', $this->response->headers->get('Retry-After'));
+        $this->assertSame('Old response with fragment', $this->response->getContent());
     }
 
     public function testHitBackendOnlyOnceWhenCacheWasLocked()
@@ -1700,6 +1782,66 @@ class HttpCacheTest extends HttpCacheTestCase
         $this->request('GET', '/', [], [], true);
         $this->assertEquals('Hello World!', $this->response->getContent());
         $this->assertEquals(12, $this->response->headers->get('Content-Length'));
+    }
+
+    public function testEsiFragmentErrorClosesTheOutputBuffer()
+    {
+        $this->setNextResponses([
+            [
+                'status' => 200,
+                'body' => 'Main <esi:include src="/foo" />',
+                'headers' => [
+                    'Surrogate-Control' => 'content="ESI/1.0"',
+                ],
+            ],
+            [
+                'status' => 500,
+                'body' => 'Broken fragment',
+                'headers' => [],
+            ],
+        ]);
+
+        $level = ob_get_level();
+
+        try {
+            $this->request('GET', '/', [], [], true);
+            $this->fail('The fragment error should be thrown.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Error when rendering "http://localhost/foo" (Status code is 500).', $e->getMessage());
+        }
+
+        $this->assertSame($level, ob_get_level());
+    }
+
+    public function testEsiNestedFragmentErrorIsIgnored()
+    {
+        $this->setNextResponses([
+            [
+                'status' => 200,
+                'body' => 'Main <esi:include src="/foo" onerror="continue" /> end',
+                'headers' => [
+                    'Surrogate-Control' => 'content="ESI/1.0"',
+                ],
+            ],
+            [
+                'status' => 200,
+                'body' => 'Foo <esi:include src="/bar" /> foo end',
+                'headers' => [
+                    'Surrogate-Control' => 'content="ESI/1.0"',
+                ],
+            ],
+            [
+                'status' => 500,
+                'body' => 'Broken fragment',
+                'headers' => [],
+            ],
+        ]);
+
+        $level = ob_get_level();
+        $this->request('GET', '/', [], [], true);
+
+        $this->assertSame('Main  end', $this->response->getContent());
+        $this->assertSame($level, ob_get_level());
     }
 
     public function testEsiRecalculateContentLengthHeaderForHeadRequest()

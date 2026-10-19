@@ -1190,4 +1190,82 @@ final class UriStringTest extends TestCase
         self::assertSame('g:h', UriString::resolve('g:h', $baseUri));
         self::assertSame('foo:g', UriString::resolve('foo:g', $baseUri));
     }
+
+    #[DataProvider('removeDotSegmentsProvider')]
+    public function test_it_keeps_the_leading_slash_of_an_absolute_path(string $path, string $expected): void
+    {
+        self::assertSame($expected, UriString::removeDotSegments($path));
+    }
+
+    /**
+     * @return iterable<string, array{path: string, expected: string}>
+     */
+    public static function removeDotSegmentsProvider(): iterable
+    {
+        // A ".." popping past the root used to drop the leading slash, turning an
+        // absolute path into a rootless one (RFC 3986 §5.2.4 keeps the root).
+        yield 'overshoot single'      => ['path' => '/../a',            'expected' => '/a'];
+        yield 'overshoot deep'        => ['path' => '/a/b/../../../c',  'expected' => '/c'];
+        yield 'overshoot to root'     => ['path' => '/../../',          'expected' => '/'];
+        yield 'overshoot trailing'    => ['path' => '/../',             'expected' => '/'];
+        yield 'overshoot then dir'    => ['path' => '/../a/b',          'expected' => '/a/b'];
+        yield 'overshoot then dot'    => ['path' => '/.././g',          'expected' => '/g'];
+        yield 'bare dotdot absolute'  => ['path' => '/..',              'expected' => '/'];
+
+        // Absolute paths that never overshoot must be unchanged.
+        yield 'absolute plain'        => ['path' => '/a/b/../c',        'expected' => '/a/c'];
+        yield 'absolute mixed'        => ['path' => '/a/b/c/./../../g', 'expected' => '/a/g'];
+        yield 'absolute trailing dot' => ['path' => '/a/.',             'expected' => '/a/'];
+
+        // Relative paths must stay relative: the guard only restores a dropped
+        // root, it must not promote a rootless path to an absolute one.
+        yield 'relative plain'        => ['path' => 'a/b/../c',         'expected' => 'a/c'];
+        yield 'relative overshoot'    => ['path' => 'a/../b',           'expected' => 'b'];
+        yield 'relative leading dot'  => ['path' => './a',              'expected' => 'a'];
+        yield 'relative complex'      => ['path' => 'mid/content=5/../6', 'expected' => 'mid/6'];
+    }
+
+    public function test_it_keeps_the_root_when_normalizing_an_authority_less_uri(): void
+    {
+        self::assertSame('foo:/a', UriString::normalize('foo:/../a'));
+        self::assertSame('file:/etc/passwd', UriString::normalize('file:/../etc/passwd'));
+    }
+
+    #[DataProvider('multipleSlashPathProvider')]
+    public function test_it_keeps_the_root_when_normalizing_path_with_multiple_slash(string $input, string $expected): void
+    {
+        self::assertSame($expected, UriString::normalize($input));
+    }
+
+    /**
+     * @return iterable<non-empty-string, list<non-empty-string>>
+     */
+    public static function multipleSlashPathProvider(): iterable
+    {
+        yield 'scheme with leading dot segments' => [
+            'scheme:..///foo/bar',
+            'scheme:.///foo/bar',
+        ];
+
+        yield 'scheme with an intermediate dot segment' => [
+            'scheme:a/..///foo/bar',
+            'scheme:.///foo/bar',
+        ];
+
+        yield 'absolute path with dot segments' => [
+            'scheme:/a/..//foo/bar',
+            'scheme:/.//foo/bar',
+        ];
+
+        yield 'scheme with query and fragment' => [
+            'scheme:..///foo/bar?query#fragment',
+            'scheme:.///foo/bar?query#fragment',
+        ];
+
+        yield 'authority with dot segments' => [
+            'scheme://host/a/..//foo/bar',
+            'scheme://host//foo/bar',
+        ];
+    }
+
 }

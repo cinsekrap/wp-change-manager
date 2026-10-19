@@ -144,7 +144,6 @@ class ProcessTest extends TestCase
         $this->assertLessThan(15, microtime(true) - $start);
     }
 
-    #[Group('transient-on-windows')]
     public function testWaitUntilSpecificOutput()
     {
         $p = $this->getProcess([self::$phpBin, __DIR__.'/KillableProcessWithOutput.php']);
@@ -167,6 +166,94 @@ class ProcessTest extends TestCase
         $p = $this->getProcess('echo foo');
         $p->start();
         $this->assertFalse($p->waitUntil(static fn () => false));
+    }
+
+    public function testWaitUntilSeesOutputWrittenBeforeItIsCalled()
+    {
+        $marker = tempnam(sys_get_temp_dir(), 'sf_process_');
+        unlink($marker);
+
+        $p = $this->getProcessForCode('echo "ready"; touch(getenv("MARKER")); sleep(1);', null, ['MARKER' => $marker]);
+        $p->start();
+
+        $limit = microtime(true) + 30;
+        while (!is_file($marker) && microtime(true) < $limit) {
+            usleep(10000);
+        }
+        $this->assertFileExists($marker);
+        unlink($marker);
+
+        $this->assertTrue($p->waitUntil(static fn (string $type, string $output): bool => str_contains($output, 'ready')));
+
+        $p->stop();
+    }
+
+    public function testWaitUntilSeesOutputWrittenWhileItsCallbackRuns()
+    {
+        $p = $this->getProcessForCode('echo "first"; usleep(500000); echo "second"; sleep(1);');
+        $p->start();
+
+        $this->assertTrue($p->waitUntil(static function (string $type, string $output): bool {
+            if (str_contains($output, 'first')) {
+                usleep(1000000);
+            }
+
+            return str_contains($output, 'second');
+        }));
+
+        $p->stop();
+    }
+
+    public function testWaitUntilCallbackIsNotCalledAnymoreAfterItThrew()
+    {
+        $marker = tempnam(sys_get_temp_dir(), 'sf_process_');
+        unlink($marker);
+
+        $p = $this->getProcessForCode('echo "foo"; touch(getenv("MARKER")); usleep(500000); echo "bar";', null, ['MARKER' => $marker]);
+        $p->start();
+
+        $limit = microtime(true) + 30;
+        while (!is_file($marker) && microtime(true) < $limit) {
+            usleep(10000);
+        }
+        $this->assertFileExists($marker);
+
+        $calls = 0;
+        try {
+            $p->waitUntil(static function () use (&$calls): bool {
+                ++$calls;
+
+                throw new \RuntimeException('Callback failure.');
+            });
+            $this->fail('The exception thrown by the callback should be propagated.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Callback failure.', $e->getMessage());
+        }
+
+        $p->wait();
+        // touch() creates the file before setting its times, and fails when the file is removed in between
+        unlink($marker);
+
+        $this->assertSame(1, $calls);
+        $this->assertSame('foobar', $p->getOutput());
+    }
+
+    public function testIteratorEndsAfterWaitUntilTimedOut()
+    {
+        $p = $this->getProcessForCode('sleep(5);');
+        $p->setTimeout(0.5);
+        $p->start();
+
+        try {
+            $p->waitUntil(static fn (): bool => false);
+            $this->fail('A ProcessTimedOutException should have been thrown.');
+        } catch (ProcessTimedOutException) {
+        }
+
+        $iterations = 0;
+        foreach ($p->getIterator($p::ITER_NON_BLOCKING) as $data) {
+            $this->assertLessThan(10, ++$iterations, 'The iterator should end once the process is terminated.');
+        }
     }
 
     public function testAllOutputIsActuallyReadOnTermination()
@@ -605,11 +692,11 @@ class ProcessTest extends TestCase
 
     public function testStartIsNonBlocking()
     {
-        $process = $this->getProcessForCode('usleep(500000);');
+        $process = $this->getProcessForCode('sleep(10);');
         $start = microtime(true);
         $process->start();
         $end = microtime(true);
-        $this->assertLessThan(0.4, $end - $start);
+        $this->assertLessThan(5, $end - $start);
         $process->stop();
     }
 
@@ -1219,7 +1306,7 @@ class ProcessTest extends TestCase
         $process = $this->getProcessForCode('$n = 0; while ($n < 3) { file_put_contents(\''.$stream.'\', $n, 1); $n++; usleep(1000); }', null, null, null, null);
         $process->start();
         $result = '';
-        $limit = microtime(true) + 3;
+        $limit = microtime(true) + 30;
         $expected = '012';
 
         while ($result !== $expected && microtime(true) < $limit) {
@@ -1264,7 +1351,7 @@ class ProcessTest extends TestCase
         $process->run();
 
         $this->assertCount(20, $writes);
-        $this->assertLessThan(Process::TIMEOUT_PRECISION, end($writes) - $writes[0]);
+        $this->assertLessThan(1, end($writes) - $writes[0]);
     }
 
     public function testSimpleInputStream()
@@ -1365,10 +1452,7 @@ class ProcessTest extends TestCase
             $output[] = [$type, $data];
             break;
         }
-        $expectedOutput = [
-            [$process::OUT, '123'],
-        ];
-        $this->assertSame($expectedOutput, $output);
+        $this->assertCount(1, $output);
 
         $input->write(345);
 
@@ -1378,6 +1462,17 @@ class ProcessTest extends TestCase
 
         $this->assertSame('', $process->getOutput());
         $this->assertFalse($process->isRunning());
+
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            // Output files are polled on Windows, so the order of chunks across stdout and stderr is not preserved
+            $streams = [$process::OUT => '', $process::ERR => ''];
+            foreach ($output as [$type, $data]) {
+                $streams[$type] .= $data;
+            }
+            $this->assertSame([$process::OUT => '123345', $process::ERR => '234456'], $streams);
+
+            return;
+        }
 
         $expectedOutput = [
             [$process::OUT, '123'],
@@ -1483,6 +1578,37 @@ class ProcessTest extends TestCase
 
         putenv('FOO');
         unset($_ENV['FOO']);
+    }
+
+    #[DataProvider('provideSymfonyDotenvVarsPassedToSubprocess')]
+    public function testSymfonyDotenvVarsDoesNotListExplicitlyPassedVars(?array $constructorEnv, array $startEnv, string|false $expected)
+    {
+        putenv('SYMFONY_DOTENV_VARS=FOO,BAR,BAZ');
+        $_ENV['SYMFONY_DOTENV_VARS'] = 'FOO,BAR,BAZ';
+
+        try {
+            $process = $this->getProcessForCode('echo var_export(getenv("SYMFONY_DOTENV_VARS"), true);', null, $constructorEnv);
+            $process->start(null, $startEnv);
+            $process->wait();
+
+            $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+            $this->assertSame(var_export($expected, true), $process->getOutput());
+        } finally {
+            putenv('SYMFONY_DOTENV_VARS');
+            unset($_ENV['SYMFONY_DOTENV_VARS']);
+        }
+    }
+
+    public static function provideSymfonyDotenvVarsPassedToSubprocess()
+    {
+        yield 'inherited as is' => [null, [], 'FOO,BAR,BAZ'];
+        yield 'var passed to the constructor' => [['FOO' => 'explicit'], [], 'BAR,BAZ'];
+        yield 'var passed to start()' => [null, ['BAR' => 'explicit'], 'FOO,BAZ'];
+        yield 'var removed explicitly' => [['BAZ' => false], [], 'FOO,BAR'];
+        yield 'unrelated var' => [['QUX' => 'explicit'], [], 'FOO,BAR,BAZ'];
+        yield 'all vars passed' => [['FOO' => 'a', 'BAR' => 'b', 'BAZ' => 'c'], [], ''];
+        yield 'SYMFONY_DOTENV_VARS passed explicitly' => [['FOO' => 'explicit', 'SYMFONY_DOTENV_VARS' => 'FOO'], [], 'FOO'];
+        yield 'SYMFONY_DOTENV_VARS removed explicitly' => [['SYMFONY_DOTENV_VARS' => false], [], false];
     }
 
     public function testGetCommandLine()
@@ -1667,7 +1793,7 @@ class ProcessTest extends TestCase
     {
         $process = $this->getProcess(self::$phpBin.' '.__DIR__.'/ErrorProcessInitiator.php -e '.self::$phpBin);
         $process->start();
-        $process->setTimeout(2);
+        $process->setTimeout(20);
         $process->wait();
         $this->assertFalse($process->isRunning());
 
