@@ -23,7 +23,7 @@
                         @endif
                     </div>
                     @if($update['html_url'])
-                        <a href="{{ $update['html_url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current whitespace-nowrap ml-4">
+                        <a href="{{ $update['html_url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current whitespace-nowrap ml-4">
                             View on GitHub &rarr;
                         </a>
                     @endif
@@ -123,7 +123,7 @@
     {{-- GitHub Token --}}
     <div class="card card-body">
         <h2 class="card-title mb-3">GitHub API Token</h2>
-        <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">github.com/settings/tokens</a> with no special permissions.</p>
+        <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">github.com/settings/tokens</a> with no special permissions.</p>
         <form method="POST" action="{{ route('admin.settings.github-token.update') }}">
             @csrf
             @method('PUT')

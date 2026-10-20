@@ -397,7 +397,7 @@
             if (allowAdd) {
                 html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
             }
-            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary/30 text-primary hover:bg-primary/5 transition-colors" data-action="change">Change</button>`;
+            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors" data-action="change">Change</button>`;
             html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
             html += `</div>`;
             html += `</div>`;
@@ -420,27 +420,27 @@
                 // Update button styles — reset all, then highlight selected
                 card.querySelectorAll('.area-action-btn').forEach(b => {
                     b.classList.remove('bg-green-500', 'text-white', 'border-green-500',
-                                       'bg-primary', 'border-primary',
+                                       'bg-gray-800', 'border-gray-800',
                                        'bg-red-500', 'border-red-500');
                     // Reset to default styles
                     const a = b.dataset.action;
                     if (a === 'add') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors'; }
-                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary/30 text-primary hover:bg-primary/5 transition-colors'; }
+                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors'; }
                     else if (a === 'delete') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors'; }
                 });
 
                 // Fill selected button
                 if (action === 'add') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-500 bg-green-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-primary/30', 'border-red-300');
+                    card.classList.remove('border-gray-200', 'border-gray-300', 'border-red-300');
                     card.classList.add('border-green-300');
                 } else if (action === 'change') {
-                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary bg-primary text-white transition-colors';
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-gray-800 bg-gray-800 text-white transition-colors';
                     card.classList.remove('border-gray-200', 'border-green-300', 'border-red-300');
-                    card.classList.add('border-primary/30');
+                    card.classList.add('border-gray-300');
                 } else if (action === 'delete') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-500 bg-red-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-green-300', 'border-primary/30');
+                    card.classList.remove('border-gray-200', 'border-green-300', 'border-gray-300');
                     card.classList.add('border-red-300');
                 }
 
@@ -764,7 +764,7 @@
         if ((areaObj.reading_age ?? true) && ['textarea', 'richtext'].includes(areaObj.type)) {
             html += `<div class="sf-reading-age text-xs mt-1 text-right">`;
             html += `<span class="sf-reading-age-badge text-gray-400">Reading age: not enough text</span>`;
-            html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
+            html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
             html += `</div>`;
         }
 
@@ -2154,7 +2154,7 @@
                     ? 'bg-green-100 text-green-800'
                     : item.action_type === 'delete'
                         ? 'bg-red-100 text-red-800'
-                        : 'bg-primary/10 text-primary';
+                        : 'bg-gray-100 text-gray-700';
                 html += `<div class="pl-3 border-l-2 border-gray-200">
                     <span class="text-xs font-medium px-2 py-0.5 rounded-full ${actionBadge}">${esc(item.action_type)}</span>
                     <span class="text-xs font-medium text-gray-500 ml-1">${esc(item.content_area)}</span>
@@ -2185,7 +2185,7 @@
                     : `<p class="text-sm text-gray-700 mt-1">${esc(desc.substring(0, 200))}${desc.length > 200 ? '...' : ''}</p>`;
 
                 html += `<div class="pl-3 border-l-2 border-gray-200">
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-primary/10 text-primary'}">${esc(action)}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}">${esc(action)}</span>
                     ${area ? `<span class="text-xs text-gray-500 ml-1">${esc(area)}</span>` : ''}
                     ${body}
                     ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}

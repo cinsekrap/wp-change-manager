@@ -35,7 +35,7 @@
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">
                     <span class="item-description-label">Description</span> <span class="text-red-500">*</span>
-                    <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">reset to current</button>
+                    <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">reset to current</button>
                 </label>
                 <textarea class="field-input item-description"
                     rows="3" placeholder="Describe the change you need in detail..."></textarea>

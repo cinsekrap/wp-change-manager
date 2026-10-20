@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-center text-primary mb-2">Two-factor authentication</h2>
+        <h2 class="text-2xl font-bold text-center text-gray-900 mb-2">Two-factor authentication</h2>
         <p class="text-sm text-gray-600 text-center mb-6">Enter the 6-digit code from your authenticator app</p>
 
         @if($errors->any())

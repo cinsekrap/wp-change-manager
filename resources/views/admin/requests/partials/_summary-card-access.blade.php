@@ -51,7 +51,7 @@
         <span class="text-gray-500">Access for:</span>
         <span class="font-medium text-gray-900 ml-1">{{ $changeRequest->access_recipient_name ?: '—' }}</span>
         @if($changeRequest->access_recipient_email)
-            <a href="mailto:{{ $changeRequest->access_recipient_email }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current ml-2">{{ $changeRequest->access_recipient_email }}</a>
+            <a href="mailto:{{ $changeRequest->access_recipient_email }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current ml-2">{{ $changeRequest->access_recipient_email }}</a>
         @endif
     </div>
 
@@ -67,7 +67,7 @@
     <div class="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         <span class="text-gray-500">Requested by:</span>
         <span class="font-medium text-gray-900">{{ $changeRequest->requester_name }}</span>
-        <a href="mailto:{{ $changeRequest->requester_email }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">{{ $changeRequest->requester_email }}</a>
+        <a href="mailto:{{ $changeRequest->requester_email }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">{{ $changeRequest->requester_email }}</a>
         @if($changeRequest->requester_phone)
             <span class="text-gray-600">{{ $changeRequest->requester_phone }}</span>
         @endif

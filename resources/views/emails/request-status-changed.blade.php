@@ -45,7 +45,7 @@
         <p style="margin:0;color:#1D4ED8;font-size:14px;">Reference {{ $reference }} — awaiting your response.</p>
     </div>
     @else
-    <div style="margin:0 0 24px;padding:16px 20px;background-color:#f5f5f4;border-left:4px solid #1c1917;border-radius:4px;">
+    <div style="margin:0 0 24px;padding:16px 20px;background-color:#f5f5f4;border-left:4px solid #0f766e;border-radius:4px;">
         <h2 style="margin:0 0 4px;color:#44403c;font-size:20px;font-weight:700;">Your request has been updated</h2>
         <p style="margin:0;color:#78716c;font-size:14px;">Reference {{ $reference }} — status changed to {{ $newStatus }}.</p>
     </div>
@@ -210,11 +210,11 @@
                 @php
                     $isComplete = $i <= $currentIndex;
                     $isCurrent = $i === $currentIndex;
-                    $dotColor = $isComplete ? '#1c1917' : '#d6d3d1';
+                    $dotColor = $isComplete ? '#0f766e' : '#d6d3d1';
                     $dotSize = $isCurrent ? '14' : '10';
-                    $lineColor = ($i > 0 && $i <= $currentIndex) ? '#1c1917' : '#d6d3d1';
+                    $lineColor = ($i > 0 && $i <= $currentIndex) ? '#0f766e' : '#d6d3d1';
                     $labelWeight = $isCurrent ? '700' : '400';
-                    $labelColor = $isCurrent ? '#1c1917' : ($isComplete ? '#44403c' : '#a8a29e');
+                    $labelColor = $isCurrent ? '#0f766e' : ($isComplete ? '#44403c' : '#a8a29e');
                 @endphp
                 <td style="text-align:center;vertical-align:top;width:{{ 100 / count($steps) }}%;padding:0;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
@@ -222,9 +222,9 @@
                             {{-- The line sits in a 2px div: a cell is as tall as the dot beside it. --}}
                             <td style="width:50%;padding:0;vertical-align:middle;"><div style="height:2px;line-height:2px;font-size:0;background-color:{{ $i === 0 ? 'transparent' : $lineColor }};">&nbsp;</div></td>
                             <td style="width:14px;height:14px;padding:0;vertical-align:middle;">
-                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(28,25,23,0.15);' : '' }}"></div>
+                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(15,118,110,0.2);' : '' }}"></div>
                             </td>
-                            <td style="width:50%;padding:0;vertical-align:middle;"><div style="height:2px;line-height:2px;font-size:0;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#1c1917' : '#d6d3d1') }};">&nbsp;</div></td>
+                            <td style="width:50%;padding:0;vertical-align:middle;"><div style="height:2px;line-height:2px;font-size:0;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#0f766e' : '#d6d3d1') }};">&nbsp;</div></td>
                         </tr>
                     </table>
                     <p style="margin:6px 0 0;font-size:10px;font-weight:{{ $labelWeight }};color:{{ $labelColor }};line-height:1.2;">{{ $stepLabels[$i] }}</p>
@@ -241,7 +241,7 @@
     {{-- CTA Button --}}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
         <tr>
-            <td style="border-radius:8px;background-color:#1c1917;">
+            <td style="border-radius:8px;background-color:#0f766e;">
                 <a href="{{ $trackingUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Track Your Request
                 </a>

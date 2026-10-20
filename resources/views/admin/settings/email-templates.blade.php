@@ -7,7 +7,7 @@
         <h1 class="page-title">Email Templates</h1>
         <p class="mt-1 text-sm text-gray-500">Customise the subject lines and body text of automated emails. Use placeholders to insert dynamic content.</p>
     </div>
-    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">&larr; Notifications</a>
+    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">&larr; Notifications</a>
 </div>
 
 <form method="POST" action="{{ route('admin.settings.email-templates.update') }}" id="templateForm">
@@ -88,7 +88,7 @@
                         <span class="text-sm text-gray-400">Using default template</span>
                         @endif
                     </div>
-                    <a href="{{ route('admin.settings.mail.preview', str_replace('_', '-', $key)) }}" target="_blank" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">
+                    <a href="{{ route('admin.settings.mail.preview', str_replace('_', '-', $key)) }}" target="_blank" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">
                         Preview email &rarr;
                     </a>
                 </div>

@@ -29,7 +29,7 @@
                     @include('admin.partials.active-badge', ['active' => $question->is_active])
                 </td>
                 <td class="text-right space-x-2">
-                    <a href="{{ route('admin.questions.edit', $question) }}" class="text-sm font-medium text-gray-900 hover:underline underline-offset-2">Edit</a>
+                    <a href="{{ route('admin.questions.edit', $question) }}" class="text-sm font-medium text-primary hover:underline underline-offset-2">Edit</a>
                     <form method="POST" action="{{ route('admin.questions.destroy', $question) }}" class="inline" data-confirm="Delete this question?">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete</button>

@@ -3,14 +3,14 @@
 
 @section('content')
 <div class="card p-8">
-    <h1 class="text-2xl font-bold text-primary mb-6">{{ $changeRequest->isAccessRequest() ? 'Access Request Approval' : 'Approval Request' }}</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">{{ $changeRequest->isAccessRequest() ? 'Access Request Approval' : 'Approval Request' }}</h1>
 
     {{-- Request summary card --}}
     <div class="bg-gray-50 rounded-lg p-6 mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Reference</p>
-                <p class="text-lg font-bold text-primary font-mono">{{ $changeRequest->reference }}</p>
+                <p class="text-lg font-bold text-gray-900 font-mono">{{ $changeRequest->reference }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>
@@ -59,7 +59,7 @@
             @if($changeRequest->is_new_page)
                 <p class="text-sm font-medium text-gray-800 mt-1">New page: {{ $changeRequest->page_title }}</p>
             @else
-                <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" class="inline-flex items-center mt-1 text-sm font-medium text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">
+                <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" class="inline-flex items-center mt-1 text-sm font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">
                     {{ $changeRequest->page_title ?: $changeRequest->page_url }}
                     <svg class="w-3.5 h-3.5 ml-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                 </a>
@@ -179,14 +179,14 @@
                     $borderColor = match($item->action_type) {
                         'add' => 'border-green-200',
                         'delete' => 'border-red-200',
-                        default => 'border-primary/20',
+                        default => 'border-gray-200',
                     };
                 @endphp
                 <div class="bg-white rounded-lg border-2 {{ $borderColor }} p-4">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full
                             @if($item->action_type === 'add') bg-green-100 text-green-800
-                            @elseif($item->action_type === 'change') bg-primary/10 text-primary
+                            @elseif($item->action_type === 'change') bg-gray-100 text-gray-700
                             @else bg-red-100 text-red-800
                             @endif
                         ">{{ ucfirst($item->action_type) }}</span>

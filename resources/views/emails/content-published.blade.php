@@ -16,7 +16,7 @@
         <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#166534;">Published to:</p>
         @forelse($publishedSites as $published)
             <p style="margin:0 0 8px;color:#44403c;">
-                <a href="{{ $published['url'] }}" style="color:#1c1917;">{{ $published['title'] ?: $published['url'] }}</a>
+                <a href="{{ $published['url'] }}" style="color:#0f766e;">{{ $published['title'] ?: $published['url'] }}</a>
                 <span style="color:#78716c;">— {{ $published['site'] }}</span>
             </p>
         @empty
@@ -25,7 +25,7 @@
     </div>
 
     <p style="margin:24px 0 0;font-size:13px;color:#78716c;">
-        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#1c1917;">your tracking link</a>.
+        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#0f766e;">your tracking link</a>.
     </p>
 
     @if($unsubscribeUrl ?? null)

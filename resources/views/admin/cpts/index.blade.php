@@ -37,7 +37,7 @@
                     @endif
                 </td>
                 <td class="text-right space-x-2">
-                    <a href="{{ route('admin.cpts.edit', $cpt) }}" class="text-sm font-medium text-gray-900 hover:underline underline-offset-2">Edit</a>
+                    <a href="{{ route('admin.cpts.edit', $cpt) }}" class="text-sm font-medium text-primary hover:underline underline-offset-2">Edit</a>
                     <form method="POST" action="{{ route('admin.cpts.destroy', $cpt) }}" class="inline" data-confirm="Delete this CPT type?">
                         @csrf @method('DELETE')
                         <button type="submit" class="text-sm text-red-600 hover:text-red-800">Delete</button>

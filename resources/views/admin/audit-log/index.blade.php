@@ -94,7 +94,7 @@
                 </td>
                 <td class="text-right whitespace-nowrap">
                     @if($log->old_values || $log->new_values)
-                        <button type="button" onclick="toggleAuditDetail({{ $log->id }})" class="text-xs font-medium text-gray-900 hover:underline underline-offset-2 font-medium">
+                        <button type="button" onclick="toggleAuditDetail({{ $log->id }})" class="text-xs font-medium text-primary hover:underline underline-offset-2 font-medium">
                             Details
                         </button>
                     @endif

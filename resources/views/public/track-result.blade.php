@@ -93,8 +93,8 @@
             ],
             'trained' => [
                 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
-                'bg' => 'bg-teal-50 border-teal-200',
-                'iconColor' => 'text-teal-500',
+                'bg' => 'bg-lime-50 border-lime-200',
+                'iconColor' => 'text-lime-600',
                 'title' => 'Training confirmed',
                 'text' => 'Training has been confirmed. Our team is now setting up the access and will be in touch once it\'s ready.',
             ],
@@ -327,11 +327,11 @@
 
     {{-- Actions --}}
     <div class="flex flex-col sm:flex-row gap-3 items-center justify-center">
-        <a href="{{ route('tracking') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
+        <a href="{{ route('tracking') }}" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current font-medium">
             Track another request
         </a>
         <span class="hidden sm:inline text-gray-300">|</span>
-        <a href="{{ route('wizard') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
+        <a href="{{ route('wizard') }}" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current font-medium">
             Submit a new request
         </a>
     </div>

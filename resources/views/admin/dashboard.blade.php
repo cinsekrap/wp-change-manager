@@ -6,7 +6,7 @@
 @if($update['available'])
 <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
     <span class="text-sm text-amber-800">A new version ({{ $update['latest_version'] }}) is available.</span>
-    <a href="{{ route('admin.settings.updates') }}" class="text-sm font-medium text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">View update</a>
+    <a href="{{ route('admin.settings.updates') }}" class="text-sm font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">View update</a>
 </div>
 @endif
 @unless($schedulerOk)
@@ -108,7 +108,7 @@
                 <div class="w-full flex items-end justify-center gap-1" style="height: 160px;">
                     <div class="w-1/2 max-w-6 bg-gray-300 rounded-t" title="{{ $m['submitted'] }} submitted"
                          style="height: {{ round($m['submitted'] / $maxMonthly * 100) }}%{{ $m['submitted'] > 0 ? '; min-height: 0.375rem' : '' }}"></div>
-                    <div class="w-1/2 max-w-6 bg-gray-800 rounded-t" title="{{ $m['completed'] }} completed"
+                    <div class="w-1/2 max-w-6 bg-primary rounded-t" title="{{ $m['completed'] }} completed"
                          style="height: {{ round($m['completed'] / $maxMonthly * 100) }}%{{ $m['completed'] > 0 ? '; min-height: 0.375rem' : '' }}"></div>
                 </div>
                 <span class="text-xs text-gray-500 mt-2 truncate">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->format('M y') }}</span>
@@ -118,7 +118,7 @@
         </div>
         <div class="flex items-center gap-4 mt-3 text-xs text-gray-500">
             <span class="inline-flex items-center"><span class="w-3 h-3 rounded-sm bg-gray-300 mr-1.5"></span>Submitted</span>
-            <span class="inline-flex items-center"><span class="w-3 h-3 rounded-sm bg-gray-800 mr-1.5"></span>Completed</span>
+            <span class="inline-flex items-center"><span class="w-3 h-3 rounded-sm bg-primary mr-1.5"></span>Completed</span>
         </div>
     </div>
 
@@ -132,7 +132,7 @@
             <div class="flex flex-col items-center flex-1 min-w-0">
                 <span class="text-xs font-semibold text-gray-700 mb-1">{{ $m['avg_days'] ?? '' }}</span>
                 <div class="w-full flex flex-col justify-end" style="height: 140px;">
-                    <div class="bg-gray-800 rounded-t w-full max-w-12 mx-auto" style="height: {{ $m['avg_days'] ? round($m['avg_days'] / $maxDays * 100) : 0 }}%{{ $m['avg_days'] ? '; min-height: 0.375rem' : '' }}"></div>
+                    <div class="bg-primary rounded-t w-full max-w-12 mx-auto" style="height: {{ $m['avg_days'] ? round($m['avg_days'] / $maxDays * 100) : 0 }}%{{ $m['avg_days'] ? '; min-height: 0.375rem' : '' }}"></div>
                 </div>
                 <span class="text-xs text-gray-500 mt-2 truncate">{{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $month)->format('M y') }}</span>
             </div>
@@ -155,7 +155,7 @@
                 </div>
                 <div class="w-full bg-gray-100 rounded-full h-2 relative">
                     <div class="bg-gray-300 h-2 rounded-full absolute inset-y-0 left-0" style="width: {{ round($counts['total'] / $maxSite * 100) }}%"></div>
-                    <div class="bg-gray-800 h-2 rounded-full absolute inset-y-0 left-0" style="width: {{ round($counts['completed'] / $maxSite * 100) }}%"></div>
+                    <div class="bg-primary h-2 rounded-full absolute inset-y-0 left-0" style="width: {{ round($counts['completed'] / $maxSite * 100) }}%"></div>
                 </div>
             </div>
             @empty
@@ -176,7 +176,7 @@
                     <span class="text-sm font-semibold text-gray-800">{{ $count }}</span>
                 </div>
                 <div class="w-full bg-gray-100 rounded-full h-2">
-                    <div class="bg-gray-800 h-2 rounded-full" style="width: {{ round($count / $maxCpt * 100) }}%"></div>
+                    <div class="bg-primary h-2 rounded-full" style="width: {{ round($count / $maxCpt * 100) }}%"></div>
                 </div>
             </div>
             @empty

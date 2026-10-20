@@ -23,10 +23,12 @@
     --color-gray-900: oklch(21.6% 0.006 56);
     --color-gray-950: oklch(14.7% 0.004 49.3);
 
-    /* The one colour that says "act here" or "you are here". Colour is kept
-       for meaning — status, success, warning, error — and nothing else. */
-    --color-primary: var(--color-gray-900);
-    --color-primary-hover: var(--color-gray-700);
+    /* The one accent: it says "act here" or "you are here" — primary buttons,
+       the current nav item and tab, links, focus, the headline chart series.
+       Everything else stays grey, and status keeps its own colours. Teal is
+       the one hue no status badge uses. */
+    --color-primary: oklch(51.1% 0.096 186.4);
+    --color-primary-hover: oklch(43.7% 0.078 188.2);
 
     /* Status colours */
     --color-status-success: #15803d;
@@ -117,10 +119,8 @@
     .empty-state   { @apply px-6 py-10 text-center; }
     .empty-state p { @apply text-sm text-gray-500 mb-3; }
 
-    /* Links carry no colour of their own in a neutral palette, so the underline
-       is what marks them out. */
-    .link { @apply font-medium text-gray-900 underline decoration-gray-300 underline-offset-2
-                   hover:decoration-gray-900; }
+    .link { @apply font-medium text-primary underline decoration-primary/30 underline-offset-2
+                   hover:decoration-primary; }
 
     /* Rendered Markdown (release notes). The typography plugin is not
        installed, so the few elements release notes use are styled here. */

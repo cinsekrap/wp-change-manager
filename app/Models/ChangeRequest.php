@@ -100,7 +100,7 @@ class ChangeRequest extends Model
         'referred' => 'bg-orange-100 text-orange-800',
         'approved' => 'bg-indigo-100 text-indigo-800',
         'training' => 'bg-sky-100 text-sky-800',
-        'trained' => 'bg-teal-100 text-teal-800',
+        'trained' => 'bg-lime-100 text-lime-800',
         'scheduled' => 'bg-purple-100 text-purple-800',
         'on_hold' => 'bg-yellow-100 text-yellow-700',
         'awaiting_user' => 'bg-cyan-100 text-cyan-700',

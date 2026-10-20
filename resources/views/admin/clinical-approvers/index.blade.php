@@ -32,7 +32,7 @@
                     @include('admin.partials.active-badge', ['active' => $approver->is_active])
                 </td>
                 <td class="text-right">
-                    <a href="{{ route('admin.clinical-approvers.edit', $approver) }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Edit</a>
+                    <a href="{{ route('admin.clinical-approvers.edit', $approver) }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">Edit</a>
                     @if($approver->is_active)
                         <form method="POST" action="{{ route('admin.clinical-approvers.destroy', $approver) }}" class="inline ml-3"
                               data-confirm="Deactivate {{ $approver->name }}? Past approvals will still name them.">

@@ -83,7 +83,7 @@
                     <div class="pt-3 border-t border-gray-100">
                         <div class="flex items-center justify-between mb-1">
                             <h4 class="text-xs font-bold text-gray-900">Who needs access?</h4>
-                            <button type="button" id="ssSameAsMe" class="text-xs text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Same as me</button>
+                            <button type="button" id="ssSameAsMe" class="text-xs text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">Same as me</button>
                         </div>
                         <p class="text-xs text-gray-500 mb-3">This person will receive the training email and be given access — it can be you or someone else.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

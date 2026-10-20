@@ -153,7 +153,7 @@
                                 </div>
                                 @endforeach
                             </div>
-                            <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add option</button>
+                            <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-primary hover:underline underline-offset-2">+ Add option</button>
                         </div>
 
                         <div class="sub-fields-section" style="{{ ($area['type'] ?? 'text') !== 'group' ? 'display:none' : '' }}">
@@ -172,7 +172,7 @@
                                 </div>
                                 @endforeach
                             </div>
-                            <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add sub-field</button>
+                            <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-primary hover:underline underline-offset-2">+ Add sub-field</button>
 
                             <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
                                 <div class="flex items-center">
@@ -400,13 +400,13 @@ function addContentArea() {
             <div class="options-section" style="display:none">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Options</label>
                 <div class="options-list space-y-2"></div>
-                <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add option</button>
+                <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-primary hover:underline underline-offset-2">+ Add option</button>
             </div>
 
             <div class="sub-fields-section" style="display:none">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Sub-fields</label>
                 <div class="sub-fields-list space-y-2"></div>
-                <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add sub-field</button>
+                <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-primary hover:underline underline-offset-2">+ Add sub-field</button>
 
                 <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
                     <div class="flex items-center">

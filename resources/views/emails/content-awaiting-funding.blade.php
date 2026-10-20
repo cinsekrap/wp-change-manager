@@ -19,7 +19,7 @@
     </div>
 
     <p style="margin:24px 0 0;font-size:13px;color:#78716c;">
-        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#1c1917;">your tracking link</a>.
+        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#0f766e;">your tracking link</a>.
     </p>
 
     @if($unsubscribeUrl ?? null)

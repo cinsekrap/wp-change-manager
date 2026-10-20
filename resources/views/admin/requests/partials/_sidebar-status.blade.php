@@ -151,7 +151,7 @@
             <span class="text-xs font-medium text-gray-500">Assigned to</span>
             @if($changeRequest->assignee)
                 <div class="flex items-center space-x-1.5">
-                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-900 text-white text-[10px] font-semibold flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
+                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
                     <span class="text-xs font-medium text-gray-700">{{ $changeRequest->assignee->name }}</span>
                 </div>
             @else

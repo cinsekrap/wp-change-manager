@@ -41,7 +41,7 @@
     {{-- CTA Buttons --}}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
         <tr>
-            <td style="border-radius:8px;background-color:#1c1917;">
+            <td style="border-radius:8px;background-color:#0f766e;">
                 <a href="{{ $trainingUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Watch the Training Video
                 </a>

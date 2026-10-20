@@ -3,14 +3,14 @@
 
 @section('content')
 <div class="card p-8">
-    <h1 class="text-2xl font-bold text-primary mb-6">Training Confirmation</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Training Confirmation</h1>
 
     {{-- Request summary card --}}
     <div class="bg-gray-50 rounded-lg p-6 mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Reference</p>
-                <p class="text-lg font-bold text-primary font-mono">{{ $changeRequest->reference }}</p>
+                <p class="text-lg font-bold text-gray-900 font-mono">{{ $changeRequest->reference }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>

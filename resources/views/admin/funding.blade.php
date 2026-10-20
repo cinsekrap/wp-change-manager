@@ -55,7 +55,7 @@
                                    data-ref="{{ $req->reference }}">
                         </td>
                         <td class="whitespace-nowrap">
-                            <a href="{{ route('admin.requests.show', $req) }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">{{ $req->reference }}</a>
+                            <a href="{{ route('admin.requests.show', $req) }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current font-medium">{{ $req->reference }}</a>
                         </td>
                         <td class="text-gray-900 max-w-xs">{{ $req->subjectDescription() }}</td>
                         <td class="text-gray-600 max-w-sm">{{ \Illuminate\Support\Str::limit($req->content_brief['achieve'] ?? '', 120) ?: '—' }}</td>

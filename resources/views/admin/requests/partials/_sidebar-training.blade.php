@@ -14,7 +14,7 @@
     @else
         <div class="mb-3 text-sm">
             <span class="text-gray-500 text-xs">Training video</span>
-            <a href="{{ \App\Support\SafeUrl::for($trainingUrl) ?? '#' }}" target="_blank" rel="noopener" class="block text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current truncate">{{ $trainingUrl }}</a>
+            <a href="{{ \App\Support\SafeUrl::for($trainingUrl) ?? '#' }}" target="_blank" rel="noopener" class="block text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current truncate">{{ $trainingUrl }}</a>
         </div>
     @endif
 
@@ -32,7 +32,7 @@
         <div class="flex items-center justify-between">
             <span class="text-gray-500">Competence confirmed</span>
             @if($changeRequest->training_confirmed_at)
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800" title="{{ $changeRequest->training_confirmed_at->format('d M Y H:i') }}">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-800" title="{{ $changeRequest->training_confirmed_at->format('d M Y H:i') }}">
                     {{ $changeRequest->training_confirmed_at->format('d M Y') }}
                 </span>
             @else

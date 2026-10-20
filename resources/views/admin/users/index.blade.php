@@ -43,7 +43,7 @@
                     @include('admin.partials.active-badge', ['active' => $user->is_active])
                 </td>
                 <td class="text-right space-x-2">
-                    <a href="{{ route('admin.users.edit', $user) }}" class="text-sm font-medium text-gray-900 hover:underline underline-offset-2">Edit</a>
+                    <a href="{{ route('admin.users.edit', $user) }}" class="text-sm font-medium text-primary hover:underline underline-offset-2">Edit</a>
                     @if($user->id !== auth()->id())
                     <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline" data-confirm="Delete this user?">
                         @csrf @method('DELETE')

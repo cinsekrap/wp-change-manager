@@ -76,7 +76,7 @@
             <span class="text-orange-600 font-medium ml-1">New page:</span>
             <span class="text-gray-900 ml-1">{{ $changeRequest->page_title }}</span>
         @else
-            <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" rel="noopener" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current ml-1 inline-flex items-center">
+            <a href="{{ \App\Support\SafeUrl::for($changeRequest->page_url) ?? '#' }}" target="_blank" rel="noopener" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current ml-1 inline-flex items-center">
                 {{ $changeRequest->page_title ?: $changeRequest->page_url }}
                 <svg class="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
             </a>
@@ -87,7 +87,7 @@
     <div class="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         @if($changeRequest->requester_email)
         <span class="font-medium text-gray-900">{{ $changeRequest->requester_name }}</span>
-        <a href="mailto:{{ $changeRequest->requester_email }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">{{ $changeRequest->requester_email }}</a>
+        <a href="mailto:{{ $changeRequest->requester_email }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">{{ $changeRequest->requester_email }}</a>
         @else
         {{-- Content the team started itself: nobody asked for it, so there is nobody to write back to. --}}
         <span class="text-gray-500">No requester &mdash; started by the content team</span>

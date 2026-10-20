@@ -3,8 +3,8 @@
 @section('subject', "Funding decision needed: {$reference} — {$totalHours} hours")
 
 @section('content')
-    <div style="background:#f5f5f4;border-left:4px solid #1c1917;padding:16px 20px;margin:0 0 24px;">
-        <h2 style="margin:0 0 4px;color:#1c1917;font-size:20px;font-weight:700;">Approve content design hours</h2>
+    <div style="background:#f5f5f4;border-left:4px solid #0f766e;padding:16px 20px;margin:0 0 24px;">
+        <h2 style="margin:0 0 4px;color:#0f766e;font-size:20px;font-weight:700;">Approve content design hours</h2>
         <p style="margin:0;color:#57534e;font-size:14px;">{{ $itemCount }} {{ \Illuminate\Support\Str::plural('piece', $itemCount) }} of content · {{ $totalHours }} hours in total</p>
     </div>
 
@@ -31,7 +31,7 @@
             @endforeach
             <tr>
                 <td style="padding:12px;font-size:15px;font-weight:700;color:#1c1917;">Total</td>
-                <td align="right" style="padding:12px;font-size:15px;font-weight:700;color:#1c1917;">{{ $totalHours }}</td>
+                <td align="right" style="padding:12px;font-size:15px;font-weight:700;color:#0f766e;">{{ $totalHours }}</td>
             </tr>
         </tbody>
     </table>
@@ -39,7 +39,7 @@
     @if($approvalUrl)
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
         <tr>
-            <td align="center" bgcolor="#1c1917" style="border-radius:8px;">
+            <td align="center" bgcolor="#0f766e" style="border-radius:8px;">
                 <a href="{{ $approvalUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Review and approve
                 </a>

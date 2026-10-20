@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-center text-primary mb-6">{{ config('app.name') }}</h2>
+        <h2 class="text-2xl font-bold text-center text-gray-900 mb-6">{{ config('app.name') }}</h2>
 
         @if(session('status'))
             <div class="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">
@@ -42,7 +42,7 @@
                     <input type="checkbox" name="remember" id="remember" class="h-4 w-4 text-primary border-gray-300 rounded accent-primary">
                     <label for="remember" class="ml-2 text-sm text-gray-600">Remember me</label>
                 </div>
-                <a href="{{ route('password.request') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Forgot password?</a>
+                <a href="{{ route('password.request') }}" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">Forgot password?</a>
             </div>
 
             <button type="submit" class="btn btn-primary w-full">
