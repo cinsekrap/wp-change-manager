@@ -59,13 +59,13 @@ class UiFoundationsTest extends TestCase
 
     public function test_no_template_spells_out_a_button(): void
     {
-        // A pill with a burgundy fill or outline is a button. Progress bars and
-        // pills that are not buttons have neither.
+        // A rounded box with a primary fill or outline is a button. Progress bars
+        // and status pills that are not buttons have neither.
         $offenders = $this->offenders(
-            '/rounded-full/',
+            '/rounded-(full|lg|md|xl)/',
             fn ($class) => ! str_contains($class, 'btn')
-                && (str_contains($class, 'bg-hcrg-burgundy') && str_contains($class, 'text-white')
-                    || (str_contains($class, 'border-hcrg-burgundy') && str_contains($class, 'text-hcrg-burgundy')))
+                && (str_contains($class, 'bg-primary') && str_contains($class, 'text-white')
+                    || (str_contains($class, 'border-primary') && str_contains($class, 'text-primary')))
         );
 
         $this->assertSame([], array_values($offenders),
@@ -87,7 +87,7 @@ class UiFoundationsTest extends TestCase
     public function test_no_template_spells_out_a_form_input(): void
     {
         $offenders = $this->offenders(
-            '/focus:ring-hcrg-burgundy/',
+            '/focus:ring-primary/',
             fn ($class) => ! str_contains($class, 'field-input')
                 && str_contains($class, 'rounded-lg')
                 && str_contains($class, 'border-gray-300')

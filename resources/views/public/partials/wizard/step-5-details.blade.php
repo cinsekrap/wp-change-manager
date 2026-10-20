@@ -32,19 +32,19 @@
                 <p class="text-xs text-gray-400 mb-3">This helps us prioritise your request. If you're unsure, leave it as Normal.</p>
                 <div class="space-y-2.5">
                     <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="low" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="priority" value="low" class="priority-radio h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm text-gray-700"><strong>Low</strong> — No rush</span>
                     </label>
                     <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="normal" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300" checked>
+                        <input type="radio" name="priority" value="normal" class="priority-radio h-4 w-4 text-primary border-gray-300" checked>
                         <span class="text-sm text-gray-700"><strong>Normal</strong> — Standard turnaround</span>
                     </label>
                     <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="high" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="priority" value="high" class="priority-radio h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm text-gray-700"><strong>High</strong> — Needed soon</span>
                     </label>
                     <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="priority" value="urgent" class="priority-radio h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="priority" value="urgent" class="priority-radio h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm text-gray-700"><strong>Urgent</strong> — Critical &mdash; blocking other work</span>
                     </label>
                 </div>

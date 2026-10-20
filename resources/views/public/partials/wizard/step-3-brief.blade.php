@@ -19,7 +19,7 @@
                 @foreach (config('content-audiences') as $value => $label)
                     <label class="cursor-pointer">
                         <input type="checkbox" class="sr-only brief-audience" value="{{ $value }}">
-                        <span class="audience-chip inline-block text-sm px-4 py-2 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal">{{ $label }}</span>
+                        <span class="audience-chip inline-block text-sm px-4 py-2 rounded-full bg-gray-100 text-gray-700">{{ $label }}</span>
                     </label>
                 @endforeach
             </div>
@@ -39,19 +39,19 @@
                 class="field-input">
         </div>
 
-        <div class="p-4 bg-hcrg-grey-100 rounded-lg">
+        <div class="p-4 bg-gray-100 rounded-lg">
             <span class="field-label">Does something like this already exist? <span class="text-red-500">*</span></span>
             <p class="text-xs text-gray-500 mb-3">On any of our sites, or as a leaflet or document. We'd rather improve one thing than publish a second version of it.</p>
             <div class="flex flex-wrap gap-5 mb-3">
                 @foreach (['yes' => 'Yes, something similar', 'no' => 'No', 'not_sure' => 'Not sure'] as $value => $label)
                     <label class="flex items-center space-x-2 cursor-pointer">
-                        <input type="radio" name="brief_exists" value="{{ $value }}" class="h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="brief_exists" value="{{ $value }}" class="h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm text-gray-700">{{ $label }}</span>
                     </label>
                 @endforeach
             </div>
-            <div id="briefDuplicateMatches" class="hidden mb-3 p-3 bg-white border border-hcrg-grey-200 rounded-lg">
-                <p class="text-xs font-semibold text-hcrg-charcoal mb-2">Already suggested — is one of these what you mean?</p>
+            <div id="briefDuplicateMatches" class="hidden mb-3 p-3 bg-white border border-gray-200 rounded-lg">
+                <p class="text-xs font-semibold text-gray-700 mb-2">Already suggested — is one of these what you mean?</p>
                 <div id="briefDuplicateList" class="space-y-1"></div>
             </div>
             <div id="briefExistsDetailWrap" class="hidden">
@@ -66,7 +66,7 @@
             <span class="field-label">Anything we should read first? <span class="text-gray-400">(optional)</span></span>
             <p id="briefUploadHelp" class="field-help">Draft wording, a service spec, or the leaflet you're replacing.</p>
 
-            <div id="briefDropzone" class="border-2 border-dashed border-hcrg-grey-200 rounded-lg p-6 text-center bg-white">
+            <div id="briefDropzone" class="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center bg-white">
                 <p class="text-sm text-gray-500 mb-2">Drop files here, or</p>
                 <label class="btn btn-secondary cursor-pointer">
                     Choose a file

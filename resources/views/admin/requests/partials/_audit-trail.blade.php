@@ -35,9 +35,9 @@
                         'note_added' => 'bg-gray-100 text-gray-700',
                         'approver_added' => 'bg-green-100 text-green-700',
                         'approver_removed' => 'bg-red-100 text-red-700',
-                        'approver_updated' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
+                        'approver_updated' => 'bg-primary/10 text-primary',
                         'sent_for_approval' => 'bg-purple-100 text-purple-700',
-                        'item_status_changed' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
+                        'item_status_changed' => 'bg-primary/10 text-primary',
                         'priority_changed' => 'bg-orange-100 text-orange-700',
                         'approval_overridden' => 'bg-amber-100 text-amber-700',
                     ];

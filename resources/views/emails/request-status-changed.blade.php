@@ -45,9 +45,9 @@
         <p style="margin:0;color:#1D4ED8;font-size:14px;">Reference {{ $reference }} — awaiting your response.</p>
     </div>
     @else
-    <div style="margin:0 0 24px;padding:16px 20px;background-color:#F0F0EF;border-left:4px solid #B52159;border-radius:4px;">
-        <h2 style="margin:0 0 4px;color:#3C3C3B;font-size:20px;font-weight:700;">Your request has been updated</h2>
-        <p style="margin:0;color:#6E6E6D;font-size:14px;">Reference {{ $reference }} — status changed to {{ $newStatus }}.</p>
+    <div style="margin:0 0 24px;padding:16px 20px;background-color:#f5f5f4;border-left:4px solid #0f766e;border-radius:4px;">
+        <h2 style="margin:0 0 4px;color:#44403c;font-size:20px;font-weight:700;">Your request has been updated</h2>
+        <p style="margin:0;color:#78716c;font-size:14px;">Reference {{ $reference }} — status changed to {{ $newStatus }}.</p>
     </div>
     @endif
 
@@ -63,8 +63,8 @@
     @if($pageUrl)
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
         <tr>
-            <td style="border-radius:50px;background-color:#059669;">
-                <a href="{{ $pageUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+            <td style="border-radius:8px;background-color:#059669;">
+                <a href="{{ $pageUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     View Your Page
                 </a>
             </td>
@@ -75,7 +75,7 @@
         @if($rejectionReason)
         <div style="margin:0 0 20px;padding:12px 16px;background-color:#FEF2F2;border:1px solid #FECACA;border-radius:8px;">
             <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#991B1B;">Reason provided:</p>
-            <p style="margin:0;color:#3C3C3B;">{{ $rejectionReason }}</p>
+            <p style="margin:0;color:#44403c;">{{ $rejectionReason }}</p>
         </div>
         @endif
     <p style="margin:0 0 16px;">
@@ -112,8 +112,8 @@
     @if($respondUrl)
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
         <tr>
-            <td style="border-radius:50px;background-color:#2563EB;">
-                <a href="{{ $respondUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+            <td style="border-radius:8px;background-color:#2563EB;">
+                <a href="{{ $respondUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Respond to This Request
                 </a>
             </td>
@@ -129,36 +129,36 @@
     {{-- Request context --}}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse;">
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;width:140px;color:#3C3C3B;">Site</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $siteName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;width:140px;color:#44403c;">Site</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $siteName }}</td>
         </tr>
         @if($isAccessRequest)
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access to</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $cptName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Access to</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $cptName }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access for</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $recipientName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Access for</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $recipientName }}</td>
         </tr>
         @else
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
         </tr>
         @endif
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Status</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $oldStatus }} &rarr; <strong>{{ $newStatus }}</strong></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Status</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $oldStatus }} &rarr; <strong>{{ $newStatus }}</strong></td>
         </tr>
     </table>
 
     {{-- What was requested --}}
     @if($items->isNotEmpty() && !$isAccessRequest)
-    <div style="margin:0 0 24px;padding:12px 16px;background-color:#F0F0EF;border-radius:8px;">
-        <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#3C3C3B;">Changes requested ({{ $itemCount }}):</p>
+    <div style="margin:0 0 24px;padding:12px 16px;background-color:#f5f5f4;border-radius:8px;">
+        <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#44403c;">Changes requested ({{ $itemCount }}):</p>
         @foreach($items as $item)
-        <p style="margin:0 0 4px;font-size:13px;color:#6E6E6D;">
+        <p style="margin:0 0 4px;font-size:13px;color:#78716c;">
             @if($item->action_type === 'add')
                 <span style="color:#059669;font-weight:600;">Add</span>
             @elseif($item->action_type === 'change')
@@ -170,7 +170,7 @@
         </p>
         @endforeach
         @if($itemCount > 5)
-        <p style="margin:4px 0 0;font-size:12px;color:#A0A09F;">+ {{ $itemCount - 5 }} more {{ Str::plural('item', $itemCount - 5) }}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#a8a29e;">+ {{ $itemCount - 5 }} more {{ Str::plural('item', $itemCount - 5) }}</p>
         @endif
     </div>
     @endif
@@ -210,20 +210,21 @@
                 @php
                     $isComplete = $i <= $currentIndex;
                     $isCurrent = $i === $currentIndex;
-                    $dotColor = $isComplete ? '#B52159' : '#D2D2D1';
+                    $dotColor = $isComplete ? '#0f766e' : '#d6d3d1';
                     $dotSize = $isCurrent ? '14' : '10';
-                    $lineColor = ($i > 0 && $i <= $currentIndex) ? '#B52159' : '#D2D2D1';
+                    $lineColor = ($i > 0 && $i <= $currentIndex) ? '#0f766e' : '#d6d3d1';
                     $labelWeight = $isCurrent ? '700' : '400';
-                    $labelColor = $isCurrent ? '#B52159' : ($isComplete ? '#3C3C3B' : '#A0A09F');
+                    $labelColor = $isCurrent ? '#0f766e' : ($isComplete ? '#44403c' : '#a8a29e');
                 @endphp
                 <td style="text-align:center;vertical-align:top;width:{{ 100 / count($steps) }}%;padding:0;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                         <tr>
-                            <td style="width:50%;height:2px;background-color:{{ $i === 0 ? 'transparent' : $lineColor }};"></td>
-                            <td style="width:{{ $dotSize }}px;padding:0;">
-                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(181,33,89,0.2);' : '' }}"></div>
+                            {{-- The line sits in a 2px div: a cell is as tall as the dot beside it. --}}
+                            <td style="width:50%;padding:0;vertical-align:middle;"><div style="height:2px;line-height:2px;font-size:0;background-color:{{ $i === 0 ? 'transparent' : $lineColor }};">&nbsp;</div></td>
+                            <td style="width:14px;height:14px;padding:0;vertical-align:middle;">
+                                <div style="width:{{ $dotSize }}px;height:{{ $dotSize }}px;border-radius:50%;background-color:{{ $dotColor }};margin:0 auto;{{ $isCurrent ? 'box-shadow:0 0 0 3px rgba(15,118,110,0.2);' : '' }}"></div>
                             </td>
-                            <td style="width:50%;height:2px;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#B52159' : '#D2D2D1') }};"></td>
+                            <td style="width:50%;padding:0;vertical-align:middle;"><div style="height:2px;line-height:2px;font-size:0;background-color:{{ $i === count($steps) - 1 ? 'transparent' : ($i < $currentIndex ? '#0f766e' : '#d6d3d1') }};">&nbsp;</div></td>
                         </tr>
                     </table>
                     <p style="margin:6px 0 0;font-size:10px;font-weight:{{ $labelWeight }};color:{{ $labelColor }};line-height:1.2;">{{ $stepLabels[$i] }}</p>
@@ -233,15 +234,15 @@
     </table>
     @endif
 
-    <p style="margin:0 0 24px;font-size:14px;color:#6E6E6D;">
+    <p style="margin:0 0 24px;font-size:14px;color:#78716c;">
         You can view the full details of your request at any time:
     </p>
 
     {{-- CTA Button --}}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
         <tr>
-            <td style="border-radius:50px;background-color:#B52159;">
-                <a href="{{ $trackingUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+            <td style="border-radius:8px;background-color:#0f766e;">
+                <a href="{{ $trackingUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Track Your Request
                 </a>
             </td>

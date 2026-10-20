@@ -7,11 +7,11 @@
         <p class="text-sm font-medium text-gray-700 mb-2">Is this needed by a specific date? <span class="text-red-500">*</span></p>
         <div class="flex space-x-4 mb-3">
             <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="has_deadline" value="yes" id="hasDeadlineYes" class="h-4 w-4 text-hcrg-burgundy border-gray-300">
+                <input type="radio" name="has_deadline" value="yes" id="hasDeadlineYes" class="h-4 w-4 text-primary border-gray-300">
                 <span class="text-sm text-gray-700">Yes</span>
             </label>
             <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="has_deadline" value="no" id="hasDeadlineNo" class="h-4 w-4 text-hcrg-burgundy border-gray-300">
+                <input type="radio" name="has_deadline" value="no" id="hasDeadlineNo" class="h-4 w-4 text-primary border-gray-300">
                 <span class="text-sm text-gray-700">No</span>
             </label>
         </div>
@@ -42,7 +42,7 @@
                 @php $optPass = is_array($option) ? (!empty($option['pass']) ? '1' : '0') : '0'; @endphp
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="radio" name="check_q_{{ $question->id }}" value="{{ $optLabel }}" data-pass="{{ $optPass }}"
-                        class="h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        class="h-4 w-4 text-primary border-gray-300">
                     <span class="text-sm text-gray-700">{{ $optLabel }}</span>
                 </label>
                 @endforeach

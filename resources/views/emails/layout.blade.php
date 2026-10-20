@@ -14,30 +14,30 @@
     </noscript>
     <![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;">
+<body style="margin:0;padding:0;background-color:#f5f5f4;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f4;">
         <tr>
             <td align="center" style="padding:24px 16px;">
                 {{-- Container --}}
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;">
                     {{-- Header --}}
                     <tr>
-                        <td style="background-color:#B52159;padding:24px 32px;">
-                            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">ACME Change</h1>
+                        <td style="background-color:#0f766e;padding:24px 32px;">
+                            <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.2px;">{{ config('app.name') }}</h1>
                         </td>
                     </tr>
 
                     {{-- Body --}}
                     <tr>
-                        <td style="padding:32px;color:#3C3C3B;font-size:15px;line-height:1.6;">
+                        <td style="padding:32px;color:#44403c;font-size:15px;line-height:1.6;">
                             @yield('content')
                         </td>
                     </tr>
 
                     {{-- Footer --}}
                     <tr>
-                        <td style="background-color:#f0f0f0;padding:20px 32px;text-align:center;">
-                            <p style="margin:0;color:#999999;font-size:12px;line-height:1.5;">
+                        <td style="background-color:#fafaf9;padding:20px 32px;text-align:center;">
+                            <p style="margin:0;color:#78716c;font-size:12px;line-height:1.5;">
                                 &copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
                             </p>
                         </td>

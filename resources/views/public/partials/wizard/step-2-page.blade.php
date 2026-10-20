@@ -4,8 +4,8 @@
 
     <div class="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
         <span class="text-sm text-gray-500">Site</span>
-        <span id="step2SiteChip" class="inline-flex items-center gap-2 bg-hcrg-grey-100 px-3 py-1 rounded-full text-sm font-semibold text-hcrg-charcoal"></span>
-        <button type="button" id="step2ChangeSite" class="text-sm text-hcrg-burgundy underline">Change</button>
+        <span id="step2SiteChip" class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-sm font-semibold text-gray-700"></span>
+        <button type="button" id="step2ChangeSite" class="text-sm text-primary underline">Change</button>
     </div>
 
     <h2 class="text-xl font-bold text-gray-900 mb-2">What are you working on?</h2>
@@ -14,16 +14,16 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <label class="lane-option flex flex-col p-5 border border-gray-300 rounded-lg cursor-pointer" data-lane="change">
             <input type="radio" name="wizard_lane" value="change" class="sr-only">
-            <svg class="w-6 h-6 text-hcrg-grey-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+            <svg class="w-6 h-6 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
             <span class="card-title lane-title mb-1">A page that already exists</span>
-            <span class="text-sm text-hcrg-grey-400">Wording, images, contact details or links that need updating.</span>
+            <span class="text-sm text-gray-500">Wording, images, contact details or links that need updating.</span>
         </label>
 
         <label class="lane-option flex flex-col p-5 border border-gray-300 rounded-lg cursor-pointer" data-lane="content">
             <input type="radio" name="wizard_lane" value="content" class="sr-only">
-            <svg class="w-6 h-6 text-hcrg-grey-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 5v14M5 12h14"/></svg>
+            <svg class="w-6 h-6 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 5v14M5 12h14"/></svg>
             <span class="card-title lane-title mb-1">Something new</span>
-            <span class="text-sm text-hcrg-grey-400">Content that doesn't exist yet (this might be for one website, or to be used across many).</span>
+            <span class="text-sm text-gray-500">Content that doesn't exist yet (this might be for one website, or to be used across many).</span>
         </label>
     </div>
 
@@ -83,7 +83,7 @@
                     <div class="pt-3 border-t border-gray-100">
                         <div class="flex items-center justify-between mb-1">
                             <h4 class="text-xs font-bold text-gray-900">Who needs access?</h4>
-                            <button type="button" id="ssSameAsMe" class="text-xs text-hcrg-burgundy hover:underline">Same as me</button>
+                            <button type="button" id="ssSameAsMe" class="text-xs text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">Same as me</button>
                         </div>
                         <p class="text-xs text-gray-500 mb-3">This person will receive the training email and be given access — it can be you or someone else.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

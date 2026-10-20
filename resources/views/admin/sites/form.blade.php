@@ -68,7 +68,7 @@
                 <div class="flex items-center">
                     <input type="hidden" name="requires_approval" value="0">
                     <input type="checkbox" name="requires_approval" id="requires_approval" value="1" {{ old('requires_approval', $site->requires_approval ?? false) ? 'checked' : '' }}
-                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                        class="h-4 w-4 text-primary border-gray-300 rounded">
                     <label for="requires_approval" class="ml-2 text-sm text-gray-700">Require manual approval for all requests</label>
                 </div>
                 <p class="text-xs text-gray-500 mt-1 ml-6">When enabled, all requests will need admin review before being sent for approval, even if pre-submission checks pass.</p>
@@ -99,7 +99,7 @@
             <div class="flex items-center">
                 <input type="hidden" name="is_active" value="0">
                 <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $site->is_active ?? true) ? 'checked' : '' }}
-                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    class="h-4 w-4 text-primary border-gray-300 rounded">
                 <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
             </div>
             <p class="text-xs text-gray-500 -mt-3 ml-6">Inactive sites won't appear in the public wizard.</p>

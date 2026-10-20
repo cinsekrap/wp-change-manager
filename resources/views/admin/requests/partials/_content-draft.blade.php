@@ -21,7 +21,7 @@
             </p>
         </div>
 
-        <div class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-hcrg-grey-100 text-hcrg-charcoal whitespace-pre-wrap">{{ $changeRequest->draft_content }}</div>
+        <div class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-700 whitespace-pre-wrap">{{ $changeRequest->draft_content }}</div>
 
         <a href="{{ route('admin.requests.show', $changeRequest) }}?unlock_draft=1#draft"
            class="btn btn-secondary mt-3">
@@ -63,14 +63,14 @@
         @foreach($changeRequest->files as $file)
             <li class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                 <div>
-                    <p class="text-sm font-medium text-hcrg-charcoal">{{ $file->original_filename }}</p>
-                    <p class="text-xs text-hcrg-grey-400">{{ number_format($file->file_size / 1024, 0) }} KB</p>
+                    <p class="text-sm font-medium text-gray-700">{{ $file->original_filename }}</p>
+                    <p class="text-xs text-gray-500">{{ number_format($file->file_size / 1024, 0) }} KB</p>
                 </div>
                 @if($file->purged_at)
-                    <span class="text-xs text-hcrg-grey-400">removed {{ $file->purged_at->diffForHumans() }}</span>
+                    <span class="text-xs text-gray-500">removed {{ $file->purged_at->diffForHumans() }}</span>
                 @else
                     <a href="{{ route('admin.requests.download', [$changeRequest, $file]) }}"
-                       class="text-sm text-hcrg-burgundy underline">Download</a>
+                       class="text-sm text-primary underline">Download</a>
                 @endif
             </li>
         @endforeach
@@ -90,10 +90,10 @@
             @foreach($changeRequest->allSites() as $site)
                 @php $pivot = $changeRequest->publishedFor($site->id); @endphp
                 <div class="p-4 border border-gray-200 rounded-lg">
-                    <p class="text-sm font-semibold text-hcrg-charcoal mb-2">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">
                         {{ $site->name }}
                         @if($site->id === $changeRequest->site_id)
-                            <span class="ml-2 text-xs font-normal text-hcrg-grey-400">main home</span>
+                            <span class="ml-2 text-xs font-normal text-gray-500">main home</span>
                         @endif
                     </p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -106,7 +106,7 @@
                     </div>
                     @if($site->id !== $changeRequest->site_id)
                         <button type="submit" name="remove_site_id" value="{{ $site->id }}"
-                            class="mt-2 text-xs text-hcrg-grey-400 underline hover:text-hcrg-burgundy">Remove this site</button>
+                            class="mt-2 text-xs text-gray-500 underline hover:text-primary">Remove this site</button>
                     @endif
                 </div>
             @endforeach
@@ -114,7 +114,7 @@
 
         @php $unlisted = \App\Models\Site::where('is_active', true)->whereNotIn('id', $changeRequest->allSites()->pluck('id'))->orderBy('name')->get(); @endphp
         @if($unlisted->isNotEmpty())
-            <div class="mt-4 p-4 bg-hcrg-grey-100 rounded-lg">
+            <div class="mt-4 p-4 bg-gray-100 rounded-lg">
                 <label for="addSite" class="field-label">Also went live somewhere else?</label>
                 <p class="field-help">The requester's list was a suggestion — add any site this actually landed on.</p>
                 <div class="flex flex-wrap gap-2">

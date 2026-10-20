@@ -34,7 +34,7 @@
                             <svg class="w-3.5 h-3.5 mr-1 refresh-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             <span class="refresh-label">Refresh Sitemap ({{ $site->sitemap_pages_count }} pages)</span>
                         </button>
-                        <a href="{{ route('admin.sites.edit', $site) }}" class="inline-flex items-center text-xs text-hcrg-burgundy hover:text-[#9A1B4B] transition-colors">
+                        <a href="{{ route('admin.sites.edit', $site) }}" class="inline-flex items-center text-xs font-medium text-primary hover:underline underline-offset-2 transition-colors">
                             <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             Edit
                         </a>

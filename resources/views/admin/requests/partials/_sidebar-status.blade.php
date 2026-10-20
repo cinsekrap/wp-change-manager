@@ -120,7 +120,7 @@
             <div class="mt-3 pt-3 border-t border-gray-100">
                 <form method="POST" action="{{ route('admin.requests.send-approval', $changeRequest) }}" data-confirm="This will{{ $siteHasApprovers && !$hasManualApprovers ? ' add the site\'s default approvers and' : '' }} send approval emails. Continue?">
                     @csrf
-                    <button type="submit" class="w-full bg-amber-500 text-white px-4 py-2 rounded-full hover:bg-amber-600 text-sm font-medium transition-colors">
+                    <button type="submit" class="w-full bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 text-sm font-medium transition-colors">
                         Send for Approval
                     </button>
                 </form>
@@ -151,7 +151,7 @@
             <span class="text-xs font-medium text-gray-500">Assigned to</span>
             @if($changeRequest->assignee)
                 <div class="flex items-center space-x-1.5">
-                    <span class="btn btn-primary w-5 h-5 text-[10px] flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
+                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex-shrink-0">{{ strtoupper(substr($changeRequest->assignee->name, 0, 1)) }}</span>
                     <span class="text-xs font-medium text-gray-700">{{ $changeRequest->assignee->name }}</span>
                 </div>
             @else

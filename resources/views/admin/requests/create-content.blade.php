@@ -27,14 +27,14 @@
                 <p class="field-help">Sets the page type it lands on. Skip if you haven't decided.</p>
                 <div class="space-y-2">
                     @foreach($contentTypes as $key => $type)
-                        <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-hcrg-burgundy has-[:checked]:border-hcrg-burgundy has-[:checked]:bg-hcrg-grey-100">
+                        <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:border-primary has-[:checked]:border-primary has-[:checked]:bg-gray-100">
                             <input type="radio" name="content_type" value="{{ $key }}" @checked(old('content_type') === $key)
-                                class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 accent-hcrg-burgundy">
+                                class="mt-0.5 h-4 w-4 text-primary border-gray-300 accent-primary">
                             <span>
-                                <span class="block text-sm text-hcrg-charcoal">{{ $type['label'] }}</span>
+                                <span class="block text-sm text-gray-700">{{ $type['label'] }}</span>
                                 <span class="block text-xs text-gray-500 mt-0.5">{{ $type['help'] }}</span>
                             </span>
-                            <span class="ml-auto text-xs text-hcrg-grey-400 border border-hcrg-grey-200 rounded-full px-3 py-1 whitespace-nowrap self-start">{{ $type['tag'] }}</span>
+                            <span class="ml-auto text-xs text-gray-500 border border-gray-200 rounded-full px-3 py-1 whitespace-nowrap self-start">{{ $type['tag'] }}</span>
                         </label>
                     @endforeach
                 </div>
@@ -68,7 +68,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" class="sr-only peer" name="additional_site_ids[]" value="{{ $site->id }}"
                                 @checked(in_array($site->id, old('additional_site_ids', [])))>
-                            <span class="inline-block text-sm px-4 py-2 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal peer-checked:bg-hcrg-burgundy peer-checked:text-white">{{ $site->name }}</span>
+                            <span class="inline-block text-sm px-4 py-2 rounded-full bg-gray-100 text-gray-700 peer-checked:bg-primary peer-checked:text-white">{{ $site->name }}</span>
                         </label>
                     @endforeach
                 </div>
@@ -97,7 +97,7 @@
                         <label class="cursor-pointer">
                             <input type="checkbox" class="sr-only peer" name="brief[audience][]" value="{{ $value }}"
                                 @checked(in_array($value, old('brief.audience', [])))>
-                            <span class="inline-block text-sm px-4 py-2 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal peer-checked:bg-hcrg-burgundy peer-checked:text-white">{{ $label }}</span>
+                            <span class="inline-block text-sm px-4 py-2 rounded-full bg-gray-100 text-gray-700 peer-checked:bg-primary peer-checked:text-white">{{ $label }}</span>
                         </label>
                     @endforeach
                 </div>

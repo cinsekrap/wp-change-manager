@@ -1,7 +1,7 @@
 @php
 $priorityColors = [
-    'low' => 'bg-gray-100 text-gray-600',
-    'normal' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
+    'low' => 'bg-white text-gray-500 ring-1 ring-inset ring-gray-200',
+    'normal' => 'bg-gray-100 text-gray-700',
     'high' => 'bg-amber-100 text-amber-800',
     'urgent' => 'bg-red-100 text-red-800',
 ];

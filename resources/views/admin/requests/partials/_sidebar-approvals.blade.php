@@ -93,17 +93,17 @@
                                 <form method="POST" action="{{ route('admin.requests.approvers.update', [$changeRequest, $approver]) }}" class="space-y-2">
                                     @csrf @method('PATCH')
                                     <div class="flex gap-2">
-                                        <select name="status" required class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                        <select name="status" required class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                                             <option value="">Decision...</option>
                                             <option value="approved">Approved</option>
                                             <option value="rejected">Rejected</option>
                                         </select>
                                         <input type="datetime-local" name="responded_at" value="{{ now()->format('Y-m-d\TH:i') }}" required
-                                            class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                            class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                                     </div>
-                                    <input type="text" name="notes" placeholder="Notes (optional)" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                    <input type="text" name="notes" placeholder="Notes (optional)" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                                     <label class="flex items-center space-x-1.5 cursor-pointer">
-                                        <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-hcrg-burgundy border-gray-300 rounded">
+                                        <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-primary border-gray-300 rounded">
                                         <span class="text-[10px] text-gray-500">Share approver name with requester</span>
                                     </label>
                                     <button type="submit" class="btn btn-primary btn-sm w-full">Record</button>
@@ -159,17 +159,17 @@
                         <form method="POST" action="{{ route('admin.requests.approvers.update', [$changeRequest, $approver]) }}" class="space-y-2">
                             @csrf @method('PATCH')
                             <div class="flex gap-2">
-                                <select name="status" required class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                <select name="status" required class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                                     <option value="">Decision...</option>
                                     <option value="approved">Approved</option>
                                     <option value="rejected">Rejected</option>
                                 </select>
                                 <input type="datetime-local" name="responded_at" value="{{ now()->format('Y-m-d\TH:i') }}" required
-                                    class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                                    class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                             </div>
-                            <input type="text" name="notes" placeholder="Notes (optional)" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy">
+                            <input type="text" name="notes" placeholder="Notes (optional)" class="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-primary/15 focus:border-primary">
                             <label class="flex items-center space-x-1.5 cursor-pointer">
-                                <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-hcrg-burgundy border-gray-300 rounded">
+                                <input type="checkbox" name="share_details" value="1" class="h-3 w-3 text-primary border-gray-300 rounded">
                                 <span class="text-[10px] text-gray-500">Share approver name with requester</span>
                             </label>
                             <button type="submit" class="btn btn-primary btn-sm w-full">Record</button>
@@ -199,7 +199,7 @@
             <form method="POST" action="{{ route('admin.requests.override-approvals', $changeRequest) }}"
                   data-confirm="This will override the approval gate and notify {{ $pendingCount }} pending approver(s). Continue?">
                 @csrf
-                <button type="submit" class="override-btn w-full relative overflow-hidden text-white px-4 py-2 rounded-full text-sm font-medium bg-amber-500 transition-all duration-300">
+                <button type="submit" class="override-btn w-full relative overflow-hidden text-white px-4 py-2 rounded-lg text-sm font-medium bg-amber-500 transition-all duration-300">
                     <span class="relative">Override Approvals</span>
                 </button>
                 <style>.override-btn:hover{background:repeating-linear-gradient(-45deg,#f59e0b,#f59e0b 10px,#1a1a1a 10px,#1a1a1a 20px);text-shadow:0 1px 2px rgba(0,0,0,.5)}</style>
@@ -236,7 +236,7 @@
                 </select>
 
                 {{-- Their expertise, so the designer can tell this is the right person to ask. --}}
-                <p id="clinicalApproverExpertise" class="hidden mt-2 text-xs text-hcrg-grey-400 bg-hcrg-grey-100 rounded-lg p-2"></p>
+                <p id="clinicalApproverExpertise" class="hidden mt-2 text-xs text-gray-500 bg-gray-100 rounded-lg p-2"></p>
 
                 <button type="submit" class="btn btn-primary btn-sm mt-2 w-full">Ask for approval</button>
 

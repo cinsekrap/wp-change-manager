@@ -19,25 +19,25 @@
             <div class="space-y-3 mb-6">
                 <label class="flex items-center space-x-3 cursor-pointer">
                     <input type="checkbox" name="sections[]" value="cpt_types" checked
-                        class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
+                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/15">
                     <span class="text-sm text-gray-700">CPT Types <span class="text-gray-400">({{ $counts['cpt_types'] }})</span></span>
                 </label>
 
                 <label class="flex items-center space-x-3 cursor-pointer">
                     <input type="checkbox" name="sections[]" value="check_questions" checked
-                        class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
+                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/15">
                     <span class="text-sm text-gray-700">Check Questions <span class="text-gray-400">({{ $counts['check_questions'] }})</span></span>
                 </label>
 
                 <label class="flex items-center space-x-3 cursor-pointer">
                     <input type="checkbox" name="sections[]" value="settings" checked
-                        class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
+                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/15">
                     <span class="text-sm text-gray-700">Settings <span class="text-gray-400">(non-sensitive)</span></span>
                 </label>
 
                 <label class="flex items-center space-x-3 cursor-pointer">
                     <input type="checkbox" name="sections[]" value="email_templates" checked
-                        class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
+                        class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/15">
                     <span class="text-sm text-gray-700">Email Templates <span class="text-gray-400">(customised only)</span></span>
                 </label>
 
@@ -61,7 +61,7 @@
             <div class="mb-5">
                 <label for="config_file" class="field-label">Configuration File</label>
                 <input type="file" name="config_file" id="config_file" accept=".json" required
-                    class="field-input text-gray-700 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20"
+                    class="field-input text-gray-700 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                     onchange="parseImportFile(this)">
                 @error('config_file') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
@@ -156,7 +156,7 @@ function parseImportFile(input) {
 function sectionCheckbox(value, label, detail) {
     return '<label class="flex items-center space-x-3 cursor-pointer">' +
         '<input type="checkbox" name="import_sections[]" value="' + value + '" checked ' +
-        'class="w-4 h-4 rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">' +
+        'class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/15">' +
         '<span class="text-sm text-gray-700">' + label + ' <span class="text-gray-400">(' + detail + ')</span></span>' +
         '</label>';
 }

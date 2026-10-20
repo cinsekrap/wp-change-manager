@@ -7,7 +7,7 @@
         <h1 class="page-title">Email Templates</h1>
         <p class="mt-1 text-sm text-gray-500">Customise the subject lines and body text of automated emails. Use placeholders to insert dynamic content.</p>
     </div>
-    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-hcrg-burgundy hover:underline">&larr; Notifications</a>
+    <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">&larr; Notifications</a>
 </div>
 
 <form method="POST" action="{{ route('admin.settings.email-templates.update') }}" id="templateForm">
@@ -25,7 +25,7 @@
                 </div>
                 <div class="flex items-center space-x-3">
                     @if($tpl['subject'] || $tpl['body'])
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/10 text-hcrg-burgundy">Customised</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">Customised</span>
                     @endif
                     <svg id="chevron-{{ $key }}" class="w-5 h-5 text-gray-400 transition-transform duration-200{{ $loop->first ? ' rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </div>
@@ -40,7 +40,7 @@
                         @foreach($tpl['placeholders'] as $ph)
                         <button type="button"
                             onclick="insertPlaceholder('{{ $key }}', '{{ $ph }}')"
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-hcrg-burgundy/10 hover:text-hcrg-burgundy transition-colors cursor-pointer">
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer">
                             {{ '{' . $ph . '}' }}
                         </button>
                         @endforeach
@@ -88,7 +88,7 @@
                         <span class="text-sm text-gray-400">Using default template</span>
                         @endif
                     </div>
-                    <a href="{{ route('admin.settings.mail.preview', str_replace('_', '-', $key)) }}" target="_blank" class="text-sm text-hcrg-burgundy hover:underline">
+                    <a href="{{ route('admin.settings.mail.preview', str_replace('_', '-', $key)) }}" target="_blank" class="text-sm text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current">
                         Preview email &rarr;
                     </a>
                 </div>

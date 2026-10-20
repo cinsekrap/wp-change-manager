@@ -5,20 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Install - ACME Change</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,300;0,6..12,400;0,6..12,600;0,6..12,700;1,6..12,400&display=swap" rel="stylesheet">
-    @vite('resources/css/app.css')
+    @include('layouts.partials.head')
     <style>
         [x-cloak] { display: none !important; }
-        body { font-family: 'Nunito Sans', sans-serif; }
 
         .step-hidden { display: none; }
         .step-active { display: block; }
 
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #B52159;
+            border: 3px solid var(--color-gray-200);
+            border-top: 3px solid var(--color-primary);
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -42,8 +38,8 @@
 
         input:focus {
             outline: none;
-            border-color: #B52159;
-            box-shadow: 0 0 0 3px rgba(181, 33, 89, 0.15);
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 15%, transparent);
         }
     </style>
 </head>
@@ -63,13 +59,13 @@
                     <div class="flex items-center" :class="step < 6 ? 'flex-1' : ''">
                         <div
                             class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors duration-200"
-                            :class="currentStep >= step ? 'bg-burgundy-700 text-white' : 'bg-gray-200 text-gray-500'"
+                            :class="currentStep >= step ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'"
                             x-text="step"
                         ></div>
                         <div
                             x-show="step < 6"
                             class="flex-1 h-1 mx-2 rounded transition-colors duration-200"
-                            :class="currentStep > step ? 'bg-burgundy-700' : 'bg-gray-200'"
+                            :class="currentStep > step ? 'bg-primary' : 'bg-gray-200'"
                         ></div>
                     </div>
                 </template>
@@ -131,8 +127,8 @@
                     <button
                         @click="goToStep(2)"
                         :disabled="!canProceedFromChecks"
-                        class="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        :class="canProceedFromChecks ? 'bg-burgundy-700 hover:bg-burgundy-800' : 'bg-gray-300'"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        :class="canProceedFromChecks ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300'"
                     >
                         Next
                     </button>
@@ -172,14 +168,14 @@
                 <div x-show="dbMessage" class="rounded-xl px-4 py-3 mb-4 text-sm" :class="dbSuccess ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'" x-text="dbMessage"></div>
 
                 <div class="flex justify-between">
-                    <button @click="goToStep(1)" class="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                    <button @click="goToStep(1)" class="px-5 py-2.5 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
                         Back
                     </button>
                     <div class="flex gap-3">
                         <button
                             @click="testDatabase()"
                             :disabled="dbTesting"
-                            class="px-6 py-2.5 rounded-full text-sm font-semibold border border-burgundy-700 text-burgundy-700 hover:bg-burgundy-50 transition-colors disabled:opacity-50"
+                            class="px-5 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
                             <span x-show="!dbTesting">Test Connection</span>
                             <span x-show="dbTesting" class="flex items-center gap-2"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Testing...</span>
@@ -187,8 +183,8 @@
                         <button
                             @click="goToStep(3)"
                             :disabled="!dbSuccess"
-                            class="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                            :class="dbSuccess ? 'bg-burgundy-700 hover:bg-burgundy-800' : 'bg-gray-300'"
+                            class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            :class="dbSuccess ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300'"
                         >
                             Next
                         </button>
@@ -226,14 +222,14 @@
                 <div x-show="appMessage" class="rounded-xl px-4 py-3 mb-4 text-sm" :class="appSuccess ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'" x-text="appMessage"></div>
 
                 <div class="flex justify-between">
-                    <button @click="goToStep(2)" class="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                    <button @click="goToStep(2)" class="px-5 py-2.5 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
                         Back
                     </button>
                     <button
                         @click="saveApplication()"
                         :disabled="appSaving || !app.name || !app.url"
-                        class="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        :class="(!appSaving && app.name && app.url) ? 'bg-burgundy-700 hover:bg-burgundy-800' : 'bg-gray-300'"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        :class="(!appSaving && app.name && app.url) ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300'"
                     >
                         <span x-show="!appSaving">Next</span>
                         <span x-show="appSaving" class="flex items-center gap-2"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Saving...</span>
@@ -261,15 +257,15 @@
                 <div x-show="migrateError" class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-sm text-red-700" x-text="migrateMessage"></div>
 
                 <div class="flex justify-between" x-show="!migrateRunning">
-                    <button @click="goToStep(3)" x-show="migrateError" class="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                    <button @click="goToStep(3)" x-show="migrateError" class="px-5 py-2.5 rounded-lg text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
                         Back
                     </button>
                     <div x-show="!migrateError"></div>
                     <button
                         @click="goToStep(5)"
                         :disabled="!migrateSuccess"
-                        class="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        :class="migrateSuccess ? 'bg-burgundy-700 hover:bg-burgundy-800' : 'bg-gray-300'"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        :class="migrateSuccess ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300'"
                     >
                         Next
                     </button>
@@ -307,8 +303,8 @@
                     <button
                         @click="createAdmin()"
                         :disabled="adminCreating || !admin.name || !admin.email || !admin.password || !admin.password_confirmation"
-                        class="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        :class="(!adminCreating && admin.name && admin.email && admin.password && admin.password_confirmation) ? 'bg-burgundy-700 hover:bg-burgundy-800' : 'bg-gray-300'"
+                        class="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        :class="(!adminCreating && admin.name && admin.email && admin.password && admin.password_confirmation) ? 'bg-primary hover:bg-primary-hover' : 'bg-gray-300'"
                     >
                         <span x-show="!adminCreating">Create Account</span>
                         <span x-show="adminCreating" class="flex items-center gap-2"><span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Creating...</span>
@@ -342,7 +338,7 @@
                     </div>
                 </div>
 
-                <a href="/admin/login" class="inline-block px-8 py-3 rounded-full text-sm font-semibold text-white bg-burgundy-700 hover:bg-burgundy-800 transition-colors">
+                <a href="/admin/login" class="btn btn-primary">
                     Go to Login
                 </a>
             </div>

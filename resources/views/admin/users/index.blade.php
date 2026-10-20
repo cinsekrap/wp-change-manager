@@ -32,9 +32,9 @@
                 <td class="text-gray-600">{{ $user->email }}</td>
                 <td>
                     @if($user->isSuperAdmin())
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/20 text-hcrg-burgundy">Super Admin</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/20 text-primary">Super Admin</span>
                     @elseif($user->isEditor())
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-hcrg-burgundy/10 text-hcrg-burgundy">Editor</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">Editor</span>
                     @else
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">No Access</span>
                     @endif
@@ -43,7 +43,7 @@
                     @include('admin.partials.active-badge', ['active' => $user->is_active])
                 </td>
                 <td class="text-right space-x-2">
-                    <a href="{{ route('admin.users.edit', $user) }}" class="text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">Edit</a>
+                    <a href="{{ route('admin.users.edit', $user) }}" class="text-sm font-medium text-primary hover:underline underline-offset-2">Edit</a>
                     @if($user->id !== auth()->id())
                     <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline" data-confirm="Delete this user?">
                         @csrf @method('DELETE')

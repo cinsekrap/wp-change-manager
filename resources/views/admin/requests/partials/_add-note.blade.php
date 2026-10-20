@@ -8,7 +8,7 @@
      says which you are doing, and asking confirms before it sends. --}}
 <div class="card card-body">
     <h2 class="card-title mb-1">Notes and questions</h2>
-    <p class="text-xs text-hcrg-grey-400 mb-4">Both appear in this request's history.</p>
+    <p class="text-xs text-gray-500 mb-4">Both appear in this request's history.</p>
 
     <form method="POST" action="{{ route('admin.requests.notes', $changeRequest) }}">
         @csrf
@@ -37,7 +37,7 @@
 
         @if(! $canAsk && $changeRequest->isActive())
             {{-- Explains an absence nothing else on the page accounts for. --}}
-            <p class="mt-3 text-xs text-hcrg-grey-400">This has no requester, so there is nobody to put a question to.</p>
+            <p class="mt-3 text-xs text-gray-500">This has no requester, so there is nobody to put a question to.</p>
         @endif
     </form>
 </div>

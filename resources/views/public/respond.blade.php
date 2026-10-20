@@ -3,14 +3,14 @@
 
 @section('content')
 <div class="card p-8">
-    <h1 class="text-2xl font-bold text-hcrg-burgundy mb-6">We need some more information</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">We need some more information</h1>
 
     {{-- Request summary card --}}
     <div class="bg-gray-50 rounded-lg p-6 mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Reference</p>
-                <p class="text-lg font-bold text-hcrg-burgundy font-mono">{{ $changeRequest->reference }}</p>
+                <p class="text-lg font-bold text-gray-900 font-mono">{{ $changeRequest->reference }}</p>
             </div>
             <div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Site</p>
@@ -91,7 +91,7 @@
         </div>
         @endif
 
-        <button type="submit" class="w-full bg-hcrg-burgundy text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-[#9A1B4B] transition-colors focus:ring-2 focus:ring-offset-2 focus:ring-hcrg-burgundy">
+        <button type="submit" class="btn btn-primary w-full py-3.5 text-base">
             Send Response
         </button>
         <p class="mt-2 text-xs text-gray-500 text-center">Sending your response puts the request straight back into the team's queue.</p>

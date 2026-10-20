@@ -11,20 +11,20 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pieces waiting</div>
-            <div class="text-3xl font-bold text-hcrg-charcoal mt-1">{{ $requests->count() }}</div>
+            <div class="text-3xl font-bold text-gray-700 mt-1">{{ $requests->count() }}</div>
         </div>
         <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Hours estimated</div>
-            <div class="text-3xl font-bold text-hcrg-burgundy mt-1">{{ rtrim(rtrim(number_format($totalHours, 1), '0'), '.') ?: '0' }}</div>
+            <div class="text-3xl font-bold text-primary mt-1">{{ rtrim(rtrim(number_format($totalHours, 1), '0'), '.') ?: '0' }}</div>
         </div>
         <div class="card card-body">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Still to size up</div>
-            <div class="text-3xl font-bold {{ $unsized ? 'text-amber-600' : 'text-hcrg-charcoal' }} mt-1">{{ $unsized }}</div>
+            <div class="text-3xl font-bold {{ $unsized ? 'text-amber-600' : 'text-gray-700' }} mt-1">{{ $unsized }}</div>
         </div>
         <div class="card card-body no-print">
             <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">Selected</div>
-            <div class="text-3xl font-bold text-hcrg-charcoal mt-1"><span id="selCount">0</span></div>
-            <div class="text-xs text-hcrg-grey-400 mt-1"><span id="selHours">0</span> hours</div>
+            <div class="text-3xl font-bold text-gray-700 mt-1"><span id="selCount">0</span></div>
+            <div class="text-xs text-gray-500 mt-1"><span id="selHours">0</span> hours</div>
         </div>
     </div>
 
@@ -33,7 +33,7 @@
             <table class="table">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="w-8 no-print"><input type="checkbox" id="selAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"></th>
+                        <th class="w-8 no-print"><input type="checkbox" id="selAll" class="h-3.5 w-3.5 text-primary border-gray-300 rounded"></th>
                         <th>Reference</th>
                         <th>What it is</th>
                         <th>What it's for</th>
@@ -48,14 +48,14 @@
                     <tr class="hover:bg-gray-50">
                         @php $waitingOn = $pendingByRequest[$req->id] ?? null; @endphp
                         <td class="no-print">
-                            <input type="checkbox" class="fund-row h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded"
+                            <input type="checkbox" class="fund-row h-3.5 w-3.5 text-primary border-gray-300 rounded"
                                    value="{{ $req->id }}" data-hours="{{ (float) $req->estimated_hours }}"
                                    data-sized="{{ $req->estimated_hours === null ? '0' : '1' }}"
                                    data-asked="{{ $waitingOn ? '1' : '0' }}"
                                    data-ref="{{ $req->reference }}">
                         </td>
                         <td class="whitespace-nowrap">
-                            <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium">{{ $req->reference }}</a>
+                            <a href="{{ route('admin.requests.show', $req) }}" class="text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-current font-medium">{{ $req->reference }}</a>
                         </td>
                         <td class="text-gray-900 max-w-xs">{{ $req->subjectDescription() }}</td>
                         <td class="text-gray-600 max-w-sm">{{ \Illuminate\Support\Str::limit($req->content_brief['achieve'] ?? '', 120) ?: '—' }}</td>
@@ -63,7 +63,7 @@
                         <td>
                             @include('partials.status-badge', ['status' => $req->status])
                             @if($waitingOn)
-                                <span class="block text-xs text-hcrg-grey-400 mt-1">asked {{ $waitingOn->created_at->diffForHumans() }}</span>
+                                <span class="block text-xs text-gray-500 mt-1">asked {{ $waitingOn->created_at->diffForHumans() }}</span>
                             @endif
                         </td>
                         <td class="text-right text-gray-600 whitespace-nowrap">{{ (int) $req->created_at->diffInDays(now()) }} days</td>
@@ -106,7 +106,7 @@
                         class="btn btn-primary">
                         Request funding for selected
                     </button>
-                    <span id="askRemit" class="hidden text-xs text-hcrg-grey-400 basis-full"></span>
+                    <span id="askRemit" class="hidden text-xs text-gray-500 basis-full"></span>
                     {{-- Why the ask cannot go, named rather than left to a disabled button. --}}
                     <span id="askBlocked" class="hidden text-xs text-amber-700 basis-full"></span>
                 </form>

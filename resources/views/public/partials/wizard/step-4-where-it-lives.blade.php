@@ -10,14 +10,14 @@
         <div class="space-y-2">
             @foreach ($contentTypes as $key => $type)
                 <label class="content-type-option flex items-start gap-3 p-4 border border-gray-300 rounded-lg cursor-pointer">
-                    <input type="radio" name="content_type" value="{{ $key }}" class="mt-1 h-4 w-4 text-hcrg-burgundy border-gray-300">
+                    <input type="radio" name="content_type" value="{{ $key }}" class="mt-1 h-4 w-4 text-primary border-gray-300">
                     <span class="flex-1">
                         <span class="block text-sm font-semibold text-gray-900">{{ $type['label'] }}</span>
-                        <span class="block text-xs text-hcrg-grey-400 mt-1">{{ $type['help'] }}</span>
+                        <span class="block text-xs text-gray-500 mt-1">{{ $type['help'] }}</span>
                     </span>
-                    <span class="shrink-0 self-center text-xs text-hcrg-grey-400 border border-hcrg-grey-200 rounded-full px-3 py-1 whitespace-nowrap">
+                    <span class="shrink-0 self-center text-xs text-gray-500 border border-gray-200 rounded-full px-3 py-1 whitespace-nowrap">
                         {{ isset($type['tag_article']) ? 'This is' : 'This is a' }}
-                        <strong class="font-bold text-hcrg-charcoal">{{ $type['tag'] }}</strong>
+                        <strong class="font-bold text-gray-700">{{ $type['tag'] }}</strong>
                     </span>
                 </label>
             @endforeach
