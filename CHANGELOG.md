@@ -7,6 +7,26 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.1.0
+
+ACME Change has a new look: a neutral design with a single teal accent, replacing the previous brand colours.
+
+### Improvements
+- **A neutral design.** Calm greys throughout, with teal kept for the things you can act on (buttons, the page you're on, links), so what needs attention stands out. Status colours mean what they always have.
+- **A clearer typeface**, easier to read at small sizes.
+- **Buttons look like buttons.** They're no longer the same pill shape as status labels.
+- **A calmer dashboard.** Charts use one colour pair, submitted and completed, instead of five unrelated colours. Numbers are only coloured when the colour means something.
+- **Request lists are easier to scan.** "Normal" priority no longer stands out, so High and Urgent do, and "Approved" and "Trained" each have a distinct colour.
+- **One export button on the Requests page.** Export CSV now exports exactly what your filters are showing.
+- Links are underlined, so they can be recognised without relying on colour.
+- Emails use the new design.
+
+### Bug Fixes
+- The progress tracker in status-change emails showed solid blocks instead of thin lines between steps.
+- Bullet points and headings were missing from the "What's new" notes shown after an update.
+- On short public pages, the footer floated partway up the screen instead of sitting at the bottom.
+- Drop-down menus looked different from one another depending on the screen.
+
 ## 2.0.7
 
 ### Improvements
