@@ -7,8 +7,8 @@
         <h2 class="card-title">The brief</h2>
         @if($changeRequest->content_type && config("content-types.{$changeRequest->content_type}"))
             @php $type = config("content-types.{$changeRequest->content_type}"); @endphp
-            <span class="text-xs text-hcrg-grey-400 border border-hcrg-grey-200 rounded-full px-3 py-1 whitespace-nowrap">
-                {{ $type['label'] }} — <strong class="font-bold text-hcrg-charcoal">{{ $type['tag'] }}</strong>
+            <span class="text-xs text-gray-500 border border-gray-200 rounded-full px-3 py-1 whitespace-nowrap">
+                {{ $type['label'] }} — <strong class="font-bold text-gray-700">{{ $type['tag'] }}</strong>
             </span>
         @endif
     </div>
@@ -16,31 +16,31 @@
     <dl class="space-y-4">
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">What it's trying to achieve</dt>
-            <dd class="text-sm text-hcrg-charcoal whitespace-pre-wrap">{{ $brief['achieve'] ?? '—' }}</dd>
+            <dd class="text-sm text-gray-700 whitespace-pre-wrap">{{ $brief['achieve'] ?? '—' }}</dd>
         </div>
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Who it's for</dt>
-            <dd class="text-sm text-hcrg-charcoal">
+            <dd class="text-sm text-gray-700">
                 @php $audiences = config('content-audiences'); @endphp
                 {{ collect($brief['audience'] ?? [])->map(fn ($a) => $audiences[$a] ?? $a)->join(', ') ?: '—' }}
             </dd>
         </div>
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">What they should know or do</dt>
-            <dd class="text-sm text-hcrg-charcoal whitespace-pre-wrap">{{ $brief['know_or_do'] ?? '—' }}</dd>
+            <dd class="text-sm text-gray-700 whitespace-pre-wrap">{{ $brief['know_or_do'] ?? '—' }}</dd>
         </div>
         @if(!empty($brief['measure']))
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">How we'll know it worked</dt>
-            <dd class="text-sm text-hcrg-charcoal">{{ $brief['measure'] }}</dd>
+            <dd class="text-sm text-gray-700">{{ $brief['measure'] }}</dd>
         </div>
         @endif
         <div>
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Does something like this already exist?</dt>
-            <dd class="text-sm text-hcrg-charcoal">
+            <dd class="text-sm text-gray-700">
                 {{ ['yes' => 'Yes, something similar', 'no' => 'No', 'not_sure' => 'Not sure'][$brief['already_exists'] ?? ''] ?? '—' }}
                 @if(!empty($brief['already_exists_detail']))
-                    <span class="block text-hcrg-grey-400 mt-1">{{ $brief['already_exists_detail'] }}</span>
+                    <span class="block text-gray-500 mt-1">{{ $brief['already_exists_detail'] }}</span>
                 @endif
             </dd>
         </div>
@@ -53,9 +53,9 @@
         <ul class="space-y-2">
             @foreach($changeRequest->watchers as $watcher)
                 <li class="flex items-center justify-between p-2 border border-gray-200 rounded-lg">
-                    <span class="text-sm text-hcrg-charcoal">{{ $watcher->email }}</span>
+                    <span class="text-sm text-gray-700">{{ $watcher->email }}</span>
                     <span class="flex items-center gap-3">
-                        <span class="text-xs {{ $watcher->confirmed_at ? 'text-hcrg-grey-400' : 'text-amber-600' }}">
+                        <span class="text-xs {{ $watcher->confirmed_at ? 'text-gray-500' : 'text-amber-600' }}">
                             {{ $watcher->confirmed_at ? 'confirmed' : 'not confirmed — not emailed' }}
                         </span>
                         <form method="POST" action="{{ route('admin.requests.watcher.remove', [$changeRequest, $watcher]) }}"

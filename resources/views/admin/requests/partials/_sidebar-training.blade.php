@@ -14,7 +14,7 @@
     @else
         <div class="mb-3 text-sm">
             <span class="text-gray-500 text-xs">Training video</span>
-            <a href="{{ \App\Support\SafeUrl::for($trainingUrl) ?? '#' }}" target="_blank" rel="noopener" class="block text-hcrg-burgundy hover:underline truncate">{{ $trainingUrl }}</a>
+            <a href="{{ \App\Support\SafeUrl::for($trainingUrl) ?? '#' }}" target="_blank" rel="noopener" class="block text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current truncate">{{ $trainingUrl }}</a>
         </div>
     @endif
 

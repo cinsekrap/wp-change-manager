@@ -53,7 +53,7 @@
     </form>
 
     <p class="mt-6 text-center text-sm text-gray-500">
-        <a href="{{ route('wizard') }}" class="text-hcrg-burgundy hover:underline">Submit a new request</a>
+        <a href="{{ route('wizard') }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Submit a new request</a>
     </p>
 </div>
 @endsection

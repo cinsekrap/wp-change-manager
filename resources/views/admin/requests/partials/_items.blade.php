@@ -7,7 +7,7 @@
         // Items can't be resolved until approvals are satisfied (or overridden).
         $canResolveItems = $changeRequest->canMovePastReferred();
         $itemStatusColors = [
-            'in_progress' => 'bg-hcrg-burgundy',
+            'in_progress' => 'bg-primary',
             'done' => 'bg-emerald-500',
             'not_done' => 'bg-red-500',
         ];
@@ -19,7 +19,7 @@
         <div class="flex items-center space-x-3">
             <span class="text-sm text-gray-500">{{ $doneItems }} of {{ $totalItems }} items completed</span>
             <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full rounded-full {{ $allDone ? 'bg-emerald-500' : 'bg-hcrg-burgundy' }} transition-all" style="width: {{ round(($doneItems / $totalItems) * 100) }}%"></div>
+                <div class="h-full rounded-full {{ $allDone ? 'bg-emerald-500' : 'bg-primary' }} transition-all" style="width: {{ round(($doneItems / $totalItems) * 100) }}%"></div>
             </div>
         </div>
         @endif
@@ -31,7 +31,7 @@
             $borderColor = match($item->action_type) {
                 'add' => 'border-green-200',
                 'delete' => 'border-red-200',
-                default => 'border-hcrg-burgundy/20',
+                default => 'border-primary/20',
             };
         @endphp
         <div class="border {{ $borderColor }} rounded-lg p-4">
@@ -42,7 +42,7 @@
                         <span class="text-sm font-medium text-gray-500">#{{ $index + 1 }}</span>
                     </span>
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {{ $item->action_type === 'add' ? 'bg-green-100 text-green-800' : ($item->action_type === 'delete' ? 'bg-red-100 text-red-800' : 'bg-hcrg-burgundy/10 text-hcrg-burgundy') }}">
+                        {{ $item->action_type === 'add' ? 'bg-green-100 text-green-800' : ($item->action_type === 'delete' ? 'bg-red-100 text-red-800' : 'bg-primary/10 text-primary') }}">
                         {{ ucfirst($item->action_type) }}
                     </span>
                     @if($item->content_area)
@@ -55,7 +55,7 @@
                         @csrf @method('PATCH')
                         <input type="hidden" name="status" value="in_progress">
                         <button type="submit" title="In Progress"
-                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'in_progress' ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-400 hover:bg-hcrg-burgundy/10 hover:text-hcrg-burgundy' }}">
+                            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors {{ $item->status === 'in_progress' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400 hover:bg-primary/10 hover:text-primary' }}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
                     </form>
@@ -134,7 +134,7 @@
                         </span>
                         @else
                         <a href="{{ route('admin.requests.download', [$changeRequest, $file]) }}"
-                           class="flex items-center text-sm text-hcrg-burgundy hover:text-[#9A1B4B]">
+                           class="flex items-center text-sm font-medium text-gray-900 hover:underline underline-offset-2">
                             <svg class="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>

@@ -5,6 +5,6 @@
         <span id="stepTitle" class="text-sm text-gray-500">Select site</span>
     </div>
     <div class="w-full bg-gray-200 rounded-full h-2.5">
-        <div id="progressBar" class="bg-hcrg-burgundy h-2.5 rounded-full transition-all duration-300" style="width: 16.66%"></div>
+        <div id="progressBar" class="bg-primary h-2.5 rounded-full transition-all duration-300" style="width: 16.66%"></div>
     </div>
 </div>

@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-center text-hcrg-burgundy mb-2">{{ config('app.name') }}</h2>
+        <h2 class="text-2xl font-bold text-center text-primary mb-2">{{ config('app.name') }}</h2>
         <p class="text-center text-sm text-gray-500 mb-6">Enter your email address and we'll send you a link to reset your password.</p>
 
         @if(session('status'))
@@ -38,7 +38,7 @@
         </form>
 
         <p class="mt-4 text-center text-sm text-gray-500">
-            <a href="{{ route('login') }}" class="text-hcrg-burgundy hover:underline">Back to sign in</a>
+            <a href="{{ route('login') }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Back to sign in</a>
         </p>
     </div>
 </body>

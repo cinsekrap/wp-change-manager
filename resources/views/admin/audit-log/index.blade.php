@@ -68,7 +68,7 @@
                     @php
                         $actionColors = [
                             'created' => 'bg-green-100 text-green-700',
-                            'updated' => 'bg-hcrg-burgundy/10 text-hcrg-burgundy',
+                            'updated' => 'bg-primary/10 text-primary',
                             'deleted' => 'bg-red-100 text-red-700',
                             'status_changed' => 'bg-amber-100 text-amber-700',
                             'login' => 'bg-emerald-100 text-emerald-700',
@@ -94,7 +94,7 @@
                 </td>
                 <td class="text-right whitespace-nowrap">
                     @if($log->old_values || $log->new_values)
-                        <button type="button" onclick="toggleAuditDetail({{ $log->id }})" class="text-xs text-hcrg-burgundy hover:text-[#9A1B4B] font-medium">
+                        <button type="button" onclick="toggleAuditDetail({{ $log->id }})" class="text-xs font-medium text-gray-900 hover:underline underline-offset-2 font-medium">
                             Details
                         </button>
                     @endif

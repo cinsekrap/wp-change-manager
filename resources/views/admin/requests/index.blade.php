@@ -3,7 +3,11 @@
 
 @section('content')
 <x-admin.page-header title="Requests" lede="Everything asked for across all sites, newest first.">
-    <a href="{{ route('admin.requests.export') }}" class="btn btn-secondary">Export</a>
+    {{-- Exports what the filters below are showing; with none set, that is everything. --}}
+    <a href="{{ route('admin.requests.export', request()->query()) }}" class="btn btn-secondary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Export CSV
+    </a>
 </x-admin.page-header>
 
 @php
@@ -28,11 +32,11 @@
         $allParams = request()->except('my_requests');
     @endphp
     <a href="{{ route('admin.requests.index', $allParams) }}"
-        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ !$myRequestsActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ !$myRequestsActive ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
         All Requests
     </a>
     <a href="{{ route('admin.requests.index', $myParams) }}"
-        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ $myRequestsActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+        class="inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors {{ $myRequestsActive ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
         My Requests
     </a>
 </div>
@@ -59,13 +63,13 @@
                 </button>
                 <div class="hidden absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 font-medium">
-                        <input type="checkbox" id="statusSelectAll" class="select-all-toggle h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
+                        <input type="checkbox" id="statusSelectAll" class="select-all-toggle h-3.5 w-3.5 text-primary border-gray-300 rounded mr-2">
                         All
                     </label>
                     @foreach(\App\Models\ChangeRequest::STATUSES as $status)
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
                         <input type="checkbox" name="status[]" value="{{ $status }}" {{ in_array($status, $selectedStatuses) ? 'checked' : '' }}
-                            class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
+                            class="h-3.5 w-3.5 text-primary border-gray-300 rounded mr-2">
                         {{ \App\Models\ChangeRequest::statusLabel($status) }}
                     </label>
                     @endforeach
@@ -86,7 +90,7 @@
                     @foreach(\App\Models\ChangeRequest::PRIORITIES as $priority)
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm">
                         <input type="checkbox" name="priority[]" value="{{ $priority }}" {{ in_array($priority, $selectedPriorities) ? 'checked' : '' }}
-                            class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2">
+                            class="h-3.5 w-3.5 text-primary border-gray-300 rounded mr-2">
                         {{ ucfirst($priority) }}
                     </label>
                     @endforeach
@@ -107,7 +111,7 @@
                     @foreach($sites as $site)
                     <label class="flex items-center px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-sm whitespace-nowrap">
                         <input type="checkbox" name="site_id[]" value="{{ $site->id }}" {{ in_array((string)$site->id, $selectedSites) ? 'checked' : '' }}
-                            class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded mr-2 flex-shrink-0">
+                            class="h-3.5 w-3.5 text-primary border-gray-300 rounded mr-2 flex-shrink-0">
                         <span class="truncate">{{ $site->name }}</span>
                     </label>
                     @endforeach
@@ -139,15 +143,11 @@
                 class="field-input" onchange="this.form.submit()">
         </div>
     </div>
+    @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests') || request('sort'))
     <div class="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-gray-100">
-        <a href="{{ route('admin.requests.export', request()->query()) }}" class="btn btn-secondary">
-            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Export CSV
-        </a>
-        @if(request('search') || !empty($selectedStatuses) || !empty($selectedSites) || !empty($selectedPriorities) || request('date_from') || request('date_to') || request('assigned_to') || request('my_requests') || request('sort'))
-            <a href="{{ route('admin.requests.index') }}" onclick="localStorage.removeItem('acme_requests_filters')" class="text-sm text-gray-500 hover:text-gray-700">Clear filters</a>
-        @endif
+        <a href="{{ route('admin.requests.index') }}" onclick="localStorage.removeItem('acme_requests_filters')" class="text-sm text-gray-500 hover:text-gray-900">Clear filters</a>
     </div>
+    @endif
 </form>
 
 {{-- Results --}}
@@ -157,7 +157,7 @@
         <thead class="bg-gray-50">
             <tr>
                 <th class="w-8">
-                    <input type="checkbox" id="selectAll" class="h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded">
+                    <input type="checkbox" id="selectAll" class="h-3.5 w-3.5 text-primary border-gray-300 rounded">
                 </th>
                 @foreach([
                     'reference' => 'Reference',
@@ -168,7 +168,7 @@
                     <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
                         {{ $label }}
                         @if($currentSort === $col)
-                            <svg class="w-3 h-3 ml-1 text-hcrg-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
+                            <svg class="w-3 h-3 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
                         @else
                             <svg class="w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5 5 5M7 13l5 5 5-5"/></svg>
                         @endif
@@ -186,7 +186,7 @@
                     <a href="{{ route('admin.requests.index', $sortParams($col)) }}" class="group inline-flex items-center hover:text-gray-700 transition-colors">
                         {{ $label }}
                         @if($currentSort === $col)
-                            <svg class="w-3 h-3 ml-1 text-hcrg-burgundy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
+                            <svg class="w-3 h-3 ml-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $currentDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/></svg>
                         @else
                             <svg class="w-3 h-3 ml-1 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5 5 5M7 13l5 5 5-5"/></svg>
                         @endif
@@ -199,10 +199,10 @@
             @forelse($requests as $req)
             <tr class="hover:bg-gray-50">
                 <td onclick="event.stopPropagation()">
-                    <input type="checkbox" class="row-checkbox h-3.5 w-3.5 text-hcrg-burgundy border-gray-300 rounded" value="{{ $req->id }}">
+                    <input type="checkbox" class="row-checkbox h-3.5 w-3.5 text-primary border-gray-300 rounded" value="{{ $req->id }}">
                 </td>
                 <td class="cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
-                    <a href="{{ route('admin.requests.show', $req) }}" class="text-hcrg-burgundy hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
+                    <a href="{{ route('admin.requests.show', $req) }}" class="text-primary hover:underline font-medium text-sm whitespace-nowrap">{{ $req->reference }}</a>
                 </td>
                 <td class="text-gray-600 max-w-[150px] truncate cursor-pointer" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->site->name ?? '—' }}</td>
                 <td class="text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">{{ $req->requester_name ?: '—' }}</td>
@@ -211,7 +211,7 @@
                         @if($req->items_count > 0)
                         <span class="text-xs {{ $req->items_done_count === $req->items_count ? 'text-emerald-600 font-medium' : 'text-gray-500' }}">{{ $req->items_done_count }}/{{ $req->items_count }}</span>
                         <div class="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full {{ $req->items_done_count === $req->items_count ? 'bg-emerald-500' : 'bg-hcrg-burgundy' }}" style="width: {{ round(($req->items_done_count / $req->items_count) * 100) }}%"></div>
+                            <div class="h-full rounded-full {{ $req->items_done_count === $req->items_count ? 'bg-emerald-500' : 'bg-primary' }}" style="width: {{ round(($req->items_done_count / $req->items_count) * 100) }}%"></div>
                         </div>
                         @else
                         <span class="text-xs text-gray-300">0</span>
@@ -221,7 +221,7 @@
                 <td class="text-gray-600 cursor-pointer whitespace-nowrap" onclick="window.location='{{ route('admin.requests.show', $req) }}'">
                     @if($req->assignee)
                         <span class="inline-flex items-center">
-                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-hcrg-burgundy/10 text-hcrg-burgundy text-[10px] font-semibold mr-1.5">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold mr-1.5">{{ strtoupper(substr($req->assignee->name, 0, 1)) }}</span>
                             <span class="text-sm">{{ $req->assignee->name }}</span>
                         </span>
                     @else

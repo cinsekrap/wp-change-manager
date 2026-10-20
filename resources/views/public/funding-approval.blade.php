@@ -31,7 +31,7 @@
                     </p>
                 </div>
                 <div class="text-right shrink-0">
-                    <span class="text-2xl font-bold text-hcrg-burgundy">{{ rtrim(rtrim(number_format((float) $item->estimated_hours, 1), '0'), '.') }}</span>
+                    <span class="text-2xl font-bold text-primary">{{ rtrim(rtrim(number_format((float) $item->estimated_hours, 1), '0'), '.') }}</span>
                     <span class="block text-xs text-gray-400">hours</span>
                 </div>
             </div>
@@ -65,9 +65,9 @@
         </div>
     @endforeach
 
-    <div class="bg-hcrg-grey-100 rounded-lg p-5 flex justify-between items-center">
+    <div class="bg-gray-100 rounded-lg p-5 flex justify-between items-center">
         <span class="font-bold text-gray-900">Total</span>
-        <span class="text-2xl font-bold text-hcrg-burgundy">{{ rtrim(rtrim(number_format((float) $round->total_hours, 1), '0'), '.') }} hours</span>
+        <span class="text-2xl font-bold text-primary">{{ rtrim(rtrim(number_format((float) $round->total_hours, 1), '0'), '.') }} hours</span>
     </div>
 </div>
 

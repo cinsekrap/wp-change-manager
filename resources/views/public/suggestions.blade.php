@@ -23,9 +23,9 @@
         <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
             <div>
                 <h3 class="card-title">{{ $entry->public_title }}</h3>
-                <p class="text-xs text-hcrg-grey-400 mt-1">{{ $entry->reference }} · suggested {{ $entry->created_at->diffForHumans() }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ $entry->reference }} · suggested {{ $entry->created_at->diffForHumans() }}</p>
             </div>
-            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-hcrg-grey-100 text-hcrg-charcoal whitespace-nowrap">
+            <span class="text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-700 whitespace-nowrap">
                 {{ \App\Models\ChangeRequest::statusLabel($entry->status) }}
             </span>
         </div>

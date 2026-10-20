@@ -23,7 +23,7 @@
                 <td>
                     <p class="text-sm font-medium text-gray-900">{{ $approver->name }}</p>
                     @if($approver->job_title)
-                        <p class="text-xs text-hcrg-grey-400">{{ $approver->job_title }}</p>
+                        <p class="text-xs text-gray-500">{{ $approver->job_title }}</p>
                     @endif
                 </td>
                 <td class="text-gray-600">{{ $approver->email }}</td>
@@ -32,7 +32,7 @@
                     @include('admin.partials.active-badge', ['active' => $approver->is_active])
                 </td>
                 <td class="text-right">
-                    <a href="{{ route('admin.funding-approvers.edit', $approver) }}" class="text-hcrg-burgundy hover:underline">Edit</a>
+                    <a href="{{ route('admin.funding-approvers.edit', $approver) }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">Edit</a>
                     @if($approver->is_active)
                         <form method="POST" action="{{ route('admin.funding-approvers.destroy', $approver) }}" class="inline ml-3"
                               data-confirm="Deactivate {{ $approver->name }}? They will no longer appear when requesting funding.">

@@ -51,7 +51,7 @@
             <div class="flex items-center">
                 <input type="hidden" name="is_active" value="0">
                 <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $user->is_active ?? true) ? 'checked' : '' }}
-                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                    class="h-4 w-4 text-primary border-gray-300 rounded">
                 <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
             </div>
         </div>

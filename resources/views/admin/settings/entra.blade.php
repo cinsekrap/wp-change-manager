@@ -16,7 +16,7 @@
                 <input type="hidden" name="entra_enabled" value="0">
                 <input type="checkbox" name="entra_enabled" id="entra_enabled" value="1"
                     {{ old('entra_enabled', $settings->get('entra_enabled')) ? 'checked' : '' }}
-                    class="mt-1 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+                    class="mt-1 h-4 w-4 text-primary border-gray-300 rounded accent-primary">
                 <div>
                     <label for="entra_enabled" class="text-sm font-medium text-gray-900">Enable Microsoft Entra SSO</label>
                     <p class="text-xs text-gray-500 mt-0.5">Allow users to sign in with their Microsoft account. You must configure the settings below and register this app in Azure first.</p>
@@ -74,7 +74,7 @@
                 <input type="hidden" name="entra_auto_provision" value="0">
                 <input type="checkbox" name="entra_auto_provision" id="entra_auto_provision" value="1"
                     {{ old('entra_auto_provision', $settings->get('entra_auto_provision')) ? 'checked' : '' }}
-                    class="mt-1 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+                    class="mt-1 h-4 w-4 text-primary border-gray-300 rounded accent-primary">
                 <div>
                     <label for="entra_auto_provision" class="text-sm font-medium text-gray-900">Auto-provision users</label>
                     <p class="text-xs text-gray-500 mt-0.5">Automatically create an admin account when a new user signs in via Microsoft for the first time. If disabled, users must be created manually before they can log in with SSO.</p>

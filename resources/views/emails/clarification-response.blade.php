@@ -13,14 +13,14 @@
     </p>
 
     @if($comment !== '')
-    <div style="margin:0 0 20px;padding:12px 16px;background-color:#F0F0EF;border:1px solid #D2D2D1;border-radius:8px;">
-        <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#3C3C3B;">{{ $requesterName }} said:</p>
-        <p style="margin:0;color:#3C3C3B;">{!! nl2br(e($comment)) !!}</p>
+    <div style="margin:0 0 20px;padding:12px 16px;background-color:#f5f5f4;border:1px solid #d6d3d1;border-radius:8px;">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#44403c;">{{ $requesterName }} said:</p>
+        <p style="margin:0;color:#44403c;">{!! nl2br(e($comment)) !!}</p>
     </div>
     @endif
 
     @if($itemsUpdated > 0)
-    <p style="margin:0 0 16px;font-size:14px;color:#3C3C3B;">
+    <p style="margin:0 0 16px;font-size:14px;color:#44403c;">
         They also updated <strong>{{ $itemsUpdated }}</strong> change {{ $itemsUpdated === 1 ? 'item' : 'items' }} on the original request.
     </p>
     @endif
@@ -28,24 +28,24 @@
     {{-- Request context --}}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-collapse:collapse;">
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;width:140px;color:#3C3C3B;">Site</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $siteName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;width:140px;color:#44403c;">Site</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $siteName }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Requester</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $requesterName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Requester</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $requesterName }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Status</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">Awaiting user &rarr; <strong>{{ $newStatus }}</strong></td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Status</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">Awaiting user &rarr; <strong>{{ $newStatus }}</strong></td>
         </tr>
     </table>
 
     {{-- CTA Button --}}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
         <tr>
-            <td style="border-radius:50px;background-color:#B52159;">
-                <a href="{{ $adminUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+            <td style="border-radius:8px;background-color:#1c1917;">
+                <a href="{{ $adminUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     View Request
                 </a>
             </td>

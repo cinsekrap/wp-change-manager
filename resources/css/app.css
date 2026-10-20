@@ -6,53 +6,49 @@
 @source '../**/*.js';
 
 @theme {
-    /* Font family */
-    --font-sans: 'Nunito Sans', Verdana, Geneva, sans-serif;
+    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-    /* HCRG brand colours */
-    --color-hcrg-burgundy: #B52159;
-    --color-hcrg-charcoal: #3C3C3B;
-    --color-hcrg-grey-100: #F0F0EF;
-    --color-hcrg-grey-200: #D2D2D1;
-    --color-hcrg-grey-300: #A0A09F;
-    --color-hcrg-grey-400: #6E6E6D;
-    --color-hcrg-grey-500: #3C3C3B;
-    --color-hcrg-white: #FFFFFF;
+    /* One grey for the whole app. Tailwind's own gray leans blue, and this
+       replaces it rather than adding a second scale, so every gray-* class in
+       the templates moves together. Change the tint here and nowhere else. */
+    --color-gray-50: oklch(98.5% 0.001 106.4);
+    --color-gray-100: oklch(97% 0.001 106.4);
+    --color-gray-200: oklch(92.3% 0.003 48.7);
+    --color-gray-300: oklch(86.9% 0.005 56.4);
+    --color-gray-400: oklch(70.9% 0.01 56.3);
+    --color-gray-500: oklch(55.3% 0.013 58.1);
+    --color-gray-600: oklch(44.4% 0.011 73.6);
+    --color-gray-700: oklch(37.4% 0.01 67.6);
+    --color-gray-800: oklch(26.8% 0.007 34.3);
+    --color-gray-900: oklch(21.6% 0.006 56);
+    --color-gray-950: oklch(14.7% 0.004 49.3);
+
+    /* The one colour that says "act here" or "you are here". Colour is kept
+       for meaning — status, success, warning, error — and nothing else. */
+    --color-primary: var(--color-gray-900);
+    --color-primary-hover: var(--color-gray-700);
 
     /* Status colours */
-    --color-status-success: #3CB764;
-    --color-status-error: #CC0000;
-    --color-status-warning: #F39204;
-    --color-status-gold: #F4991A;
-
-    /* Burgundy palette (installer) */
-    --color-burgundy-50: #fdf2f6;
-    --color-burgundy-100: #fce7ef;
-    --color-burgundy-200: #fad0e0;
-    --color-burgundy-300: #f6a9c5;
-    --color-burgundy-400: #ef72a0;
-    --color-burgundy-500: #e5477e;
-    --color-burgundy-600: #d32a5e;
-    --color-burgundy-700: #B52159;
-    --color-burgundy-800: #961c3e;
-    --color-burgundy-900: #7d1b37;
-
-    /* Border-radius tokens */
-    --radius-pill: 3rem;
-    --radius-medium: 1rem;
+    --color-status-success: #15803d;
+    --color-status-error: #b91c1c;
+    --color-status-warning: #b45309;
 }
 
-/* Base styles previously in head.blade.php <style> tag */
 @layer base {
     body {
-        font-weight: 300;
+        @apply text-gray-900 antialiased;
+        font-feature-settings: 'cv11', 'ss01';
     }
     h1, h2, h3, h4, h5, h6 {
         font-weight: 700;
-        color: #B52159;
+        letter-spacing: -0.01em;
+    }
+    input[type="checkbox"], input[type="radio"] {
+        accent-color: var(--color-primary);
     }
     a, button, select, input, textarea, [class*="hover:"] {
-        transition: all 200ms ease;
+        transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease,
+                    box-shadow 150ms ease, opacity 150ms ease;
     }
 }
 
@@ -68,47 +64,71 @@
     /* Buttons. One height. The variant says how important the action is, and
        .btn-sm exists only for table rows and sidebar cards. */
     .btn {
-        @apply inline-flex items-center justify-center gap-1.5 rounded-full
-               px-5 py-2 text-sm font-medium whitespace-nowrap
+        @apply inline-flex items-center justify-center gap-1.5 rounded-lg
+               px-4 py-2 text-sm font-medium whitespace-nowrap
+               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
                disabled:opacity-40 disabled:cursor-not-allowed;
     }
-    .btn-primary   { @apply bg-hcrg-burgundy text-white hover:bg-[#9A1B4B]; }
-    .btn-secondary { @apply border border-hcrg-burgundy text-hcrg-burgundy
-                            hover:bg-hcrg-burgundy hover:text-white; }
-    .btn-danger    { @apply border border-status-error text-status-error
-                            hover:bg-status-error hover:text-white; }
-    .btn-quiet     { @apply px-0 text-hcrg-grey-400 hover:text-hcrg-charcoal; }
-    .btn-sm        { @apply px-3.5 py-1.5 text-xs; }
+    .btn-primary   { @apply bg-primary text-white shadow-xs hover:bg-primary-hover; }
+    .btn-secondary { @apply border border-gray-300 bg-white text-gray-900 shadow-xs
+                            hover:bg-gray-50 hover:border-gray-400; }
+    .btn-danger    { @apply border border-red-200 bg-white text-status-error shadow-xs
+                            hover:bg-red-50 hover:border-red-300; }
+    .btn-quiet     { @apply px-0 text-gray-500 hover:text-gray-900; }
+    .btn-sm        { @apply px-3 py-1.5 text-xs; }
 
     /* Card. A border rather than a shadow: stacked cards stop vibrating against
        each other, and dense pages hold together. */
-    .card        { @apply bg-white rounded-lg border border-hcrg-grey-200; }
+    .card        { @apply bg-white rounded-xl border border-gray-200; }
     .card-body   { @apply p-5; }
-    .card-header { @apply px-5 py-3.5 border-b border-hcrg-grey-100; }
+    .card-header { @apply px-5 py-3.5 border-b border-gray-100; }
 
     /* Type. Three levels. Spacing belongs to the container, not the heading. */
-    .page-title  { @apply text-2xl font-bold text-gray-900; }
-    .page-lede   { @apply mt-1 text-sm text-hcrg-grey-400 max-w-3xl; }
-    .card-title  { @apply text-base font-bold text-gray-900; }
-    .group-label { @apply text-xs font-bold uppercase tracking-wide text-hcrg-grey-300; }
+    .page-title  { @apply text-2xl font-semibold tracking-tight text-gray-900; }
+    .page-lede   { @apply mt-1 text-sm text-gray-500 max-w-3xl; }
+    .card-title  { @apply text-base font-semibold text-gray-900; }
+    .group-label { @apply text-xs font-semibold uppercase tracking-wide text-gray-500; }
 
     /* Fields. Help always above the input it explains, in one grey. */
     .field        { @apply mb-4; }
     .field-label  { @apply block text-sm font-medium text-gray-700 mb-1; }
-    .field-help   { @apply text-xs text-hcrg-grey-400 mb-1.5; }
-    .field-input  { @apply block w-full px-3 py-2 rounded-lg text-sm
-                           border border-hcrg-grey-200
-                           focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy; }
+    .field-help   { @apply text-xs text-gray-500 mb-1.5; }
+    .field-input  { @apply block w-full px-3 py-2 rounded-lg text-sm bg-white
+                           border border-gray-300 shadow-xs placeholder:text-gray-400
+                           focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary; }
     .field-error  { @apply mt-1 text-xs text-status-error; }
+    /* The browser's own arrow differs per platform and sat beside the app's
+       custom dropdowns looking like a different control. */
+    select.field-input {
+        @apply appearance-none pr-9 bg-no-repeat;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a8a29e' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+        background-position: right 0.75rem center;
+        background-size: 0.75rem;
+    }
 
     /* Tables. One padding, no striping — the row border is enough. */
     .table        { @apply min-w-full; }
-    .table th     { @apply px-5 py-3 text-left text-xs font-bold uppercase tracking-wide
-                           text-hcrg-grey-300 border-b border-hcrg-grey-100; }
-    .table td     { @apply px-5 py-3.5 text-sm border-b border-hcrg-grey-100; }
+    .table th     { @apply px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide
+                           text-gray-500 bg-gray-50 border-b border-gray-200; }
+    .table td     { @apply px-5 py-3.5 text-sm border-b border-gray-100; }
     .table tbody tr:last-child td { @apply border-b-0; }
 
     /* Empty state. Says what goes here, and offers the way to add it. */
     .empty-state   { @apply px-6 py-10 text-center; }
-    .empty-state p { @apply text-sm text-hcrg-grey-400 mb-3; }
+    .empty-state p { @apply text-sm text-gray-500 mb-3; }
+
+    /* Links carry no colour of their own in a neutral palette, so the underline
+       is what marks them out. */
+    .link { @apply font-medium text-gray-900 underline decoration-gray-300 underline-offset-2
+                   hover:decoration-gray-900; }
+
+    /* Rendered Markdown (release notes). The typography plugin is not
+       installed, so the few elements release notes use are styled here. */
+    .prose h1, .prose h2, .prose h3 { @apply mt-4 mb-2 text-sm font-semibold text-gray-900; }
+    .prose h1:first-child, .prose h2:first-child, .prose h3:first-child { @apply mt-0; }
+    .prose p  { @apply mb-3 text-sm text-gray-700; }
+    .prose ul { @apply mb-3 list-disc space-y-1 pl-5 text-sm text-gray-700; }
+    .prose ol { @apply mb-3 list-decimal space-y-1 pl-5 text-sm text-gray-700; }
+    .prose a  { @apply underline underline-offset-2; }
+    .prose code { @apply rounded bg-gray-100 px-1 py-0.5 text-xs; }
 }

@@ -1,10 +1,10 @@
 {{-- What this is and where it has got to, answered before any scrolling. --}}
 <div class="mb-6">
-    <a href="{{ route('admin.requests.index') }}" class="text-sm text-hcrg-grey-400 hover:text-hcrg-charcoal">&larr; Back to requests</a>
+    <a href="{{ route('admin.requests.index') }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Back to requests</a>
 
     <div class="flex flex-wrap items-start justify-between gap-3 mt-1">
         <div>
-            <p class="text-xs text-hcrg-grey-400 tracking-wide">
+            <p class="text-xs text-gray-500 tracking-wide">
                 {{ $changeRequest->reference }}
                 &middot; {{ ucfirst($changeRequest->request_type ?? 'change') }}
                 @if($changeRequest->site) &middot; {{ $changeRequest->site->name }} @endif
@@ -17,7 +17,7 @@
         </div>
     </div>
 
-    <p class="mt-2 text-sm text-hcrg-grey-400">
+    <p class="mt-2 text-sm text-gray-500">
         Raised {{ $changeRequest->created_at->diffForHumans() }}
         @if($changeRequest->requester_name)
             by {{ $changeRequest->requester_name }}

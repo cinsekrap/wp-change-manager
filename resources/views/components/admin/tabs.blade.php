@@ -3,14 +3,14 @@
 {{-- The request page carries eleven cards. They all apply, but not at once: what
      you are working on, what you are working from, and what has happened are
      three different questions. --}}
-<div class="border-b border-hcrg-grey-200 mb-6" data-tabs>
+<div class="border-b border-gray-200 mb-6" data-tabs>
     <nav class="flex gap-1 -mb-px">
         @foreach($tabs as $key => $label)
             <button type="button" data-tab="{{ $key }}"
                 class="px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors
                        {{ $loop->first
-                            ? 'border-hcrg-burgundy text-hcrg-burgundy'
-                            : 'border-transparent text-hcrg-grey-400 hover:text-hcrg-charcoal' }}">
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                 {{ $label }}
             </button>
         @endforeach
@@ -29,10 +29,10 @@
     function show(key) {
         buttons.forEach(function (b) {
             var on = b.dataset.tab === key;
-            b.classList.toggle('border-hcrg-burgundy', on);
-            b.classList.toggle('text-hcrg-burgundy', on);
+            b.classList.toggle('border-primary', on);
+            b.classList.toggle('text-primary', on);
             b.classList.toggle('border-transparent', !on);
-            b.classList.toggle('text-hcrg-grey-400', !on);
+            b.classList.toggle('text-gray-500', !on);
         });
         panels.forEach(function (p) { p.hidden = p.dataset.tabPanel !== key; });
         // Survives a reload, so an admin who refreshes stays where they were.

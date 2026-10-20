@@ -8,7 +8,7 @@
         <a href="{{ $item['url'] }}" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-sm font-medium text-hcrg-burgundy">{{ $item['reference'] }}</span>
+                    <span class="text-sm font-medium text-primary">{{ $item['reference'] }}</span>
                     <span class="text-sm text-gray-500 ml-2">{{ $item['site_name'] }}</span>
                 </div>
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

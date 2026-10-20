@@ -7,7 +7,7 @@
 
     {{-- Current version --}}
     <div class="card card-body mb-6">
-        <div class="page-title">{{ config('app.name') }} <span class="text-hcrg-burgundy">v{{ $currentVersion }}</span></div>
+        <div class="page-title">{{ config('app.name') }} <span class="text-primary">v{{ $currentVersion }}</span></div>
         <p class="text-sm text-gray-500 mt-1">Installed version</p>
     </div>
 
@@ -23,7 +23,7 @@
                         @endif
                     </div>
                     @if($update['html_url'])
-                        <a href="{{ $update['html_url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm text-hcrg-burgundy hover:underline whitespace-nowrap ml-4">
+                        <a href="{{ $update['html_url'] }}" target="_blank" rel="noopener noreferrer" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current whitespace-nowrap ml-4">
                             View on GitHub &rarr;
                         </a>
                     @endif
@@ -45,7 +45,7 @@
                     </form>
                     <form method="POST" action="{{ route('admin.settings.updates.check') }}">
                         @csrf
-                        <button type="submit" class="border border-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-50 text-sm font-medium">
+                        <button type="submit" class="btn btn-secondary">
                             Check Again
                         </button>
                     </form>
@@ -66,7 +66,7 @@
                 <div class="mt-4">
                     <form method="POST" action="{{ route('admin.settings.updates.check') }}">
                         @csrf
-                        <button type="submit" class="border border-gray-300 text-gray-700 px-4 py-2 rounded-full hover:bg-gray-50 text-sm font-medium">
+                        <button type="submit" class="btn btn-secondary">
                             Check for Updates
                         </button>
                     </form>
@@ -123,7 +123,7 @@
     {{-- GitHub Token --}}
     <div class="card card-body">
         <h2 class="card-title mb-3">GitHub API Token</h2>
-        <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-hcrg-burgundy hover:underline">github.com/settings/tokens</a> with no special permissions.</p>
+        <p class="text-sm text-gray-500 mb-4">Optional. Increases the API rate limit from 60 to 5,000 requests per hour. Generate a fine-grained personal access token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">github.com/settings/tokens</a> with no special permissions.</p>
         <form method="POST" action="{{ route('admin.settings.github-token.update') }}">
             @csrf
             @method('PUT')

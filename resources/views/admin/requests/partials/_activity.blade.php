@@ -9,8 +9,8 @@
             @forelse($activities as $activity)
             <div class="relative flex items-start space-x-3 pl-1">
                 @if($activity->type === 'created')
-                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-hcrg-burgundy/20 flex items-center justify-center ring-4 ring-white z-10">
-                        <div class="w-2 h-2 rounded-full bg-hcrg-burgundy"></div>
+                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center ring-4 ring-white z-10">
+                        <div class="w-2 h-2 rounded-full bg-primary"></div>
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm text-gray-700"><span class="font-medium">{{ $activity->user }}</span> submitted this request</p>

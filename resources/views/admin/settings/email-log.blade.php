@@ -51,7 +51,7 @@
                     <td class="text-gray-700 max-w-xs truncate">{{ $log->subject }}</td>
                     <td class="whitespace-nowrap">
                         @if($log->changeRequest)
-                            <a href="{{ route('admin.requests.show', $log->changeRequest) }}" class="text-hcrg-burgundy hover:underline">{{ $log->changeRequest->reference }}</a>
+                            <a href="{{ route('admin.requests.show', $log->changeRequest) }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">{{ $log->changeRequest->reference }}</a>
                         @else
                             <span class="text-gray-300">&mdash;</span>
                         @endif
@@ -69,7 +69,7 @@
                                 class="text-sm text-gray-400 hover:text-gray-600">Detail</button>
                         @endif
                         <button type="button" onclick="previewEmail({{ $log->id }})"
-                            class="text-sm text-hcrg-burgundy hover:underline">View</button>
+                            class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">View</button>
                     </td>
                 </tr>
                 {{-- Expandable SMTP detail row --}}

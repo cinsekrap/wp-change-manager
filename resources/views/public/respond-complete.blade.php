@@ -10,7 +10,7 @@
     <p class="text-sm text-gray-600 mb-6">
         Your response to request <span class="font-mono font-semibold">{{ $changeRequest->reference }}</span> has been passed to the team, and the request is back in the queue. You'll receive an email when there's another update.
     </p>
-    <a href="{{ \App\Http\Controllers\PublicSite\TrackingController::signedUrl($changeRequest) }}" class="text-sm text-hcrg-burgundy hover:underline font-medium">
+    <a href="{{ \App\Http\Controllers\PublicSite\TrackingController::signedUrl($changeRequest) }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
         Track your request
     </a>
 </div>

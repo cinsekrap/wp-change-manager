@@ -10,7 +10,7 @@
     <p class="text-sm text-gray-600 mb-6">
         Request <span class="font-mono font-semibold">{{ $changeRequest->reference }}</span> isn't waiting on a response from you — it may already have been answered, or the team has moved it on.
     </p>
-    <a href="{{ \App\Http\Controllers\PublicSite\TrackingController::signedUrl($changeRequest) }}" class="text-sm text-hcrg-burgundy hover:underline font-medium">
+    <a href="{{ \App\Http\Controllers\PublicSite\TrackingController::signedUrl($changeRequest) }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
         Track your request
     </a>
 </div>

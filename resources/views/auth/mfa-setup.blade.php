@@ -8,7 +8,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center py-12">
     <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 class="text-2xl font-bold text-center text-hcrg-burgundy mb-2">Set up two-factor authentication</h2>
+        <h2 class="text-2xl font-bold text-center text-primary mb-2">Set up two-factor authentication</h2>
         <p class="text-sm text-gray-600 text-center mb-6">To protect your admin account, you need to set up an authenticator app.</p>
 
         @if($errors->any())

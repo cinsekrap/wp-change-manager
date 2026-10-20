@@ -27,7 +27,7 @@
         @endif
 
         @if($type === 'file')
-            <p class="text-xs text-hcrg-grey-400">Attach files to the request rather than here.</p>
+            <p class="text-xs text-gray-500">Attach files to the request rather than here.</p>
 
         @elseif($subs && $repeats)
             @php $rows = collect($value)->filter()->values(); @endphp
@@ -48,7 +48,7 @@
                             </div>
                         @endforeach
                         <button type="button" data-repeat-remove
-                            class="absolute top-3 right-3 text-xs text-hcrg-grey-400 hover:text-status-error">Remove</button>
+                            class="absolute top-3 right-3 text-xs text-gray-500 hover:text-status-error">Remove</button>
                     </div>
                 @endforeach
             </div>
@@ -87,7 +87,7 @@
                 @if(! empty($field['placeholder'])) placeholder="{{ $field['placeholder'] }}" @endif
                 class="field-input">{{ is_array($value) ? '' : $value }}</textarea>
             @if(! empty($field['word_limit']))
-                <p class="mt-1 text-xs text-hcrg-grey-400 text-right">Aim for about {{ $field['word_limit'] }} words.</p>
+                <p class="mt-1 text-xs text-gray-500 text-right">Aim for about {{ $field['word_limit'] }} words.</p>
             @endif
             @if(! empty($field['reading_age']))
                 @include('partials.reading-age', ['field' => $id])

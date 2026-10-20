@@ -22,7 +22,7 @@
 
     <div class="bg-gray-50 rounded-lg p-4 inline-block mb-6">
         <p class="text-sm text-gray-500">Your reference number</p>
-        <p class="text-2xl font-bold text-hcrg-burgundy font-mono">{{ $changeRequest->reference }}</p>
+        <p class="text-2xl font-bold text-primary font-mono">{{ $changeRequest->reference }}</p>
     </div>
 
     <div class="text-sm text-gray-500 space-y-1 mb-8">
@@ -49,7 +49,7 @@
         @endif
     </p>
 
-    <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-hcrg-burgundy hover:underline font-medium">track the status of your request</a> at any time.</p>
+    <p class="text-sm text-gray-500 mb-6">You can <a href="{{ route('tracking') }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">track the status of your request</a> at any time.</p>
 
     @if($changeRequest->isContentRequest())
     {{-- The one moment someone cares that the queue exists. It does not appear
@@ -57,7 +57,7 @@
          list to look at, not that theirs is on it yet. --}}
     <p class="text-sm text-gray-500 mb-6">
         Once we've written it up it will appear on our
-        <a href="{{ route('suggestions') }}" class="text-hcrg-burgundy hover:underline font-medium">list of content suggestions</a>,
+        <a href="{{ route('suggestions') }}" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">list of content suggestions</a>,
         where you can follow its progress.
     </p>
     @endif

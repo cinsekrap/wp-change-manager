@@ -18,14 +18,14 @@
         </p>
     </div>
 
-    <p style="margin:24px 0 0;font-size:13px;color:#6E6E6D;">
-        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#B52159;">your tracking link</a>.
+    <p style="margin:24px 0 0;font-size:13px;color:#78716c;">
+        You can check progress at any time using <a href="{{ $trackingUrl }}" style="color:#1c1917;">your tracking link</a>.
     </p>
 
     @if($unsubscribeUrl ?? null)
-    <p style="margin:12px 0 0;font-size:12px;color:#A0A09F;">
+    <p style="margin:12px 0 0;font-size:12px;color:#a8a29e;">
         You are getting this because you asked to follow this suggestion.
-        <a href="{{ $unsubscribeUrl }}" style="color:#6E6E6D;">Stop these updates</a>.
+        <a href="{{ $unsubscribeUrl }}" style="color:#78716c;">Stop these updates</a>.
     </p>
     @endif
 @endsection

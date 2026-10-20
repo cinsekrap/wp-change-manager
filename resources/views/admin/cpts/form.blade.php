@@ -101,14 +101,14 @@
                                 <input type="hidden" name="content_areas[{{ $index }}][required]" value="0">
                                 <input type="checkbox" name="content_areas[{{ $index }}][required]" value="1"
                                     {{ !empty($area['required']) ? 'checked' : '' }}
-                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                    class="h-4 w-4 text-primary border-gray-300 rounded">
                                 <label class="ml-2 text-sm text-gray-700">Required field</label>
                             </div>
                             <div class="flex items-center">
                                 <input type="hidden" name="content_areas[{{ $index }}][allow_add]" value="0">
                                 <input type="checkbox" name="content_areas[{{ $index }}][allow_add]" value="1"
                                     {{ ($area['allow_add'] ?? true) ? 'checked' : '' }}
-                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                    class="h-4 w-4 text-primary border-gray-300 rounded">
                                 <label class="ml-2 text-sm text-gray-700">Can add new</label>
                             </div>
                         </div>
@@ -124,7 +124,7 @@
                                 <input type="hidden" name="content_areas[{{ $index }}][reading_age]" value="0">
                                 <input type="checkbox" name="content_areas[{{ $index }}][reading_age]" value="1"
                                     {{ ($area['reading_age'] ?? true) ? 'checked' : '' }}
-                                    class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                    class="h-4 w-4 text-primary border-gray-300 rounded">
                                 <label class="ml-2 text-sm text-gray-700">Show reading age</label>
                             </div>
                             <p class="mt-1 text-xs text-gray-500">Displays a Flesch-Kincaid reading age indicator below the field</p>
@@ -153,7 +153,7 @@
                                 </div>
                                 @endforeach
                             </div>
-                            <button type="button" onclick="addOption(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add option</button>
+                            <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add option</button>
                         </div>
 
                         <div class="sub-fields-section" style="{{ ($area['type'] ?? 'text') !== 'group' ? 'display:none' : '' }}">
@@ -172,14 +172,14 @@
                                 </div>
                                 @endforeach
                             </div>
-                            <button type="button" onclick="addSubField(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add sub-field</button>
+                            <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add sub-field</button>
 
                             <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
                                 <div class="flex items-center">
                                     <input type="hidden" name="content_areas[{{ $index }}][repeatable]" value="0">
                                     <input type="checkbox" name="content_areas[{{ $index }}][repeatable]" value="1"
                                         {{ !empty($area['repeatable']) ? 'checked' : '' }}
-                                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                                        class="h-4 w-4 text-primary border-gray-300 rounded">
                                     <label class="ml-2 text-sm text-gray-700">Allow multiple entries</label>
                                 </div>
                                 <p class="mt-1 text-xs text-gray-500">Users can add multiple sets of these fields in one request (e.g. multiple Q&A pairs)</p>
@@ -201,7 +201,7 @@
         <div class="flex items-center">
             <input type="hidden" name="is_active" value="0">
             <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $cpt->is_active ?? true) ? 'checked' : '' }}
-                class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                class="h-4 w-4 text-primary border-gray-300 rounded">
             <label for="is_active" class="ml-2 text-sm text-gray-700">Active</label>
         </div>
 
@@ -223,13 +223,13 @@
             <div class="space-y-2">
                 @foreach(config('content-types') as $key => $kind)
                     @php $taken = $takenBy[$key] ?? null; @endphp
-                    <label class="flex items-start gap-2.5 p-2.5 border border-hcrg-grey-200 rounded-lg {{ $taken ? 'opacity-60' : 'cursor-pointer hover:border-hcrg-burgundy' }}">
+                    <label class="flex items-start gap-2.5 p-2.5 border border-gray-200 rounded-lg {{ $taken ? 'opacity-60' : 'cursor-pointer hover:border-primary' }}">
                         <input type="checkbox" name="content_kinds[]" value="{{ $key }}"
                             @checked(in_array($key, (array) $claimed)) @disabled($taken)
-                            class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+                            class="mt-0.5 h-4 w-4 text-primary border-gray-300 rounded accent-primary">
                         <span class="text-sm text-gray-700">
                             {{ $kind['label'] }}
-                            <span class="block text-xs text-hcrg-grey-400">
+                            <span class="block text-xs text-gray-500">
                                 {{ $taken ? 'Already used by '.$taken : $kind['help'] }}
                             </span>
                         </span>
@@ -243,25 +243,25 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Request mode</label>
             @php $currentMode = old('request_mode', $cpt->request_mode ?? 'normal'); @endphp
             <div class="space-y-2">
-                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'normal' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_normal">
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'normal' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_normal">
                     <input type="radio" name="request_mode" value="normal" {{ $currentMode === 'normal' ? 'checked' : '' }}
-                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                        class="mt-0.5 h-4 w-4 text-primary border-gray-300" onchange="updateRequestMode()">
                     <div>
                         <span class="text-sm font-medium text-gray-900">Normal</span>
                         <p class="text-xs text-gray-500">Standard change request flow</p>
                     </div>
                 </label>
-                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'blocked' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_blocked">
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'blocked' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_blocked">
                     <input type="radio" name="request_mode" value="blocked" {{ $currentMode === 'blocked' ? 'checked' : '' }}
-                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                        class="mt-0.5 h-4 w-4 text-primary border-gray-300" onchange="updateRequestMode()">
                     <div>
                         <span class="text-sm font-medium text-gray-900">Blocked</span>
                         <p class="text-xs text-gray-500">Requests not allowed. Show a message instead.</p>
                     </div>
                 </label>
-                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'self_service' ? 'border-hcrg-burgundy bg-hcrg-burgundy/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_self_service">
+                <label class="flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors {{ $currentMode === 'self_service' ? 'border-primary bg-primary/5' : 'border-gray-200 hover:bg-gray-50' }}" id="modeLabel_self_service">
                     <input type="radio" name="request_mode" value="self_service" {{ $currentMode === 'self_service' ? 'checked' : '' }}
-                        class="mt-0.5 h-4 w-4 text-hcrg-burgundy border-gray-300" onchange="updateRequestMode()">
+                        class="mt-0.5 h-4 w-4 text-primary border-gray-300" onchange="updateRequestMode()">
                     <div>
                         <span class="text-sm font-medium text-gray-900">Self-service</span>
                         <p class="text-xs text-gray-500">This content type has a self-service tool. Users can request access instead of changes.</p>
@@ -358,13 +358,13 @@ function addContentArea() {
                 <div class="flex items-center">
                     <input type="hidden" name="content_areas[${idx}][required]" value="0">
                     <input type="checkbox" name="content_areas[${idx}][required]" value="1"
-                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                        class="h-4 w-4 text-primary border-gray-300 rounded">
                     <label class="ml-2 text-sm text-gray-700">Required field</label>
                 </div>
                 <div class="flex items-center">
                     <input type="hidden" name="content_areas[${idx}][allow_add]" value="0">
                     <input type="checkbox" name="content_areas[${idx}][allow_add]" value="1" checked
-                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                        class="h-4 w-4 text-primary border-gray-300 rounded">
                     <label class="ml-2 text-sm text-gray-700">Can add new</label>
                 </div>
             </div>
@@ -379,7 +379,7 @@ function addContentArea() {
                 <div class="flex items-center">
                     <input type="hidden" name="content_areas[${idx}][reading_age]" value="0">
                     <input type="checkbox" name="content_areas[${idx}][reading_age]" value="1" checked
-                        class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                        class="h-4 w-4 text-primary border-gray-300 rounded">
                     <label class="ml-2 text-sm text-gray-700">Show reading age</label>
                 </div>
                 <p class="mt-1 text-xs text-gray-500">Displays a Flesch-Kincaid reading age indicator below the field</p>
@@ -400,19 +400,19 @@ function addContentArea() {
             <div class="options-section" style="display:none">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Options</label>
                 <div class="options-list space-y-2"></div>
-                <button type="button" onclick="addOption(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add option</button>
+                <button type="button" onclick="addOption(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add option</button>
             </div>
 
             <div class="sub-fields-section" style="display:none">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Sub-fields</label>
                 <div class="sub-fields-list space-y-2"></div>
-                <button type="button" onclick="addSubField(this)" class="mt-2 text-xs text-hcrg-burgundy hover:text-[#9A1B4B]">+ Add sub-field</button>
+                <button type="button" onclick="addSubField(this)" class="mt-2 text-xs font-medium text-gray-900 hover:underline underline-offset-2">+ Add sub-field</button>
 
                 <div class="repeatable-row mt-3 pt-3 border-t border-gray-200">
                     <div class="flex items-center">
                         <input type="hidden" name="content_areas[${idx}][repeatable]" value="0">
                         <input type="checkbox" name="content_areas[${idx}][repeatable]" value="1"
-                            class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded">
+                            class="h-4 w-4 text-primary border-gray-300 rounded">
                         <label class="ml-2 text-sm text-gray-700">Allow multiple entries</label>
                     </div>
                     <p class="mt-1 text-xs text-gray-500">Users can add multiple sets of these fields in one request (e.g. multiple Q&A pairs)</p>
@@ -566,9 +566,9 @@ function updateRequestMode() {
         var label = document.getElementById('modeLabel_' + m);
         if (m === mode) {
             label.classList.remove('border-gray-200', 'hover:bg-gray-50');
-            label.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+            label.classList.add('border-primary', 'bg-primary/5');
         } else {
-            label.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+            label.classList.remove('border-primary', 'bg-primary/5');
             label.classList.add('border-gray-200', 'hover:bg-gray-50');
         }
     });

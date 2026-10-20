@@ -22,7 +22,7 @@
 
     <div class="bg-gray-50 rounded-lg p-4 inline-block mb-6">
         <p class="text-sm text-gray-500">Access request</p>
-        <p class="text-xl font-bold text-hcrg-burgundy">{{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
+        <p class="text-xl font-bold text-primary">{{ $changeRequest->cptType->name ?? $changeRequest->cpt_slug }}</p>
         <p class="text-sm text-gray-400 mt-1">Ref: {{ $changeRequest->reference }}</p>
     </div>
 

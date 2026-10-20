@@ -41,7 +41,7 @@
     <x-admin.form-section title="Availability">
         <label class="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" name="is_active" value="1" {{ old('is_active', $approver->is_active) ? 'checked' : '' }}
-                class="h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy">
+                class="h-4 w-4 text-primary border-gray-300 rounded accent-primary">
             <span class="text-sm text-gray-700">Available to be asked to fund work</span>
         </label>
     </x-admin.form-section>

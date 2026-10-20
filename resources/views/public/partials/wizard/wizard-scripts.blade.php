@@ -266,7 +266,7 @@
 
         if (areas.length > 0) {
             const select = document.createElement('select');
-            select.className = 'content-area w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+            select.className = 'content-area w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary';
             let html = '<option value="">Select content area...</option>';
             areas.forEach(area => {
                 const selected = existingValue === area ? ' selected' : '';
@@ -277,7 +277,7 @@
         } else {
             const input = document.createElement('input');
             input.type = 'text';
-            input.className = 'content-area w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+            input.className = 'content-area w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary';
             input.placeholder = 'e.g. Main content, Sidebar, Hero image...';
             if (existingValue) input.value = existingValue;
             container.appendChild(input);
@@ -320,23 +320,23 @@
             // Checkbox header row
             const header = document.createElement('label');
             header.className = 'flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors';
-            header.innerHTML = `<input type="checkbox" class="area-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded accent-hcrg-burgundy" data-area-idx="${idx}">` +
+            header.innerHTML = `<input type="checkbox" class="area-checkbox h-4 w-4 text-primary border-gray-300 rounded accent-primary" data-area-idx="${idx}">` +
                 `<span class="flex-1"><span class="text-sm font-medium text-gray-900">${esc(areaObj.name)}</span>` +
                 `<span class="ml-2 text-xs text-gray-400">${esc(typeLabel)}</span></span>`;
 
             // Collapsible panel (hidden by default)
             const panel = document.createElement('div');
-            panel.className = 'area-accordion-panel hidden mt-1 ml-4 border-l-2 border-hcrg-burgundy/20 pl-4';
+            panel.className = 'area-accordion-panel hidden mt-1 ml-4 border-l-2 border-primary/20 pl-4';
 
             const checkbox = header.querySelector('.area-checkbox');
             checkbox.addEventListener('change', function() {
                 if (this.checked) {
                     header.classList.remove('border-gray-200');
-                    header.classList.add('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    header.classList.add('border-primary', 'bg-primary/5');
                     buildAreaForm(areaObj, idx, panel);
                     panel.classList.remove('hidden');
                 } else {
-                    header.classList.remove('border-hcrg-burgundy', 'bg-hcrg-burgundy/5');
+                    header.classList.remove('border-primary', 'bg-primary/5');
                     header.classList.add('border-gray-200');
                     removeAreaForm(idx);
                     panel.classList.add('hidden');
@@ -397,7 +397,7 @@
             if (allowAdd) {
                 html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors" data-action="add">Add</button>`;
             }
-            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors" data-action="change">Change</button>`;
+            html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary/30 text-primary hover:bg-primary/5 transition-colors" data-action="change">Change</button>`;
             html += `<button type="button" class="area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors" data-action="delete">Delete</button>`;
             html += `</div>`;
             html += `</div>`;
@@ -420,27 +420,27 @@
                 // Update button styles — reset all, then highlight selected
                 card.querySelectorAll('.area-action-btn').forEach(b => {
                     b.classList.remove('bg-green-500', 'text-white', 'border-green-500',
-                                       'bg-[#B52159]', 'border-[#B52159]',
+                                       'bg-primary', 'border-primary',
                                        'bg-red-500', 'border-red-500');
                     // Reset to default styles
                     const a = b.dataset.action;
                     if (a === 'add') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-300 text-green-700 hover:bg-green-50 transition-colors'; }
-                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159]/30 text-hcrg-burgundy hover:bg-[#B52159]/5 transition-colors'; }
+                    else if (a === 'change') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary/30 text-primary hover:bg-primary/5 transition-colors'; }
                     else if (a === 'delete') { b.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors'; }
                 });
 
                 // Fill selected button
                 if (action === 'add') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-green-500 bg-green-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-[#B52159]/30', 'border-red-300');
+                    card.classList.remove('border-gray-200', 'border-primary/30', 'border-red-300');
                     card.classList.add('border-green-300');
                 } else if (action === 'change') {
-                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-[#B52159] bg-[#B52159] text-white transition-colors';
+                    this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-primary bg-primary text-white transition-colors';
                     card.classList.remove('border-gray-200', 'border-green-300', 'border-red-300');
-                    card.classList.add('border-[#B52159]/30');
+                    card.classList.add('border-primary/30');
                 } else if (action === 'delete') {
                     this.className = 'area-action-btn px-3 py-1 text-xs font-medium rounded-full border-2 border-red-500 bg-red-500 text-white transition-colors';
-                    card.classList.remove('border-gray-200', 'border-green-300', 'border-[#B52159]/30');
+                    card.classList.remove('border-gray-200', 'border-green-300', 'border-primary/30');
                     card.classList.add('border-red-300');
                 }
 
@@ -462,7 +462,7 @@
         const fieldsContainer = card.querySelector('.area-form-fields');
         fieldsContainer.innerHTML = '';
         const idx = parseInt(card.dataset.areaIndex);
-        const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+        const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary';
         const areaObj = typeof area === 'string'
             ? { name: area, type: 'textarea', required: false, help: '', placeholder: '', options: [], word_limit: null, sub_fields: [], repeatable: false, reading_age: true }
             : area;
@@ -626,7 +626,7 @@
      * Render a repeatable group field (multiple instances of sub-fields).
      */
     function renderRepeatableGroup(fieldsContainer, areaObj, action, areaIndex) {
-        const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy';
+        const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary';
         let instanceCount = 0;
 
         const instancesContainer = document.createElement('div');
@@ -717,7 +717,7 @@
 
         const addBtn = document.createElement('button');
         addBtn.type = 'button';
-        addBtn.className = 'mt-3 inline-flex items-center px-4 py-2 border border-hcrg-burgundy text-hcrg-burgundy rounded-full text-sm font-medium hover:bg-hcrg-burgundy hover:text-white transition-colors';
+        addBtn.className = 'mt-3 btn btn-secondary';
         addBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add another ${esc(areaObj.name)}`;
         addBtn.addEventListener('click', addInstance);
         fieldsContainer.appendChild(addBtn);
@@ -744,13 +744,13 @@
                 html += `</select>`;
                 break;
             case 'checkbox':
-                html += `<label class="flex items-center space-x-2 cursor-pointer mt-1"><input type="checkbox" class="sf-input sf-checkbox h-4 w-4 text-hcrg-burgundy border-gray-300 rounded"><span class="text-sm text-gray-700">Yes</span></label>`;
+                html += `<label class="flex items-center space-x-2 cursor-pointer mt-1"><input type="checkbox" class="sf-input sf-checkbox h-4 w-4 text-primary border-gray-300 rounded"><span class="text-sm text-gray-700">Yes</span></label>`;
                 break;
             case 'date':
                 html += `<input type="date" class="sf-input ${inputClass}${bgClass}">`;
                 break;
             case 'file':
-                html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">`;
+                html += `<input type="file" class="sf-file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">`;
                 html += `<div class="sf-file-list mt-3 space-y-3"></div>`;
                 break;
         }
@@ -764,7 +764,7 @@
         if ((areaObj.reading_age ?? true) && ['textarea', 'richtext'].includes(areaObj.type)) {
             html += `<div class="sf-reading-age text-xs mt-1 text-right">`;
             html += `<span class="sf-reading-age-badge text-gray-400">Reading age: not enough text</span>`;
-            html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-hcrg-burgundy hover:underline inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
+            html += `<div class="mt-0.5"><a href="https://readability.ncldata.dev/" target="_blank" rel="noopener noreferrer" class="text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current inline-flex items-center gap-1">NHS Readability Tool <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg></a></div>`;
             html += `</div>`;
         }
 
@@ -844,8 +844,8 @@
                         `<button type="button" class="text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>` +
                         `</div>` +
                         `<div class="space-y-2">` +
-                        `<input type="text" placeholder="Document title (required)" class="sf-file-title w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#B52159] focus:border-[#B52159]">` +
-                        `<textarea placeholder="Description (required)" rows="2" class="sf-file-desc w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#B52159] focus:border-[#B52159]"></textarea>` +
+                        `<input type="text" placeholder="Document title (required)" class="sf-file-title w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary">` +
+                        `<textarea placeholder="Description (required)" rows="2" class="sf-file-desc w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary"></textarea>` +
                         `</div>`;
 
                     fileEl.querySelector('.sf-file-title').addEventListener('input', function() {
@@ -1320,21 +1320,21 @@
         lane = next;
         document.querySelectorAll('.lane-option').forEach(el => {
             const on = el.dataset.lane === next;
-            el.classList.toggle('border-hcrg-burgundy', on);
+            el.classList.toggle('border-primary', on);
             el.classList.toggle('border-2', on);
-            el.classList.toggle('bg-hcrg-burgundy/5', on);
+            el.classList.toggle('bg-primary/5', on);
             el.classList.toggle('border-gray-300', !on);
             const input = el.querySelector('input[name="wizard_lane"]');
             if (input) input.checked = on;
             const title = el.querySelector('.lane-title');
-            if (title) title.classList.toggle('text-hcrg-burgundy', on);
+            if (title) title.classList.toggle('text-primary', on);
         });
         document.getElementById('lanePickerWrap').classList.toggle('hidden', next !== 'change');
         document.getElementById('laneContentPreview').classList.toggle('hidden', next !== 'content');
         if (next === 'content') {
             selectedPage = null;
             document.querySelectorAll('.page-option.selected').forEach(el =>
-                el.classList.remove('selected', 'bg-hcrg-burgundy/10', 'border-hcrg-burgundy'));
+                el.classList.remove('selected', 'bg-primary/10', 'border-primary'));
         }
         governancePassed = false;
         checkStepValid();
@@ -1370,9 +1370,9 @@
                 .filter(o => o.dataset.value !== homeId)
                 .map(o => `
                     <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer bg-white">
-                        <input type="checkbox" class="additional-site h-4 w-4 rounded border-gray-300 accent-hcrg-burgundy" value="${esc(o.dataset.value)}">
-                        <span class="text-sm font-semibold text-hcrg-charcoal">${esc(o.querySelector('span').textContent)}</span>
-                        <span class="text-xs text-hcrg-grey-300">${esc(o.dataset.domain || '')}</span>
+                        <input type="checkbox" class="additional-site h-4 w-4 rounded border-gray-300 accent-primary" value="${esc(o.dataset.value)}">
+                        <span class="text-sm font-semibold text-gray-700">${esc(o.querySelector('span').textContent)}</span>
+                        <span class="text-xs text-gray-500">${esc(o.dataset.domain || '')}</span>
                     </label>`).join('') || '<p class="text-sm text-gray-500">There are no other sites to share this with.</p>';
             wrap.dataset.rendered = '1';
             wrap.querySelectorAll('.additional-site').forEach(cb =>
@@ -1409,11 +1409,11 @@
     document.querySelectorAll('.brief-audience').forEach(cb => {
         cb.addEventListener('change', function () {
             const chip = this.parentElement.querySelector('.audience-chip');
-            chip.classList.toggle('bg-hcrg-burgundy', this.checked);
+            chip.classList.toggle('bg-primary', this.checked);
             chip.classList.toggle('text-white', this.checked);
             chip.classList.toggle('font-semibold', this.checked);
-            chip.classList.toggle('bg-hcrg-grey-100', !this.checked);
-            chip.classList.toggle('text-hcrg-charcoal', !this.checked);
+            chip.classList.toggle('bg-gray-100', !this.checked);
+            chip.classList.toggle('text-gray-700', !this.checked);
             checkStepValid();
             saveState();
         });
@@ -1441,12 +1441,12 @@
     function renderBriefFiles() {
         const list = document.getElementById('briefFileList');
         list.innerHTML = briefFiles.map(f => `
-            <div class="flex items-center justify-between bg-hcrg-grey-100 rounded-lg px-3 py-2" data-filename="${esc(f.filename)}">
-                <span class="text-sm text-hcrg-charcoal truncate mr-2">${esc(f.original_name)}</span>
+            <div class="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2" data-filename="${esc(f.filename)}">
+                <span class="text-sm text-gray-700 truncate mr-2">${esc(f.original_name)}</span>
                 <button type="button" class="brief-file-remove text-red-500 hover:text-red-700 text-xs font-medium flex-shrink-0">Remove</button>
             </div>`).join('') + briefUploading.map(name => `
-            <div class="flex items-center justify-between bg-hcrg-grey-100 rounded-lg px-3 py-2">
-                <span class="text-sm text-hcrg-charcoal truncate mr-2">${esc(name)}</span>
+            <div class="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2">
+                <span class="text-sm text-gray-700 truncate mr-2">${esc(name)}</span>
                 <span class="text-xs text-gray-500 flex-shrink-0">Uploading…</span>
             </div>`).join('');
         list.querySelectorAll('.brief-file-remove').forEach(btn => {
@@ -1507,11 +1507,11 @@
     if (briefDropzone) {
         ['dragover', 'dragenter'].forEach(ev => briefDropzone.addEventListener(ev, e => {
             e.preventDefault();
-            briefDropzone.classList.add('border-hcrg-burgundy');
+            briefDropzone.classList.add('border-primary');
         }));
         ['dragleave', 'drop'].forEach(ev => briefDropzone.addEventListener(ev, e => {
             e.preventDefault();
-            briefDropzone.classList.remove('border-hcrg-burgundy');
+            briefDropzone.classList.remove('border-primary');
         }));
         briefDropzone.addEventListener('drop', e => uploadBriefFiles([...e.dataTransfer.files]));
     }
@@ -1532,8 +1532,8 @@
                 const data = await res.json();
                 if (!data.results || data.results.length === 0) { wrap.classList.add('hidden'); return; }
                 list.innerHTML = data.results.map(r => `
-                    <p class="text-xs text-hcrg-grey-400">
-                        <a href="/suggestions?q=${encodeURIComponent(r.title)}" target="_blank" class="text-hcrg-burgundy underline">${esc(r.title)}</a>
+                    <p class="text-xs text-gray-500">
+                        <a href="/suggestions?q=${encodeURIComponent(r.title)}" target="_blank" class="text-primary underline">${esc(r.title)}</a>
                         — ${esc(r.status)}${r.sites.length ? ' · ' + esc(r.sites.join(', ')) : ''}
                     </p>`).join('');
                 wrap.classList.remove('hidden');
@@ -1551,9 +1551,9 @@
         r.addEventListener('change', function () {
             document.querySelectorAll('.content-type-option').forEach(el => {
                 const on = el.contains(this);
-                el.classList.toggle('border-hcrg-burgundy', on);
+                el.classList.toggle('border-primary', on);
                 el.classList.toggle('border-2', on);
-                el.classList.toggle('bg-hcrg-burgundy/5', on);
+                el.classList.toggle('bg-primary/5', on);
                 el.classList.toggle('border-gray-300', !on);
             });
             checkStepValid();
@@ -2041,7 +2041,7 @@
 
         const allBtn = document.createElement('button');
         allBtn.type = 'button';
-        allBtn.className = 'cpt-tab px-3 py-1.5 rounded-full text-sm font-medium bg-hcrg-burgundy text-white';
+        allBtn.className = 'cpt-tab px-3 py-1.5 rounded-full text-sm font-medium bg-primary text-white';
         allBtn.textContent = 'All';
         allBtn.dataset.cpt = '';
         allBtn.addEventListener('click', () => selectCpt(null));
@@ -2068,7 +2068,7 @@
         }
         document.querySelectorAll('.cpt-tab').forEach(tab => {
             const isActive = tab.dataset.cpt === (cpt || '');
-            tab.className = `cpt-tab px-3 py-1.5 rounded-full text-sm font-medium ${isActive ? 'bg-hcrg-burgundy text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
+            tab.className = `cpt-tab px-3 py-1.5 rounded-full text-sm font-medium ${isActive ? 'bg-primary text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
         });
         renderPages();
         updateBlockedState();
@@ -2088,7 +2088,7 @@
         }
 
         container.innerHTML = pages.map(p => `
-            <div class="page-option p-3 cursor-pointer hover:bg-gray-50 ${selectedPage && selectedPage.id === p.id ? 'selected bg-hcrg-burgundy/10 border-l-4 border-hcrg-burgundy' : ''}"
+            <div class="page-option p-3 cursor-pointer hover:bg-gray-50 ${selectedPage && selectedPage.id === p.id ? 'selected bg-primary/10 border-l-4 border-primary' : ''}"
                  data-page-id="${p.id}" data-url="${esc(p.url)}" data-title="${esc(p.page_title || '')}" data-cpt="${esc(p.cpt_slug)}">
                 <div class="text-sm font-medium text-gray-900">${esc(p.page_title || '(No title)')}</div>
                 <div class="text-xs text-gray-500 truncate">${esc(p.url)}</div>
@@ -2098,9 +2098,9 @@
         container.querySelectorAll('.page-option').forEach(el => {
             el.addEventListener('click', function() {
                 container.querySelectorAll('.page-option').forEach(o => {
-                    o.classList.remove('selected', 'bg-hcrg-burgundy/10', 'border-l-4', 'border-hcrg-burgundy');
+                    o.classList.remove('selected', 'bg-primary/10', 'border-l-4', 'border-primary');
                 });
-                this.classList.add('selected', 'bg-hcrg-burgundy/10', 'border-l-4', 'border-hcrg-burgundy');
+                this.classList.add('selected', 'bg-primary/10', 'border-l-4', 'border-primary');
 
                 selectedPage = {
                     id: parseInt(this.dataset.pageId),
@@ -2128,7 +2128,7 @@
             <div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Website & Page</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="1">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="1">Edit</button>
                 </div>
                 <p class="text-sm text-gray-900">${esc(siteName)}</p>
                 <p class="text-sm text-gray-600">${lane === 'content' ? 'New content' : (selectedPage ? esc(selectedPage.title) + ' — ' + esc(selectedPage.url) : '')}</p>
@@ -2145,7 +2145,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-3">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Content Changes (${structuredItems.length})</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="3">Edit</button>
                 </div>`;
 
             structuredItems.forEach(item => {
@@ -2154,7 +2154,7 @@
                     ? 'bg-green-100 text-green-800'
                     : item.action_type === 'delete'
                         ? 'bg-red-100 text-red-800'
-                        : 'bg-[#B52159]/10 text-[#B52159]';
+                        : 'bg-primary/10 text-primary';
                 html += `<div class="pl-3 border-l-2 border-gray-200">
                     <span class="text-xs font-medium px-2 py-0.5 rounded-full ${actionBadge}">${esc(item.action_type)}</span>
                     <span class="text-xs font-medium text-gray-500 ml-1">${esc(item.content_area)}</span>
@@ -2170,7 +2170,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-3">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Changes (${items.length})</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="3">Edit</button>
                 </div>`;
 
             items.forEach((item, i) => {
@@ -2185,7 +2185,7 @@
                     : `<p class="text-sm text-gray-700 mt-1">${esc(desc.substring(0, 200))}${desc.length > 200 ? '...' : ''}</p>`;
 
                 html += `<div class="pl-3 border-l-2 border-gray-200">
-                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-[#B52159]/10 text-[#B52159]'}">${esc(action)}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full ${action === 'add' ? 'bg-green-100 text-green-800' : action === 'delete' ? 'bg-red-100 text-red-800' : 'bg-primary/10 text-primary'}">${esc(action)}</span>
                     ${area ? `<span class="text-xs text-gray-500 ml-1">${esc(area)}</span>` : ''}
                     ${body}
                     ${fileCount > 0 ? `<p class="text-xs text-gray-400 mt-1">${fileCount} file(s) attached</p>` : ''}
@@ -2208,7 +2208,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">The brief</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="3">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="3">Edit</button>
                 </div>
                 <p class="text-sm text-gray-900">${esc(brief.achieve)}</p>
                 <p class="text-sm text-gray-600"><strong>For:</strong> ${esc(audienceLabels.join(', '))}</p>
@@ -2219,7 +2219,7 @@
             <div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">What it is, and where it lives</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="4">Edit</button>
                 </div>
                 <p class="text-sm text-gray-900">${esc(typeLabel)}</p>
                 <p class="text-sm text-gray-600"><strong>Main home:</strong> ${esc(selectedSiteName())}</p>
@@ -2234,7 +2234,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Deadline</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="4">Edit</button>
                 </div>`;
             if (hasDeadline) {
                 html += `<p class="text-sm text-gray-900 font-medium">${esc(document.getElementById('deadlineDate').value)}</p>`;
@@ -2251,7 +2251,7 @@
             html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
                 <div class="flex justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Check Answers</h3>
-                    <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="4">Edit</button>
+                    <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="4">Edit</button>
                 </div>`;
             questions.forEach(group => {
                 const qText = group.querySelector('p').textContent.trim();
@@ -2265,7 +2265,7 @@
         html += `<div class="border border-gray-200 rounded-lg p-4 space-y-2">
             <div class="flex justify-between">
                 <h3 class="text-sm font-semibold text-gray-700">Your Details</h3>
-                <button type="button" class="edit-step text-xs text-hcrg-burgundy hover:underline px-2 py-1 rounded hover:bg-hcrg-burgundy/5" data-goto="5">Edit</button>
+                <button type="button" class="edit-step text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-primary/5" data-goto="5">Edit</button>
             </div>
             <p class="text-sm text-gray-900">${esc(document.getElementById('requesterName').value)}</p>
             <p class="text-sm text-gray-600">${esc(document.getElementById('requesterEmail').value)}</p>

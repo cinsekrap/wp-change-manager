@@ -88,7 +88,7 @@
                         <input type="hidden" name="chase_enabled" value="0">
                         <input type="checkbox" name="chase_enabled" value="1"
                             {{ \App\Models\Setting::get('chase_enabled') ? 'checked' : '' }}
-                            class="rounded border-gray-300 text-hcrg-burgundy focus:ring-hcrg-burgundy">
+                            class="rounded border-gray-300 text-primary focus:ring-primary/15">
                         <span class="text-sm font-medium text-gray-700">Enable chase reminders</span>
                     </label>
 

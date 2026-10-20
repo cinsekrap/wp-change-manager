@@ -22,9 +22,9 @@ async function build(hash = '') {
     const dom = new JSDOM(`<!doctype html><html><body>
         <div data-tabs>
           <nav>
-            <button data-tab="work" class="border-hcrg-burgundy text-hcrg-burgundy">The work</button>
-            <button data-tab="brief" class="border-transparent text-hcrg-grey-400">Brief</button>
-            <button data-tab="history" class="border-transparent text-hcrg-grey-400">History</button>
+            <button data-tab="work" class="border-primary text-primary">The work</button>
+            <button data-tab="brief" class="border-transparent text-gray-500">Brief</button>
+            <button data-tab="history" class="border-transparent text-gray-500">History</button>
           </nav>
         </div>
         <div data-tab-panel="work"><form id="draft">draft copy</form></div>
@@ -40,7 +40,7 @@ async function build(hash = '') {
         open: () => Array.from(document.querySelectorAll('[data-tab-panel]'))
             .filter((p) => !p.hidden).map((p) => p.dataset.tabPanel),
         active: () => Array.from(document.querySelectorAll('[data-tab]'))
-            .filter((b) => b.classList.contains('text-hcrg-burgundy')).map((b) => b.dataset.tab),
+            .filter((b) => b.classList.contains('text-primary')).map((b) => b.dataset.tab),
         click: (key) => document.querySelector(`[data-tab="${key}"]`).click(),
     };
 }

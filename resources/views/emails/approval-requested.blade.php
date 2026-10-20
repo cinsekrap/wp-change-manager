@@ -3,7 +3,7 @@
 @section('subject', "Approval Requested: {$reference}")
 
 @section('content')
-    <h2 style="margin:0 0 16px;color:#3C3C3B;font-size:20px;font-weight:700;">
+    <h2 style="margin:0 0 16px;color:#44403c;font-size:20px;font-weight:700;">
         Your approval is needed
     </h2>
 
@@ -17,38 +17,38 @@
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;border-collapse:collapse;">
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;width:140px;color:#3C3C3B;">Reference</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $reference }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;width:140px;color:#44403c;">Reference</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $reference }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Site</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $siteName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Site</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $siteName }}</td>
         </tr>
         @if($isAccessRequest)
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access to</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $cptName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Access to</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $cptName }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Access for</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $recipientName }} ({{ $recipientEmail }})</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Access for</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $recipientName }} ({{ $recipientEmail }})</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Requested by</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $requesterName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Requested by</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $requesterName }}</td>
         </tr>
         @else
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">{{ ($isContentRequest ?? false) ? 'Content' : 'Page' }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ (!($isContentRequest ?? false) && $isNewPage) ? 'New page: ' : '' }}{{ $pageTitle }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Requested by</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $requesterName }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Requested by</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $requesterName }}</td>
         </tr>
         <tr>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;font-weight:600;color:#3C3C3B;">Changes</td>
-            <td style="padding:8px 12px;border-bottom:1px solid #eeeeee;color:#3C3C3B;">{{ $itemCount }} {{ Str::plural('item', $itemCount) }}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;font-weight:600;color:#44403c;">Changes</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e7e5e4;color:#44403c;">{{ $itemCount }} {{ Str::plural('item', $itemCount) }}</td>
         </tr>
         @endif
     </table>
@@ -68,15 +68,15 @@
     {{-- CTA Button --}}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
         <tr>
-            <td style="border-radius:50px;background-color:#B52159;">
-                <a href="{{ $approvalUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:50px;">
+            <td style="border-radius:8px;background-color:#1c1917;">
+                <a href="{{ $approvalUrl }}" target="_blank" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
                     Review &amp; Respond
                 </a>
             </td>
         </tr>
     </table>
 
-    <p style="margin:0 0 8px;font-size:13px;color:#6E6E6D;">
+    <p style="margin:0 0 8px;font-size:13px;color:#78716c;">
         @if($isAccessRequest)
             <strong>What does approval mean?</strong> By approving, you're confirming that you're happy for {{ $recipientName }} to be given access to manage this content directly. They'll need to complete training and confirm they're competent before access is set up. If you have concerns, you can reject the request with a note explaining why.
         @else
@@ -84,7 +84,7 @@
         @endif
     </p>
 
-    <p style="margin:16px 0 0;font-size:13px;color:#A0A09F;">
+    <p style="margin:16px 0 0;font-size:13px;color:#a8a29e;">
         This link is unique to you and will remain active until you respond. Please do not forward this email.
     </p>
 @endsection

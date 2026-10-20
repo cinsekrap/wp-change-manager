@@ -23,15 +23,15 @@
             // on the very page the first two content emails link to.
             'suggested' => [
                 'icon' => $clock,
-                'bg' => 'bg-hcrg-grey-100 border-hcrg-grey-200',
-                'iconColor' => 'text-hcrg-grey-400',
+                'bg' => 'bg-gray-100 border-gray-200',
+                'iconColor' => 'text-gray-500',
                 'title' => 'Your suggestion has been received',
                 'text' => 'A content designer will read it and work out what it needs. Nothing is committed yet.',
             ],
             'scoped' => [
                 'icon' => $clock,
-                'bg' => 'bg-hcrg-grey-100 border-hcrg-grey-200',
-                'iconColor' => 'text-hcrg-grey-400',
+                'bg' => 'bg-gray-100 border-gray-200',
+                'iconColor' => 'text-gray-500',
                 'title' => 'A content designer has looked at it',
                 'text' => 'They have worked out what it needs and roughly how long it will take. It now goes for a decision on whether to fund the work.',
             ],
@@ -79,8 +79,8 @@
             ],
             'approved' => [
                 'icon' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
-                'bg' => 'bg-hcrg-burgundy/5 border-hcrg-burgundy/20',
-                'iconColor' => 'text-hcrg-burgundy',
+                'bg' => 'bg-primary/5 border-primary/20',
+                'iconColor' => 'text-primary',
                 'title' => 'Approved',
                 'text' => 'Your request has been approved and is in the queue to be actioned. Requests are scheduled based on priority and team capacity.',
             ],
@@ -228,7 +228,7 @@
                 @php $published = $changeRequest->publishedFor($site->id); @endphp
                 @if ($published['published_url'])
                     <li class="text-sm">
-                        <a href="{{ \App\Support\SafeUrl::for($published['published_url']) ?? '#' }}" class="text-hcrg-burgundy underline">{{ $published['published_title'] ?: $published['published_url'] }}</a>
+                        <a href="{{ \App\Support\SafeUrl::for($published['published_url']) ?? '#' }}" class="text-primary underline">{{ $published['published_title'] ?: $published['published_url'] }}</a>
                         <span class="text-gray-400">— {{ $site->name }}</span>
                     </li>
                 @endif
@@ -327,11 +327,11 @@
 
     {{-- Actions --}}
     <div class="flex flex-col sm:flex-row gap-3 items-center justify-center">
-        <a href="{{ route('tracking') }}" class="text-sm text-hcrg-burgundy hover:underline font-medium">
+        <a href="{{ route('tracking') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
             Track another request
         </a>
         <span class="hidden sm:inline text-gray-300">|</span>
-        <a href="{{ route('wizard') }}" class="text-sm text-hcrg-burgundy hover:underline font-medium">
+        <a href="{{ route('wizard') }}" class="text-sm text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current font-medium">
             Submit a new request
         </a>
     </div>

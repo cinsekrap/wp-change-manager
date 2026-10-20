@@ -10,15 +10,15 @@
                 <label class="block text-xs font-medium text-gray-500 mb-1">Action type <span class="text-red-500">*</span></label>
                 <div class="flex space-x-4">
                     <label class="flex items-center space-x-1 cursor-pointer">
-                        <input type="radio" name="" value="add" class="action-type h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="" value="add" class="action-type h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm">Add</span>
                     </label>
                     <label class="flex items-center space-x-1 cursor-pointer">
-                        <input type="radio" name="" value="change" class="action-type h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="" value="change" class="action-type h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm">Change</span>
                     </label>
                     <label class="flex items-center space-x-1 cursor-pointer">
-                        <input type="radio" name="" value="delete" class="action-type h-4 w-4 text-hcrg-burgundy border-gray-300">
+                        <input type="radio" name="" value="delete" class="action-type h-4 w-4 text-primary border-gray-300">
                         <span class="text-sm">Delete</span>
                     </label>
                 </div>
@@ -29,13 +29,13 @@
             {{-- Current content (changes only) --}}
             <div class="item-current-container hidden">
                 <label class="block text-xs font-medium text-red-700 mb-1">Current content <span class="text-red-500">*</span></label>
-                <textarea class="item-current w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg text-sm focus:ring-2 focus:ring-hcrg-burgundy focus:border-hcrg-burgundy"
+                <textarea class="item-current w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg text-sm focus:ring-2 focus:ring-primary/15 focus:border-primary"
                     rows="3" placeholder="Paste exactly what's on the page now, so we can see what changes..."></textarea>
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">
                     <span class="item-description-label">Description</span> <span class="text-red-500">*</span>
-                    <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-hcrg-burgundy hover:underline">reset to current</button>
+                    <button type="button" class="reset-to-current hidden ml-2 text-xs font-normal text-primary underline decoration-gray-300 underline-offset-2 hover:decoration-current">reset to current</button>
                 </label>
                 <textarea class="field-input item-description"
                     rows="3" placeholder="Describe the change you need in detail..."></textarea>
@@ -47,7 +47,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="text-gray-400">(max 5 files, 128MB each)</span></label>
-                <input type="file" class="file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-hcrg-burgundy/10 file:text-hcrg-burgundy hover:file:bg-hcrg-burgundy/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">
+                <input type="file" class="file-input text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" multiple accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.pptx,.mp4,.mov,.webm,.avi">
                 <div class="file-list mt-2 space-y-1"></div>
             </div>
         </div>

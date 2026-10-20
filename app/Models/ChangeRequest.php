@@ -98,7 +98,7 @@ class ChangeRequest extends Model
         'requested' => 'bg-amber-100 text-amber-800',
         'requires_referral' => 'bg-pink-100 text-pink-800',
         'referred' => 'bg-orange-100 text-orange-800',
-        'approved' => 'bg-hcrg-burgundy/20 text-hcrg-burgundy',
+        'approved' => 'bg-indigo-100 text-indigo-800',
         'training' => 'bg-sky-100 text-sky-800',
         'trained' => 'bg-teal-100 text-teal-800',
         'scheduled' => 'bg-purple-100 text-purple-800',
