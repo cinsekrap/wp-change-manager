@@ -49,7 +49,6 @@ class ContentRequestController extends Controller
             'estimated_hours' => 'nullable|numeric|min:0|max:9999',
             'deadline_date' => 'nullable|date',
             'deadline_reason' => 'nullable|string|max:1000',
-            'draft_content' => 'nullable|string',
             'brief' => 'nullable|array',
             'brief.achieve' => 'nullable|string|max:5000',
             'brief.know_or_do' => 'nullable|string|max:5000',
@@ -58,6 +57,8 @@ class ContentRequestController extends Controller
             'brief.measure' => 'nullable|string|max:1000',
             'brief.already_exists' => 'nullable|in:yes,no,not_sure',
             'brief.already_exists_detail' => 'nullable|string|max:2000',
+            // Pasted from old content, so as long as a draft may be.
+            'brief.existing_wording' => 'nullable|string|max:100000',
         ]);
 
         // The main home cannot also be an additional site, and an additional site
@@ -84,7 +85,6 @@ class ContentRequestController extends Controller
                 'content_type' => $validated['content_type'] ?? null,
                 'content_brief' => $brief ?: null,
                 'estimated_hours' => $validated['estimated_hours'] ?? null,
-                'draft_content' => $validated['draft_content'] ?? null,
                 // Enters at the same gate as a suggestion from the public wizard.
                 'status' => 'suggested',
                 'priority' => $validated['priority'] ?? 'normal',

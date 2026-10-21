@@ -320,9 +320,10 @@ class ChangeRequest extends Model
     /**
      * Copy written as one box of text that has not yet been put into the fields.
      *
-     * The create form takes copy that way, and so did every draft written before
-     * its kind had a page type. The fields open empty over it, so unless the editor
-     * shows it, it is invisible — and saving the empty fields would replace it.
+     * Drafts written before their kind had a page type are like this, and so is
+     * copy the create form saved that was not moved to the brief. The fields open
+     * empty over it, so unless the editor shows it, it is invisible — and saving
+     * the empty fields would replace it.
      */
     public function hasUnplacedDraft(): bool
     {

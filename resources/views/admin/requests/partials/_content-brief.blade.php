@@ -44,6 +44,12 @@
                 @endif
             </dd>
         </div>
+        @if(!empty($brief['existing_wording']))
+        <div>
+            <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Existing wording to work from</dt>
+            <dd class="text-sm text-gray-700 whitespace-pre-wrap">{{ $brief['existing_wording'] }}</dd>
+        </div>
+        @endif
     </dl>
 
     @if($changeRequest->watchers->isNotEmpty())

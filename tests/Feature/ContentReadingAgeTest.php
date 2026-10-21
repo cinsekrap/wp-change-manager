@@ -57,16 +57,17 @@ class ContentReadingAgeTest extends TestCase
         $this->assertGreaterThan(13, ReadingAge::grade($this->complex));
     }
 
-    public function test_the_create_form_measures_the_copy_as_it_is_written(): void
+    public function test_the_create_form_does_not_measure_wording_to_work_from(): void
     {
         $this->loginAsAdmin();
 
+        // It is a summary or old content, not copy anyone is publishing, so a
+        // reading-age gate there would only stand in the way of the brief.
         $this->get(route('admin.requests.content.create'))
             ->assertSuccessful()
-            ->assertSee('data-reading-age-badge-for="draft_content"', false)
-            ->assertSee('data-reading-age-warning-for="draft_content"', false)
-            // The gate has to be passable — this is guidance, not a hard block.
-            ->assertSee('Save anyway', false);
+            ->assertSee('name="brief[existing_wording]"', false)
+            ->assertDontSee('name="draft_content"', false)
+            ->assertDontSee('data-reading-age-badge-for', false);
     }
 
     public function test_the_draft_editor_measures_the_copy_the_designer_imports(): void
