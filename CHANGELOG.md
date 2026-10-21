@@ -7,6 +7,12 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.1.2
+
+### Improvements
+- On the Create content form, "The copy" is now **Existing wording to work from**, part of the brief. Use it for a summary or wording pasted from old content. It's shown on the Brief tab, and the draft copy starts empty.
+- Wording already entered this way on earlier content has moved to the Brief tab too. Where it may have become the draft (content already being written, or sent for clinical approval), it has been left where it is.
+
 ## 2.1.1
 
 ### Bug Fixes
