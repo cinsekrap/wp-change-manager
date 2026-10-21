@@ -130,17 +130,17 @@
                     class="field-input mt-2">{{ old('brief.already_exists_detail') }}</textarea>
                 @error('brief.already_exists_detail') <p class="field-error">{{ $message }}</p> @enderror
             </div>
-        </div>
-    </x-admin.form-section>
 
-    <x-admin.form-section title="The copy" help="Only if you've already written it. Editing approved copy withdraws the approval.">
-        <p class="text-xs text-gray-500 mb-4">
-            Only if you've already written it. Editing approved copy withdraws the approval.
-        </p>
-        <textarea name="draft_content" id="draft_content" rows="8"
-            class="field-input">{{ old('draft_content') }}</textarea>
-        @error('draft_content') <p class="field-error">{{ $message }}</p> @enderror
-        @include('partials.reading-age', ['field' => 'draft_content'])
+            {{-- A summary or wording pasted from old content: something to work from,
+                 not the copy, so it is kept with the brief and not measured. --}}
+            <div>
+                <label for="briefExistingWording" class="field-label">Existing wording to work from</label>
+                <p class="field-help">A summary, or wording copied from something this replaces. It stays with the brief; the copy itself is written later.</p>
+                <textarea name="brief[existing_wording]" id="briefExistingWording" rows="8"
+                    class="field-input">{{ old('brief.existing_wording') }}</textarea>
+                @error('brief.existing_wording') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+        </div>
     </x-admin.form-section>
 
     <x-admin.form-section title="Who and when" help="Ownership, priority and any date it is needed by.">

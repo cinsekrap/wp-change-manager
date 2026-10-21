@@ -113,6 +113,20 @@ class UiRequestDetailTest extends TestCase
         $this->assertStringContainsString('A distinctive purpose.', $brief);
     }
 
+    public function test_wording_to_work_from_is_on_the_brief_tab(): void
+    {
+        $request = $this->request('content', [
+            'draft_content' => null,
+            'content_brief' => ['achieve' => 'A distinctive purpose.', 'existing_wording' => 'Pasted from the old page.'],
+        ]);
+        $this->loginAsAdmin();
+
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+
+        $this->assertStringContainsString('Pasted from the old page.', $this->panelBody($html, 'brief'));
+        $this->assertStringNotContainsString('Pasted from the old page.', $this->panelBody($html, 'work'));
+    }
+
     public function test_what_was_sent_with_the_brief_is_on_the_brief_tab(): void
     {
         $request = $this->request('content');

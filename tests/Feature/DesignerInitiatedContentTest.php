@@ -94,19 +94,21 @@ class DesignerInitiatedContentTest extends TestCase
             // The main home repeated here is noise, not a second site.
             'additional_site_ids' => [$site->id, $other->id],
             'priority' => 'high',
-            'draft_content' => 'The copy, already written.',
             'brief' => [
                 'achieve' => 'Stop people ringing to ask what happens first.',
                 'audience' => ['patients', 'families'],
                 'know_or_do' => 'Know what to bring.',
                 'already_exists' => 'no',
+                'existing_wording' => 'Wording pasted from the old leaflet.',
             ],
         ])->assertRedirect();
 
         $request = ChangeRequest::firstOrFail();
 
         $this->assertSame('appointment_prep', $request->content_type);
-        $this->assertSame('The copy, already written.', $request->draft_content);
+        // Something to work from, not the copy: it is kept with the brief.
+        $this->assertSame('Wording pasted from the old leaflet.', $request->content_brief['existing_wording']);
+        $this->assertNull($request->draft_content);
         $this->assertSame('Stop people ringing to ask what happens first.', $request->content_brief['achieve']);
         $this->assertSame([$other->id], $request->additionalSites->pluck('id')->all());
     }

@@ -392,19 +392,14 @@ class StructuredDraftTest extends TestCase
         );
     }
 
-    public function test_copy_from_the_create_form_opens_in_the_first_field_that_takes_prose(): void
+    public function test_copy_written_as_one_block_opens_in_the_first_field_that_takes_prose(): void
     {
+        // Written in one box before the kind had a page type.
+        $request = $this->content('situation_support');
+        $request->update(['draft_content' => 'Copy written before anyone chose the fields.']);
         $this->needsType();
         $this->loginAsAdmin();
 
-        // The create form takes copy as one box of text, whatever the kind.
-        $this->post(route('admin.requests.content.store'), [
-            'page_title' => 'Back pain explainer',
-            'content_type' => 'situation_support',
-            'draft_content' => 'Copy written before anyone chose the fields.',
-        ])->assertRedirect();
-
-        $request = ChangeRequest::where('page_title', 'Back pain explainer')->firstOrFail();
         $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
 
         // It used to be on no tab at all, and saving the empty fields wiped it.
