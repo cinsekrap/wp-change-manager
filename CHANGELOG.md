@@ -13,6 +13,9 @@ pull request as the version bump.
 - Draft copy entered when creating content didn't appear on the request page for some content types, and saving the draft could clear it. It now opens in the first text field, with a note to move each part into the field it belongs in.
 - Files sent with a content suggestion now appear on the Brief tab, alongside the rest of the brief.
 
+### Improvements
+- Updated to work with PHP 8.5.
+
 ## 2.1.0
 
 ACME Change has a new look: a neutral design with a single teal accent, replacing the previous brand colours.
