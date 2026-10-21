@@ -1,10 +1,11 @@
 name: Tests
 
-# Runs the test suites on the PHP version the app actually needs.
+# Runs the test suites on the PHP version production runs (8.5).
 #
 # The locked Symfony 8.1 and PHPUnit 13.4 stack requires PHP >= 8.4.1, which
-# config.platform.php pins. Any runner on an older PHP can install the dependencies but
-# cannot execute them, so the version here is deliberately explicit rather than inherited.
+# config.platform.php pins as the floor for dependency resolution. Any runner on an older
+# PHP can install the dependencies but cannot execute them, so the version here is
+# deliberately explicit rather than inherited.
 #
 # vendor/ and public/build are committed artefacts on this project, so the suites run
 # against exactly what ships, and two steps guard that those artefacts are in sync with
@@ -28,10 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Set up PHP 8.4
+      - name: Set up PHP 8.5
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: ctype, dom, fileinfo, filter, gd, iconv, intl, mbstring, openssl, pdo_sqlite, phar, session, sqlite3, tokenizer, xml, xmlwriter, zip
           coverage: none
 
