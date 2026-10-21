@@ -1,11 +1,26 @@
 @php
     $fields = $changeRequest->contentFields();
-    $values = $changeRequest->draft_fields ?? [];
+    $unplacedField = $changeRequest->unplacedDraftField();
+    $values = $unplacedField
+        ? [$unplacedField => $changeRequest->draft_content]
+        : ($changeRequest->draft_fields ?? []);
 
     // A field renders one of three ways: a single input, a group of sub-fields,
     // or a group that repeats.
     $inputTypes = ['text' => 'text', 'date' => 'date'];
 @endphp
+
+@if($unplacedField)
+    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <p class="text-sm text-amber-800">This copy was written as one block of text, so it is all in <strong class="font-semibold">{{ $unplacedField }}</strong> for now. Move each part into the field it belongs in, then save.</p>
+    </div>
+@elseif($changeRequest->hasUnplacedDraft())
+    {{-- No field here takes prose, so the copy is shown as written. --}}
+    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <p class="text-sm text-amber-800 mb-2">This copy was written as one block of text. Copy each part into the field it belongs in — saving the fields replaces it.</p>
+        <div class="p-3 bg-white border border-amber-200 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">{{ $changeRequest->draft_content }}</div>
+    </div>
+@endif
 
 @foreach($fields as $field)
     @php

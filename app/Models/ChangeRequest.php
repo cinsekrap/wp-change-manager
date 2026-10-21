@@ -318,6 +318,39 @@ class ChangeRequest extends Model
     }
 
     /**
+     * Copy written as one box of text that has not yet been put into the fields.
+     *
+     * The create form takes copy that way, and so did every draft written before
+     * its kind had a page type. The fields open empty over it, so unless the editor
+     * shows it, it is invisible — and saving the empty fields would replace it.
+     */
+    public function hasUnplacedDraft(): bool
+    {
+        return $this->hasStructuredDraft()
+            && blank($this->draft_fields)
+            && filled($this->draft_content);
+    }
+
+    /**
+     * The field unplaced copy opens in: the first one that takes prose.
+     *
+     * Null when there is none — a single-line or date input would flatten it.
+     */
+    public function unplacedDraftField(): ?string
+    {
+        if (! $this->hasUnplacedDraft()) {
+            return null;
+        }
+
+        $field = collect($this->contentFields())->first(
+            fn (array $field) => empty($field['sub_fields'])
+                && ! in_array($field['type'] ?? 'text', ['text', 'date', 'file'], true)
+        );
+
+        return $field['name'] ?? null;
+    }
+
+    /**
      * The fields rendered as plain text.
      *
      * Clinical approval binds to a hash of draft_content and the reading-age

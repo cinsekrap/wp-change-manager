@@ -37,6 +37,7 @@
             @if($changeRequest->isContentRequest())
                 <div data-tab-panel="brief" class="space-y-6" hidden>
                     @include('admin.requests.partials._content-brief')
+                    @include('admin.requests.partials._brief-files')
                     @include('admin.requests.partials._check-answers')
                 </div>
             @endif

@@ -391,4 +391,54 @@ class StructuredDraftTest extends TestCase
             'The answer is being shown before the question'
         );
     }
+
+    public function test_copy_from_the_create_form_opens_in_the_first_field_that_takes_prose(): void
+    {
+        $this->needsType();
+        $this->loginAsAdmin();
+
+        // The create form takes copy as one box of text, whatever the kind.
+        $this->post(route('admin.requests.content.store'), [
+            'page_title' => 'Back pain explainer',
+            'content_type' => 'situation_support',
+            'draft_content' => 'Copy written before anyone chose the fields.',
+        ])->assertRedirect();
+
+        $request = ChangeRequest::where('page_title', 'Back pain explainer')->firstOrFail();
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+
+        // It used to be on no tab at all, and saving the empty fields wiped it.
+        $this->assertMatchesRegularExpression(
+            '/name="fields\[Need Introduction\]"[^>]*>Copy written before anyone chose the fields\.<\/textarea>/',
+            $html
+        );
+        $this->assertStringContainsString('so it is all in', $html);
+
+        $this->patch(route('admin.requests.draft', $request), ['fields' => [
+            'Need Introduction' => 'Copy written before anyone chose the fields.',
+        ]]);
+
+        $this->assertStringContainsString('Copy written before anyone chose the fields.', $request->fresh()->draft_content);
+        $this->get(route('admin.requests.show', $request))->assertDontSee('so it is all in');
+    }
+
+    public function test_copy_no_field_can_hold_is_still_shown(): void
+    {
+        CptType::updateOrCreate(['slug' => 'clinics'], [
+            'name' => 'Clinics',
+            'request_mode' => 'normal',
+            'content_kinds' => ['appointment_prep'],
+            'form_config' => ['content_areas' => [
+                ['name' => 'Clinic name', 'type' => 'text'],
+                ['name' => 'Opens', 'type' => 'date'],
+            ]],
+        ]);
+        $request = $this->content('appointment_prep');
+        $request->update(['draft_content' => 'Copy with no field to go in.']);
+        $this->loginAsAdmin();
+
+        $this->get(route('admin.requests.show', $request))
+            ->assertSuccessful()
+            ->assertSee('Copy with no field to go in.');
+    }
 }

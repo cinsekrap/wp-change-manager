@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ChangeRequest;
 use App\Models\ChangeRequestItem;
+use App\Models\ChangeRequestItemFile;
 use App\Models\Site;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -110,6 +111,25 @@ class UiRequestDetailTest extends TestCase
         );
 
         $this->assertStringContainsString('A distinctive purpose.', $brief);
+    }
+
+    public function test_what_was_sent_with_the_brief_is_on_the_brief_tab(): void
+    {
+        $request = $this->request('content');
+        ChangeRequestItemFile::create([
+            'change_request_id' => $request->id,
+            'original_filename' => 'the-leaflet-being-replaced.pdf',
+            'stored_path' => "uploads/{$request->reference}/leaflet.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 2048,
+        ]);
+        $this->loginAsAdmin();
+
+        $html = $this->get(route('admin.requests.show', $request))->assertSuccessful()->getContent();
+
+        // It is read before the copy is written, so it is on the tab you work from.
+        $this->assertStringContainsString('the-leaflet-being-replaced.pdf', $this->panelBody($html, 'brief'));
+        $this->assertStringNotContainsString('the-leaflet-being-replaced.pdf', $this->panelBody($html, 'work'));
     }
 
     public function test_what_has_happened_is_on_the_history_tab(): void
