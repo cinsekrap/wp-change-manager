@@ -7,6 +7,12 @@ This file is the source for GitHub release notes: when `config/version.php` is b
 appends the zipball SHA-256 the in-app updater verifies. Add the new section in the same
 pull request as the version bump.
 
+## 2.1.1
+
+### Bug Fixes
+- Draft copy entered when creating content didn't appear on the request page for some content types, and saving the draft could clear it. It now opens in the first text field, with a note to move each part into the field it belongs in.
+- Files sent with a content suggestion now appear on the Brief tab, alongside the rest of the brief.
+
 ## 2.1.0
 
 ACME Change has a new look: a neutral design with a single teal accent, replacing the previous brand colours.
