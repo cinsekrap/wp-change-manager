@@ -4,10 +4,8 @@
  * Test: Nette\Utils\Arrays::associate()
  */
 
-use Nette\Utils\Arrays;
-use Nette\Utils\DateTime;
+use Nette\Utils\{Arrays, DateTime};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 

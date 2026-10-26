@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -84,4 +82,14 @@ test('nullable type accepts null value', function () {
 	}, ['The item expects to be null or string, 123 given.']);
 
 	Assert::same(null, (new Processor)->process($schema, null));
+});
+
+
+test('default passed as a named argument', function () {
+	$schema = Expect::structure([
+		'a' => Expect::string(default: 'abc'),
+		'b' => Expect::int(default: 10),
+		'c' => Expect::string(default: null),
+	])->castTo('array');
+	Assert::same(['a' => 'abc', 'b' => 10, 'c' => null], (new Processor)->process($schema, []));
 });

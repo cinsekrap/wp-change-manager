@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Cron\Tests;
 
 use Cron\CronExpression;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\TestCase;
 
 class DaylightSavingsTest extends TestCase
@@ -34,6 +36,50 @@ class DaylightSavingsTest extends TestCase
         $dtCurrent = $this->createDateTimeExactly("2021-03-08 08:15-06:00", $tz);
         $dtExpected = $this->createDateTimeExactly("2021-03-14 03:15-05:00", $tz);
         $this->assertEquals($dtExpected, $cron->getNextRunDate($dtCurrent));
+    }
+
+    public function testIssue222(): void
+    {
+        // Australia/Lord_Howe moves forward 30 minutes: 02:00+10:30 becomes 02:30+11:00
+        $cron = new CronExpression("30 2 * * *");
+        $tz = new \DateTimeZone("Australia/Lord_Howe");
+
+        $dtCurrent = $this->createDateTimeExactly("2026-10-04 01:59+10:30", $tz);
+        $dtExpected = $this->createDateTimeExactly("2026-10-03 02:30+10:30", $tz);
+        $this->assertEquals($dtExpected, $cron->getPreviousRunDate($dtCurrent, 0, true, $tz->getName()));
+
+        $dtExpected = $this->createDateTimeExactly("2026-10-04 02:30+11:00", $tz);
+        foreach (["2026-10-04 02:31+11:00", "2026-10-04 03:00+11:00", "2026-10-04 23:00+11:00", "2026-10-05 02:29+11:00"] as $dtString) {
+            $dtCurrent = $this->createDateTimeExactly($dtString, $tz);
+            $this->assertEquals($dtExpected, $cron->getPreviousRunDate($dtCurrent, 0, true, $tz->getName()));
+        }
+
+        $cron = new CronExpression("0 2 * * *");
+        $dtCurrent = $this->createDateTimeExactly("2026-10-04 03:00+11:00", $tz);
+        $dtExpected = $this->createDateTimeExactly("2026-10-03 02:00+10:30", $tz);
+        $this->assertEquals($dtExpected, $cron->getPreviousRunDate($dtCurrent, 0, true, $tz->getName()));
+    }
+
+    public function testHalfHourOffsetChangeNextRunDate(): void
+    {
+        // Australia/Lord_Howe moves forward 30 minutes on 2026-10-04 (02:00+10:30 becomes 02:30+11:00)
+        // and back 30 minutes on 2026-04-05 (02:00+11:00 becomes 01:30+10:30)
+        $tz = new \DateTimeZone("Australia/Lord_Howe");
+        $examples = [
+            ["15 1 * * *", "2026-10-04 01:18+10:30", "2026-10-05 01:15+11:00"],
+            ["0 * * * *", "2026-10-04 01:04+10:30", "2026-10-04 03:00+11:00"],
+            ["0,30 1,2 * * *", "2026-10-04 01:32+10:30", "2026-10-04 02:30+11:00"],
+            ["15 1 * * *", "2026-04-05 01:20+11:00", "2026-04-06 01:15+10:30"],
+            ["0 * * * *", "2026-04-05 01:06+11:00", "2026-04-05 02:00+10:30"],
+            ["0,30 1,2 * * *", "2026-04-05 01:34+11:00", "2026-04-05 01:30+10:30"],
+        ];
+
+        foreach ($examples as [$expression, $current, $expected]) {
+            $cron = new CronExpression($expression);
+            $dtCurrent = $this->createDateTimeExactly($current, $tz);
+            $dtExpected = $this->createDateTimeExactly($expected, $tz);
+            $this->assertEquals($dtExpected, $cron->getNextRunDate($dtCurrent, 0, false, $tz->getName()), $expression);
+        }
     }
 
     /**
@@ -114,8 +160,8 @@ class DaylightSavingsTest extends TestCase
     /**
      * Skip due to PHP 8.1 date instabilities.
      * For further references, see https://github.com/dragonmantank/cron-expression/issues/133
-     * @requires PHP <= 8.0.22
      */
+    #[RequiresPhp('<=8.0.22')]
     public function testOffsetDecrementsNextRunDateAllowCurrent(): void
     {
         $tz = new \DateTimeZone("Europe/London");
@@ -151,8 +197,8 @@ class DaylightSavingsTest extends TestCase
      * This can be avoided by using disallowing the current date or with additional checks outside this library
      * Skip due to PHP 8.1 date instabilities.
      * For further references, see https://github.com/dragonmantank/cron-expression/issues/133
-     * @requires PHP <= 8.0.22
      */
+    #[RequiresPhp('<=8.0.22')]
     public function testOffsetDecrementsNextRunDateDisallowCurrent(): void
     {
         $tz = new \DateTimeZone("Europe/London");
@@ -303,8 +349,8 @@ class DaylightSavingsTest extends TestCase
     /**
      * @param string[] $expected
      *
-     * @dataProvider dayLightSavingExamples
      */
+    #[DataProvider('dayLightSavingExamples')]
     public function testOffsetIncrementsMultipleRunDates(
         string $expression,
         array $expected,
@@ -338,8 +384,8 @@ class DaylightSavingsTest extends TestCase
     /**
      * Skip due to PHP 8.1 date instabilities.
      * For further references, see https://github.com/dragonmantank/cron-expression/issues/133
-     * @requires PHP <= 8.0.22
      */
+    #[RequiresPhp('<=8.0.22')]
     public function testOffsetDecrementsMultipleRunDates(): void
     {
         $expression = "0 1 * * 0";
@@ -430,8 +476,8 @@ class DaylightSavingsTest extends TestCase
     /**
      * Skip due to PHP 8.1 date instabilities.
      * For further references, see https://github.com/dragonmantank/cron-expression/issues/133
-     * @requires PHP <= 8.0.22
      */
+    #[RequiresPhp('<=8.0.22')]
     public function testOffsetDecrementsEveryOtherHour(): void
     {
         $expression = "0 */2 * * *";

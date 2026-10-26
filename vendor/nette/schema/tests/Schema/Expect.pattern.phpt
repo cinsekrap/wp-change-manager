@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -28,4 +26,18 @@ test('nullable pattern accepts null without validation', function () {
 	$schema = Expect::string()->nullable()->pattern('\d{9}');
 
 	Assert::same(null, (new Processor)->process($schema, null));
+});
+
+
+test('an invalid pattern is an error of the schema, not of the value', function () {
+	Assert::exception(
+		fn() => (new Processor)->process(Expect::string()->pattern('(a'), 'a'),
+		Nette\InvalidStateException::class,
+		"Invalid pattern '(a': Compilation failed: missing closing parenthesis at offset %d%",
+	);
+
+	// a value the pattern cannot be applied to is still a validation error
+	checkValidationErrors(function () {
+		(new Processor)->process(Expect::string()->pattern('.*'), "\xFF");
+	}, ["The item expects to match pattern '.*', '\xFF' given."]);
 });

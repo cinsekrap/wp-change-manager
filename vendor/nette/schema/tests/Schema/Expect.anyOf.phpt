@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -172,6 +170,20 @@ test('deprecated item', function () {
 });
 
 
+test('deprecated anyOf', function () {
+	$schema = Expect::structure([
+		'a' => Expect::anyOf('one', 'two')->deprecated(),
+	]);
+
+	$processor = new Processor;
+	$processor->process($schema, ['a' => 'one']);
+	Assert::same(["The item 'a' is deprecated."], $processor->getWarnings());
+
+	$processor->process($schema, []);
+	Assert::same([], $processor->getWarnings());
+});
+
+
 test('nullable anyOf', function () {
 	$schema = Expect::anyOf(Expect::string(), true)->nullable();
 
@@ -260,4 +272,47 @@ test('normalization', function () {
 		Expect::string()->before(fn($v) => (string) $v),
 	);
 	Assert::same('1', (new Processor)->process($schema, 1));
+});
+
+
+test('an accepted null is not claimed by a variant that would coerce it', function () {
+	$processor = new Processor;
+
+	// a structure and an array turn null into an empty value of their own, a tuple refuses it
+	Assert::null($processor->process(Expect::anyOf(Expect::int(), Expect::structure(['a' => Expect::string()]))->nullable(), null));
+	Assert::null($processor->process(Expect::anyOf(Expect::int(), Expect::tuple([Expect::string(), Expect::int()]))->nullable(), null));
+	Assert::null($processor->process(Expect::anyOf(Expect::int(), Expect::arrayOf('string'))->nullable(), null));
+
+	// wherever the null sits in the set
+	Assert::null($processor->process(Expect::anyOf(Expect::structure(['a' => Expect::string()]), null), null));
+	Assert::null($processor->process(Expect::anyOf(null, Expect::structure(['a' => Expect::string()])), null));
+
+	// a null that is not accepted still is an error
+	checkValidationErrors(function () use ($processor) {
+		$processor->process(Expect::anyOf(Expect::int(), Expect::string()), null);
+	}, ['The item expects to be int|string, null given.']);
+
+	// also inside a nested anyOf()
+	Assert::null($processor->process(
+		Expect::anyOf(Expect::anyOf(Expect::int(), Expect::structure(['a' => Expect::string()])), null),
+		null,
+	));
+
+	// a variant that handles null by itself still wins in order
+	Assert::same(7, $processor->process(Expect::anyOf(Expect::int()->nullable()->transform(fn($v) => $v ?? 7), null), null));
+	Assert::same('x', $processor->process(Expect::anyOf(Expect::mixed()->transform(fn($v) => $v ?? 'x'), null), null));
+	Assert::same('fallback', $processor->process(Expect::anyOf(Expect::string()->before(fn($v) => $v ?? 'fallback'), null), null));
+	Assert::same(
+		['list' => []],
+		$processor->process(Expect::anyOf(
+			Expect::structure(['list' => Expect::arrayOf('string')])->castTo('array')->before(fn($v) => $v ?? ['list' => null]),
+			null,
+		), null),
+	);
+
+	// alone, the structure keeps turning null into its defaults
+	Assert::equal(
+		(object) ['a' => null],
+		$processor->process(Expect::structure(['a' => Expect::string()]), null),
+	);
 });

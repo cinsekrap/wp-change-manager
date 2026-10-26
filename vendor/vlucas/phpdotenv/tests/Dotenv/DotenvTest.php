@@ -6,6 +6,7 @@ namespace Dotenv\Tests;
 
 use Dotenv\Dotenv;
 use Dotenv\Exception\InvalidEncodingException;
+use Dotenv\Exception\InvalidFileException;
 use Dotenv\Exception\InvalidPathException;
 use Dotenv\Loader\Loader;
 use Dotenv\Parser\Parser;
@@ -302,7 +303,7 @@ final class DotenvTest extends TestCase
 
     public function testDotenvUnsafeLoadWithNullByteValueDoesNotThrow()
     {
-        $dotenv = Dotenv::createUnsafeImmutable(self::$folder, 'nul.env');
+        $dotenv = Dotenv::createUnsafeImmutable(self::$folder, 'nullbyte.env');
 
         self::assertSame([], $dotenv->safeLoad());
         self::assertFalse(\getenv('NULVAL'));
@@ -448,6 +449,38 @@ final class DotenvTest extends TestCase
             ['A' => "one # data\ntwo", 'B' => '2'],
             Dotenv::parse("A=\"one # data\ntwo\"\nB=2")
         );
+    }
+
+    public function testDotenvParseMultilineClosingQuoteFollowedByComment()
+    {
+        self::assertSame(
+            ['A' => "one\n", 'B' => '2'],
+            Dotenv::parse("A=\"one\n\" # close\nB=2")
+        );
+    }
+
+    public function testDotenvParseMultilineClosingQuoteFollowedByWhitespace()
+    {
+        self::assertSame(
+            ['A' => "one\n", 'B' => '2'],
+            Dotenv::parse("A=\"one\n\"  \nB=2")
+        );
+    }
+
+    public function testDotenvParseUnterminatedDoubleQuote()
+    {
+        $this->expectException(InvalidFileException::class);
+        $this->expectExceptionMessage('Encountered a missing closing quote at ["bar].');
+
+        Dotenv::parse('FOO="bar');
+    }
+
+    public function testDotenvParseUnterminatedDoubleQuoteFollowedByLine()
+    {
+        $this->expectException(InvalidFileException::class);
+        $this->expectExceptionMessage('Encountered a missing closing quote at ["oops].');
+
+        Dotenv::parse("A=\"oops\nB=keep");
     }
 
     public function testDotenvParseEmptyCase()

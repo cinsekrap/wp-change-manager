@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -39,14 +37,10 @@ test('simple object', function () {
 test('object with constructor', function () {
 	class Foo2
 	{
-		private int $a;
-		private int $b;
-
-
-		public function __construct(int $a, int $b)
-		{
-			$this->b = $b;
-			$this->a = $a;
+		public function __construct(
+			private int $a,
+			private int $b,
+		) {
 		}
 	}
 
@@ -125,6 +119,26 @@ test('backed enum', function () {
 	checkValidationErrors(function () use ($schema) {
 		(new Processor)->process($schema, 3);
 	}, ['The item expects to be 1|2, 3 given.']);
+});
+
+
+test('null', function () {
+	$processor = new Processor;
+
+	// a built-in type casts null as PHP does, ?type keeps it
+	Assert::same('', $processor->process(Expect::string()->nullable()->castTo('string'), null));
+	Assert::same([], $processor->process(Expect::mixed()->castTo('array'), null));
+	Assert::null($processor->process(Expect::string()->nullable()->castTo('?string'), null));
+	Assert::same('10', $processor->process(Expect::int()->nullable()->castTo('?string'), 10));
+
+	// there is no cast of null to a class or an enum, so it stays null, with or without ?
+	Assert::null($processor->process(Expect::string()->nullable()->castTo(DateTime::class), null));
+	Assert::null($processor->process(Expect::array()->nullable()->castTo(Foo1::class), null));
+	Assert::null($processor->process(Expect::array()->nullable()->castTo(Foo2::class), null));
+	Assert::null($processor->process(Expect::string()->nullable()->castTo(CastSuit::class), null));
+	Assert::null($processor->process(Expect::string()->nullable()->castTo('?' . CastSuit::class), null));
+	Assert::same(CastSuit::Hearts, $processor->process(Expect::string()->nullable()->castTo('?' . CastSuit::class), 'hearts'));
+	Assert::equal(new DateTime('2021-01-01'), $processor->process(Expect::string()->castTo('?DateTime'), '2021-01-01'));
 });
 
 

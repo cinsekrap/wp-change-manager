@@ -1,10 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Helpers;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Helpers, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -320,6 +317,32 @@ test('arrayOf() & keys II.', function () {
 	$schema = Expect::arrayOf('string|int', Expect::string()->before('strrev'));
 
 	Assert::same(['yek' => 'val'], (new Processor)->process($schema, ['key' => 'val']));
+});
+
+
+test('a warning about a key is labeled as a key', function () {
+	$processor = new Processor;
+	$processor->process(Expect::arrayOf('int', Expect::string()->deprecated('The %label% %path% is deprecated.')), ['a' => 1]);
+	Assert::same(["The key of item 'a' is deprecated."], $processor->getWarnings());
+});
+
+
+test('a key turned into a non-key value is an error', function () {
+	checkValidationErrors(function () {
+		(new Processor)->process(Expect::arrayOf('int', Expect::string()->transform(fn() => [])), ['a' => 1]);
+	}, ["The key of item 'a' expects to be int|string, array given."]);
+
+	checkValidationErrors(function () {
+		(new Processor)->process(Expect::arrayOf('int', Expect::string()->before(fn() => [])), ['a' => 1]);
+	}, ["The key of item 'a' expects to be int|string, array given."]);
+
+	checkValidationErrors(function () {
+		(new Processor)->process(Expect::arrayOf('int', Expect::string()->transform(fn() => true)), ['a' => 1]);
+	}, ["The key of item 'a' expects to be int|string, true given."]);
+
+	checkValidationErrors(function () {
+		(new Processor)->process(Expect::arrayOf('int', Expect::string()->before(fn() => null)), ['a' => 1]);
+	}, ["The key of item 'a' expects to be int|string, null given."]);
 });
 
 

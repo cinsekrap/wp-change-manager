@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Context;
-use Nette\Schema\Expect;
+use Nette\Schema\{Context, Expect};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -16,6 +14,29 @@ test('', function () {
 		['1', '2', '3'],
 		$schema->normalize('1,2,3', new Context),
 	);
+});
+
+
+test('calling before() repeatedly is deprecated and replaces the handler', function () {
+	$calls = [];
+	$schema = Expect::string()->before(function ($val) use (&$calls) {
+		$calls[] = 'a';
+		return $val . 'a';
+	});
+
+	Assert::error(
+		function () use ($schema, &$calls) {
+			$schema->before(function ($val) use (&$calls) {
+				$calls[] = 'b';
+				return $val . 'b';
+			});
+		},
+		E_USER_DEPRECATED,
+		'Calling before() repeatedly is deprecated, it replaces the previous handler while in 2.0 the handlers will be chained; merge them into one.',
+	);
+
+	Assert::same('xb', $schema->normalize('x', new Context));
+	Assert::same(['b'], $calls);
 });
 
 

@@ -4,10 +4,8 @@
  * Test: Nette\Utils\Finder append.
  */
 
-use Nette\Utils\FileSystem;
-use Nette\Utils\Finder;
+use Nette\Utils\{FileSystem, Finder};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
