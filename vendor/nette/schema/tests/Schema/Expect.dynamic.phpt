@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Context;
-use Nette\Schema\Expect;
+use Nette\Schema\{Context, Expect};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -96,4 +94,23 @@ test('dynamic parameter inside anyOf alternative is registered', function () {
 		],
 		$context->dynamics,
 	);
+});
+
+
+test('a variant of a dynamic anyOf gets the DynamicParameter first', function () {
+	$schema = Expect::anyOf(Expect::int()->dynamic(), 'x')->dynamic();
+	$context = new Context;
+	$param = new DynamicParameter('$a');
+	Assert::same($param, $schema->complete($param, $context));
+	Assert::equal([[$param, 'int', []]], $context->dynamics);
+
+	// no variant takes it, it passes through without deferred validation
+	$schema = Expect::anyOf(Expect::int(), 'x')->dynamic();
+	$context = new Context;
+	Assert::same($param, $schema->complete($param, $context));
+	Assert::same([], $context->errors);
+	Assert::same([], $context->dynamics);
+
+	// a variant accepting any value transforms it
+	Assert::same('handled', Expect::anyOf(Expect::mixed()->transform(fn() => 'handled'))->dynamic()->complete($param, new Context));
 });

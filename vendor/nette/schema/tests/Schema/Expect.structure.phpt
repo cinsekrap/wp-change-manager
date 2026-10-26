@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Helpers, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -74,7 +72,9 @@ test('scalar items', function () {
 	]);
 
 	Assert::equal(
-		(object) ['a' => null, 'b' => null, 'c' => null, 'd' => null, 'e' => null, 'f' => null, 'g' => 'abc', 'h' => 123, 'i' => 123, 'j' => null],
+		(object) [
+			'a' => null, 'b' => null, 'c' => null, 'd' => null, 'e' => null, 'f' => null, 'g' => 'abc', 'h' => 123, 'i' => 123, 'j' => null,
+		],
 		(new Processor)->process($schema, []),
 	);
 });
@@ -83,7 +83,6 @@ test('scalar items', function () {
 test('array items', function () {
 	$schema = Expect::structure([
 		'a' => Expect::array(),
-		'b' => Expect::array([]),
 		'c' => Expect::arrayOf('string'),
 		'd' => Expect::list(),
 		'e' => Expect::listOf('string'),
@@ -93,7 +92,7 @@ test('array items', function () {
 	]);
 
 	Assert::equal(
-		(object) ['a' => [], 'b' => [], 'c' => [], 'd' => [], 'e' => [], 'f' => [], 'g' => [], 'h' => (object) []],
+		(object) ['a' => [], 'c' => [], 'd' => [], 'e' => [], 'f' => [], 'g' => [], 'h' => (object) []],
 		(new Processor)->process($schema, []),
 	);
 });
@@ -542,5 +541,32 @@ test('getShape', function () {
 	Assert::equal(
 		['a' => Expect::int(), 'b' => Expect::string()],
 		Expect::structure(['a' => Expect::int(), 'b' => Expect::string()])->getShape(),
+	);
+});
+
+
+test('the marker of a layer that has nothing under it is not an item of the shape', function () {
+	$schema = Expect::structure(['a' => Expect::int(1), 'b' => Expect::int(2)])->castTo('array');
+	$processor = new Processor;
+
+	Assert::same(['a' => 3, 'b' => 2], $processor->process($schema, ['a' => 3, Helpers::PreventMerging => true]));
+
+	// the first dataset has nothing to merge with, the second replaces instead of merging
+	Assert::same(
+		['a' => 3, 'b' => 4],
+		$processor->processMultiple($schema, [['a' => 3, Helpers::PreventMerging => true], ['b' => 4]]),
+	);
+	Assert::same(
+		['b' => 4, 'a' => 1],
+		$processor->processMultiple($schema, [['a' => 3], ['b' => 4, Helpers::PreventMerging => true]]),
+	);
+
+	// a tuple of a union keeps the marker through normalize() and replaces the layer below it
+	$tuple = Expect::structure([
+		'range' => Expect::anyOf(Expect::int(), Expect::tuple([Expect::int(), Expect::int()]))->default(0),
+	])->castTo('array');
+	Assert::same(
+		['range' => [3, 4]],
+		$processor->processMultiple($tuple, [['range' => [1, 2]], ['range' => [3, 4, Helpers::PreventMerging => true]]]),
 	);
 });

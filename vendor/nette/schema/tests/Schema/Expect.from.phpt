@@ -1,10 +1,8 @@
 <?php declare(strict_types=1);
 
 use Nette\Schema\Elements\Structure;
-use Nette\Schema\Expect;
-use Nette\Schema\Processor;
+use Nette\Schema\{Expect, Processor};
 use Tester\Assert;
-
 
 require __DIR__ . '/../bootstrap.php';
 
@@ -97,6 +95,34 @@ Assert::with(Structure::class, function () { // nested object
 	Assert::equal([
 		'inner' => Expect::structure([
 			'name' => Expect::string()->required(),
-		])->castTo(get_class($obj->inner)),
+		])->castTo($obj->inner::class),
 	], $schema->items);
 });
+
+
+class PrivateStateDto
+{
+	public static int $instances = 0;
+	public int $a = 1;
+	protected int $counter = 0;
+	private array $cache = [];
+}
+
+$dto = (new Processor)->process(Expect::from(new PrivateStateDto), ['a' => 2]);
+Assert::type(PrivateStateDto::class, $dto);
+Assert::same(2, $dto->a);
+Assert::same(['a'], array_keys(Expect::from(new PrivateStateDto)->getShape()));
+
+
+class VariadicDto
+{
+	public function __construct(string ...$args)
+	{
+	}
+}
+
+Assert::exception(
+	fn() => Expect::from(new VariadicDto),
+	Nette\InvalidArgumentException::class,
+	'Variadic parameter $args of VariadicDto::__construct() is not supported by Expect::from().',
+);

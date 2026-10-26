@@ -7,7 +7,6 @@
 use Nette\Utils\Finder;
 use Tester\Assert;
 
-
 require __DIR__ . '/../bootstrap.php';
 
 
@@ -107,7 +106,7 @@ test('absolute and ../ masks are deprecated', function () {
 
 test('deprecated leading slash is still ignored', function () {
 	$finder = Finder::find('*')->from('fixtures.finder');
-	@$finder->exclude('/subdir/'); // deprecated behavior kept for now
+	@$finder->exclude('/subdir/'); // @ an absolute mask in exclude() is deprecated
 	Assert::same([
 		'fixtures.finder/file.txt',
 		'fixtures.finder/images',

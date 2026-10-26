@@ -13,12 +13,18 @@ Small package, one coherent but tricky mechanism (the `Processor` pipeline over
 `Elements/*`). Read `docs/internals.md` before editing it - the "phase" model is
 subtler than it looks.
 
+`docs/upgrading.md` records, per released version, every change visible to
+users of the package (renames, removals, deprecations, signatures, behavior,
+configuration), each with its commit hash; internal changes are not in it. It
+is the place to look up the history of a public symbol. Do not write to it; it
+is extended at release time from the git history.
+
 ## Project Overview
 
 **Nette Schema** validates and normalizes data structures (config files, API
 inputs) through a fluent `Expect::` builder and a `Processor`.
 
-- **PHP Version**: 8.1 - 8.5
+- **PHP Version**: 8.1 - 8.6
 - **Package**: `nette/schema` (dep: `nette/utils`)
 
 ## Essential Commands
@@ -60,11 +66,17 @@ composer phpstan
 - **`assert`/`castTo` are sugar over `transform`** - one `$transforms` list running
   in declaration order, so `->assert()->castTo()` differs from `->castTo()->assert()`.
 - **`default` null is not `nullable`** (`nullable()` prepends `'null|'` to the type
-  string); a `null` value coerces to `[]` when the default is an array. **`Structure`
-  is required-by-default and casts to `object`, so `default()` throws on it.**
+  string); a `null` value coerces to `[]` when the default is an array and the type
+  is not nullable. **`Structure` is required-by-default and casts to `object`, so
+  `default()` throws on it.**
 - **`AnyOf` tries variants in order in a throwaway `Context` clone** - losing
   variants' side effects (including transforms) are discarded. `DynamicParameter`
   values get **deferred** validation (recorded in `Context::dynamics` for DI) -
   don't validate them eagerly.
+- **`Expect::type()` classifies the type expression once** (`TypeExpression::parse()`)
+  into `StringType`/`NumberType`/`ArrayType` or a plain `Type` (an `EnumType` comes
+  only from `Expect::enum()` and `Expect::from()`); validation
+  itself is still `Validators::is()`. `describe()`, `Kind` and `TypeExpression` are
+  `@internal`, `JsonSchema::export()` is the only public way out - keep it that way.
 - User-facing how-to (the `Expect::` API, castTo/`Expect::from` object mapping,
   building complex schemas) is manual material and lives in the public web docs.

@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 
-use Nette\Utils\Helpers;
-use Nette\Utils\Process;
+use Nette\Utils\{Helpers, Process};
 use Tester\Assert;
 
 require __DIR__ . '/../bootstrap.php';
@@ -10,7 +9,11 @@ require __DIR__ . '/../bootstrap.php';
 if (Helpers::IsWindows) {
 	test('piping is not supported on Windows', function () {
 		Assert::exception(
-			fn() => Process::runExecutable(getPhpCliBinary(), ['-r', 'exit;'], stdin: Process::runExecutable(getPhpCliBinary(), ['-r', 'exit;'])),
+			fn() => Process::runExecutable(
+				getPhpCliBinary(),
+				['-r', 'exit;'],
+				stdin: Process::runExecutable(getPhpCliBinary(), ['-r', 'exit;']),
+			),
 			Nette\NotSupportedException::class,
 			'Process piping is not supported on Windows.',
 		);
