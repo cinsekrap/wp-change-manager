@@ -302,6 +302,7 @@ The `JSON` body has the following format:
   "error": {
     "type": "RuntimeException",
     "message": "Something broke!",
+    "code": 0,
     "file": "/var/project/foo/bar.php",
     "line": 22,
 
@@ -318,6 +319,23 @@ The `JSON` body has the following format:
 }
 ```
 
+With `JsonResponseHandler::setJsonApi(true)`, the same error object is wrapped in an `errors` array instead, as the [json:api](https://jsonapi.org/) spec expects. The trace is included the same way:
+
+```json
+{
+  "errors": [
+    {
+      "type": "RuntimeException",
+      "message": "Something broke!",
+      "code": 0,
+      "file": "/var/project/foo/bar.php",
+      "line": 22,
+      "trace": [ ... ]
+    }
+  ]
+}
+```
+
 ### Methods
 
 ```php
@@ -326,6 +344,10 @@ The `JSON` body has the following format:
 // JSON payload body?
 JsonResponseHandler::addTraceToOutput(bool $yes = null)
  #=> bool
+
+// Output errors[] instead of error, per the json:api spec
+JsonResponseHandler::setJsonApi(bool $jsonApi = false)
+ #=> JsonResponseHandler
 
 JsonResponseHandler::handle()
  #=> int | null
@@ -394,6 +416,13 @@ PrettyPageHandler::setEditor(function ($file, $line) {
         );
     }
 )
+
+// An optional options array is accepted as the second argument:
+//   'pathMappings' => array<string, string> of server path prefix => local path prefix,
+//   applied to file paths before editor links are built (whole directories, longest prefix wins).
+// Each call resets omitted options to their defaults.
+PrettyPageHandler::setEditor($editor, array $options = [])
+PrettyPageHandler::setEditor('vscode', ['pathMappings' => ['/var/www/app' => '/Users/me/code/app']])
  #=> null
 
 // Similar to PrettyPageHandler::setEditor, but allows you
