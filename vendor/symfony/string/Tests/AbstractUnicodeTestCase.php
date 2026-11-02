@@ -36,6 +36,11 @@ abstract class AbstractUnicodeTestCase extends AbstractAsciiTestCase
             [3, "#\u{1F3FB}"],
             [4, "\u{1F3FB}\u{1F3FB}"],
             [2, "1\u{200D}x"],
+            [3, "\u{1F600}\u{200D}a"],
+            [4, "\u{1F600}\u{200D}文"],
+            [3, "\u{1F600}\u{200D}1"],
+            [5, "\u{1F600}\u{200D}123"],
+            [4, "\u{1F600}\u{200D}1\u{FE0F}\u{20E3}"],
             [2, "\u{270C}\u{1F3FD}"],
             [2, "\u{261D}\u{FE0F}\u{1F3FD}"],
             [2, "\u{1F575}\u{1F3FD}\u{200D}\u{2642}\u{FE0F}"],
@@ -331,6 +336,46 @@ END'],
         $this->expectException(InvalidArgumentException::class);
 
         static::createFromString('Symfony')->trimEnd("\xE9");
+    }
+
+    public static function provideTrim(): array
+    {
+        return array_merge(
+            parent::provideTrim(),
+            [
+                ['abc', 'éàabcÿ', 'à..ÿ'],
+                ['€', 'aé€zß', 'a..é'],
+                ['é', "\u{A0}a\té\u{9F}", "\u{0}..\u{A0}"],
+                ['abc', '😂abc🙈', '😀..🙏'],
+                ['bc', 'a.bc.a', 'a..'],
+                ['bc', '.abc..a', '..a'],
+                ['abc', '..abc.', '...'],
+                ['b.xyz.b', 'cab.xyz.bac', 'c..a'],
+                ['xyz', 'ab.cxyz.cba', 'a..b..c'],
+            ]
+        );
+    }
+
+    public static function provideTrimStart(): array
+    {
+        return array_merge(
+            parent::provideTrimStart(),
+            [
+                ['abcÿ', 'éàabcÿ', 'à..ÿ'],
+                ['bc.a', 'a.bc.a', 'a..'],
+            ]
+        );
+    }
+
+    public static function provideTrimEnd(): array
+    {
+        return array_merge(
+            parent::provideTrimEnd(),
+            [
+                ['éàabc', 'éàabcÿ', 'à..ÿ'],
+                ['cab.xyz.b', 'cab.xyz.bac', 'c..a'],
+            ]
+        );
     }
 
     public static function provideLower(): array

@@ -2,6 +2,22 @@
 
 All notable changes of the PHPUnit 13.4 release series are documented in this file using the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## [13.4.5] - 2026-10-27
+
+### Fixed
+
+* The static analysis cache directory that is automatically created in the operating system's path used for temporary files when no cache directory is configured is not used when the POSIX extension is not loaded
+
+## [13.4.4] - 2026-10-27
+
+### Fixed
+
+* The TeamCity logger writes `testSuiteFinished` twice for a test class when one of its before-first-test methods errors or fails
+* The TestDox output shows a less important outcome of a test that has more than one outcome, for instance the failure in `tearDown()` of a test that errored
+* When the test run is interrupted by a signal while a test is run in process isolation, the result of the test is discarded and the test is counted as passed, and the TestDox output cannot be printed
+* When no static analysis cache directory is configured, the cache directory that is automatically created in the operating system's path used for temporary files is also used when it was created by another user or can be written to by other users
+* The directory in the operating system's path used for temporary files in which the temporary files for collecting code coverage for a PHPT test are created has a fixed name, and is also used when it was created by another user, who can then replace the code of the PHPT test before it is executed
+
 ## [13.4.3] - 2026-10-16
 
 ### Fixed
@@ -86,6 +102,8 @@ All notable changes of the PHPUnit 13.4 release series are documented in this fi
 * A test that is run in process isolation aborts the test run when its result cannot be unserialized, for instance because it returns an object that holds a test double
 * A test that uses `#[DataProviderClosure]` errors when it is run in process isolation
 
+[13.4.5]: https://github.com/sebastianbergmann/phpunit/compare/13.4.4...13.4.5
+[13.4.4]: https://github.com/sebastianbergmann/phpunit/compare/13.4.3...13.4.4
 [13.4.3]: https://github.com/sebastianbergmann/phpunit/compare/13.4.2...13.4.3
 [13.4.2]: https://github.com/sebastianbergmann/phpunit/compare/13.4.1...13.4.2
 [13.4.1]: https://github.com/sebastianbergmann/phpunit/compare/13.4.0...13.4.1

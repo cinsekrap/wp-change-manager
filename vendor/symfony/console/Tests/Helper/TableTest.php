@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Exception\RuntimeException;
 use Symfony\Component\Console\Formatter\OutputFormatter;
+use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableCellStyle;
@@ -120,6 +121,121 @@ class TableTest extends TestCase
                     | 9971-5-0210-0 | A Tale of Two Cities     | Charles Dickens  |
                     | 960-425-059-0 | The Lord of the Rings    | J. R. R. Tolkien |
                     | 80-902734-1-6 | And Then There Were None | Agatha Christie  |
+
+                    TABLE,
+            ],
+            [
+                ['Name', 'Description'],
+                [
+                    ['pipe', 'A | B'],
+                    ['newline', "Line 1\nLine 2"],
+                    ['crlf', "Line 1\r\nLine 2"],
+                    ['cr', "Line 1\rLine 2"],
+                    ['backslash', "Line 1\\\nLine 2"],
+                    [new TableCell('A | B', ['colspan' => 2])],
+                ],
+                'markdown',
+                <<<'TABLE'
+                    | Name      | Description        |
+                    |-----------|--------------------|
+                    | pipe      | A \| B             |
+                    | newline   | Line 1<br>Line 2   |
+                    | crlf      | Line 1<br>Line 2   |
+                    | cr        | Line 1<br>Line 2   |
+                    | backslash | Line 1\\<br>Line 2 |
+                    | A \| B    |                    |
+
+                    TABLE,
+            ],
+            [
+                [],
+                [
+                    ['Divine Comedy', 'Dante Alighieri'],
+                    ['A Tale of Two Cities', 'Charles Dickens'],
+                ],
+                'markdown',
+                <<<'TABLE'
+                    |                      |                 |
+                    |----------------------|-----------------|
+                    | Divine Comedy        | Dante Alighieri |
+                    | A Tale of Two Cities | Charles Dickens |
+
+                    TABLE,
+            ],
+            [
+                ['ISBN', 'Title'],
+                [],
+                'markdown',
+                <<<'TABLE'
+                    | ISBN | Title |
+                    |------|-------|
+
+                    TABLE,
+            ],
+            [
+                [new TableCell('Books', ['colspan' => 2])],
+                [
+                    ['Divine Comedy', 'Dante Alighieri'],
+                    ['A Tale of Two Cities', 'Charles Dickens'],
+                ],
+                'markdown',
+                <<<'TABLE'
+                    | Books                |                 |
+                    |----------------------|-----------------|
+                    | Divine Comedy        | Dante Alighieri |
+                    | A Tale of Two Cities | Charles Dickens |
+
+                    TABLE,
+            ],
+            [
+                ['Col 1', 'Col 2', 'Col 3'],
+                [
+                    [new TableCell('spans two', ['colspan' => 2]), 'c'],
+                    ['a', new TableCell('spans two', ['colspan' => 2])],
+                    [new TableCell('two by two', ['rowspan' => 2, 'colspan' => 2]), 'c'],
+                    ['c'],
+                ],
+                'markdown',
+                <<<'TABLE'
+                    | Col 1      | Col 2     | Col 3 |
+                    |------------|-----------|-------|
+                    | spans two  |           | c     |
+                    | a          | spans two |       |
+                    | two by two |           | c     |
+                    |            |           | c     |
+
+                    TABLE,
+            ],
+            [
+                [
+                    [new TableCell('Books', ['colspan' => 2])],
+                    ['Title', 'Author'],
+                ],
+                [
+                    ['Divine Comedy', 'Dante Alighieri'],
+                    ['A Tale of Two Cities', 'Charles Dickens'],
+                ],
+                'markdown',
+                <<<'TABLE'
+                    | Books                |                 |
+                    |----------------------|-----------------|
+                    | Title                | Author          |
+                    | Divine Comedy        | Dante Alighieri |
+                    | A Tale of Two Cities | Charles Dickens |
+
+                    TABLE,
+            ],
+            [
+                [
+                    [new TableCell('Main title', ['colspan' => 3])],
+                    ['ISBN', 'Title', 'Author'],
+                ],
+                [],
+                'markdown',
+                <<<'TABLE'
+                    | Main title |       |        |
+                    |------------|-------|--------|
+                    | ISBN       | Title | Author |
 
                     TABLE,
             ],
@@ -691,11 +807,11 @@ class TableTest extends TestCase
                 'default',
                 <<<'TABLE'
                     +--------------------+
-                    [37;41m| [39;49m[37;41mDont break[39;49m[37;41m         |[39;49m
-                    [37;41m| here[39;49m               |
+                    | [37;41mDont break[39;49m         |
+                    | [37;41mhere[39;49m               |
                     +-------+------------+
-                    [39;49m| foo   | [39;49m[37;41mDont break[39;49m[39;49m |[39;49m
-                    [39;49m| bar   | [39;49m[37;41mhere[39;49m       |
+                    | foo   | [37;41mDont break[39;49m |
+                    | bar   | [37;41mhere[39;49m       |
                     +-------+------------+
 
                     TABLE,
@@ -840,8 +956,8 @@ class TableTest extends TestCase
                 'default',
                 <<<'TABLE'
                     +---------------+---------------+-------------------------------------------+
-                    [39;49m| [39;49m[31m978[39m[39;49m           | De Monarchia  |[39;49m[31;42m             Dante Alighieri               [39;49m[39;49m|[39;49m
-                    [39;49m| [39;49m[32m99921-58-10-7[39m[39;49m | Divine Comedy |[39;49m[31;42m spans multiple rows rows Dante Alighieri  [39;49m[39;49m|[39;49m
+                    | [31m978[39m           | De Monarchia  |[31;42m             Dante Alighieri               [39;49m|
+                    | [32m99921-58-10-7[39m | Divine Comedy |[31;42m spans multiple rows rows Dante Alighieri  [39;49m|
                     |               |               |[31;42m         spans multiple rows rows          [39;49m|
                     +---------------+---------------+-------------------------------------------+
                     |             [37;41mtest[39;49m              |[31;42m                                      tttt [39;49m|
@@ -896,7 +1012,7 @@ class TableTest extends TestCase
                     +----------------+---------------+---------------------+
                     |[30;46m ISBN           [39;49m|[32m Title         [39m|[32m Author              [39m|
                     +----------------+---------------+---------------------+
-                    [39;49m| 978-0521567817 | De Monarchia  |[39;49m[32m Dante Alighieri     [39m[39;49m|[39;49m
+                    | 978-0521567817 | De Monarchia  |[32m Dante Alighieri     [39m|
                     | 978-0804169127 | Divine Comedy |[32m spans multiple rows [39m|
                     |[37;41m test                           [39;49m| tttt                |
                     +--------------------------------+---------------------+
@@ -1281,6 +1397,294 @@ class TableTest extends TestCase
         $this->assertEquals($expected, $this->getOutputContent($output));
     }
 
+    public function testAppendRowOnlyRewritesTheLinesThatChanged()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table->setHeaders(['ISBN', 'Title']);
+
+        $table->appendRow(['1', 'aa']);
+        $table->appendRow(['2', 'bb']);
+
+        $expected =
+            <<<TABLE
+                +------+-------+
+                |\033[32m ISBN \033[39m|\033[32m Title \033[39m|
+                +------+-------+
+                | 1    | aa    |
+                +------+-------+
+                \x1b[1A\x1b[0J| 2    | bb    |
+                +------+-------+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testAppendRowRewritesTheTableWhenAColumnGetsWider()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table->setHeaders(['ISBN', 'Title']);
+
+        $table->appendRow(['1', 'aa']);
+        $table->appendRow(['2', 'bbbbbb']);
+
+        $expected =
+            <<<TABLE
+                +------+-------+
+                |\033[32m ISBN \033[39m|\033[32m Title \033[39m|
+                +------+-------+
+                | 1    | aa    |
+                +------+-------+
+                \x1b[5A\x1b[0J+------+--------+
+                |\033[32m ISBN \033[39m|\033[32m Title  \033[39m|
+                +------+--------+
+                | 1    | aa     |
+                | 2    | bbbbbb |
+                +------+--------+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testAppendRowAfterRenderOnlyRewritesTheLinesThatChanged()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table
+            ->setHeaders(['ISBN', 'Title'])
+            ->setRows([['0', 'zz']]);
+
+        $table->render();
+        $table->appendRow(['1', 'aa']);
+        $table->appendRow(['2', 'bb']);
+
+        $expected =
+            <<<TABLE
+                +------+-------+
+                |\033[32m ISBN \033[39m|\033[32m Title \033[39m|
+                +------+-------+
+                | 0    | zz    |
+                +------+-------+
+                \x1b[1A\x1b[0J| 1    | aa    |
+                +------+-------+
+                \x1b[1A\x1b[0J| 2    | bb    |
+                +------+-------+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testAppendRowAfterRenderingAgainUpdatesTheLastRendering()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table->setHeaders(['ID']);
+
+        $table->appendRow(['1']);
+        $table->render();
+        $table->appendRow(['2']);
+
+        $expected =
+            <<<TABLE
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                +----+
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                +----+
+                \x1b[1A\x1b[0J| 2  |
+                +----+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testAppendRowKeepsWhatIsAboveTheTable()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $output->writeln('My Table');
+        $table = new Table($output);
+        $table->setHeaders(['ID']);
+
+        $table->appendRow(['1']);
+        $table->appendRow(['2']);
+
+        $expected =
+            <<<TABLE
+                My Table
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                | 2  |
+                +----+
+
+                TABLE;
+
+        $this->assertSame($expected, str_replace(\PHP_EOL, "\n", $output->getContent()));
+    }
+
+    public function testAppendRowKeepsTheSectionContentInSync()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $output->setMaxHeight(3);
+        $table = new Table($output);
+        $table->setHeaders(['ID']);
+
+        foreach (['1', '2', '3', '4', '5'] as $id) {
+            $table->appendRow([$id]);
+        }
+
+        $expected =
+            <<<TABLE
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                | 2  |
+                | 3  |
+                | 4  |
+                | 5  |
+                +----+
+
+                TABLE;
+
+        $this->assertSame($expected, str_replace(\PHP_EOL, "\n", $output->getContent()));
+    }
+
+    public function testAppendRowAfterTheSectionWasClearedRendersTheWholeTable()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table->setHeaders(['ID']);
+
+        $table->appendRow(['1']);
+        $output->clear();
+        $table->appendRow(['2']);
+
+        $expected =
+            <<<TABLE
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                +----+
+                \x1b[5A\x1b[0J+----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                | 2  |
+                +----+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testAppendRowAfterRenderWithARowspan()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $table = new Table($output);
+        $table->setRows([[new TableCell('a', ['rowspan' => 2]), 'b'], ['c']]);
+
+        $table->render();
+        $table->appendRow(['d', 'e']);
+
+        $expected =
+            <<<TABLE
+                +---+---+
+                | a | b |
+                |   | c |
+                | d | e |
+                +---+---+
+
+                TABLE;
+
+        $this->assertSame($expected, str_replace(\PHP_EOL, "\n", $output->getContent()));
+    }
+
+    public function testAppendRowAfterRenderKeepsWhatIsAboveAVerticalTable()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $output->writeln('My Table');
+        $table = new Table($output);
+        $table->setVertical()->setHeaders(['ID', 'Name'])->setRows([['1', 'one']]);
+
+        $table->render();
+        $table->appendRow(['2', 'two']);
+
+        $expected =
+            <<<TABLE
+                My Table
+                +-----------+
+                | \033[33m  ID\033[39m: 1   |
+                | \033[33mName\033[39m: one |
+                |-----------|
+                | \033[33m  ID\033[39m: 2   |
+                | \033[33mName\033[39m: two |
+                +-----------+
+
+                TABLE;
+
+        $this->assertSame($expected, str_replace(\PHP_EOL, "\n", $output->getContent()));
+    }
+
+    public function testAppendRowAfterRenderKeepsWhatIsAboveTheTableWhenRowsWereAddedInBetween()
+    {
+        $sections = [];
+        $stream = $this->getOutputStream(true);
+        $output = new ConsoleSectionOutput($stream->getStream(), $sections, $stream->getVerbosity(), $stream->isDecorated(), new OutputFormatter());
+        $output->writeln('My Table');
+        $table = new Table($output);
+        $table->setHeaders(['ID'])->setRows([['1']]);
+
+        $table->render();
+        $table->addRow(['2']);
+        $table->appendRow(['3']);
+
+        $expected =
+            <<<TABLE
+                My Table
+                +----+
+                |\033[32m ID \033[39m|
+                +----+
+                | 1  |
+                | 2  |
+                | 3  |
+                +----+
+
+                TABLE;
+
+        $this->assertSame($expected, str_replace(\PHP_EOL, "\n", $output->getContent()));
+    }
+
     public function testSectionOutputDoesntClearIfTableIsntRendered()
     {
         $sections = [];
@@ -1439,6 +1843,20 @@ class TableTest extends TestCase
 
                     TABLE,
             ],
+            'markdown style' => [
+                'Books',
+                'Page 1/2',
+                'markdown',
+                <<<'TABLE'
+                    | ISBN          | Title                    | Author           |
+                    |---------------|--------------------------|------------------|
+                    | 99921-58-10-7 | Divine Comedy            | Dante Alighieri  |
+                    | 9971-5-0210-0 | A Tale of Two Cities     | Charles Dickens  |
+                    | 960-425-059-0 | The Lord of the Rings    | J. R. R. Tolkien |
+                    | 80-902734-1-6 | And Then There Were None | Agatha Christie  |
+
+                    TABLE,
+            ],
             'header contains multiple lines' => [
                 'Multiline'."\n".'header'."\n".'here',
                 'footer',
@@ -1513,6 +1931,19 @@ class TableTest extends TestCase
         $this->assertSame($expected, $this->getOutputContent($output));
     }
 
+    public function testColumnMaxWidthPreservesAnsiSequences()
+    {
+        $output = new StreamOutput($this->stream, StreamOutput::VERBOSITY_NORMAL, true);
+        $table = new Table($output);
+        $table->setColumnMaxWidth(0, 5);
+        $table->setRows([["\e[0;38;5;208mhello world\e[m"]]);
+        $table->render();
+        $result = $this->getOutputContent($output);
+
+        $this->assertStringContainsString("\e[0;38;5;208m", $result);
+        $this->assertSame("+-------+\n| hello |\n| world |\n+-------+\n", Helper::removeDecoration($output->getFormatter(), $result));
+    }
+
     public function testColumnMaxWidths()
     {
         $table = new Table($output = $this->getOutputStream());
@@ -1536,6 +1967,24 @@ class TableTest extends TestCase
                 |               | Citie |          |                |
                 |               | s     |          |                |
                 +---------------+-------+----------+----------------+
+
+                TABLE;
+
+        $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testEscapedCharacters()
+    {
+        $table = new Table($output = $this->getOutputStream());
+        $table->setRows([[OutputFormatter::escape('a->b')], ['abcd']]);
+        $table->render();
+
+        $expected =
+            <<<TABLE
+                +------+
+                | a->b |
+                | abcd |
+                +------+
 
                 TABLE;
 
@@ -1577,6 +2026,137 @@ class TableTest extends TestCase
         $this->assertEquals($expected, $this->getOutputContent($output));
     }
 
+    public function testColumnMaxWidthsWithWindowsLineEndings()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setColumnMaxWidth(0, 5)
+            ->setRows([
+                ["Lorem ipsum\r\ndolor sit amet", 'x'],
+                ["foo\r\nbar\nbaz", 'y'],
+                ["<info>ab</info>cde\r\nfgh", 'z'],
+                ["abcde \r\n", 'w'],
+            ])
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                +-------+---+
+                | Lorem | x |
+                | ipsum |   |
+                | dolor |   |
+                | sit   |   |
+                | amet  |   |
+                | foo   | y |
+                | bar   |   |
+                | baz   |   |
+                | abcde | z |
+                | fgh   |   |
+                | abcde | w |
+                |       |   |
+                +-------+---+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public function testColumnMaxWidthsWithWideCharacters()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setColumnMaxWidth(0, 4)
+            ->setRows([
+                ['字字字字字', 'x'],
+                ['ab 字字 c', 'y'],
+                ['a字\<字', 'z'],
+            ])
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                +------+---+
+                | 字字 | x |
+                | 字字 |   |
+                | 字   |   |
+                | ab   | y |
+                | 字字 |   |
+                | c    |   |
+                | a字< | z |
+                | 字   |   |
+                +------+---+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public function testColumnMaxWidthsWithControlCharacters()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setColumnMaxWidth(0, 5)
+            ->setRows([
+                ["abcdefg\n\e[32m\t\e[39m", 'x'],
+                ["12\\\n34567\n1\\\\", 'y'],
+            ])
+            ->render()
+        ;
+
+        $expected =
+            <<<TABLE
+                +-------+---+
+                | abcde | x |
+                | fg    |   |
+                | \e[32m\t\e[39m     |   |
+                | 12\\   | y |
+                | 34567 |   |
+                | 1\\\\   |   |
+                +-------+---+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public function testColumnMaxWidthsWithTrailingWhitespace()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setColumnMaxWidth(0, 6)
+            ->setRows([['abcdef ', 'x']])
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                +--------+---+
+                | abcdef | x |
+                +--------+---+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public function testColumnMaxWidthsWithStyledLineFollowedByWhitespace()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setColumnMaxWidth(0, 6)
+            ->setRows([['<info>abcdef</info> ', 'x']])
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                +--------+---+
+                | abcdef | x |
+                |        |   |
+                +--------+---+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
     public function testColumnMaxWidthsWithTrailingBackslash()
     {
         (new Table($output = $this->getOutputStream()))
@@ -1595,6 +2175,28 @@ class TableTest extends TestCase
                 TABLE;
 
         $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testColumnMaxWidthsWithMarkdownStyle()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setStyle('markdown')
+            ->setHeaders(['Name', 'Value'])
+            ->setColumnMaxWidth(1, 5)
+            ->setRows([['pipe', 'abcd|efgh'], ['newline', "abc\ndefgh"]])
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                | Name    | Value          |
+                |---------|----------------|
+                | pipe    | abcd\|<br>efgh |
+                | newline | abc<br>defgh   |
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
     }
 
     public function testBoxedStyleWithColspan()
@@ -1684,6 +2286,29 @@ class TableTest extends TestCase
         $table->render();
 
         $this->assertEquals($expected, $this->getOutputContent($output));
+    }
+
+    public function testRenderHorizontalWithMarkdownStyle()
+    {
+        (new Table($output = $this->getOutputStream()))
+            ->setStyle('markdown')
+            ->setHeaders(['foo', 'bar', 'baz'])
+            ->setRows([['one', 'two', 'tree'], ['1', '2', '3']])
+            ->setHorizontal()
+            ->render()
+        ;
+
+        $expected =
+            <<<'TABLE'
+                |     |      |   |
+                |-----|------|---|
+                | foo | one  | 1 |
+                | bar | two  | 2 |
+                | baz | tree | 3 |
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
     }
 
     protected function getOutputStream($decorated = false)
@@ -2019,6 +2644,26 @@ class TableTest extends TestCase
             'compact',
         ];
 
+        yield 'Markdown style' => [
+            <<<EOTXT
+                |                              |
+                |------------------------------|
+                |   ISBN: 99921-58-10-7        |
+                |  Title: Divine Comedy        |
+                | Author: Dante Alighieri      |
+                |  Price: 9.95                 |
+                |------------------------------|
+                |   ISBN: 9971-5-0210-0        |
+                |  Title: A Tale of Two Cities |
+                | Author: Charles Dickens      |
+                |  Price: 139.25               |
+
+                EOTXT,
+            ['ISBN', 'Title', 'Author', 'Price'],
+            $books,
+            'markdown',
+        ];
+
         yield 'symfony-style-guide style' => [
             <<<EOTXT
                  ------------------------------ 
@@ -2124,6 +2769,437 @@ class TableTest extends TestCase
         $this->assertEquals($expectedOutput, $this->getOutputContent($output));
     }
 
+    #[DataProvider('provideCellStyles')]
+    public function testCellStyles(string $expected, array $headers, array $rows, bool $decorated, string $layout = 'default', int $maxWidth = 0)
+    {
+        $table = new Table($output = $this->getOutputStream($decorated));
+        $table
+            ->setHeaders($headers)
+            ->setRows($rows)
+        ;
+
+        if ('vertical' === $layout) {
+            $table->setVertical();
+        } elseif ('horizontal' === $layout) {
+            $table->setHorizontal();
+        }
+        if ($maxWidth) {
+            $table->setColumnMaxWidth(0, $maxWidth);
+        }
+
+        $table->render();
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public static function provideCellStyles(): iterable
+    {
+        yield 'decorated' => [
+            <<<TABLE
+                +-----+---+
+                | \033[32mfoo\033[39m | x |
+                | \033[32mbar\033[39m |   |
+                +-----+---+
+
+                TABLE,
+            [],
+            [["<info>foo\nbar</info>", 'x']],
+            true,
+        ];
+
+        yield 'hyperlink with a backreference in its URL' => [
+            <<<TABLE
+                +---+---+
+                | a | x |
+                | b |   |
+                +---+---+
+
+                TABLE,
+            [],
+            [["<href=https://example.com/\\2024/\$1>a\nb</>", 'x']],
+            false,
+        ];
+
+        yield 'closed on the next line' => [
+            <<<TABLE
+                +----+---+
+                | mq | x |
+                |    |   |
+                | sj |   |
+                +----+---+
+
+                TABLE,
+            [],
+            [["<fg=red>mq\n</><comment>\nsj</comment>", 'x']],
+            false,
+        ];
+
+        yield 'closed on the next line, decorated' => [
+            <<<TABLE
+                +----+---+
+                | \033[31mmq\033[39m | x |
+                |    |   |
+                | \033[33msj\033[39m |   |
+                +----+---+
+
+                TABLE,
+            [],
+            [["<fg=red>mq\n</><comment>\nsj</comment>", 'x']],
+            true,
+        ];
+
+        yield 'closing tag inside the text of a tag' => [
+            <<<TABLE
+                +-----------+---+
+                | <fg=red>x | y |
+                | z         | w |
+                +-----------+---+
+
+                TABLE,
+            [],
+            [['<fg=re</>d>x<fg=default;bg=default>', 'y'], ['z', 'w']],
+            true,
+        ];
+
+        yield 'cell with a style spanning rows' => [
+            <<<TABLE
+                +-----+---+
+                |  a  | x |
+                | bcd | y |
+                +-----+---+
+
+                TABLE,
+            [],
+            [[new TableCell("<info><comment>a\nbcd</comment></info>", ['rowspan' => 2, 'style' => new TableCellStyle(['align' => 'center'])]), 'x'], ['y']],
+            false,
+        ];
+
+        yield 'cell with a style spanning rows and default colors left open' => [
+            <<<TABLE
+                +----+
+                | a  |
+                | bc |
+                | x  |
+                +----+
+
+                TABLE,
+            [],
+            [[new TableCell("a\n<fg=default;bg=default>bc", ['rowspan' => 2, 'style' => new TableCellStyle(['align' => 'left'])])], ['x']],
+            false,
+        ];
+
+        yield 'cell with a style spanning rows and a hyperlink left open' => [
+            <<<TABLE
+                +----+
+                | a  |
+                | bc |
+                | x  |
+                +----+
+
+                TABLE,
+            [],
+            [[new TableCell("a\n<href=https://example.com/a\\<b>bc", ['rowspan' => 2, 'style' => new TableCellStyle(['align' => 'left'])])], ['x']],
+            false,
+        ];
+
+        yield 'unclosed' => [
+            <<<TABLE
+                +-----+---+
+                | \033[32mfoo\033[39m | x |
+                | \033[32mbar\033[39m |   |
+                | y   | z |
+                +-----+---+
+
+                TABLE,
+            [],
+            [["<info>foo\nbar", 'x'], ['y', 'z']],
+            true,
+        ];
+
+        yield 'unclosed on a single line' => [
+            <<<TABLE
+                +-----+---+
+                | \033[32mfoo\033[39m | x |
+                | y   | z |
+                +-----+---+
+
+                TABLE,
+            [],
+            [['<info>foo', 'x'], ['y', 'z']],
+            true,
+        ];
+
+        yield 'unclosed with max width' => [
+            <<<TABLE
+                +-----+---+
+                | \033[32mfoo\033[39m | x |
+                | \033[32mbar\033[39m |   |
+                | y   | z |
+                +-----+---+
+
+                TABLE,
+            [],
+            [['<info>foobar', 'x'], ['y', 'z']],
+            true,
+            'default',
+            3,
+        ];
+
+        yield 'closing tag that closes nothing in its cell' => [
+            <<<TABLE
+                +-----+
+                | \033[32mfoo\033[39m |
+                | \033[32mbar\033[39m |
+                | \033[33mx\033[39m   |
+                |     |
+                +-----+
+
+                TABLE,
+            [],
+            [["<info>foo\nbar"], ['<comment>x'], ['</info>']],
+            true,
+        ];
+
+        yield 'horizontal, unclosed header' => [
+            <<<TABLE
+                +---+---+---+
+                |\033[32m \033[39m\033[32ma\033[39m\033[32m \033[39m| b | c |
+                +---+---+---+
+
+                TABLE,
+            ['<info>a'],
+            [['b'], ['c']],
+            true,
+            'horizontal',
+        ];
+
+        yield 'vertical, unclosed header' => [
+            <<<TABLE
+                +--------+
+                | \033[32mfoo\033[39m: x |
+                +--------+
+
+                TABLE,
+            ['<info>foo'],
+            [['x']],
+            true,
+            'vertical',
+        ];
+
+        yield 'vertical, decorated' => [
+            <<<TABLE
+                +-----+
+                | \033[32mfoo\033[39m |
+                | \033[32mbar\033[39m |
+                | x   |
+                +-----+
+
+                TABLE,
+            [],
+            [["<info>foo\nbar</info>", 'x']],
+            true,
+            'vertical',
+        ];
+
+        yield 'trailing backslash' => [
+            <<<TABLE
+                +----+
+                | \033[32ma\033[39m\\ |
+                | \033[32mb\033[39m  |
+                +----+
+
+                TABLE,
+            [],
+            [["<info>a\\\nb</info>"]],
+            true,
+        ];
+
+        yield 'vertical, trailing backslash' => [
+            <<<TABLE
+                +----+
+                | \033[32ma\033[39m\\ |
+                | \033[32mb\033[39m  |
+                +----+
+
+                TABLE,
+            [],
+            [["<info>a\\\nb</info>"]],
+            true,
+            'vertical',
+        ];
+
+        yield 'vertical, multi-line header' => [
+            <<<TABLE
+                +--------+
+                | \033[33mfoo\033[39m    |
+                | \033[33mbar\033[39m: x |
+                +--------+
+
+                TABLE,
+            ["foo\nbar"],
+            [['x']],
+            true,
+            'vertical',
+        ];
+
+        yield 'vertical with max width' => [
+            <<<TABLE
+                +-------------------+
+                |                   |
+                | https://example.c |
+                | om/doc            |
+                |-------------------|
+                | abcdefghijklmnopq |
+                | rstuvwxyz         |
+                | ab                |
+                +-------------------+
+
+                TABLE,
+            [],
+            [["<error>\nhttps://example.com/doc</error>"], ["abcdefghijklmnopqrstuvwxyz<info>\nab</info>"]],
+            false,
+            'vertical',
+            17,
+        ];
+
+        yield 'header spanning rows, starting with an empty line' => [
+            <<<TABLE
+                +-------+---+
+                |       | b |
+                +-------+---+
+                | Title |   |
+                +-------+---+
+                | x     | y |
+                +-------+---+
+
+                TABLE,
+            [new TableCell("\nTitle", ['rowspan' => 2]), 'b'],
+            [['x', 'y']],
+            false,
+        ];
+
+        yield 'header spanning rows, with an empty line' => [
+            <<<TABLE
+                +---+---+
+                | a | b |
+                +---+---+
+                |   |   |
+                +---+---+
+                | c |   |
+                +---+---+
+                | x | y |
+                +---+---+
+
+                TABLE,
+            [new TableCell("a\n\nc", ['rowspan' => 2]), 'b'],
+            [['x', 'y']],
+            false,
+        ];
+
+        yield 'header spanning rows, decorated' => [
+            <<<TABLE
+                +---+---+
+                |\033[32m a \033[39m|\033[32m b \033[39m|
+                +---+---+
+                |\033[32m c \033[39m|\033[32m   \033[39m|
+                +---+---+
+                | x | y |
+                +---+---+
+
+                TABLE,
+            [new TableCell("a\nc", ['rowspan' => 2]), 'b'],
+            [['x', 'y']],
+            true,
+        ];
+
+        yield 'cell with a style and a tag spanning rows, decorated' => [
+            <<<TABLE
+                +---+---+
+                |\033[39;44m \033[39;49m\033[32ma\033[39m\033[39;44m \033[39;49m| x |
+                |\033[39;44m \033[39;49m\033[32mb\033[39m\033[39;44m \033[39;49m| y |
+                +---+---+
+
+                TABLE,
+            [],
+            [[new TableCell("<info>a\nb</info>", ['rowspan' => 2, 'style' => new TableCellStyle(['bg' => 'blue'])]), 'x'], ['y']],
+            true,
+        ];
+
+        yield 'escaped closing tag in a cell spanning rows' => [
+            <<<TABLE
+                +----------+---+
+                | </info>a | x |
+                | b        | y |
+                +----------+---+
+
+                TABLE,
+            [],
+            [[new TableCell("\\</info>a\nb", ['rowspan' => 2]), 'x'], ['y']],
+            false,
+        ];
+
+        yield 'escaped tag in a cell spanning columns' => [
+            <<<TABLE
+                +-------------------+
+                | <info>abcdefgh    |
+                | x       | y       |
+                +---------+---------+
+
+                TABLE,
+            [],
+            [[new TableCell('\\<info>abcdefgh', ['colspan' => 2])], ['x', 'y']],
+            true,
+        ];
+
+        yield 'escaped tag in a cell without options' => [
+            <<<TABLE
+                +-----------+---+
+                | <info>abc | x |
+                | y         | z |
+                +-----------+---+
+
+                TABLE,
+            [],
+            [[new TableCell('\\<info>abc'), 'x'], ['y', 'z']],
+            false,
+        ];
+
+        yield 'escaped tag in a cell with a style' => [
+            <<<TABLE
+                +-----------+---+
+                | <info>abc | x |
+                | y         | z |
+                +-----------+---+
+
+                TABLE,
+            [],
+            [[new TableCell('\\<info>abc', ['style' => new TableCellStyle(['align' => 'right'])]), 'x'], ['y', 'z']],
+            false,
+        ];
+    }
+
+    public function testClosingTagDoesNotCloseStyleOfAnotherCell()
+    {
+        $table = new Table($this->getOutputStream());
+        // the style of the second cell is open around its content
+        $table->setRows([['<comment>a', new TableCell('</comment>b', ['style' => new TableCellStyle(['fg' => 'red'])])]]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Incorrectly nested style tag found.');
+
+        $table->render();
+    }
+
+    public function testDefaultColorsOpenedInStyledCellSpanningRows()
+    {
+        $table = new Table($this->getOutputStream());
+        $table->setRows([[new TableCell("<fg=default;bg=default>a\nb", ['rowspan' => 2, 'style' => new TableCellStyle(['bg' => 'blue'])]), 'x'], ['y']]);
+
+        $this->expectNotToPerformAssertions();
+
+        $table->render();
+    }
+
     public function testWithHyperlinkAndMaxWidth()
     {
         $table = new Table($output = $this->getOutputStream(true));
@@ -2144,6 +3220,25 @@ class TableTest extends TestCase
                 | \033]8;;Lorem\033\\adipiscing elit, sed\033]8;;\033\\ |
                 | \033]8;;Lorem\033\\do eiusmod tempor\033]8;;\033\\    |
                 +----------------------+
+
+                TABLE;
+
+        $this->assertSame($expected, $this->getOutputContent($output));
+    }
+
+    public function testWithHyperlinkAndEscapedLessThanAndMaxWidth()
+    {
+        $table = new Table($output = $this->getOutputStream(true));
+        $table->setRows([['<href=Lorem>abcd\<x</>']]);
+        $table->setColumnMaxWidth(0, 4);
+        $table->render();
+
+        $expected =
+            <<<TABLE
+                +------+
+                | \033]8;;Lorem\033\\abcd\033]8;;\033\\ |
+                | \033]8;;Lorem\033\\<x\033]8;;\033\\   |
+                +------+
 
                 TABLE;
 
