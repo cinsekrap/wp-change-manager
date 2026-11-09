@@ -1862,6 +1862,37 @@ b'])]
         $this->assertSame($expectedPathInfo, $request->getPathInfo(), 'pathInfo');
     }
 
+    public function testGetBaseUrlDoesNotStartWithTwoSlashes()
+    {
+        foreach (['//evil.example/public/index.php/admin', '/\\evil.example/public/index.php/admin'] as $requestUri) {
+            $request = new Request([], [], [], [], [], [
+                'REQUEST_URI' => $requestUri,
+                'SCRIPT_FILENAME' => '/var/www/public/index.php',
+                'SCRIPT_NAME' => '/public/index.php',
+                'PHP_SELF' => '/public/index.php',
+            ]);
+
+            $this->assertSame('', $request->getBaseUrl());
+            $this->assertSame('', $request->getBasePath());
+            $this->assertSame($requestUri, $request->getPathInfo());
+        }
+    }
+
+    public function testGetBaseUrlDoesNotStartWithTwoSlashesWhenTheScriptNameIsTheRequestPath()
+    {
+        foreach (['//evil.example/index.php', '/\\evil.example/index.php'] as $requestUri) {
+            $request = new Request([], [], [], [], [], [
+                'REQUEST_URI' => $requestUri,
+                'SCRIPT_FILENAME' => '/var/www/public/index.php',
+                'SCRIPT_NAME' => $requestUri,
+                'PHP_SELF' => $requestUri,
+            ]);
+
+            $this->assertSame('', $request->getBaseUrl());
+            $this->assertSame('', $request->getBasePath());
+        }
+    }
+
     public static function getBaseUrlData()
     {
         return [
@@ -1982,8 +2013,118 @@ b'])]
                     'SCRIPT_NAME' => '/api/index.php',
                     'PHP_SELF' => '/api/index.php',
                 ],
+                '/api',
+                '/index.phpfoo',
+            ],
+            [
+                '/index.phpfoo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/index.php',
+                    'SCRIPT_NAME' => '/index.php',
+                    'PHP_SELF' => '/index.php',
+                ],
+                '',
+                '/index.phpfoo',
+            ],
+            [
+                '/api/index.php?foo=bar',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
                 '/api/index.php',
+                '/',
+            ],
+            [
+                '/sub/api/index.phpfoo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '',
+                '/sub/api/index.phpfoo',
+            ],
+            [
+                '/api%2Ffoo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '/api%2F',
                 '/foo',
+            ],
+            [
+                '/x/index.php/foo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '',
+                '/x/index.php/foo',
+            ],
+            [
+                '/sub/index.php?next=/api/index.php',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '',
+                '/sub/index.php',
+            ],
+            [
+                '/sub/api/index.php?foo=bar',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '/sub/api/index.php',
+                '/',
+            ],
+            'Percent-encoded script name after a prefix' => [
+                '/sub/foo%20bar/app.php/home',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/foo bar/app.php',
+                    'SCRIPT_NAME' => '/foo bar/app.php',
+                    'PHP_SELF' => '/foo bar/app.php',
+                ],
+                '/sub/foo%20bar/app.php',
+                '/home',
+            ],
+            'Script name after a long prefix' => [
+                '/'.str_repeat('a', 2000).'/api/index.php/foo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/api/index.php',
+                    'SCRIPT_NAME' => '/api/index.php',
+                    'PHP_SELF' => '/api/index.php',
+                ],
+                '/'.str_repeat('a', 2000).'/api/index.php',
+                '/foo',
+            ],
+            'Long script name' => [
+                '/'.str_repeat('a', 2000).'/index.php/foo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/'.str_repeat('a', 2000).'/index.php',
+                    'SCRIPT_NAME' => '/'.str_repeat('a', 2000).'/index.php',
+                    'PHP_SELF' => '/'.str_repeat('a', 2000).'/index.php/foo',
+                ],
+                '/'.str_repeat('a', 2000).'/index.php',
+                '/foo',
+            ],
+            'Script name taken from the request path' => [
+                '/x/index.php/foo',
+                [
+                    'SCRIPT_FILENAME' => '/var/www/app/index.php',
+                    'SCRIPT_NAME' => '/x/index.php/foo',
+                    'PHP_SELF' => '/x/index.php/foo',
+                ],
+                '',
+                '/x/index.php/foo',
             ],
         ];
     }
@@ -2038,6 +2179,20 @@ b'])]
                 'UNENCODED_URL' => '/RoutingTest/foo/bar',
             ],
             '/RoutingTest',
+            '/foo/bar',
+        ];
+
+        yield 'Rewrite with case mismatch after a prefix' => [
+            [
+                'IIS_WasUrlRewritten' => '1',
+                'PATH_INFO' => '/foo/bar',
+                'PHP_SELF' => '/routingtest/index.php/foo/bar',
+                'REQUEST_URI' => '/Sub/RoutingTest/Index.php/foo/bar',
+                'SCRIPT_FILENAME' => 'C:/Users/derrabus/Projects/routing-test/public/index.php',
+                'SCRIPT_NAME' => '/routingtest/index.php',
+                'UNENCODED_URL' => '/Sub/RoutingTest/Index.php/foo/bar',
+            ],
+            '/Sub/RoutingTest/Index.php',
             '/foo/bar',
         ];
     }
@@ -2760,7 +2915,30 @@ b'])]
     public function testTrustedProxiesPrivateSubnets(string $key)
     {
         Request::setTrustedProxies([$key], Request::HEADER_X_FORWARDED_FOR);
-        $this->assertSame(IpUtils::PRIVATE_SUBNETS, Request::getTrustedProxies());
+        $this->assertSame(IpUtils::PRIVATE_RANGES, Request::getTrustedProxies());
+    }
+
+    public function testPrivateRangesDoNotTrustAddressesEmbeddingARemoteIpv4()
+    {
+        Request::setTrustedProxies(['private_ranges'], Request::HEADER_X_FORWARDED_FOR);
+
+        foreach (['::ffff:8.8.8.8', '::8.8.8.8', '2002:808:808::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2', '64:ff9b::8.8.8.8'] as $remoteAddr) {
+            $request = Request::create('/');
+            $request->server->set('REMOTE_ADDR', $remoteAddr);
+            $request->headers->set('X-Forwarded-For', '1.2.3.4');
+
+            $this->assertFalse($request->isFromTrustedProxy(), $remoteAddr);
+            $this->assertSame($remoteAddr, $request->getClientIp());
+        }
+
+        foreach (['10.0.0.5', '::ffff:10.0.0.5', '::ffff:127.0.0.1', 'fd00::1'] as $remoteAddr) {
+            $request = Request::create('/');
+            $request->server->set('REMOTE_ADDR', $remoteAddr);
+            $request->headers->set('X-Forwarded-For', '1.2.3.4');
+
+            $this->assertTrue($request->isFromTrustedProxy(), $remoteAddr);
+            $this->assertSame('1.2.3.4', $request->getClientIp());
+        }
     }
 
     public function testTrustedValuesCache()

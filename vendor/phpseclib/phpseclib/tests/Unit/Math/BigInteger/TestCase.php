@@ -145,6 +145,20 @@ abstract class TestCase extends PhpseclibTestCase
         $this->assertSame('0', (string) $r);
     }
 
+    public function testModPowModuloOne(): void
+    {
+        foreach (['-7', '0', '7'] as $base) {
+            foreach (['0', '1', '17'] as $exponent) {
+                foreach (['1', '-1'] as $modulus) {
+                    $a = $this->getInstance($base);
+                    $e = $this->getInstance($exponent);
+                    $n = $this->getInstance($modulus);
+                    $this->assertSame('0', (string) $a->modPow($e, $n));
+                }
+            }
+        }
+    }
+
     public function testModPow(): void
     {
         $a = $this->getInstance('10');
@@ -173,6 +187,23 @@ abstract class TestCase extends PhpseclibTestCase
         $this->assertNull($result);
     }
 
+    public function testModInverseNegativeNonCoprime(): void
+    {
+        $cases = [
+            ['-6', '15'],
+            ['-500', '100'],
+            ['-340282366920938463463374607431768211456', '18446744073709551616'],
+        ];
+        foreach ($cases as [$a, $n]) {
+            $this->assertNull($this->getInstance($a)->modInverse($this->getInstance($n)));
+        }
+    }
+
+    public function testModInverseNegativeCoprime(): void
+    {
+        $this->assertSame('13', (string) $this->getInstance(-30)->modInverse($this->getInstance(17)));
+    }
+
     public function testExtendedGCD(): void
     {
         $a = $this->getInstance(693);
@@ -181,7 +212,7 @@ abstract class TestCase extends PhpseclibTestCase
         $arr = $a->extendedGCD($b);
 
         $this->assertSame('21', (string) $arr['gcd']);
-        $this->assertSame(21, $a->toString() * $arr['x']->toString() + $b->toString() * $arr['y']->toString());
+        $this->assertSame('21', (string) $a->multiply($arr['x'])->add($b->multiply($arr['y'])));
     }
 
     public function testGCD(): void
@@ -452,6 +483,35 @@ abstract class TestCase extends PhpseclibTestCase
         $this->assertSame('8000', (string) $bigInteger);
         $bigInteger = $bigInteger->root(3);
         $this->assertSame('20', (string) $bigInteger);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Group('github2187')]
+    #[\PHPUnit\Framework\Attributes\DataProvider('rootRoundingProvider')]
+    public function testRootRounding(string $value, int $degree, string $expected): void
+    {
+        $this->assertSame($expected, (string) $this->getInstance($value)->root($degree));
+    }
+
+    public static function rootRoundingProvider(): array
+    {
+        return [
+            ['0', 2, '0'],
+            ['1', 2, '1'],
+            ['2', 2, '1'],
+            ['3', 1, '3'],
+            ['5', 2, '2'],
+            ['8', 2, '2'],
+            ['9', 2, '3'],
+            ['15', 3, '2'],
+            ['26', 3, '2'],
+            ['27', 2, '5'],
+            ['27', 3, '3'],
+            ['124', 3, '4'],
+            ['125', 3, '5'],
+            ['126', 3, '5'],
+            ['256', 2, '16'],
+            ['1000000', 6, '10'],
+        ];
     }
 
     public function testPow(): void

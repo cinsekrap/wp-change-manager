@@ -18,6 +18,7 @@ use function ctype_space;
 use function end;
 use function explode;
 use function is_array;
+use function is_string;
 use function max;
 use function reset;
 use function spl_object_id;
@@ -117,6 +118,39 @@ final class ExecutableLinesFindingVisitor extends NodeVisitorAbstract
     private array $unsets = [];
 
     /**
+     * @var list<array{int, int}> line and file position of the start of a
+     *                            match expression that may share its first
+     *                            line with other code
+     */
+    private array $matchStartLines = [];
+
+    /**
+     * @var list<array{int, int}> line and file position of the end of a
+     *                            match expression that may share its last
+     *                            line with other code
+     */
+    private array $matchEndLines = [];
+
+    /**
+     * @var array<int, int> keyed by line number, file position of the start
+     *                      of the rightmost node that starts on that line
+     */
+    private array $rightmostNodeStartOnLine = [];
+
+    /**
+     * @var array<int, int> keyed by line number, file position of the end
+     *                      of the leftmost node that ends on that line
+     */
+    private array $leftmostNodeEndOnLine = [];
+
+    /**
+     * @var array<int, true> keyed by spl_object_id(), the conditions of the
+     *                       arms of match expressions that are compiled to
+     *                       a jump table and therefore emit no opcode
+     */
+    private array $matchConditionsWithoutOpcode = [];
+
+    /**
      * @var array<int, string>
      */
     private array $commentsToCheckForUnset = [];
@@ -136,6 +170,8 @@ final class ExecutableLinesFindingVisitor extends NodeVisitorAbstract
 
     public function enterNode(Node $node): null
     {
+        $this->rememberNodePosition($node);
+
         if ($node instanceof Node\ArrayItem) {
             if ($node->unpack) {
                 $this->spreadDepth++;
@@ -297,6 +333,7 @@ final class ExecutableLinesFindingVisitor extends NodeVisitorAbstract
     public function afterTraverse(array $nodes): null
     {
         $this->stripBlankAndCommentOnlyLines();
+        $this->markMatchBoundaryLinesWithoutOtherCodeForUnset();
 
         $this->executableLinesGroupedByBranch = array_diff_key(
             $this->executableLinesGroupedByBranch,
@@ -377,15 +414,89 @@ final class ExecutableLinesFindingVisitor extends NodeVisitorAbstract
             return;
         }
 
+        if ($this->matchUsesJumpTable($node)) {
+            foreach ($node->arms as $arm) {
+                foreach ($arm->conds ?? [] as $cond) {
+                    $this->matchConditionsWithoutOpcode[spl_object_id($cond)] = true;
+
+                    if ($cond instanceof Node\Expr\UnaryMinus ||
+                        $cond instanceof Node\Expr\UnaryPlus) {
+                        $this->matchConditionsWithoutOpcode[spl_object_id($cond->expr)] = true;
+                    }
+                }
+            }
+        }
+
         $firstArmLine = reset($node->arms)->getStartLine();
         $lastArmLine  = end($node->arms)->getEndLine();
 
-        if ($node->getStartLine() < $firstArmLine && $this->matchConditionHasNoOpcode($node->cond)) {
-            $this->markRangeForUnset($node->getStartLine(), $firstArmLine - 1);
+        // The match expression itself emits no opcode on the lines before its
+        // first arm (unless its subject or the MATCH opcode of a jump table
+        // does) and on the lines after its last arm, but other code on its
+        // first or last line may. Whether there is such code is only known
+        // once all nodes have been visited.
+        if ($node->getStartLine() < $firstArmLine && !$this->matchOpeningLineAlwaysCarriesOpcode($node)) {
+            $this->matchStartLines[] = [$node->getStartLine(), $node->getStartFilePos()];
+
+            $this->markRangeForUnset($node->getStartLine() + 1, $firstArmLine - 1);
         }
 
         if ($node->getEndLine() > $lastArmLine) {
-            $this->markRangeForUnset($lastArmLine + 1, $node->getEndLine());
+            $this->matchEndLines[] = [$node->getEndLine(), $node->getEndFilePos()];
+
+            $this->markRangeForUnset($lastArmLine + 1, $node->getEndLine() - 1);
+        }
+    }
+
+    /**
+     * A node that ends on the first line of a match expression before the
+     * match expression starts, or that starts on its last line after the
+     * match expression ends, is code that shares the line with the match
+     * expression. Such a line must not be removed from the executable lines.
+     */
+    private function markMatchBoundaryLinesWithoutOtherCodeForUnset(): void
+    {
+        foreach ($this->matchStartLines as [$line, $matchStart]) {
+            if (isset($this->leftmostNodeEndOnLine[$line]) && $this->leftmostNodeEndOnLine[$line] < $matchStart) {
+                continue;
+            }
+
+            $this->unsets[$line] = true;
+        }
+
+        foreach ($this->matchEndLines as [$line, $matchEnd]) {
+            if (isset($this->rightmostNodeStartOnLine[$line]) && $this->rightmostNodeStartOnLine[$line] > $matchEnd) {
+                continue;
+            }
+
+            $this->unsets[$line] = true;
+        }
+    }
+
+    private function rememberNodePosition(Node $node): void
+    {
+        // A Nop statement only holds comments
+        if ($node instanceof Node\Stmt\Nop) {
+            return;
+        }
+
+        // The condition of an arm of a match expression that is compiled to a
+        // jump table is not code that shares its line with a nested match
+        // expression: the MATCH opcode is attributed to the line of the
+        // enclosing match expression
+        if (isset($this->matchConditionsWithoutOpcode[spl_object_id($node)])) {
+            return;
+        }
+
+        $startLine = $node->getStartLine();
+        $endLine   = $node->getEndLine();
+
+        if (!isset($this->rightmostNodeStartOnLine[$startLine]) || $node->getStartFilePos() > $this->rightmostNodeStartOnLine[$startLine]) {
+            $this->rightmostNodeStartOnLine[$startLine] = $node->getStartFilePos();
+        }
+
+        if (!isset($this->leftmostNodeEndOnLine[$endLine]) || $node->getEndFilePos() < $this->leftmostNodeEndOnLine[$endLine]) {
+            $this->leftmostNodeEndOnLine[$endLine] = $node->getEndFilePos();
         }
     }
 
@@ -714,15 +825,79 @@ final class ExecutableLinesFindingVisitor extends NodeVisitorAbstract
         return isset($this->arrayItemValues[spl_object_id($node)]);
     }
 
-    private function matchConditionHasNoOpcode(Node\Expr $cond): bool
+    /**
+     * Mirrors zend_compile_match(): a match expression with at least two
+     * conditions that all are int or string constants is compiled to a
+     * single MATCH opcode with a jump table instead of one comparison per
+     * condition.
+     */
+    private function matchUsesJumpTable(Node\Expr\Match_ $node): bool
     {
-        if (!$cond instanceof Node\Expr\ConstFetch) {
-            return false;
+        $numberOfConditions = 0;
+
+        foreach ($node->arms as $arm) {
+            foreach ($arm->conds ?? [] as $cond) {
+                if (!$this->isIntOrStringConstant($cond)) {
+                    return false;
+                }
+
+                $numberOfConditions++;
+            }
         }
 
-        $name = strtolower($cond->name->toString());
+        return $numberOfConditions >= 2;
+    }
 
-        return $name === 'true' || $name === 'false' || $name === 'null';
+    /**
+     * Of the expressions that the Zend compiler only turns into a constant by
+     * constant folding (-1, 'a' . 'b', ...), only a signed integer literal is
+     * recognized here.
+     */
+    private function isIntOrStringConstant(Node\Expr $expr): bool
+    {
+        if ($expr instanceof Node\Expr\UnaryMinus ||
+            $expr instanceof Node\Expr\UnaryPlus) {
+            return $expr->expr instanceof Node\Scalar\Int_;
+        }
+
+        return $expr instanceof Node\Scalar\Int_ ||
+               $expr instanceof Node\Scalar\String_;
+    }
+
+    /**
+     * The opening line of a match expression carries an opcode when its
+     * subject compiles to one, or when the match expression is compiled to a
+     * jump table: the MATCH opcode is then attributed to that line.
+     *
+     * Whether a match expression with conditions such as class constants is
+     * compiled to a jump table depends on the compiler (OPcache does not
+     * substitute such constants) and on whether the class was already loaded
+     * when the file was compiled. Treating the opening line as executable only
+     * when it carries an opcode however the file was compiled keeps coverage
+     * data of runs that compiled the file differently consistent.
+     */
+    private function matchOpeningLineAlwaysCarriesOpcode(Node\Expr\Match_ $node): bool
+    {
+        return !$this->matchSubjectMayHaveNoOpcode($node->cond) ||
+               $this->matchUsesJumpTable($node);
+    }
+
+    /**
+     * A compiled variable, a literal, and a constant that the compiler
+     * substitutes do not compile to an opcode of their own: they are operands
+     * of the opcodes that use them.
+     */
+    private function matchSubjectMayHaveNoOpcode(Node\Expr $subject): bool
+    {
+        if ($subject instanceof Node\Expr\Variable) {
+            return is_string($subject->name) && $subject->name !== 'this';
+        }
+
+        return $subject instanceof Node\Expr\ConstFetch ||
+               $subject instanceof Node\Expr\ClassConstFetch ||
+               $subject instanceof Node\Scalar\Int_ ||
+               $subject instanceof Node\Scalar\Float_ ||
+               $subject instanceof Node\Scalar\String_;
     }
 
     /**

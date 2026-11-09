@@ -339,7 +339,7 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
     public function testResourceXfer(SFTP $sftp)
     {
         $fp = fopen('res.txt', 'w+');
-        $sftp->get('file1.txt', $fp);
+        $this->assertNull($sftp->get('file1.txt', $fp));
         rewind($fp);
         $sftp->put('file4.txt', $fp);
         fclose($fp);
@@ -693,6 +693,33 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Depends('testRawlistDisabledStatCache')]
+    public function testNlistRecursiveDisabledStatCache(SFTP $sftp)
+    {
+        $sftp->enableStatCache();
+
+        $list_cache_enabled = $sftp->nlist(self::$scratchDir, true);
+
+        $sftp->clearStatCache();
+
+        $sftp->disableStatCache();
+
+        $list_cache_disabled = $sftp->nlist(self::$scratchDir, true);
+
+        $this->assertContains(
+            'subdir/leaf.txt',
+            $list_cache_disabled,
+            'Failed asserting that recursive nlist() descends into subdirectories with the stat cache disabled'
+        );
+        $this->assertEquals(
+            $list_cache_enabled,
+            $list_cache_disabled,
+            'The files should be the same regardless of stat cache'
+        );
+
+        return $sftp;
+    }
+
+    #[\PHPUnit\Framework\Attributes\Depends('testRawlistDisabledStatCache')]
     public function testRawlistCallback(SFTP $sftp)
     {
         $files = [];
@@ -730,9 +757,9 @@ class SFTPUserStoryTest extends PhpseclibFunctionalTestCase
     public function testCallableGetWithLength(SFTP $sftp): SFTP
     {
         $sftp->put('test.txt', 'zzzzz');
-        $sftp->get('test.txt', function ($data): void {
+        $this->assertNull($sftp->get('test.txt', function ($data): void {
             $this->assertSame('z', $data);
-        }, 0, 1);
+        }, 0, 1));
         return $sftp;
     }
 
