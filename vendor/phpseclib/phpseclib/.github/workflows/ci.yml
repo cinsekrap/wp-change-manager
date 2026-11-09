@@ -1,78 +1,104 @@
 name: CI
-on: [push, pull_request]
+on:
+    # other branches are tested by pull_request; testing them on push as well would run every job twice
+    push:
+        branches: [master, '4.0', '3.0', '2.0', '1.0']
+    pull_request:
 
 permissions:
   contents: read #  to fetch code (actions/checkout)
+
+# a newer push to the same branch or PR cancels the run for the older commit
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
     lint:
         name: Lint
         timeout-minutes: 5
+        # 8.6 is still a nightly build, so its jobs may fail without failing the run
+        continue-on-error: ${{ matrix.php-version == '8.6' }}
         runs-on: ubuntu-latest
         steps:
             -   name: Checkout
-                uses: actions/checkout@v3
+                uses: actions/checkout@v7
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: ${{ matrix.php-version }}
+                    tools: php-parallel-lint/php-parallel-lint:1
                 env:
                     update: true
-            -   name: Override PHPUnit and ParaTest versions
-                run: |
-                    composer require --dev --no-update \
-                      "phpunit/phpunit:${{ matrix.phpunit }}" \
-                      "brianium/paratest:${{ matrix.paratest }}"
-            -   name: Composer Install
-                run: composer install --classmap-authoritative --no-interaction --no-cache
             -   name: Lint
-                run: vendor/bin/parallel-lint --show-deprecated build phpseclib tests
+                run: parallel-lint --show-deprecated build phpseclib tests
         strategy:
             fail-fast: false
             matrix:
-                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5']
-                include:
-                    -   { php-version: '8.1', phpunit: '^10.5', paratest: '^7.0' }
-                    -   { php-version: '8.2', phpunit: '^11.5', paratest: '^7.8.5' }
-                    -   { php-version: '8.3', phpunit: '^11.5', paratest: '^7.8.5' }
-                    -   { php-version: '8.4', phpunit: '^12.5', paratest: '^7.16' }
-                    -   { php-version: '8.5', phpunit: '^13.1', paratest: '^7.22' }
+                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5', '8.6']
     quality_tools:
         name: Quality Tools
         timeout-minutes: 5
         runs-on: ubuntu-latest
         steps:
             -   name: Checkout
-                uses: actions/checkout@v3
+                uses: actions/checkout@v7
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: '8.2'
                 env:
                     update: true
+            -   name: Get Composer Cache Directory and Week
+                id: composer-cache
+                run: |
+                    echo "dir=$(composer config cache-dir)" >> "$GITHUB_OUTPUT"
+                    echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
+            -   name: Cache Composer Packages
+                # there's no composer.lock, so the key wouldn't change when new package versions come out. the week
+                # makes it change, so the cache is saved again (starting from last week's) once a week
+                uses: actions/cache@v6
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ github.job }}-${{ hashFiles('composer.json') }}-${{ steps.composer-cache.outputs.week }}
+                    restore-keys: composer-${{ runner.os }}-${{ github.job }}-
             -   name: Override PHPUnit and ParaTest versions
                 run: composer require --dev --no-update "phpunit/phpunit:^11.5" "brianium/paratest:^7.8.5"
             -   name: Composer Install
-                run: composer update --with-all-dependencies --no-interaction --no-cache
+                run: composer update --with-all-dependencies --no-interaction
             -   name: PHP_CodeSniffer
                 run: vendor/bin/phpcs --standard=build/php_codesniffer.xml
             -   name: Psalm
                 run: vendor/bin/psalm --config=build/psalm.xml --no-cache --long-progress --report-show-info=false
-        strategy:
-            fail-fast: false
     tests:
         name: Tests
-        timeout-minutes: 10
+        timeout-minutes: 15
+        # 8.6 is still a nightly build, so its jobs may fail without failing the run
+        continue-on-error: ${{ matrix.php-version == '8.6' }}
         runs-on: ${{ matrix.os }}
         steps:
             -   name: Checkout
-                uses: actions/checkout@v3
+                uses: actions/checkout@v7
             -   name: Setup PHP
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: ${{ matrix.php-version }}
                 env:
                     update: true
+            -   name: Get Composer Cache Directory and Week
+                id: composer-cache
+                shell: bash
+                run: |
+                    echo "dir=$(composer config cache-dir)" >> "$GITHUB_OUTPUT"
+                    echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
+            -   name: Cache Composer Packages
+                # there's no composer.lock, so the key wouldn't change when new package versions come out. the week
+                # makes it change, so the cache is saved again (starting from last week's) once a week
+                uses: actions/cache@v6
+                with:
+                    path: ${{ steps.composer-cache.outputs.dir }}
+                    key: composer-${{ runner.os }}-${{ github.job }}-php${{ matrix.php-version }}-${{ hashFiles('composer.json') }}-${{ steps.composer-cache.outputs.week }}
+                    restore-keys: composer-${{ runner.os }}-${{ github.job }}-php${{ matrix.php-version }}-
             -   name: Override PHPUnit and ParaTest versions
                 shell: bash
                 run: |
@@ -80,7 +106,7 @@ jobs:
                       "phpunit/phpunit:${{ matrix.phpunit }}" \
                       "brianium/paratest:${{ matrix.paratest }}"
             -   name: Composer Install
-                run: composer update --with-all-dependencies --no-interaction --no-cache
+                run: composer update --with-all-dependencies --no-interaction
             -   name: Setup Secure Shell Functional Tests
                 if: matrix.os == 'ubuntu-latest'
                 run: |
@@ -101,6 +127,26 @@ jobs:
                     sudo cp "/tmp/known_hosts" "/home/$PHPSECLIB_SSH_USERNAME/.ssh/known_hosts"
                     sudo chown "$PHPSECLIB_SSH_USERNAME:$PHPSECLIB_SSH_USERNAME" "/home/$PHPSECLIB_SSH_USERNAME/.ssh/" -R
 
+                    # on some runners (the AWS-hosted ones) sshd refuses passwords, which fails every password
+                    # login test. turn them on in a file that sorts first in sshd_config.d, since sshd keeps the
+                    # first value it reads
+                    echo 'PasswordAuthentication yes' | sudo tee /etc/ssh/sshd_config.d/00-phpseclib.conf
+
+                    # OpenSSH 9.8+ penalizes sources that make lots of connections without
+                    # authenticating (eg. testCryptoAlgorithms with algorithms the server
+                    # doesn't support) and then refuses all connections from that source,
+                    # localhost included. turn that off. older sshd versions don't know the
+                    # option (and would refuse to start with it) so only set it if supported
+                    PENALTIES_SUPPORTED=0
+                    if sudo sshd -T 2>/dev/null | grep -qi '^persourcepenalties '; then
+                        PENALTIES_SUPPORTED=1
+                        echo 'PerSourcePenalties no' | sudo tee -a /etc/ssh/sshd_config.d/00-phpseclib.conf
+                    fi
+                    sudo sshd -t
+                    sudo systemctl restart ssh
+                    # check that password logins took
+                    sudo sshd -T -C "user=$PHPSECLIB_SSH_USERNAME,host=localhost,addr=127.0.0.1" | grep -x 'passwordauthentication yes'
+
                     # ---------- Port 23: keyboard-interactive only ----------
                     sudo tee /etc/ssh/sshd_config_kbdint > /dev/null <<'EOF'
                     Port 23
@@ -113,7 +159,6 @@ jobs:
                     AuthenticationMethods keyboard-interactive
                     Subsystem sftp /usr/lib/openssh/sftp-server
                     EOF
-                    sudo /usr/sbin/sshd -f /etc/ssh/sshd_config_kbdint
 
                     # ---------- Port 24: 2FA (publickey + keyboard-interactive) ----------
                     sudo tee /etc/ssh/sshd_config_2fa > /dev/null <<'EOF'
@@ -127,9 +172,16 @@ jobs:
                     AuthenticationMethods publickey,keyboard-interactive
                     Subsystem sftp /usr/lib/openssh/sftp-server
                     EOF
+
+                    # these configs don't include sshd_config.d so they need the penalty override too
+                    if [ "$PENALTIES_SUPPORTED" = 1 ]; then
+                        echo 'PerSourcePenalties no' | sudo tee -a /etc/ssh/sshd_config_kbdint /etc/ssh/sshd_config_2fa > /dev/null
+                    fi
+
+                    sudo /usr/sbin/sshd -f /etc/ssh/sshd_config_kbdint
                     sudo /usr/sbin/sshd -f /etc/ssh/sshd_config_2fa
 
-                    # Verify both are listening
+                    # Verify all three are listening
                     sleep 1
                     sudo ss -tlnp | grep -E ':(22|23|24)\b'
 
@@ -141,16 +193,26 @@ jobs:
                     echo "PHPSECLIB_SSH_KBDINT_PORT=23" >> $GITHUB_ENV
                     echo "PHPSECLIB_SSH_2FA_PORT=24" >> $GITHUB_ENV
                     echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+            -   name: Enforce Test Time Limit
+                # the time limit makes a hung test fail by name instead of running until the job is cancelled. it needs
+                # pcntl, which Windows doesn't have, so it's only used on Ubuntu, and it only takes effect on PHPUnit 9+.
+                # it's set in the config because older PHPUnit and ParaTest versions don't have a --default-time-limit option
+                if: matrix.os == 'ubuntu-latest'
+                run: php -r '$file = "tests/phpunit.xml"; $xml = simplexml_load_file($file); $xml["enforceTimeLimit"] = "true"; $xml["defaultTimeLimit"] = "180"; $xml->asXML($file);'
             -   name: PHPUnit
                 run: vendor/bin/paratest --configuration=tests/phpunit.xml --runner=WrapperRunner --no-progress
+            -   name: Show sshd Log
+                if: failure() && matrix.os == 'ubuntu-latest'
+                run: sudo journalctl --no-pager | grep -E 'sshd' | tail -n 150
         strategy:
             fail-fast: false
             matrix:
                 os: [ubuntu-latest, windows-latest, macos-latest]
-                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5']
+                php-version: ['8.1', '8.2', '8.3', '8.4', '8.5', '8.6']
                 include:
                     -   { php-version: '8.1', phpunit: '^10.5', paratest: '^7.0' }
                     -   { php-version: '8.2', phpunit: '^11.5', paratest: '^7.8.5' }
                     -   { php-version: '8.3', phpunit: '^11.5', paratest: '^7.8.5' }
                     -   { php-version: '8.4', phpunit: '^12.5', paratest: '^7.16' }
                     -   { php-version: '8.5', phpunit: '^13.1', paratest: '^7.22' }
+                    -   { php-version: '8.6', phpunit: '^13.1', paratest: '^7.22' }

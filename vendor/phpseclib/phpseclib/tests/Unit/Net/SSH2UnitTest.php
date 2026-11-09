@@ -12,11 +12,11 @@ namespace phpseclib4\Tests\Unit\Net;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use phpseclib4\Common\Functions\Strings;
+use phpseclib4\Crypt\TripleDES;
 use phpseclib4\Exception\InvalidStateException;
 use phpseclib4\Exception\TimeoutException;
 use phpseclib4\Net\SSH2;
 use phpseclib4\Tests\PhpseclibTestCase;
-use PHPUnit\Framework\MockObject\MockObject;
 
 class SSH2UnitTest extends PhpseclibTestCase
 {
@@ -59,6 +59,14 @@ class SSH2UnitTest extends PhpseclibTestCase
 
         $result = self::callFunc($ssh, 'format_log', [$message_log, $message_number_log]);
         $this->assertEquals($expected, $result);
+    }
+
+    public function testTripleDESCTRUsesCTRMode(): void
+    {
+        $cipher = self::callFunc(new SSH2('localhost'), 'encryption_algorithm_to_crypt_instance', ['3des-ctr']);
+
+        $this->assertInstanceOf(TripleDES::class, $cipher);
+        $this->assertSame('ctr', $cipher->getMode());
     }
 
     public function testGenerateIdentifier(): void
@@ -201,6 +209,18 @@ class SSH2UnitTest extends PhpseclibTestCase
         $this->assertEquals(0, $ssh->getTimeout());
         $ssh->setTimeout(20);
         $this->assertEquals(20, $ssh->getTimeout());
+    }
+
+    public function testTimeoutCountdownEndingOnZero(): void
+    {
+        $ssh = new SSH2('localhost');
+        $ssh->setTimeout(1);
+        self::setVar($ssh, 'fsock', fopen('php://memory', 'r'));
+        // the countdown can end on exactly 0, which has to count as having run out instead of as no timeout
+        self::setVar($ssh, 'curTimeout', 0.0);
+
+        $this->expectException(TimeoutException::class);
+        self::callFunc($ssh, 'get_binary_packet');
     }
 
     public function testGetStreamTimeout(): void

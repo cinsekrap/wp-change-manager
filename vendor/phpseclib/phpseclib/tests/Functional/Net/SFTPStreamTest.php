@@ -71,6 +71,18 @@ class SFTPStreamTest extends SFTPTestCase
         stream_select($read, $write, $except, 0);
     }
 
+    public function testReadZero(): void
+    {
+        $context = stream_context_create([
+            'sftp' => ['session' => $this->sftp],
+        ]);
+        $this->sftp->put('zero.txt', '0');
+        $this->assertSame('0', file_get_contents($this->buildUrl('zero.txt'), false, $context));
+
+        $this->sftp->put('zero-tail.txt', str_repeat('a', 8192) . '0');
+        $this->assertSame(str_repeat('a', 8192) . '0', file_get_contents($this->buildUrl('zero-tail.txt'), false, $context));
+    }
+
     protected function buildUrl($suffix): string
     {
         return sprintf(
@@ -89,5 +101,24 @@ class SFTPStreamTest extends SFTPTestCase
         touch($fileName);
         $this->assertTrue(file_exists($fileName));
         $this->assertEquals(0, filesize($fileName));
+    }
+
+    public function testFeof(): void
+    {
+        $this->sftp->put('eof.txt', 'hello world');
+        $context = stream_context_create([
+            'sftp' => ['session' => $this->sftp],
+        ]);
+        $fp = fopen($this->buildUrl('eof.txt'), 'rb', false, $context);
+
+        $data = '';
+        // capped so that a missing EOF fails the test instead of hanging it
+        for ($i = 0; $i < 10 && !feof($fp); $i++) {
+            $data .= fread($fp, 8192);
+        }
+
+        $this->assertTrue(feof($fp), 'Failed asserting that feof() is true after reading the whole file');
+        $this->assertSame('hello world', $data);
+        fclose($fp);
     }
 }

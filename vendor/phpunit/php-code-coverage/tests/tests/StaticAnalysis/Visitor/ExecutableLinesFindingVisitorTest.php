@@ -301,7 +301,7 @@ final class ExecutableLinesFindingVisitorTest extends TestCase
     }
 
     #[Ticket('https://github.com/sebastianbergmann/php-code-coverage/issues/1154')]
-    public function testMatchTrueDoesNotMarkOpenerAndCloserAsExecutable(): void
+    public function testMatchTrueDoesNotMarkOpenerAndCloserAsBranchOperatorLines(): void
     {
         $source = file_get_contents(__DIR__ . '/../../../_files/source_match_true_expression.php');
         assert($source !== false);
@@ -314,14 +314,86 @@ final class ExecutableLinesFindingVisitorTest extends TestCase
         $traverser->addVisitor($executableLinesFindingVisitor);
         $traverser->traverse($nodes);
 
-        $executableLines = $executableLinesFindingVisitor->executableLinesGroupedByBranch();
+        $executableLines     = $executableLinesFindingVisitor->executableLinesGroupedByBranch();
+        $branchOperatorLines = $executableLinesFindingVisitor->branchOperatorLines();
 
-        $this->assertArrayNotHasKey(8, $executableLines);
+        // The opener shares its line with the assignment to $this->result
+        $this->assertArrayHasKey(8, $executableLines);
+        $this->assertArrayNotHasKey(8, $branchOperatorLines);
         $this->assertArrayNotHasKey(13, $executableLines);
         $this->assertArrayHasKey(9, $executableLines);
         $this->assertArrayHasKey(10, $executableLines);
         $this->assertArrayHasKey(11, $executableLines);
         $this->assertArrayHasKey(12, $executableLines);
+    }
+
+    #[Ticket('https://github.com/sebastianbergmann/php-code-coverage/issues/1372')]
+    public function testOpenerAndCloserOfMatchExpressionAreOnlyExecutableWhenTheyShareTheirLineWithOtherCode(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../../_files/source_with_match_expression_sharing_lines_with_other_code.php');
+        assert($source !== false);
+        $parser = (new ParserFactory)->createForHostVersion();
+        $nodes  = $parser->parse($source);
+        assert($nodes !== null);
+        $executableLinesFindingVisitor = new ExecutableLinesFindingVisitor($source);
+
+        $traverser = new NodeTraverser;
+        $traverser->addVisitor($executableLinesFindingVisitor);
+        $traverser->traverse($nodes);
+
+        $this->assertSame(
+            [4, 5, 6, 7, 13, 14],
+            array_keys($executableLinesFindingVisitor->executableLinesGroupedByBranch()),
+        );
+    }
+
+    #[Ticket('https://github.com/sebastianbergmann/php-code-coverage/issues/1379')]
+    public function testOpenerOfMatchExpressionNestedInArmOfMatchExpressionCompiledToJumpTableIsNotExecutable(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../../_files/source_with_match_expression_nested_in_match_arm.php');
+        assert($source !== false);
+        $parser = (new ParserFactory)->createForHostVersion();
+        $nodes  = $parser->parse($source);
+        assert($nodes !== null);
+        $executableLinesFindingVisitor = new ExecutableLinesFindingVisitor($source);
+
+        $traverser = new NodeTraverser;
+        $traverser->addVisitor($executableLinesFindingVisitor);
+        $traverser->traverse($nodes);
+
+        // Lines 6 and 29 carry no opcode: the arm conditions of the outer
+        // match expression are compiled into the jump table of its MATCH
+        // opcode on line 4 and line 27, respectively. Line 17 carries the
+        // comparison with 'array' because a match expression with a single
+        // condition is not compiled to a jump table, which is also why line
+        // 16 carries no opcode.
+        $this->assertSame(
+            [4, 5, 7, 8, 10, 17, 18, 19, 21, 27, 28, 30, 31, 33],
+            array_keys($executableLinesFindingVisitor->executableLinesGroupedByBranch()),
+        );
+    }
+
+    #[Ticket('https://github.com/sebastianbergmann/php-code-coverage/issues/1380')]
+    public function testOpenerOfMatchExpressionIsOnlyExecutableWhenItCarriesAnOpcodeRegardlessOfHowTheFileIsCompiled(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../../_files/source_with_match_expression_whose_subject_has_no_opcode.php');
+        assert($source !== false);
+        $parser = (new ParserFactory)->createForHostVersion();
+        $nodes  = $parser->parse($source);
+        assert($nodes !== null);
+        $executableLinesFindingVisitor = new ExecutableLinesFindingVisitor($source);
+
+        $traverser = new NodeTraverser;
+        $traverser->addVisitor($executableLinesFindingVisitor);
+        $traverser->traverse($nodes);
+
+        // Line 4 carries the MATCH opcode of a jump table only when the class
+        // constants were substituted at compile time. Line 13 always carries
+        // it, line 22 carries the assignment, and line 33 the property fetch.
+        $this->assertSame(
+            [5, 6, 7, 13, 14, 15, 16, 22, 23, 24, 25, 28, 33, 34, 35, 36],
+            array_keys($executableLinesFindingVisitor->executableLinesGroupedByBranch()),
+        );
     }
 
     #[Ticket('https://github.com/sebastianbergmann/php-code-coverage/issues/1160')]
@@ -375,7 +447,6 @@ final class ExecutableLinesFindingVisitorTest extends TestCase
         $branchOperatorLines = $executableLinesFindingVisitor->branchOperatorLines();
 
         $this->assertArrayHasKey(8, $executableLines);
-        $this->assertArrayHasKey(10, $executableLines);
 
         $this->assertArrayNotHasKey(8, $branchOperatorLines);
         $this->assertArrayNotHasKey(10, $branchOperatorLines);
