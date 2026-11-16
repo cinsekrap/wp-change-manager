@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace GuzzleHttp\Tests;
 
+use GuzzleHttp\Client;
 use GuzzleHttp\Exception\InvalidArgumentException;
+use GuzzleHttp\Handler\CurlFactory;
+use GuzzleHttp\Handler\CurlHandler;
+use GuzzleHttp\Handler\CurlMultiHandler;
 use GuzzleHttp\Handler\CurlVersion;
+use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Handler\StreamHandler;
 use GuzzleHttp\Handler\StreamTlsSessionCache;
+use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Multiplexing;
 use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\TransportSharing;
 use GuzzleHttp\Utils;
 use PHPUnit\Framework\TestCase;
@@ -19,32 +26,6 @@ class UtilsTest extends TestCase
     public static function noBodyProvider(): array
     {
         return [['get'], ['head'], ['delete']];
-    }
-
-    public function testParsesHeadersFromLines(): void
-    {
-        $lines = [
-            'Foo: bar',
-            'Foo: baz',
-            'Abc: 123',
-            'Def: a, b',
-        ];
-
-        $expected = [
-            'Foo' => ['bar', 'baz'],
-            'Abc' => ['123'],
-            'Def' => ['a, b'],
-        ];
-
-        self::assertSame($expected, Utils::headersFromLines($lines));
-    }
-
-    public function testParsesHeadersFromLinesWithMultipleLines(): void
-    {
-        $lines = ['Foo: bar', 'Foo: baz', 'Foo: 123'];
-        $expected = ['Foo' => ['bar', 'baz', '123']];
-
-        self::assertSame($expected, Utils::headersFromLines($lines));
     }
 
     public function testChooseHandler(): void
@@ -311,6 +292,46 @@ class UtilsTest extends TestCase
         }
     }
 
+    public function testChooseHandlerForwardsMaxIdleHandlesToBothCurlHandlers(): void
+    {
+        self::skipIfDefaultCurlMultiHandlerIsUnavailable();
+
+        $handler = Utils::chooseHandler(['max_idle_handles' => 0]);
+        $handlers = (new \ReflectionFunction($handler))->getStaticVariables();
+        if (isset($handlers['streaming'])) {
+            $handlers = (new \ReflectionFunction($handlers['default']))->getStaticVariables();
+        }
+
+        self::assertInstanceOf(CurlHandler::class, $handlers['sync']);
+        self::assertInstanceOf(CurlMultiHandler::class, $handlers['default']);
+        foreach ([$handlers['sync'], $handlers['default']] as $curlHandler) {
+            $factory = \Closure::bind(static function ($curlHandler): CurlFactory {
+                return $curlHandler->factory;
+            }, null, \get_class($curlHandler))($curlHandler);
+            $factory->release($factory->create(new Request('GET', 'http://example.com'), []));
+
+            $idleHandles = \Closure::bind(static function (CurlFactory $factory): array {
+                return $factory->handles;
+            }, null, CurlFactory::class)($factory);
+            self::assertSame([], $idleHandles);
+        }
+    }
+
+    public function testChooseHandlerFallsBackToTheStreamHandlerWithMaxIdleHandles(): void
+    {
+        if (!\ini_get('allow_url_fopen')) {
+            self::markTestSkipped('The allow_url_fopen ini setting is required.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.29.0', 'features' => 0]);
+
+        try {
+            self::assertInstanceOf(StreamHandler::class, Utils::chooseHandler(['max_idle_handles' => 4]));
+        } finally {
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
     public function testChooseHandlerAcceptsDisabledTransportSharing(): void
     {
         $_SERVER['curl_test'] = true;
@@ -325,43 +346,190 @@ class UtilsTest extends TestCase
         }
     }
 
+    public function testChooseHandlerUsesTheDefaultHandlerFactory(): void
+    {
+        $handler = new MockHandler();
+        $received = [];
+        Utils::setDefaultHandlerFactory(static function (array $handlerOptions) use ($handler, &$received): callable {
+            $received[] = $handlerOptions;
+
+            return $handler;
+        });
+
+        try {
+            $handlerOptions = ['max_idle_handles' => 4, 'multiplex' => Multiplexing::NONE];
+
+            self::assertSame($handler, Utils::chooseHandler());
+            self::assertSame($handler, Utils::chooseHandler($handlerOptions));
+            self::assertSame([[], $handlerOptions], $received);
+
+            Utils::setDefaultHandlerFactory(null);
+
+            self::assertNotSame($handler, Utils::chooseHandler());
+            self::assertCount(2, $received);
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+        }
+    }
+
+    /**
+     * @dataProvider invalidHandlerOptionProvider
+     */
+    public function testChooseHandlerValidatesHandlerOptionsBeforeCallingTheDefaultHandlerFactory(array $handlerOptions, string $message): void
+    {
+        Utils::setDefaultHandlerFactory(static function (): callable {
+            self::fail('The default handler factory should not be called.');
+        });
+
+        try {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage($message);
+
+            Utils::chooseHandler($handlerOptions);
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+        }
+    }
+
+    public static function invalidHandlerOptionProvider(): iterable
+    {
+        yield 'transport sharing' => [['transport_sharing' => 'invalid'], 'The "transport_sharing" option must be null or a GuzzleHttp\TransportSharing::* constant; received string.'];
+        yield 'max host connections' => [['max_host_connections' => 0], 'max_host_connections must be a positive integer.'];
+        yield 'max idle handles' => [['max_idle_handles' => -1], 'max_idle_handles must be a non-negative integer.'];
+        yield 'max total connections' => [['max_total_connections' => '1'], 'max_total_connections must be a positive integer.'];
+    }
+
+    public function testChooseHandlerDefersEnvironmentChecksToTheBuiltInHandlerCallable(): void
+    {
+        $previousVersionInfo = self::setCurlVersionInfo([
+            'version' => '8.21.0',
+            'features' => self::curlSslFeature(),
+        ]);
+
+        $handler = new MockHandler();
+        $builtIn = null;
+        Utils::setDefaultHandlerFactory(static function (array $handlerOptions, callable $default) use ($handler, &$builtIn): callable {
+            $builtIn = $default;
+
+            return $handler;
+        });
+
+        try {
+            self::assertSame($handler, Utils::chooseHandler([
+                'transport_sharing' => TransportSharing::PERSISTENT_REQUIRE,
+                'max_host_connections' => 1,
+            ]));
+
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('persistent transport sharing');
+
+            $builtIn();
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testChooseHandlerPassesABuiltInHandlerCallableToTheDefaultHandlerFactory(): void
+    {
+        if (!\ini_get('allow_url_fopen')) {
+            self::markTestSkipped('The allow_url_fopen ini setting is required.');
+        }
+
+        $previousVersionInfo = self::setCurlVersionInfo(['version' => '7.29.0', 'features' => 0]);
+
+        $handlers = [];
+        Utils::setDefaultHandlerFactory(static function (array $handlerOptions, callable $default) use (&$handlers): callable {
+            $handlers = [$default(), $default()];
+
+            return $handlers[0];
+        });
+
+        try {
+            $handler = Utils::chooseHandler(['max_host_connections' => 1]);
+
+            self::assertInstanceOf(StreamHandler::class, $handlers[0]);
+            self::assertInstanceOf(StreamHandler::class, $handlers[1]);
+            self::assertNotSame($handlers[0], $handlers[1]);
+
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('Enabling the "stream" request option on a stream handler configured with the "max_host_connections" or "max_total_connections" option is not supported because streamed connections cannot be capped.');
+
+            $handler(new Request('GET', 'http://localhost/'), ['stream' => true]);
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+            self::setCurlVersionInfo($previousVersionInfo);
+        }
+    }
+
+    public function testChooseHandlerRejectsANonCallableFromTheDefaultHandlerFactory(): void
+    {
+        Utils::setDefaultHandlerFactory(static function () {
+            return 'not callable';
+        });
+
+        try {
+            $this->expectException(\TypeError::class);
+
+            Utils::chooseHandler();
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+        }
+    }
+
+    public function testExplicitHandlersBypassTheDefaultHandlerFactory(): void
+    {
+        $calls = 0;
+        Utils::setDefaultHandlerFactory(static function () use (&$calls): callable {
+            ++$calls;
+
+            return new MockHandler();
+        });
+
+        try {
+            $handler = new MockHandler();
+            HandlerStack::create($handler);
+            new Client(['handler' => $handler]);
+
+            self::assertSame(0, $calls);
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+        }
+    }
+
+    public function testClientsKeepTheHandlerCreatedByTheDefaultHandlerFactory(): void
+    {
+        $received = [];
+        Utils::setDefaultHandlerFactory(static function (array $handlerOptions) use (&$received): callable {
+            $received[] = $handlerOptions;
+
+            return new MockHandler([new Response(201)]);
+        });
+
+        try {
+            $first = new Client();
+
+            Utils::setDefaultHandlerFactory(static function (array $handlerOptions) use (&$received): callable {
+                $received[] = $handlerOptions;
+
+                return new MockHandler([new Response(202)]);
+            });
+
+            $second = new Client(['max_idle_handles' => 4]);
+
+            Utils::setDefaultHandlerFactory(null);
+
+            self::assertSame([[], ['max_idle_handles' => 4]], $received);
+            self::assertSame(201, $first->get('http://example.com')->getStatusCode());
+            self::assertSame(202, $second->get('http://example.com')->getStatusCode());
+        } finally {
+            Utils::setDefaultHandlerFactory(null);
+        }
+    }
+
     public function testDefaultUserAgent(): void
     {
         self::assertIsString(Utils::defaultUserAgent());
-    }
-
-    public function testReturnsDebugResource(): void
-    {
-        self::assertIsResource(Utils::debugResource());
-    }
-
-    public function testNormalizeHeaderKeys(): void
-    {
-        $input = ['HelLo' => 'foo', 'WORld' => 'bar'];
-        $expected = ['hello' => 'HelLo', 'world' => 'WORld'];
-
-        self::assertSame($expected, Utils::normalizeHeaderKeys($input));
-    }
-
-    public function testNormalizeHeaderKeysHandlesNumericKeys(): void
-    {
-        $input = [0 => 'zero', 'HelLo' => 'foo'];
-        $expected = [0 => 0, 'hello' => 'HelLo'];
-
-        self::assertSame($expected, Utils::normalizeHeaderKeys($input));
-    }
-
-    public function testNormalizeProtocolsAcceptsLowercaseProtocols(): void
-    {
-        self::assertSame(['http', 'https'], Utils::normalizeProtocols(['http', 'https', 'http']));
-    }
-
-    public function testNormalizeProtocolsRejectsUppercaseProtocols(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('protocols may only contain "http" and "https"');
-
-        Utils::normalizeProtocols(['HTTPS']);
     }
 
     private static function skipIfDefaultCurlHandlerIsUnavailable(): void

@@ -21,14 +21,8 @@ jobs:
       fail-fast: true
       matrix:
         php: [8.2, 8.3, 8.4, 8.5]
-        laravel: [10, 11, 12, 13]
+        laravel: [12, 13]
         exclude:
-          - php: 8.5
-            laravel: 10
-          - php: 8.5
-            laravel: 11
-          - php: 8.4
-            laravel: 10
           - php: 8.2
             laravel: 13
 
@@ -36,10 +30,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: ${{ matrix.php }}
           extensions: dom, curl, libxml, mbstring, zip
