@@ -11,6 +11,7 @@ use Ramsey\Uuid\Converter\Number\GenericNumberConverter;
 use Ramsey\Uuid\Converter\NumberConverterInterface;
 use Ramsey\Uuid\Converter\Time\GenericTimeConverter;
 use Ramsey\Uuid\Converter\TimeConverterInterface;
+use Ramsey\Uuid\Exception\DceSecurityException;
 use Ramsey\Uuid\Exception\InvalidArgumentException;
 use Ramsey\Uuid\Generator\DceSecurityGenerator;
 use Ramsey\Uuid\Generator\DefaultTimeGenerator;
@@ -26,8 +27,6 @@ use Ramsey\Uuid\Type\Integer as IntegerObject;
 use Ramsey\Uuid\Type\Time;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidFactory;
-
-use const PHP_VERSION_ID;
 
 class UuidV2Test extends TestCase
 {
@@ -127,9 +126,6 @@ class UuidV2Test extends TestCase
      */
     public function provideLocalDomainAndIdentifierForTests(): array
     {
-        // https://github.com/php/php-src/issues/7758
-        $isGH7758Fixed = PHP_VERSION_ID >= 80107;
-
         return [
             [
                 'domain' => Uuid::DCE_DOMAIN_PERSON,
@@ -139,7 +135,7 @@ class UuidV2Test extends TestCase
                 'expectedDomainName' => 'person',
                 'expectedIdentifier' => '12345678',
                 'expectedTimestamp' => '1b21dd200000000',
-                'expectedTime' => $isGH7758Fixed ? '-33.276237' : '-32.723763',
+                'expectedTime' => '-33.276237',
             ],
             [
                 'domain' => Uuid::DCE_DOMAIN_GROUP,
@@ -149,7 +145,7 @@ class UuidV2Test extends TestCase
                 'expectedDomainName' => 'group',
                 'expectedIdentifier' => '87654321',
                 'expectedTimestamp' => '1b21dd200000000',
-                'expectedTime' => $isGH7758Fixed ? '-33.276237' : '-32.723763',
+                'expectedTime' => '-33.276237',
             ],
             [
                 'domain' => Uuid::DCE_DOMAIN_ORG,
@@ -159,7 +155,7 @@ class UuidV2Test extends TestCase
                 'expectedDomainName' => 'org',
                 'expectedIdentifier' => '1',
                 'expectedTimestamp' => '1b21dd200000000',
-                'expectedTime' => $isGH7758Fixed ? '-33.276237' : '-32.723763',
+                'expectedTime' => '-33.276237',
             ],
             [
                 'domain' => Uuid::DCE_DOMAIN_PERSON,
@@ -218,5 +214,18 @@ class UuidV2Test extends TestCase
                 'expectedTime' => '1583209093.940838',
             ],
         ];
+    }
+
+    public function testGetLocalDomainNameThrowsExceptionForUnknownDomain(): void
+    {
+        $uuid = (new UuidFactory())->fromString('000001f5-5cde-21ea-8403-0242ac130003');
+
+        $this->assertInstanceOf(UuidV2::class, $uuid);
+        $this->assertSame(3, $uuid->getLocalDomain());
+
+        $this->expectException(DceSecurityException::class);
+        $this->expectExceptionMessage('Local domain 3 is not a known DCE Security domain');
+
+        $uuid->getLocalDomainName();
     }
 }

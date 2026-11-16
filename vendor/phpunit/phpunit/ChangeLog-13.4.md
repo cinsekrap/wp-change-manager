@@ -2,6 +2,19 @@
 
 All notable changes of the PHPUnit 13.4 release series are documented in this file using the [Keep a CHANGELOG](https://keepachangelog.com/) principles.
 
+## [13.4.7] - 2026-11-13
+
+### Fixed
+
+* When an order is configured on the command line, for instance using `--order-by random`, `defects` configured using the `executionOrder` attribute in the XML configuration file is still applied, and vice versa
+* Using `default` together with an order for `--order-by` or the `executionOrder` XML configuration attribute, for instance `default,random`, triggers a deprecation for using more than one order, although `default` resets the order instead of selecting one
+* `--fail-on-skipped` does not make the test runner exit with a shell exit code that indicates failure when a test class is skipped, for instance because its before-first-test method calls `markTestSkipped()`, although its tests are counted as skipped
+* `--stop-on-skipped` does not stop the test run when a test class is skipped, for instance because its before-first-test method calls `markTestSkipped()`
+* When coverage contribution is required, a test is considered risky because it does not contribute to code coverage although it executed covered code, when the code coverage driver collects hit counts and each covered line that the test executed was executed more than once
+* When PHPUnit is installed using Composer, code units in the `PHPUnit\` or `SebastianBergmann\` namespace that do not belong to PHPUnit or one of its dependencies are preloaded on startup, which leads to a fatal error when such a code unit depends on code that is not available
+* Code from `sebastian/file-filter` and `sebastian/git-state` is not treated like code from PHPUnit's other dependencies, for instance stack frames from it are not filtered from stack traces
+* Code from `nikic/php-parser` and parts of the code from `phar-io/manifest` are not treated like code from PHPUnit's other dependencies, for instance stack frames from it are not filtered from stack traces
+
 ## [13.4.6] - 2026-11-02
 
 ### Changed
@@ -128,6 +141,7 @@ All notable changes of the PHPUnit 13.4 release series are documented in this fi
 * A test that is run in process isolation aborts the test run when its result cannot be unserialized, for instance because it returns an object that holds a test double
 * A test that uses `#[DataProviderClosure]` errors when it is run in process isolation
 
+[13.4.7]: https://github.com/sebastianbergmann/phpunit/compare/13.4.6...13.4.7
 [13.4.6]: https://github.com/sebastianbergmann/phpunit/compare/13.4.5...13.4.6
 [13.4.5]: https://github.com/sebastianbergmann/phpunit/compare/13.4.4...13.4.5
 [13.4.4]: https://github.com/sebastianbergmann/phpunit/compare/13.4.3...13.4.4
