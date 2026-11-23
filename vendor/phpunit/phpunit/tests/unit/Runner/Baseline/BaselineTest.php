@@ -46,6 +46,18 @@ final class BaselineTest extends TestCase
         $this->assertTrue($this->issue()->equals($line[0]));
     }
 
+    public function testDoesNotAddAnIssueThatItAlreadyHas(): void
+    {
+        $baseline = new Baseline;
+
+        $baseline->add($this->issue());
+        $baseline->add($this->issue());
+
+        $issues = $baseline->groupedByFileAndLine();
+
+        $this->assertCount(1, $issues[$this->issue()->file()][10]);
+    }
+
     public function testCanonicalizesIssuesByFileLineAndDescription(): void
     {
         $fileA = realpath(__DIR__ . '/../../../_files/baseline/AnotherFileWithIssues.php');

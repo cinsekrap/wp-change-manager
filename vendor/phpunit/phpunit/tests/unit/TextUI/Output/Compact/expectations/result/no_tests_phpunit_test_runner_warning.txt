@@ -1,0 +1,4 @@
+No tests executed!
+
+--- PHPUNIT TEST RUNNER WARNING
+message

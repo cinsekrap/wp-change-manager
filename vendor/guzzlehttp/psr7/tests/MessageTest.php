@@ -329,6 +329,36 @@ class MessageTest extends TestCase
         yield 'ipv6 leading zero non-default port' => ['[::1]:0008080', 'http://[::1]:8080/'];
     }
 
+    /**
+     * @dataProvider nonAsciiHostMessageProvider
+     */
+    public function testParseRequestDoesNotTriggerTheHostDeprecation(string $message, string $expectedHost): void
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $errno, string $errstr) use (&$deprecations): bool {
+            $deprecations[] = $errstr;
+
+            return true;
+        }, E_USER_DEPRECATED);
+
+        try {
+            $request = Psr7\Message::parseRequest($message);
+            $request->withUri($request->getUri()->withPath('/other'));
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame($expectedHost, $request->getUri()->getHost());
+        self::assertSame([], $deprecations);
+    }
+
+    public static function nonAsciiHostMessageProvider(): iterable
+    {
+        yield 'raw UTF-8 Host header' => ["GET / HTTP/1.1\r\nHost: яндекс.рф\r\n\r\n", 'яндекс.рф'];
+        yield 'percent-encoded Host header' => ["GET / HTTP/1.1\r\nHost: a%C3%A9b.example\r\n\r\n", 'a%C3%A9b.example'];
+        yield 'percent-encoded absolute-form target without a Host header' => ["GET http://a%C3%A9b.example/ HTTP/1.1\r\n\r\n", 'a%C3%A9b.example'];
+    }
+
     public function testParseRequestAcceptsMissingHostHeader(): void
     {
         $request = Psr7\Message::parseRequest("GET /abc HTTP/1.1\r\nFoo: bar\r\n\r\n");
@@ -430,6 +460,7 @@ class MessageTest extends TestCase
 
     public static function validAbsoluteFormTargetProvider(): iterable
     {
+        yield 'plus sign in scheme' => ['svn+ssh://up.example/admin', 'up.example', 'svn+ssh://up.example/admin'];
         yield 'non-default port' => ['http://up.example:8080/admin', 'up.example:8080', 'http://up.example:8080/admin'];
         yield 'ipv6 non-default port' => ['http://[::1]:8080/admin?x=1', '[::1]:8080', 'http://[::1]:8080/admin?x=1'];
         yield 'path at-sign' => ['http://up.example/admin@v1', 'up.example', 'http://up.example/admin@v1'];
@@ -890,6 +921,30 @@ class MessageTest extends TestCase
             '{"code":"PARAM_ERROR","detail":{"location":"body","value":""},"message":"输入源“/body/sub_mchid”映射到字段 (truncated...)',
             Psr7\Message::bodySummary($message, 120)
         );
+    }
+
+    public function testMessageBodySummaryWithLargeBodyOfUnknownSize(): void
+    {
+        $body = FnStream::decorate(Psr7\Utils::streamFor('必填性规则校验失败，此字段为必填项'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $message = new Psr7\Response(200, [], $body);
+
+        self::assertSame('必填性规则校验失 (truncated...)', Psr7\Message::bodySummary($message, 25));
+    }
+
+    public function testMessageBodySummaryWithSmallBodyOfUnknownSize(): void
+    {
+        $body = FnStream::decorate(Psr7\Utils::streamFor('Lorem ipsu'), [
+            'getSize' => static function (): ?int {
+                return null;
+            },
+        ]);
+        $message = new Psr7\Response(200, [], $body);
+
+        self::assertSame('Lorem ipsu', Psr7\Message::bodySummary($message, 10));
     }
 
     public function testMessageBodySummaryRejectsBinaryBody(): void

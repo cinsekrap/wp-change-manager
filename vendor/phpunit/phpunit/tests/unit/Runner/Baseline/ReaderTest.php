@@ -30,6 +30,15 @@ final class ReaderTest extends TestCase
         $this->assertTrue($baseline->has($this->yetAnotherIssue()));
     }
 
+    public function testReadsBaselineFromFileInDirectoryThatIsNotAParentDirectoryOfTheFilesWithIssues(): void
+    {
+        $baseline = (new Reader)->read(__DIR__ . '/../../../_files/baseline/directory/expected.xml');
+
+        $this->assertTrue($baseline->has($this->issue()));
+        $this->assertTrue($baseline->has($this->anotherIssue()));
+        $this->assertTrue($baseline->has($this->yetAnotherIssue()));
+    }
+
     public function testCannotReadBaselineFromFileThatDoesNotExist(): void
     {
         $this->expectException(CannotLoadBaselineException::class);

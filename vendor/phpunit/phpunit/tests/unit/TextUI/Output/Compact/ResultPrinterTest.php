@@ -84,6 +84,27 @@ final class ResultPrinterTest extends TestCase
                 false,
             ],
 
+            'no tests and PHPUnit test runner warning' => [
+                'no_tests_phpunit_test_runner_warning.txt',
+                self::createTestResult(
+                    numberOfTestsRun: 0,
+                    testRunnerTriggeredWarningEvents: [
+                        new TestRunnerWarningTriggered(
+                            self::telemetryInfo(),
+                            'message',
+                        ),
+                    ],
+                ),
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+            ],
+
             'successful test without issues' => [
                 'successful_test_without_issues.txt',
                 self::createTestResult(),
