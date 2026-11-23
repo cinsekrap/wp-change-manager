@@ -121,6 +121,77 @@ class RotatingFileHandlerTest extends \Monolog\Test\MonologTestCase
             ['America/Los_Angeles', RotatingFileHandler::FILE_PER_MONTH, 'first day of next month'],
             ['Pacific/Auckland', RotatingFileHandler::FILE_PER_YEAR, 'first day of January next year'],
             ['America/Los_Angeles', RotatingFileHandler::FILE_PER_YEAR, 'first day of January next year'],
+            ['Pacific/Auckland', 'Ym', 'first day of next month'],
+            ['America/Los_Angeles', 'y', 'first day of January next year'],
+        ];
+    }
+
+    public function testHourlyRotationIsDueAtTheNextHour(): void
+    {
+        $handler = new RotatingFileHandler(__DIR__.'/Fixtures/foo.rot', dateFormat: RotatingFileHandler::FILE_PER_HOUR);
+        $property = new \ReflectionProperty(RotatingFileHandler::class, 'nextRotation');
+
+        $this->assertEquals(new \DateTimeImmutable(date('Y-m-d H:00:00', time() + 3600)), $property->getValue($handler));
+    }
+
+    #[DataProvider('otherHourlyDateFormatProvider')]
+    public function testOtherHourlyFormatsRotateAtTheNextHour(string $dateFormat): void
+    {
+        // from 23:00 on the next hour is midnight, which the daily rotation gets right by chance
+        $timezone = new \DateTimeZone(gmdate('G') === '23' ? '+01:00' : 'UTC');
+        $before = new \DateTimeImmutable('now', $timezone);
+        $handler = new RotatingFileHandler(__DIR__.'/Fixtures/foo.rot', dateFormat: $dateFormat, timezone: $timezone);
+        $after = new \DateTimeImmutable('now', $timezone);
+
+        $this->assertNextRotationIsTheNextHour($handler, $before, $after);
+    }
+
+    public function testChangingToAnHourlyFormatRotatesAtTheNextHour(): void
+    {
+        // from 23:00 on the next hour is midnight, which the daily rotation gets right by chance
+        $timezone = new \DateTimeZone(gmdate('G') === '23' ? '+01:00' : 'UTC');
+        $handler = new RotatingFileHandler(__DIR__.'/Fixtures/foo.rot', timezone: $timezone);
+
+        $before = new \DateTimeImmutable('now', $timezone);
+        $handler->setFilenameFormat('{filename}-{date}', RotatingFileHandler::FILE_PER_HOUR);
+        $after = new \DateTimeImmutable('now', $timezone);
+
+        $this->assertNextRotationIsTheNextHour($handler, $before, $after);
+    }
+
+    public function testHourlyFormatsWithOtherSeparatorsAllowedBySubclassesRotateAtTheNextHour(): void
+    {
+        $timezone = new \DateTimeZone(gmdate('G') === '23' ? '+01:00' : 'UTC');
+        $before = new \DateTimeImmutable('now', $timezone);
+        $handler = new class(__DIR__.'/Fixtures/foo.rot', dateFormat: 'Y-m-d H', timezone: $timezone) extends RotatingFileHandler {
+            protected function setDateFormat(string $dateFormat): void
+            {
+                $this->dateFormat = $dateFormat;
+            }
+        };
+        $after = new \DateTimeImmutable('now', $timezone);
+
+        $this->assertNextRotationIsTheNextHour($handler, $before, $after);
+    }
+
+    /**
+     * The hour can turn while the handler is set up, so the next hour of either side is accepted
+     */
+    private function assertNextRotationIsTheNextHour(RotatingFileHandler $handler, \DateTimeImmutable $before, \DateTimeImmutable $after): void
+    {
+        $nextRotation = (new \ReflectionProperty(RotatingFileHandler::class, 'nextRotation'))->getValue($handler);
+        $nextHour = static fn (\DateTimeImmutable $now) => $now->setTime((int) $now->format('G') + 1, 0, 0);
+
+        $this->assertContainsEquals($nextRotation, [$nextHour($before), $nextHour($after)]);
+    }
+
+    public static function otherHourlyDateFormatProvider(): array
+    {
+        return [
+            ['YmdH'],
+            ['Y-m-dH'],
+            ['Y/m/dH'],
+            ['y-m-d-H'],
         ];
     }
 
@@ -552,6 +623,53 @@ class RotatingFileHandlerTest extends \Monolog\Test\MonologTestCase
         } finally {
             $this->rrmdir($nestedDir);
         }
+    }
+
+    #[DataProvider('pathsContainingGlobCharacters')]
+    public function testRotationOfPathContainingGlobCharacters(string $filename, string $filenameFormat, string $rotatedFile, string $unrelatedFile)
+    {
+        $dir = __DIR__.'/Fixtures/glob-characters';
+        mkdir($dir.'/logs[1]', 0777, true);
+        mkdir($dir.'/logs1');
+
+        try {
+            touch($old1 = $dir.'/'.sprintf($rotatedFile, date('Y-m-d', time() - 86400)));
+            touch($old2 = $dir.'/'.sprintf($rotatedFile, date('Y-m-d', time() - 2 * 86400)));
+            touch($old3 = $dir.'/'.sprintf($rotatedFile, date('Y-m-d', time() - 3 * 86400)));
+            touch($unrelated1 = $dir.'/'.sprintf($unrelatedFile, date('Y-m-d', time() - 4 * 86400)));
+            touch($unrelated2 = $dir.'/'.sprintf($unrelatedFile, date('Y-m-d', time() - 5 * 86400)));
+
+            $handler = new RotatingFileHandler($dir.'/'.$filename, 2, filenameFormat: $filenameFormat);
+            $handler->setFormatter($this->getIdentityFormatter());
+            $handler->handle($this->getRecord());
+            $handler->close();
+
+            $this->assertTrue(file_exists($dir.'/'.sprintf($rotatedFile, date('Y-m-d'))));
+            $this->assertTrue(file_exists($old1));
+            $this->assertFalse(file_exists($old2));
+            $this->assertFalse(file_exists($old3));
+            $this->assertTrue(file_exists($unrelated1), 'a bracket in the path must not match the bare character');
+            $this->assertTrue(file_exists($unrelated2), 'a bracket in the path must not match the bare character');
+        } finally {
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($files as $path => $file) {
+                $file->isDir() ? rmdir($path) : unlink($path);
+            }
+            rmdir($dir);
+        }
+    }
+
+    public static function pathsContainingGlobCharacters()
+    {
+        return [
+            'directory' => ['logs[1]/foo.rot', '{filename}-{date}', 'logs[1]/foo-%s.rot', 'logs1/foo-%s.rot'],
+            'filename' => ['foo[1].rot', '{filename}-{date}', 'foo[1]-%s.rot', 'foo1-%s.rot'],
+            'extension' => ['foo.r[1]', '{filename}-{date}', 'foo-%s.r[1]', 'foo-%s.r1'],
+            'filename format' => ['foo.rot', '[1]{filename}-{date}', '[1]foo-%s.rot', '1foo-%s.rot'],
+        ];
     }
 
     public function testReuseCurrentFile()

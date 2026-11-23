@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.6.0 - 2026-11-21
+
+### Changed
+
+- Recognize a plus sign in the scheme of a URI string instead of parsing the string as a relative path
+
+### Deprecated
+
+- Deprecated URI hosts with non-ASCII data that guzzlehttp/psr7 4.0 rejects
+- Deprecated URI strings that start with a host and port, which guzzlehttp/psr7 4.0 rejects
+
+## 3.5.2 - 2026-11-21
+
+### Fixed
+
+- Fix `AppendStream` rewinding when seeking to a negative offset
+- Fix `InflateStream` returning no data after a rewind
+- Fix `Message::bodySummary()` for truncated bodies of unknown size
+
+## 3.5.1 - 2026-11-19
+
+### Fixed
+
+- Fix parsing of absolute-path references containing a colon followed by digits in a path segment
+- Fix network-path references taking a port from a colon followed by digits in a path segment
+
+## 3.5.0 - 2026-11-18
+
+### Added
+
+- Add `Idna` to convert internationalized hosts to ASCII
+
 ## 3.4.0 - 2026-11-13
 
 ### Added

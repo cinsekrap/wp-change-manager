@@ -999,6 +999,12 @@ class ServerRequestTest extends TestCase
             'http://up.example:8080/admin?x=1',
         ];
 
+        yield 'absolute-form plus sign scheme target is preserved' => [
+            ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'svn+ssh://up.example/admin', 'HTTP_HOST' => 'good.example'],
+            'svn+ssh://up.example/admin',
+            'svn+ssh://up.example/admin',
+        ];
+
         yield 'absolute-form empty port target is normalized before malformed SERVER_PORT' => [
             ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => 'http://up.example:/admin', 'HTTP_HOST' => 'good.example', 'SERVER_PORT' => '+443'],
             'http://up.example/admin',
@@ -1688,6 +1694,42 @@ class ServerRequestTest extends TestCase
         self::assertSame('www.example.org', $request->getUri()->getHost());
         self::assertSame(8324, $request->getUri()->getPort());
         self::assertSame('www.example.org:8324', $request->getHeaderLine('Host'));
+    }
+
+    public function testFromGlobalsDoesNotTriggerTheHostDeprecation(): void
+    {
+        if (\function_exists('apache_request_headers')) {
+            self::markTestSkipped('apache_request_headers() is available.');
+        }
+
+        $_SERVER = [
+            'REQUEST_URI' => '/',
+            'HTTP_HOST' => 'яндекс.рф',
+            'SERVER_NAME' => 'good.example',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ];
+
+        $_COOKIE = $_POST = $_GET = $_FILES = [];
+
+        $deprecations = [];
+        set_error_handler(static function (int $errno, string $errstr) use (&$deprecations): bool {
+            $deprecations[] = $errstr;
+
+            return true;
+        }, E_USER_DEPRECATED);
+
+        try {
+            $request = ServerRequest::fromGlobals();
+            $request->withUri($request->getUri()->withPath('/other'));
+            $uri = ServerRequest::getUriFromGlobals();
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame('яндекс.рф', $request->getUri()->getHost());
+        self::assertSame('яндекс.рф', $uri->getHost());
+        self::assertSame([], $deprecations);
     }
 
     public function testFromGlobalsPreservesLeadingZeroHostHeaderPort(): void

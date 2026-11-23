@@ -215,7 +215,9 @@ IOkKcGQRCMha8X2e7GmlpdWC1ycenlbN0nbVeSv3JUMcafC4+Q==
         // the order for this matters. if you do unset($x509['tbsCertificate']['extensions'][0]) first
         // then what had been $x509['tbsCertificate']['extensions'][4] will all of a sudden be
         // $x509['tbsCertificate']['extensions'][3]
+        /** @psalm-suppress InvalidArrayAccess */
         unset($x509['tbsCertificate']['extensions'][4]);
+        /** @psalm-suppress InvalidArrayAccess */
         unset($x509['tbsCertificate']['extensions'][0]);
 
         $this->assertCount(3, $x509['tbsCertificate']['extensions']);
@@ -1930,5 +1932,99 @@ cKVMm1WnOQd4aQgCvzv2r7/gsdX++496vRpBMTfwa1qLBjG6
         $this->assertIsString($x509);
         $this->expectException(UnexpectedValueException::class);
         X509::load($x509)->toArray();
+    }
+
+    public function testBadCN(): void
+    {
+        $x509 = X509::load('-----BEGIN CERTIFICATE-----
+MIICtTCCAZ0CCQDcTlkpIgIQ6TANBgkqhkiG9w0BAQsFADASMRAwDgYDVQQDDAd0
+ZXN0LWNhMB4XDTI2MTExMzE0MjE1NloXDTI2MTExNTE0MjE1NlowJzElMCMGA1UE
+AwwcYmFuay5pbnRlcm5hbC50ZXN0fGV2aWwudGVzdDCCASIwDQYJKoZIhvcNAQEB
+BQADggEPADCCAQoCggEBALoKwh9LHObuXFrWE/Up/IRFeQtQR64OF1TJvX9gXcfp
+wunJ9LDh31fglcj+7etbJ36OhrAk5nd2l7GpkYPs5tExf2gpdIUSH3zyPXNVWMgU
+N3XgFJtMyTW8gn6Ve/pjRvcFsq7XN+V2F0hnb0iTl6Ta2nf9FzQvvjdz7ymhqPb1
+1bbUEAuED8klcYBO+Igwihz8Rsrrlp4RaDOZ+0tmJq8BgQLh5jW/nAfdQk0i8pSA
+UC0hevCmG2IRZVIA3xsS5I7LoJe+c6GULAMpO1qFfrpKMwBaND5vVc3hXW+G5w+2
+8TIA3dldq4/I5nknS/JEvm6pY+mYF7QRzDFOTf5yjP0CAwEAATANBgkqhkiG9w0B
+AQsFAAOCAQEAKEGAq7rvey0pVggLoXwLDk9XQ3D8Nco7X2V1NaF39w0ZGbpManh7
+xAkJgBjGFFosFr1yissz/FocKyU1opGeL33duvx0XQ/4RbuJLjJQA7GeZNBlzfJm
+3GQmcjsKnkb/efYEkrjLxqfqUwhu2no0DLF0gxEZMtAuJFRA/g6iV7mE8tJ5oZpf
+OtsZ2Kk/ePeci0H9BRLY8YDELOCHtjCrgUmlrh211TYMN9XBOSA/vLKvazTlmybC
+SGufzep/12RfSMqh1ohXDJBv0hTsXQboEju1Fyde9xD055zUBmFJJIpbjpKpchhD
+OxVSACNozMMrZrPHjqK0MHq/oHgwCcXOsA==
+-----END CERTIFICATE-----');
+        $this->assertFalse($x509->validateURL('https://bank.internal.test/'));
+    }
+
+    #[\PHPUnit\Framework\Attributes\Group('github2289')]
+    public function testRSASignatureWithSHA512t(): void
+    {
+        $private = RSA::createKey(1024)
+            ->withPadding(RSA::SIGNATURE_PKCS1)
+            ->withHash('sha512/256');
+        $x509 = new X509($private->getPublicKey());
+        $x509->setDN('O=phpseclib demo');
+        $x509->makeCA();
+        $private->sign($x509);
+
+        $x509 = X509::load("$x509");
+        $this->assertSame('sha512-256WithRSAEncryption', (string) $x509['signatureAlgorithm']['algorithm']);
+        $this->assertTrue($x509->validateSignature(false));
+    }
+
+    public function testMalformedIPAddressIsKeptAsIs(): void
+    {
+        // subjectAltName iPAddress of 5 octets and a nameConstraints one of 9: inet_ntop()
+        // gave false, which toString() then handed to inet_pton(), a TypeError
+        $der = base64_decode(
+            'MIIBmTCCAT+gAwIBAgIUeHbRM00J/G/8Gb7o3Zv8Slc3468wCgYIKoZIzj0EAwIwDDEKMAgGA1UE'
+            . 'AwwBdDAeFw0yNjEwMjkxNjA1MTZaFw0yNjEwMzAxNjA1MTZaMAwxCjAIBgNVBAMMAXQwWTATBgcq'
+            . 'hkjOPQIBBggqhkjOPQMBBwNCAAQVptrPWjqdgp5mJq6IFfnc+beLSTL9t3lqDlmNpCCbWD+avSWC'
+            . 'x4Z84F4wzcSlMJ/AUXGkof2YMBKkWvZuKw8co38wfTAdBgNVHQ4EFgQU8EvwqQqWMLd15s5C/y/p'
+            . 'KMHcThcwHwYDVR0jBBgwFoAU8EvwqQqWMLd15s5C/y/pKMHcThcwDwYDVR0TAQH/BAUwAwEB/zAQ'
+            . 'BgNVHREECTAHhwXAqAABATAYBgNVHR4EETAPoA0wC4cJCgAAAP8AAAABMAoGCCqGSM49BAMCA0gA'
+            . 'MEUCIQChATW9wkkr7skTlY27gxcV0f3/EYxN7+jtJgPFVDXDOAIgW1y4WAqZ3JPzr/BKoWlViZM3'
+            . 'GGjpHd8NcFvIVgIyjms='
+        );
+        $x = X509::load($der, ASN1::FORMAT_DER);
+        $san = $x->getExtension('id-ce-subjectAltName')['extnValue']->toArray(true);
+        $this->assertSame('c0a8000101', bin2hex($san[0]['iPAddress']));
+        $nc = $x->getExtension('id-ce-nameConstraints')['extnValue']->toArray(true);
+        $this->assertSame('0a000000ff00000001', bin2hex($nc['permittedSubtrees'][0]['base']['iPAddress']));
+        $this->assertIsString($x->toString());
+    }
+
+    public function testDNWithAnEmptyRDN(): void
+    {
+        // subject CN=t with its RDN emptied (SET {}): DN_STRING read $field[0]['type'] of nothing
+        $x = X509::load(base64_decode(
+            'MIIBjTCCATOgAwIBAgIUeHbRM00J/G/8Gb7o3Zv8Slc3468wCgYIKoZIzj0EAwIwDDEKMAgGA1UE'
+            . 'AwwBdDAeFw0yNjEwMjkxNjA1MTZaFw0yNjEwMzAxNjA1MTZaMAIxADBZMBMGByqGSM49AgEGCCqG'
+            . 'SM49AwEHA0IABBWm2s9aOp2CnmYmrogV+dz5t4tJMv23eWoOWY2kIJtYP5q9JYLHhnzgXjDNxKUw'
+            . 'n8BRcaSh/ZgwEqRa9m4rDxyjfTB7MB0GA1UdDgQWBBTwS/CpCpYwt3XmzkL/L+kowdxOFzAfBgNV'
+            . 'HSMEGDAWgBTwS/CpCpYwt3XmzkL/L+kowdxOFzAPBgNVHRMBAf8EBTADAQH/MA8GA1UdEQQIMAaH'
+            . 'BMCoAAEwFwYDVR0eBBAwDqAMMAqHCAoAAAD/AAAAMAoGCCqGSM49BAMCA0gAMEUCIQChATW9wkkr'
+            . '7skTlY27gxcV0f3/EYxN7+jtJgPFVDXDOAIgW1y4WAqZ3JPzr/BKoWlViZM3GGjpHd8NcFvIVgIy'
+            . 'jms='
+        ), ASN1::FORMAT_DER);
+        $this->assertFalse($x->hasSubjectDNProp('id-at-commonName'));
+        $this->expectException(UnexpectedValueException::class);
+        $x->getSubjectDN(ASN1::DN_STRING);
+    }
+
+    public function testDNValueWithoutAStringForm(): void
+    {
+        // subject CN with the value BOOLEAN TRUE: "Object of class Boolean could not be converted to string"
+        $x = X509::load(base64_decode(
+            'MIIBlzCCAT2gAwIBAgIUeHbRM00J/G/8Gb7o3Zv8Slc3468wCgYIKoZIzj0EAwIwDDEKMAgGA1UE'
+            . 'AwwBdDAeFw0yNjEwMjkxNjA1MTZaFw0yNjEwMzAxNjA1MTZaMAwxCjAIBgNVBAMBAf8wWTATBgcq'
+            . 'hkjOPQIBBggqhkjOPQMBBwNCAAQVptrPWjqdgp5mJq6IFfnc+beLSTL9t3lqDlmNpCCbWD+avSWC'
+            . 'x4Z84F4wzcSlMJ/AUXGkof2YMBKkWvZuKw8co30wezAdBgNVHQ4EFgQU8EvwqQqWMLd15s5C/y/p'
+            . 'KMHcThcwHwYDVR0jBBgwFoAU8EvwqQqWMLd15s5C/y/pKMHcThcwDwYDVR0TAQH/BAUwAwEB/zAP'
+            . 'BgNVHREECDAGhwTAqAABMBcGA1UdHgQQMA6gDDAKhwgKAAAA/wAAADAKBggqhkjOPQQDAgNIADBF'
+            . 'AiEAoQE1vcJJK+7JE5WNu4MXFdH9/xGMTe/o7SYDxVQ1wzgCIFtcuFgKmdyT86/wSqFpVYmTNxho'
+            . '6R3fDXBbyFYCMo5r'
+        ), ASN1::FORMAT_DER);
+        $this->assertSame('CN = #0101FF', $x->getSubjectDN(ASN1::DN_STRING));
     }
 }

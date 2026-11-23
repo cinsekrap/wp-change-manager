@@ -256,7 +256,7 @@ class UriTest extends TestCase
     /**
      * @dataProvider getNonPathNoSchemeReferencesWithColon
      */
-    public function testNonPathNoSchemeReferencesWithColonKeepExistingParsing(string $input, string $scheme, string $authority, string $host, ?int $port, string $path, string $query, string $fragment): void
+    public function testParsesNonPathNoSchemeReferencesWithColon(string $input, string $scheme, string $authority, string $host, ?int $port, string $path, string $query, string $fragment, ?string $expectedString = null): void
     {
         $uri = new Uri($input);
 
@@ -267,14 +267,25 @@ class UriTest extends TestCase
         self::assertSame($path, $uri->getPath());
         self::assertSame($query, $uri->getQuery());
         self::assertSame($fragment, $uri->getFragment());
-        self::assertSame($input, (string) $uri);
+        self::assertSame($expectedString ?? $input, (string) $uri);
     }
 
     public static function getNonPathNoSchemeReferencesWithColon(): iterable
     {
         return [
             ['foo:bar/baz', 'foo', '', '', null, 'bar/baz', '', ''],
+            ['svn+ssh://host/foo', 'svn+ssh', 'host', 'host', null, '/foo', '', ''],
+            ['svn+ssh://[::1]/foo', 'svn+ssh', '[::1]', '[::1]', null, '/foo', '', ''],
+            ['C++:intro', 'c++', '', '', null, 'intro', '', '', 'c++:intro'],
+            ['a+b:123?x', 'a+b', '', '', null, '123', 'x', ''],
+            ['a+b:123456', 'a+b', '', '', null, '123456', '', ''],
+            ['host:123/foo:0', '', 'host:123', 'host', 123, '/foo:0', '', '', '//host:123/foo:0'],
+            ['a+b:123', '', 'a+b:123', 'a+b', 123, '', '', '', '//a+b:123'],
+            ['a+b:12345/path', '', 'a+b:12345', 'a+b', 12345, '/path', '', '', '//a+b:12345/path'],
             ['//host:123/foo:0', '', 'host:123', 'host', 123, '/foo:0', '', ''],
+            ['//host/foo:0', '', 'host', 'host', null, '/foo:0', '', ''],
+            ['/foo:0', '', '', '', null, '/foo:0', '', ''],
+            ['/foo:0/bar', '', '', '', null, '/foo:0/bar', '', ''],
             ['?q=foo:0', '', '', '', null, '', 'q=foo:0', ''],
             ['#foo:0', '', '', '', null, '', '', 'foo:0'],
             ['https://example.com/foo:0', 'https', 'example.com', 'example.com', null, '/foo:0', '', ''],
@@ -1599,6 +1610,38 @@ class UriTest extends TestCase
 
         $uri = new Uri('https://яндекAс.рф');
         self::assertSame('яндекaс.рф', $uri->getHost());
+    }
+
+    /**
+     * @dataProvider getUrisWithoutNonAsciiHostData
+     */
+    public function testHostWithoutNonAsciiDataIsNotDeprecated(string $uri): void
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $errno, string $errstr) use (&$deprecations): bool {
+            $deprecations[] = $errstr;
+
+            return true;
+        }, E_USER_DEPRECATED);
+
+        try {
+            new Uri($uri);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $deprecations);
+    }
+
+    public static function getUrisWithoutNonAsciiHostData(): iterable
+    {
+        yield 'reg-name' => ['https://example.com/'];
+        yield 'A-labels' => ['https://xn--d1acpjx3f.xn--p1ai/'];
+        yield 'percent-encoded ASCII octet' => ['https://ex%61mple.com/'];
+        yield 'IPv6 literal' => ['https://[::1]/'];
+        yield 'non-ASCII path' => ['https://example.com/путь'];
+        yield 'network-path reference' => ['//example.com:8080/path'];
+        yield 'absolute-path reference' => ['/path:8080'];
     }
 
     public function testIPv6Host(): void
